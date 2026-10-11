@@ -594,5 +594,17 @@
     "sheet": {
         "back_to": "Zurück zu {{title}}",
         "close": "Schließen"
+    },
+    "product_sheet": {
+        "details": "Details",
+        "traits": "Merkmale und Allergene",
+        "allergy_note": "Bei Allergien oder Unverträglichkeiten fragen Sie bitte das Personal.",
+        "story": "Die Geschichte",
+        "show_all": "Alle anzeigen ({{count}})",
+        "rule_pick_one": "1 wählen",
+        "rule_up_to_required": "bis zu {{count}} · Pflicht",
+        "rule_required": "Pflicht",
+        "rule_up_to_optional": "bis zu {{count}} · optional",
+        "rule_optional": "optional"
     }
 }

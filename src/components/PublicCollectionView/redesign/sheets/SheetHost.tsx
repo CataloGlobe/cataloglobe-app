@@ -520,7 +520,11 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
                                     <span className={styles.backLabel}>{parentPage.title}</span>
                                 </button>
                             ) : null}
-                            <h2 id="pub-sheet-title" className={styles.title}>
+                            <h2
+                                id="pub-sheet-title"
+                                className={styles.title}
+                                data-hidden={activePage.titleHidden || undefined}
+                            >
                                 {activePage.title}
                             </h2>
                             <button type="button" className={styles.iconButton} onClick={closeSheet} aria-label={t("sheet.close")}>

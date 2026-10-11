@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import type { PublicBusiness, ResolvedPayloadShape } from "../src/types/publicCatalog";
-import type { ResolvedCategory, V2FeaturedContent } from "../src/types/resolvedCollections";
+import type { ResolvedCategory, ResolvedProduct, V2FeaturedContent } from "../src/types/resolvedCollections";
 
 /**
  * Pagina pubblica (`/:slug`) servita tutta da stub, senza `/api` né edge:
@@ -76,8 +76,47 @@ export const CATEGORIES = ["Antipasti", "Primi", "Secondi", "Dolci"];
 const GLUTEN = { id: 1, code: "gluten", label: "Glutine" };
 const MILK = { id: 7, code: "milk", label: "Latte" };
 
+/**
+ * «Primi 1» con la scheda piena (`details`): formati, un gruppo di aggiunte da
+ * 7 voci, 7 ingredienti, dettagli, una caratteristica e un abbinamento a «Dolci 2».
+ */
+const DETAILED_PRODUCT: Partial<ResolvedProduct> = {
+    optionGroups: [
+        {
+            id: "og-size",
+            name: "Formato",
+            group_kind: "PRIMARY_PRICE",
+            pricing_mode: "ABSOLUTE",
+            is_required: true,
+            max_selectable: 1,
+            values: [
+                { id: "ov-s", name: "Normale", absolute_price: 12, price_modifier: null },
+                { id: "ov-l", name: "Grande", absolute_price: 16, price_modifier: null }
+            ]
+        },
+        {
+            id: "og-add",
+            name: "Aggiunte",
+            group_kind: "ADDON",
+            pricing_mode: "DELTA",
+            is_required: false,
+            max_selectable: 3,
+            values: Array.from({ length: 7 }, (_, i) => ({
+                id: `ov-a${i}`,
+                name: `Aggiunta ${i + 1}`,
+                absolute_price: null,
+                price_modifier: i === 0 ? 0 : 1.5
+            }))
+        }
+    ],
+    ingredients: Array.from({ length: 7 }, (_, i) => ({ id: `ing-${i}`, name: `Ingrediente ${i + 1}` })),
+    notes: [{ label: "Provenienza", value: "Salumi italiani" }],
+    characteristics: [{ id: "ch-veg", code: "vegetarian", category: "diet", label: "Vegetariano", icon: "lucide:leaf", sort_order: 0, mutex_group: null, dietary_claim: true }],
+    pairings: [{ paired_product_id: "prod-3-1", note: "Per chiudere", sort_order: 0 }]
+};
+
 /** Con `allergens`: un piatto su tre col glutine, uno su quattro col latte. */
-function categories(allergens = false): ResolvedCategory[] {
+function categories(allergens = false, details = false): ResolvedCategory[] {
     return CATEGORIES.map((name, c) => ({
         id: `cat-${c}`,
         name,
@@ -92,6 +131,7 @@ function categories(allergens = false): ResolvedCategory[] {
             is_visible: true,
             parentSelected: true,
             ...(allergens ? { allergens: [...(p % 3 === 0 ? [GLUTEN] : []), ...(p % 4 === 0 ? [MILK] : [])] } : {}),
+            ...(details && c === 1 && p === 0 ? DETAILED_PRODUCT : {}),
         })),
     }));
 }
@@ -139,7 +179,8 @@ function payload(
     styleConfig?: StyleConfig,
     venueInfo = false,
     story = false,
-    allergens = false
+    allergens = false,
+    details = false
 ): ResolvedPayloadShape {
     return {
         business: business(venueInfo),
@@ -159,7 +200,7 @@ function payload(
         effective_language: "it",
         public_allergens: [],
         resolved: {
-            catalog: { id: "catalog-1", name: "Menu", categories: categories(allergens) },
+            catalog: { id: "catalog-1", name: "Menu", categories: categories(allergens, details) },
             featured: featuredSlots,
             hasRenderableItems: true,
             ...(styleConfig ? { style: { id: "style-1", name: "Stile e2e", config: styleConfig } } : {}),
@@ -169,11 +210,11 @@ function payload(
 
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens)) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     await page.route("**/functions/v1/get-orders-for-session**", route =>

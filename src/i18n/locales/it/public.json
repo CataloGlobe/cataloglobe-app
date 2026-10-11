@@ -593,5 +593,17 @@
     "sheet": {
         "back_to": "Torna a {{title}}",
         "close": "Chiudi"
+    },
+    "product_sheet": {
+        "details": "Dettagli",
+        "traits": "Caratteristiche e allergeni",
+        "allergy_note": "Per allergie o intolleranze chiedi al personale.",
+        "story": "La storia",
+        "show_all": "Mostra tutti ({{count}})",
+        "rule_pick_one": "scegli 1",
+        "rule_up_to_required": "fino a {{count}} · obbligatoria",
+        "rule_required": "obbligatoria",
+        "rule_up_to_optional": "fino a {{count}} · facoltativa",
+        "rule_optional": "facoltativa"
     }
 }

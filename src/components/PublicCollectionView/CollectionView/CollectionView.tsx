@@ -1444,9 +1444,15 @@ export default function CollectionView({
     // edit selezione, upsell) è "fresca" → stack azzerato.
     const openItemDetail = useCallback(
         (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
-            if (!opts?.keepPairingBackStack) setPairingBackStack([]);
-            setSelectedItem(item);
-            setOpenSeq(s => s + 1);
+            // Redesign: senza ordine al tavolo la scheda è una pagina del foglio
+            // unico (spec §6); con l'ordine resta ItemDetail fino alla PR 6.
+            if (mode === "public" && sheetsSlot && !orderingActive && !itemDetailOrderingDisabled) {
+                sheetsSlot.openProduct(item);
+            } else {
+                if (!opts?.keepPairingBackStack) setPairingBackStack([]);
+                setSelectedItem(item);
+                setOpenSeq(s => s + 1);
+            }
             if (mode === "public" && activityId) {
                 const section = sections.find(s => s.items.some(i => i.id === item.id));
                 trackEvent(activityId, "product_detail_open", {
@@ -1457,7 +1463,7 @@ export default function CollectionView({
                 });
             }
         },
-        [mode, activityId, sections]
+        [mode, activityId, sections, sheetsSlot, orderingActive, itemDetailOrderingDisabled]
     );
 
     const addToSelection = useCallback((
@@ -1809,6 +1815,17 @@ export default function CollectionView({
         onTabChange?.("storia");
         setSelectedStoryId(storyId);
     }, [onTabChange]);
+
+    // Redesign: `?prodotto=<id>` apre la pagina con la scheda già sul prodotto
+    // (spec §6, v26). Una volta sola, al primo render col menu pronto.
+    const deepLinkHandledRef = useRef(false);
+    useEffect(() => {
+        if (deepLinkHandledRef.current || mode !== "public" || !sheetsSlot) return;
+        deepLinkHandledRef.current = true;
+        const productId = new URLSearchParams(window.location.search).get("prodotto");
+        const item = productId ? findProductById(productId) : null;
+        if (item) openItemDetail(item);
+    }, [mode, sheetsSlot, findProductById, openItemDetail]);
 
     // Aggiunge un abbinato per id (upsell D3). Add DIRETTO: non passa dal
     // detail né riapre l'upsell → un solo livello, nessuna ricorsione.
@@ -3512,6 +3529,11 @@ export default function CollectionView({
                     visibleProductCount,
                     onSelectProduct: scrollToProductAndHighlight,
                     activityId
+                },
+                product: {
+                    findProduct: findProductById,
+                    showImage: style.productStyle !== "compact" && style.cardTemplate !== "no-image",
+                    onOpenStory: openStoryFromProduct
                 }
             })}
 

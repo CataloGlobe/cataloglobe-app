@@ -3,6 +3,7 @@ import type { ActivityFee } from "@/types/activity";
 import type {
     CollectionViewSection,
     CollectionViewSectionGroup,
+    CollectionViewSectionItem,
     SocialLinks
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
@@ -126,6 +127,14 @@ export type SheetsSlotContext = {
         onSelectProduct: (productId: string) => void;
         activityId?: string;
     };
+    /** Scheda prodotto nel foglio (spec §6), in lettura. */
+    product: {
+        /** Prodotto o variante per id, dal menu risolto (anche per «Perfetto con»). */
+        findProduct: (productId: string) => CollectionViewSectionItem | null;
+        showImage: boolean;
+        /** Porta alla tab Storia sul racconto; si chiama a foglio chiuso. */
+        onOpenStory: (storyId: string) => void;
+    };
 };
 
 /**
@@ -135,4 +144,6 @@ export type SheetsSlotContext = {
 export type SheetsSlot = {
     render: (context: SheetsSlotContext) => ReactNode;
     open: (name: PublicSheetName) => void;
+    /** Apre la scheda di un prodotto. */
+    openProduct: (item: Pick<CollectionViewSectionItem, "id" | "name">) => void;
 };

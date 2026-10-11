@@ -33,6 +33,8 @@ import { closeSheet, useSheetState, type SheetPage } from "./sheetStack";
 import { FEATURED_DETAIL_PREFIX, pushFeaturedDetail, pushVenueSheet } from "./venueSheetPages";
 import CategoryList from "../categories/CategoryList";
 import SearchHeader from "../search/SearchHeader";
+import ProductPage from "../product/ProductPage";
+import { productIdOf } from "../product/productSheet";
 import SearchPage from "../search/SearchPage";
 import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
 import styles from "./VenueSheets.module.scss";
@@ -113,6 +115,11 @@ function VenuePage({ page, ...props }: SheetsSlotContext & { page: SheetPage }) 
                 />
             );
         default: {
+            const productId = productIdOf(page);
+            if (productId) {
+                const item = props.product.findProduct(productId);
+                return item ? <ProductPage item={item} {...props.product} /> : null;
+            }
             const block = featuredOf(page, props.featured.contents);
             return block ? <FeaturedContentDetail block={block} /> : null;
         }

@@ -5,6 +5,7 @@ import BottomBar from "./bar/BottomBar";
 import FeaturedStrip from "./featured/FeaturedStrip";
 import { closeSheet, useSheetState } from "./sheets/sheetStack";
 import { openVenueSheet } from "./sheets/venueSheetPages";
+import { openProductSheet } from "./product/productSheet";
 import type { BottomBarSlot, FeaturedSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
 
 /**
@@ -82,7 +83,8 @@ const renderBottomBar: BottomBarSlot = context => <BottomBar {...context} />;
 const renderFeatured: FeaturedSlot = context => <FeaturedStrip {...context} />;
 const sheetsSlot: SheetsSlot = {
     render: context => <LazyVenueSheets {...context} />,
-    open: openVenueSheet
+    open: openVenueSheet,
+    openProduct: openProductSheet
 };
 
 export default function RedesignCollectionView(props: ComponentProps<typeof CollectionView>) {

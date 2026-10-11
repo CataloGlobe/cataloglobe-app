@@ -594,5 +594,17 @@
     "sheet": {
         "back_to": "Volver a {{title}}",
         "close": "Cerrar"
+    },
+    "product_sheet": {
+        "details": "Detalles",
+        "traits": "Características y alérgenos",
+        "allergy_note": "Para alergias o intolerancias, pregunte al personal.",
+        "story": "La historia",
+        "show_all": "Mostrar todo ({{count}})",
+        "rule_pick_one": "elija 1",
+        "rule_up_to_required": "hasta {{count}} · obligatoria",
+        "rule_required": "obligatoria",
+        "rule_up_to_optional": "hasta {{count}} · opcional",
+        "rule_optional": "opcional"
     }
 }

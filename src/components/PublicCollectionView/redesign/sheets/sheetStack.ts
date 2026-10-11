@@ -18,6 +18,8 @@ export type SheetPage = {
     size?: SheetSize;
     /** Alta quanto il tetto anche con poco contenuto (la ricerca: non salta mentre si scrive). */
     fill?: boolean;
+    /** Titolo invisibile in testata (resta per i lettori di schermo e per «‹ Titolo» nelle figlie): il corpo lo mostra da sé. */
+    titleHidden?: boolean;
 };
 
 /** Come si è arrivati allo stato corrente: serve a scegliere il verso dell'animazione. */

@@ -1,0 +1,234 @@
+/* Scheda prodotto nel foglio unico (spec §6). Colori del locale (--pub-*),
+   nessun movimento proprio: entra con la spinta del foglio. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.image {
+  overflow: hidden;
+  border-radius: 18px;
+  aspect-ratio: 4 / 3;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Nome fino a due righe, poi i puntini */
+.name {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.375em;
+  font-weight: 700;
+  line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.priceLine {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.original {
+  color: color-mix(in srgb, var(--pub-text) 50%, transparent);
+  font-weight: 400;
+}
+
+.description {
+  margin: 0;
+  color: color-mix(in srgb, var(--pub-text) 75%, transparent);
+  line-height: 1.45;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.blockTitle {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+}
+
+.rule {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-weight: 400;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.optionRow,
+.line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+}
+
+.price {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.showAll {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* Dettagli: etichetta smorzata a sinistra, valore a destra */
+.details {
+  margin: 0;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+
+  dt {
+    color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  }
+
+  dd {
+    margin: 0;
+    text-align: right;
+  }
+}
+
+.traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trait {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+}
+
+.note,
+.muted {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+}
+
+.note {
+  margin: 4px 0 0;
+}
+
+.pairing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.pairing {
+  cursor: pointer;
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--pub-text) 7%, transparent);
+}
+
+.pairingText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Nome dell'abbinamento fino a due righe */
+.pairingName {
+  display: -webkit-box;
+  overflow: hidden;
+  font-weight: 600;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* La storia: card quieta */
+.story {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.storyCover {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.storyTitle {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}

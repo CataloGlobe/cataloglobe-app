@@ -2,10 +2,10 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Clock, SlidersHorizontal } from "lucide-react";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
-import { formatDecimal } from "@/utils/formatCurrency";
 import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { SheetsSlotContext } from "../slots";
 import CategoryList from "../categories/CategoryList";
+import { formatPublicPrice } from "../price";
 import { closeSheet } from "../sheets/sheetStack";
 import { pushVenueSheet } from "../sheets/venueSheetPages";
 import { countHits, highlightParts, normalizeForSearch, searchSections } from "./searchMatch";
@@ -186,11 +186,11 @@ export default function SearchPage({ query, onQueryChange, search, categories }:
     );
 }
 
-/** Prezzo come nella ricerca di oggi: «da» coi formati. La virgola e il simbolo dopo arrivano con la scheda (PR 5). */
+/** Prezzo come nella scheda (spec §6): «22,00 €», «da» coi formati. */
 function Price({ item }: { item: CollectionViewSectionItem }) {
     const { t } = useTranslation("public");
     const value = item.from_price ?? item.effective_price ?? item.price;
     if (value == null) return null;
-    const price = `€${formatDecimal(value)}`;
+    const price = formatPublicPrice(value);
     return <span className={styles.price}>{item.from_price != null ? t("product.price_from", { price }) : price}</span>;
 }

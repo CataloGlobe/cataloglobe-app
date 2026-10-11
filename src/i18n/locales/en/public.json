@@ -594,5 +594,17 @@
     "sheet": {
         "back_to": "Back to {{title}}",
         "close": "Close"
+    },
+    "product_sheet": {
+        "details": "Details",
+        "traits": "Features and allergens",
+        "allergy_note": "For allergies or intolerances, please ask the staff.",
+        "story": "The story",
+        "show_all": "Show all ({{count}})",
+        "rule_pick_one": "choose 1",
+        "rule_up_to_required": "up to {{count}} · required",
+        "rule_required": "required",
+        "rule_up_to_optional": "up to {{count}} · optional",
+        "rule_optional": "optional"
     }
 }
