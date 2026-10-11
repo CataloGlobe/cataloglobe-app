@@ -236,6 +236,10 @@
       transform-origin: top center;
     }
   }
+
+  .root[data-anchored="end"] .panel {
+    transform-origin: top right;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

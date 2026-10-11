@@ -23,9 +23,10 @@ export type SheetPage = {
     /**
      * Solo desktop, sulla prima pagina della pila: la finestra si apre 8 px sotto
      * l'elemento `below` invece che al centro, larga e allineata come `align` se
-     * si vede (il campo di ricerca), altrimenti sul bordo destro di `below`.
+     * si vede (il campo di ricerca), altrimenti larga `width` (560) col bordo
+     * destro a `inset` px da quello di `below`. Se `below` non si vede, al centro.
      */
-    anchor?: { below: string; align?: string };
+    anchor?: { below: string; align?: string; width?: number; inset?: number };
 };
 
 /** Come si è arrivati allo stato corrente: serve a scegliere il verso dell'animazione. */

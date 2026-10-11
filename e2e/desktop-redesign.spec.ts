@@ -86,3 +86,27 @@ test("una categoria porta alla sua sezione e l'isola resta su una riga, con la l
     await categories.getByRole("button", { name: "Tutte le categorie" }).click();
     await expect(page.getByRole("dialog").getByRole("heading", { name: "Categorie" })).toBeVisible();
 });
+
+test("⋯ e lingua si aprono come popover sotto il loro pulsante", async ({ page }) => {
+    for (const trigger of [
+        page.getByRole("button", { name: "Altre opzioni" }),
+        page.getByRole("button", { name: "Seleziona lingua" })
+    ]) {
+        // Da tastiera: WebKit non dà il fuoco a un pulsante cliccato, e il fuoco deve tornare lì.
+        await trigger.focus();
+        await page.keyboard.press("Enter");
+        const dialog = page.getByRole("dialog");
+        await expect(dialog).toBeVisible();
+        const button = await box(trigger);
+        await expect.poll(async () => Math.round((await box(dialog)).y - (button.y + button.height))).toBe(8);
+        await expect
+            .poll(async () => {
+                const panel = await box(dialog);
+                return Math.abs(Math.round(panel.x + panel.width - (button.x + button.width)));
+            })
+            .toBe(0);
+        await page.keyboard.press("Escape");
+        await expect(dialog).toHaveCount(0);
+        await expect(trigger).toBeFocused();
+    }
+});

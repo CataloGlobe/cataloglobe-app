@@ -8,7 +8,7 @@ import lensStyles from "./LensDot.module.scss";
 import type { HeaderSlotContext } from "../slots";
 import { rememberSheetOpener } from "../sheets/sheetStack";
 import VenuePill from "../venue/VenuePill";
-import { ISLAND_ID, SEARCH_FIELD_ID } from "./anchors";
+import { ISLAND_ID, LANGUAGE_BUTTON_ID, MORE_BUTTON_ID, SEARCH_FIELD_ID } from "./anchors";
 import IslandCategories from "./IslandCategories";
 import LanguageButton from "./LanguageButton";
 import styles from "./Island.module.scss";
@@ -245,7 +245,7 @@ export default function Island({
                                 : t("more.filters_label")}
                         </button>
                     </div>
-                    <LanguageButton className={`${styles.icona} ${styles.lingua}`} />
+                    <LanguageButton id={LANGUAGE_BUTTON_ID} className={`${styles.icona} ${styles.lingua}`} />
                     <button
                         ref={lenteRef}
                         type="button"
@@ -264,6 +264,7 @@ export default function Island({
                         {allergensCount > 0 && <span className={lensStyles.dot} aria-hidden />}
                     </button>
                     <button
+                        id={MORE_BUTTON_ID}
                         type="button"
                         className={`${styles.icona} ${styles.piu}`}
                         onClick={onOpenMore}

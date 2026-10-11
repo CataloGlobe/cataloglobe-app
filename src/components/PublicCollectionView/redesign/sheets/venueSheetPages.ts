@@ -1,7 +1,7 @@
 import i18next from "i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import { FEATURED_TYPE_KEY } from "../featured/stripItems";
-import { ISLAND_ID, SEARCH_FIELD_ID } from "../island/anchors";
+import { ALL_CATEGORIES_ID, ISLAND_ID, LANGUAGE_BUTTON_ID, MORE_BUTTON_ID, SEARCH_FIELD_ID } from "../island/anchors";
 import type { PublicSheetName } from "../slots";
 import { openSheet, openSheetAt, pushSheetPage, type SheetPage } from "./sheetStack";
 
@@ -9,21 +9,39 @@ import { openSheet, openSheetAt, pushSheetPage, type SheetPage } from "./sheetSt
  * Pagine del foglio del locale: Altre opzioni (⋯), Informazioni, Orari, Lingua. Il
  * titolo si legge nella lingua della pagina al momento dell'apertura.
  */
+/** Su desktop ⋯, lingua e «Tutte le categorie» si aprono sotto il loro pulsante (spec §13). */
+const POPOVER_WIDTH_PX = 360;
+
 export function venueSheetPage(name: PublicSheetName): SheetPage {
     const t = (key: string) => i18next.t(key, { ns: "public" });
     switch (name) {
         case "more":
-            return { key: "more", title: t("more.title"), size: "medium" };
+            return {
+                key: "more",
+                title: t("more.title"),
+                size: "medium",
+                anchor: { below: MORE_BUTTON_ID, width: POPOVER_WIDTH_PX }
+            };
         case "info":
             return { key: "info", title: t("info.title"), size: "large" };
         case "hours":
             return { key: "hours", title: t("opening_hours.title"), size: "large" };
         case "language":
-            return { key: "language", title: t("language_selector.sheet_title"), size: "medium" };
+            return {
+                key: "language",
+                title: t("language_selector.sheet_title"),
+                size: "medium",
+                anchor: { below: LANGUAGE_BUTTON_ID, width: POPOVER_WIDTH_PX }
+            };
         case "featured":
             return { key: "featured", title: t("hub.events"), size: "large" };
         case "categories":
-            return { key: "categories", title: t("categories.sheet_title"), size: "large" };
+            return {
+                key: "categories",
+                title: t("categories.sheet_title"),
+                size: "large",
+                anchor: { below: ALL_CATEGORIES_ID, width: POPOVER_WIDTH_PX }
+            };
         case "search":
             return {
                 key: "search",
@@ -31,7 +49,7 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
                 size: "large",
                 fill: true,
                 // Su desktop a tendina sotto il campo dell'isola (spec §13).
-                anchor: { below: ISLAND_ID, align: SEARCH_FIELD_ID }
+                anchor: { below: ISLAND_ID, align: SEARCH_FIELD_ID, inset: 12 }
             };
         case "filters":
             return { key: "filters", title: t("search.filters_title"), size: "large", fill: true };

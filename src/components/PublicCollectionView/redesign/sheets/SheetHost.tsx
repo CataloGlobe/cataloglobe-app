@@ -34,9 +34,11 @@ import {
 } from "./sheetStack";
 import styles from "./SheetHost.module.scss";
 
-/** Finestra a tendina: 8 px sotto l'isola (spec §13), larga 560 se non c'è il campo a cui allinearsi. */
+/** Finestra a tendina o popover: 8 px sotto il suo aggancio (spec §13), larga 560 se non dice altro. */
 const ANCHOR_GAP_PX = 8;
 const ANCHORED_WIDTH_PX = 560;
+/** Distanza minima dai bordi della finestra del browser. */
+const ANCHOR_MARGIN_PX = 24;
 
 type Props = {
     /** Contenuto di una pagina del foglio, dalla sua `key`. */
@@ -246,9 +248,12 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
             }
             const align = anchor.align ? document.getElementById(anchor.align)?.getBoundingClientRect() : undefined;
             const aligned = !!align && align.width > 0;
-            const width = aligned ? align.width : Math.min(ANCHORED_WIDTH_PX, below.width - 24);
-            const left = aligned ? align.left : below.right - 12 - width;
-            root.dataset.anchored = "true";
+            const width = aligned
+                ? align.width
+                : Math.min(anchor.width ?? ANCHORED_WIDTH_PX, window.innerWidth - 2 * ANCHOR_MARGIN_PX);
+            const left = aligned ? align.left : Math.max(ANCHOR_MARGIN_PX, below.right - (anchor.inset ?? 0) - width);
+            // «field»: a tendina sotto il campo; «end»: popover dal bordo destro del pulsante.
+            root.dataset.anchored = aligned ? "field" : "end";
             panel.style.setProperty("--sheet-anchor-top", `${Math.round(below.bottom + ANCHOR_GAP_PX)}px`);
             panel.style.setProperty("--sheet-anchor-left", `${Math.round(left)}px`);
             panel.style.setProperty("--sheet-anchor-width", `${Math.round(width)}px`);

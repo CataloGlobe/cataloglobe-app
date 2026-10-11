@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ALL_CATEGORIES_ID } from "./anchors";
 import styles from "./IslandCategories.module.scss";
 
 /** Larghezza della sfumatura sotto le frecce: una pill dentro questa fascia non è «in vista». */
@@ -122,7 +123,7 @@ export default function IslandCategories({ sections, activeId, onSelect, onOpenA
                     </button>
                 )}
             </div>
-            <button type="button" className={styles.all} onClick={onOpenAll}>
+            <button id={ALL_CATEGORIES_ID} type="button" className={styles.all} onClick={onOpenAll}>
                 {t("header.all_categories")}
             </button>
         </nav>

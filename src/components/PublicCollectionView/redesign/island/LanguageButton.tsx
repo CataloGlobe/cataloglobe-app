@@ -7,13 +7,14 @@ import styles from "./LanguageButton.module.scss";
  * Lingua nell'isola: la bandiera apre la pagina «Lingua» del foglio unico (al
  * posto del `PublicSheet` di `LanguageSelector`). Niente con una lingua sola.
  */
-export default function LanguageButton({ className }: { className: string }) {
+export default function LanguageButton({ className, id }: { className: string; id?: string }) {
     const { t } = useTranslation("public");
     const { currentLang, availableLanguages } = useLanguage();
     if (availableLanguages.length <= 1) return null;
     const active = availableLanguages.find(lang => lang.code === currentLang);
     return (
         <button
+            id={id}
             type="button"
             className={className}
             onClick={() => openVenueSheet("language")}
