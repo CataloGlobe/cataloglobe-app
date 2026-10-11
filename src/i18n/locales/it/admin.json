@@ -101,7 +101,7 @@
         "confirm_count_other": "Tradurremo {{count}} testi (prodotti, categorie e altri contenuti) in {{lang}}. Saranno pronti in pochi minuti.",
         "confirm_count_zero": "Non ci sono testi da tradurre: {{lang}} sarà subito pronta.",
         "confirm_ai_used": "Le traduzioni usano il credito AI del piano: in questo ciclo ne hai usato il {{percent}}%.",
-        "confirm_ai_blocked": "Il credito AI di questo ciclo è finito: le traduzioni partiranno dal rinnovo."
+        "confirm_ai_blocked": "Il credito AI di questo ciclo è finito: la lingua si accende, ma i testi restano in italiano. Dopo il rinnovo spegnila e riaccendila per tradurli."
     },
     "errors": {
         "load_failed": "Errore nel caricamento delle lingue",

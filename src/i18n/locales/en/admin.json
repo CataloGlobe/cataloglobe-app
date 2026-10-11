@@ -101,7 +101,7 @@
         "confirm_count_other": "We will translate {{count}} texts (products, categories and other content) into {{lang}}. They will be ready in a few minutes.",
         "confirm_count_zero": "There are no texts to translate: {{lang}} will be ready right away.",
         "confirm_ai_used": "Translations use the AI credit included in your plan: you have used {{percent}}% this cycle.",
-        "confirm_ai_blocked": "The AI credit for this cycle is used up: translations will start at the renewal."
+        "confirm_ai_blocked": "The AI credit for this cycle is used up: the language turns on, but texts stay in Italian. After the renewal, turn it off and on again to translate them."
     },
     "errors": {
         "load_failed": "Error loading languages",
