@@ -1,7 +1,8 @@
 import { lazy, Suspense, type ComponentProps } from "react";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import Island from "./island/Island";
-import type { HeaderSlot } from "./slots";
+import BottomBar from "./bar/BottomBar";
+import type { BottomBarSlot, HeaderSlot } from "./slots";
 
 /**
  * Radice del redesign della pagina pubblica, scelta da `PublicCatalogReady`
@@ -16,6 +17,7 @@ import type { HeaderSlot } from "./slots";
 const ProvaTecnica = /*#__PURE__*/ lazy(() => import("./prova/ProvaTecnica"));
 
 const renderIsland: HeaderSlot = context => <Island {...context} />;
+const renderBottomBar: BottomBarSlot = context => <BottomBar {...context} />;
 
 export default function RedesignCollectionView(props: ComponentProps<typeof CollectionView>) {
     // Pagina di prova della PR 1: `?prova-tecnica=1` su una sede, solo con il flag.
@@ -26,5 +28,5 @@ export default function RedesignCollectionView(props: ComponentProps<typeof Coll
             </Suspense>
         );
     }
-    return <CollectionView {...props} headerSlot={renderIsland} />;
+    return <CollectionView {...props} headerSlot={renderIsland} bottomBarSlot={renderBottomBar} />;
 }
