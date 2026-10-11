@@ -26,7 +26,9 @@
 --  11. retry_all_failed_translations chiamata da authenticated (vera RPC
 --      SECURITY DEFINER) non mette attesa
 --
--- Pattern: setup via postgres role (bypass RLS), poi authenticated.
+-- Pattern: setup via postgres role (bypass RLS) con claims service_role,
+-- poi authenticated. Senza claims il trigger della quota AI
+-- (get_ai_usage_current_cycle) rifiuta l'INSERT: «not a member of this tenant».
 -- Dentro una transazione now() è fisso: «scaduto» = run_after nel passato
 -- scritto da postgres.
 --
@@ -56,6 +58,16 @@ BEGIN
   EXECUTE format('SET LOCAL "request.jwt.claims" TO %L',
     '{"sub":"9603ef2a-9f9d-4ebc-8d05-3b2600e36e49","role":"authenticated"}');
   SET LOCAL role authenticated;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION pg_temp.as_service()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  SET LOCAL role postgres;
+  EXECUTE format('SET LOCAL "request.jwt.claims" TO %L', '{"role":"service_role"}');
 END;
 $$;
 
@@ -109,7 +121,7 @@ DECLARE
   v_id uuid;
   v_run_after timestamptz;
 BEGIN
-  SET LOCAL role postgres;
+  PERFORM pg_temp.as_service();
   v_id := pg_temp.insert_job('test-run-after-2', 'h1');
   UPDATE public.translation_jobs SET run_after = now() - interval '1 hour' WHERE id = v_id;
 
@@ -164,7 +176,7 @@ DECLARE
   v_id uuid;
   v_run_after timestamptz;
 BEGIN
-  SET LOCAL role postgres;
+  PERFORM pg_temp.as_service();
   v_id := pg_temp.insert_job('test-run-after-4', 'h1');
   SELECT run_after INTO v_run_after FROM public.translation_jobs WHERE id = v_id;
   IF v_run_after <> now() THEN
@@ -186,7 +198,7 @@ DECLARE
   v_due uuid;
   v_claimed uuid[];
 BEGIN
-  SET LOCAL role postgres;
+  PERFORM pg_temp.as_service();
   INSERT INTO public.tenant_languages (tenant_id, language_code, is_active)
   VALUES ('5b37c952-1add-4196-aab3-9775d98a9c32', 'en', true)
   ON CONFLICT (tenant_id, language_code) DO UPDATE SET is_active = true;
@@ -301,7 +313,7 @@ DECLARE
   v_hash text;
   v_cov jsonb;
 BEGIN
-  SET LOCAL role postgres;
+  PERFORM pg_temp.as_service();
   IF NOT EXISTS (
     SELECT 1 FROM public.tenant_languages
     WHERE tenant_id = '5b37c952-1add-4196-aab3-9775d98a9c32'
@@ -407,7 +419,7 @@ DECLARE
   v_id uuid;
   v_run_after timestamptz;
 BEGIN
-  SET LOCAL role postgres;
+  PERFORM pg_temp.as_service();
   INSERT INTO public.translation_jobs (
     tenant_id, entity_type, entity_id, field, target_language_code,
     source_text, source_hash, status, attempts, run_after
