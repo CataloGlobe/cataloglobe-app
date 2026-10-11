@@ -4,6 +4,7 @@ import { MoreHorizontal, Search } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { SEARCH_TRIGGER_ID } from "@components/PublicCollectionView/PublicCollectionHeader/PublicCollectionHeader";
 import { buildCoverImageSet } from "@/utils/imageTransform";
+import lensStyles from "./LensDot.module.scss";
 import type { HeaderSlotContext } from "../slots";
 import VenuePill from "../venue/VenuePill";
 import LanguageButton from "./LanguageButton";
@@ -188,14 +189,15 @@ export default function Island({
                             onSearchOpen();
                         }}
                         onPointerDown={onSearchPointerDown}
-                        aria-label={t("header.search_aria")}
+                        aria-label={
+                            allergensCount > 0
+                                ? t("header.search_filters_aria", { count: allergensCount })
+                                : t("header.search_aria")
+                        }
                     >
                         <Search size={16} strokeWidth={2} />
-                        {allergensCount > 0 && (
-                            <span className={styles.conto} aria-hidden>
-                                {allergensCount}
-                            </span>
-                        )}
+                        {/* Filtro attivo: un pallino, non un numero (spec §4, v32). */}
+                        {allergensCount > 0 && <span className={lensStyles.dot} aria-hidden />}
                     </button>
                     <button type="button" className={styles.icona} onClick={onOpenMore} aria-label={t("header.more_aria")}>
                         <MoreHorizontal size={16} strokeWidth={2} />

@@ -25,14 +25,17 @@
         "menu": "Menu",
         "events": "In evidenza",
         "reviews": "Dicci la tua",
-        "storia": "Storia"
+        "storia": "Storia",
+        "menu_retap_aria": "Menu. Tocca di nuovo per tutte le categorie"
     },
     "header": {
         "info_aria": "Informazioni sede",
         "search_aria": "Cerca nel catalogo",
         "info_sheet_aria": "Informazioni sede",
         "more_aria": "Altre opzioni",
-        "logo_alt": "Logo {{name}}"
+        "logo_alt": "Logo {{name}}",
+        "search_filters_aria_one": "Cerca nel catalogo, 1 filtro attivo",
+        "search_filters_aria_other": "Cerca nel catalogo, {{count}} filtri attivi"
     },
     "venue": {
         "open": "Aperto",

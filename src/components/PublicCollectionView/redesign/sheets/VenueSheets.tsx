@@ -31,6 +31,7 @@ import { venueStatusLabel } from "../venue/venueLabel";
 import SheetHost from "./SheetHost";
 import { closeSheet, type SheetPage } from "./sheetStack";
 import { FEATURED_DETAIL_PREFIX, pushFeaturedDetail, pushVenueSheet } from "./venueSheetPages";
+import { categoryBoxes } from "../categories/categoryBoxes";
 import styles from "./VenueSheets.module.scss";
 
 /**
@@ -76,6 +77,8 @@ function VenuePage({ page, ...props }: SheetsSlotContext & { page: SheetPage }) 
             );
         case "language":
             return <LanguagePage />;
+        case "categories":
+            return <CategoriesPage {...props.categories} />;
         case "featured":
             return (
                 <EventsView
@@ -388,5 +391,46 @@ function InfoPage({
                 </section>
             ) : null}
         </div>
+    );
+}
+
+/**
+ * Foglio «Categorie» (spec §4, D36): un riquadro per categoria principale,
+ * sottocategorie dentro, la corrente col fondo acceso. Il tocco chiude il
+ * foglio e scorre alla sezione come le pill, a pagina già sbloccata.
+ */
+function CategoriesPage({ groups, activeSectionId, onSelectSection, onSelectSubSection }: SheetsSlotContext["categories"]) {
+    const { t } = useTranslation("public");
+    const boxes = categoryBoxes(groups);
+    const go = (id: string, depth: number) => {
+        closeSheet();
+        // Il blocco della pagina si toglie nel commit della chiusura: lo scroll al frame dopo.
+        requestAnimationFrame(() => (depth === 0 ? onSelectSection(id) : onSelectSubSection(id)));
+    };
+    return (
+        <nav aria-label={t("categories.sheet_title")}>
+            <ul className={styles.boxes}>
+                {boxes.map(box => (
+                    <li key={box.id} className={styles.box}>
+                        <ul className={styles.boxRows}>
+                            {box.rows.map(row => (
+                                <li key={row.id}>
+                                    <button
+                                        type="button"
+                                        className={styles.categoryRow}
+                                        data-depth={Math.min(row.depth, 2)}
+                                        aria-current={row.id === activeSectionId ? "location" : undefined}
+                                        onClick={() => go(row.id, row.depth)}
+                                    >
+                                        <span className={styles.categoryName}>{row.name}</span>
+                                        {row.count !== null ? <span className={styles.categoryCount}>{row.count}</span> : null}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </li>
+                ))}
+            </ul>
+        </nav>
     );
 }

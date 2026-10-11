@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 import type { ActivityFee } from "@/types/activity";
-import type { SocialLinks } from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import type { CollectionViewSectionGroup, SocialLinks } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
@@ -58,7 +58,7 @@ export type BottomBarSlotContext = {
 export type BottomBarSlot = (context: BottomBarSlotContext) => ReactNode;
 
 /** Fogli del redesign che `CollectionView` apre per nome (⋯, nome, stato del locale). */
-export type PublicSheetName = "more" | "info" | "hours" | "language" | "featured";
+export type PublicSheetName = "more" | "info" | "hours" | "language" | "featured" | "categories";
 
 /** Aspetto delle card in evidenza, dallo stile del locale. */
 export type FeaturedLook = {
@@ -104,6 +104,14 @@ export type SheetsSlotContext = {
     shareTitle: string;
     /** Contenuti in evidenza di oggi (elenco e dettaglio nel foglio). */
     featured: FeaturedLook & { contents: V2FeaturedContent[] };
+    /** Foglio «Categorie» (Menu toccato di nuovo): albero già filtrato e sezione in vista. */
+    categories: {
+        groups: CollectionViewSectionGroup[];
+        activeSectionId: string | null;
+        /** Scorrono come le pill; si chiamano a foglio chiuso (pagina sbloccata). */
+        onSelectSection: (sectionId: string) => void;
+        onSelectSubSection: (sectionId: string) => void;
+    };
 };
 
 /**

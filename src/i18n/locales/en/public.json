@@ -26,14 +26,17 @@
         "menu": "Menu",
         "events": "Featured",
         "reviews": "Tell us",
-        "storia": "Story"
+        "storia": "Story",
+        "menu_retap_aria": "Menu. Tap again for all categories"
     },
     "header": {
         "info_aria": "Venue information",
         "search_aria": "Search the catalog",
         "info_sheet_aria": "Venue information",
         "more_aria": "More options",
-        "logo_alt": "{{name}} logo"
+        "logo_alt": "{{name}} logo",
+        "search_filters_aria_one": "Search the catalog, 1 active filter",
+        "search_filters_aria_other": "Search the catalog, {{count}} active filters"
     },
     "venue": {
         "open": "Open",

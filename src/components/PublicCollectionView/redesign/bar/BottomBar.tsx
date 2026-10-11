@@ -118,7 +118,8 @@ export default function BottomBar({
                                     type="button"
                                     className={styles.voce}
                                     data-active={attiva || undefined}
-                                    aria-label={t(voce.labelKey)}
+                                    // Menu già attivo: toccarlo di nuovo apre le categorie (spec §4).
+                                    aria-label={t(attiva && voce.id === "menu" ? "hub.menu_retap_aria" : voce.labelKey)}
                                     aria-current={attiva ? "page" : undefined}
                                     onClick={() => onTabChange(voce.id)}
                                 >

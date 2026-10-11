@@ -129,9 +129,10 @@ export type FeaturedSlots = {
 /** Config dello stile risolto (`resolved.style.config`, formato di `parseTokens`). Assente = default. */
 export type StyleConfig = Record<string, unknown>;
 
-function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig, venueInfo = false): ResolvedPayloadShape {
+function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig, venueInfo = false, story = false): ResolvedPayloadShape {
     return {
         business: business(venueInfo),
+        ...(story ? { has_story: true } : {}),
         ...(venueInfo
             ? {
                   opening_hours: OPENING_HOURS,
@@ -157,11 +158,11 @@ function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig, venueI
 
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo)) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     await page.route("**/functions/v1/get-orders-for-session**", route =>

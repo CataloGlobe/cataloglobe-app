@@ -26,14 +26,17 @@
     "menu": "Menu",
     "events": "En vedette",
     "reviews": "Dites-nous ce qu'il en est",
-    "storia": "Histoire"
+    "storia": "Histoire",
+    "menu_retap_aria": "Menu. Touchez à nouveau pour toutes les catégories"
   },
   "header": {
     "info_aria": "Informations sur le lieu",
     "search_aria": "Rechercher dans le catalogue",
     "info_sheet_aria": "Informations sur le lieu",
     "more_aria": "Plus d'options",
-    "logo_alt": "Logo {{name}}"
+    "logo_alt": "Logo {{name}}",
+    "search_filters_aria_one": "Rechercher dans le catalogue, 1 filtre actif",
+    "search_filters_aria_other": "Rechercher dans le catalogue, {{count}} filtres actifs"
   },
   "venue": {
     "open": "Ouvert",

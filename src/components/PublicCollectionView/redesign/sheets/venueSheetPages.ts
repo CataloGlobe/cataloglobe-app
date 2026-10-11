@@ -21,6 +21,8 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
             return { key: "language", title: t("language_selector.sheet_title"), size: "medium" };
         case "featured":
             return { key: "featured", title: t("hub.events"), size: "large" };
+        case "categories":
+            return { key: "categories", title: t("categories.sheet_title"), size: "large" };
     }
 }
 

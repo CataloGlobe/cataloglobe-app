@@ -142,3 +142,68 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* ── Categorie (spec §4, D36) ─────────────────────────────────────────────
+   Un riquadro per categoria principale; righe 48 px, sottocategorie 42 px
+   rientrate; niente filo verticale; la corrente col fondo acceso. */
+.boxes,
+.boxRows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.boxes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.box {
+  overflow: hidden;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
+}
+
+.categoryRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 14px 0 28px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &[data-depth="0"] {
+    min-height: 48px;
+    padding-left: 14px;
+    font-weight: 600;
+  }
+
+  &[data-depth="2"] {
+    padding-left: 42px;
+  }
+
+  &[aria-current="location"] {
+    background: color-mix(in srgb, var(--pub-accent, var(--pub-primary)) 14%, transparent);
+  }
+}
+
+.categoryName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.categoryCount {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-variant-numeric: tabular-nums;
+}

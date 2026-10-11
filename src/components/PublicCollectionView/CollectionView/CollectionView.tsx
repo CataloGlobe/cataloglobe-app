@@ -2494,7 +2494,8 @@ export default function CollectionView({
         (tab: HubTab) => {
             if (tab === activeTab) {
                 if (tab === "menu" && displaySectionGroups.length > 0) {
-                    setIsCategoriesSheetOpen(true);
+                    if (sheets) sheets.open("categories");
+                    else setIsCategoriesSheetOpen(true);
                     return;
                 }
                 scrollContainerToTop();
@@ -2502,7 +2503,7 @@ export default function CollectionView({
             }
             onTabChange?.(tab);
         },
-        [activeTab, onTabChange, scrollContainerToTop, displaySectionGroups]
+        [activeTab, onTabChange, scrollContainerToTop, displaySectionGroups, sheets]
     );
 
     // ── Subsection margin — distanza dipende dal contesto (child precedente) ──
@@ -3494,7 +3495,13 @@ export default function CollectionView({
                 onOpenReservation: openReservation,
                 shareUrl,
                 shareTitle: businessName,
-                featured: { ...featuredLook, contents: featuredContents }
+                featured: { ...featuredLook, contents: featuredContents },
+                categories: {
+                    groups: displaySectionGroups,
+                    activeSectionId,
+                    onSelectSection: scrollToSection,
+                    onSelectSubSection: scrollToSubSection
+                }
             })}
 
             {isOrderingOpen && (

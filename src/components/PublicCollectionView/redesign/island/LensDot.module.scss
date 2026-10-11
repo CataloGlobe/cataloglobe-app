@@ -1,0 +1,14 @@
+/* Pallino del filtro attivo sulla lente (spec §4): 8 px, nel colore del testo
+   dell'isola, con un alone tenue. File a parte da Island.module.scss: si
+   fonde da solo con le PR dell'isola. */
+.dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent);
+  pointer-events: none;
+}

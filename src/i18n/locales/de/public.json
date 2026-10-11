@@ -26,14 +26,17 @@
         "menu": "Menü",
         "events": "Hervorgehoben",
         "reviews": "Erzählen Sie uns Ihre",
-        "storia": "Geschichte"
+        "storia": "Geschichte",
+        "menu_retap_aria": "Menü. Erneut tippen für alle Kategorien"
     },
     "header": {
         "info_aria": "Informationen zum Veranstaltungsort",
         "search_aria": "Suche im Katalog",
         "info_sheet_aria": "Informationen zum Veranstaltungsort",
         "more_aria": "Weitere Optionen",
-        "logo_alt": "Logo {{name}}"
+        "logo_alt": "Logo {{name}}",
+        "search_filters_aria_one": "Suche im Katalog, 1 aktiver Filter",
+        "search_filters_aria_other": "Suche im Katalog, {{count}} aktive Filter"
     },
     "venue": {
         "open": "Geöffnet",
