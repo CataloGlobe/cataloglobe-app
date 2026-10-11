@@ -120,6 +120,27 @@ const DETAILED_PRODUCT: Partial<ResolvedProduct> = {
     pairings: [{ paired_product_id: "prod-3-1", note: "Per chiudere", sort_order: 0 }]
 };
 
+/** Con `details` e `story`: la storia di «Primi 1», letta da `resolve-public-story`. */
+export const STORY_ID = "story-1";
+const STORY_DETAIL = {
+    id: STORY_ID,
+    activity_id: null,
+    eyebrow: "Tradizione",
+    title: "La pasta della nonna",
+    cover_media: null,
+    body_blocks: [
+        { id: "b-1", type: "text", content: "Ogni mattina si impasta **a mano**." },
+        { id: "b-2", type: "heading", content: "Il grano" },
+        { id: "b-3", type: "product", productId: "prod-3-1" },
+    ],
+    product_id: "prod-1-0",
+    product: { id: "prod-1-0", name: "Primi 1" },
+    sort_order: 0,
+    status: "published",
+    created_at: "2026-10-01T00:00:00Z",
+    updated_at: "2026-10-01T00:00:00Z",
+};
+
 /**
  * Con `preferences`, per categoria: i piatti pari vegetariani (il 5 vegano invece
  * che vegetariano), l'8 molto piccante. Codici e icone delle caratteristiche di sistema.
@@ -132,7 +153,7 @@ function preferenceCharacteristics(p: number): ResolvedCharacteristic[] {
 }
 
 /** Con `allergens`: un piatto su tre col glutine, uno su quattro col latte. */
-function categories(allergens = false, details = false, preferences = false): ResolvedCategory[] {
+function categories(allergens = false, details = false, preferences = false, story = false): ResolvedCategory[] {
     return CATEGORIES.map((name, c) => ({
         id: `cat-${c}`,
         name,
@@ -149,6 +170,7 @@ function categories(allergens = false, details = false, preferences = false): Re
             ...(allergens ? { allergens: [...(p % 3 === 0 ? [GLUTEN] : []), ...(p % 4 === 0 ? [MILK] : [])] } : {}),
             ...(preferences ? { characteristics: preferenceCharacteristics(p) } : {}),
             ...(details && c === 1 && p === 0 ? DETAILED_PRODUCT : {}),
+            ...(details && story && c === 1 && p === 0 ? { story_ref: { id: STORY_ID, title: STORY_DETAIL.title, cover: null } } : {}),
         })),
     }));
 }
@@ -224,7 +246,7 @@ function payload(
         // Con `allergens` anche l'elenco di legge (qui tre): il fondo lo apre da «Allergeni».
         public_allergens: allergens ? SYSTEM_ALLERGENS : [],
         resolved: {
-            catalog: { id: "catalog-1", name: "Menu", categories: categories(allergens, details, preferences) },
+            catalog: { id: "catalog-1", name: "Menu", categories: categories(allergens, details, preferences, story) },
             featured: featuredSlots,
             hasRenderableItems: true,
             ...(styleConfig ? { style: { id: "style-1", name: "Stile e2e", config: styleConfig } } : {}),
@@ -241,6 +263,9 @@ export async function stubPublicPage(
         route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null, opts.reservations, opts.preferences)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
+    await page.route("**/functions/v1/resolve-public-story**", route =>
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ story: STORY_DETAIL }) })
+    );
     await page.route("**/functions/v1/get-orders-for-session**", route =>
         route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ orders: [] }) })
     );

@@ -1,0 +1,90 @@
+/* Storia nel foglio unico (spec §6): stessa misura della scheda prodotto,
+   nessun movimento proprio, entra con la spinta del foglio. I blocchi del
+   racconto portano i loro stili (gli stessi della tab Storia). */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cover {
+  overflow: hidden;
+  border-radius: 18px;
+  aspect-ratio: 3 / 2;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eyebrow {
+  color: var(--pub-primary);
+  font-size: 0.8125em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.375em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.muted {
+  margin: 0;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+}
+
+.blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* «Dal menu»: come la riga «La storia» della scheda */
+.product {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.productBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.productLabel {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-size: 0.8125em;
+}
+
+.productName {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

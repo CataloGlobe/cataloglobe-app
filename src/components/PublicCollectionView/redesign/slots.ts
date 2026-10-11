@@ -179,8 +179,8 @@ export type SheetsSlotContext = {
         /** Prodotto o variante per id, dal menu risolto (anche per «Perfetto con»). */
         findProduct: (productId: string) => CollectionViewSectionItem | null;
         showImage: boolean;
-        /** Porta alla tab Storia sul racconto; si chiama a foglio chiuso. */
-        onOpenStory: (storyId: string) => void;
+        /** Slug della sede: «La storia» si legge nel foglio, come nella tab Storia. Senza (anteprima), niente «La storia». */
+        slug: string | null;
         /** Analitiche dell'apertura di una scheda raggiunta da «Perfetto con». */
         onTrackOpen: (item: CollectionViewSectionItem) => void;
         /** Solo quando si può ordinare dalla scheda: aggiunge la riga e restituisce il suo «Annulla». */

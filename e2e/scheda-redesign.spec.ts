@@ -69,3 +69,37 @@ test("`?prodotto=` apre la pagina con la scheda già sul prodotto", async ({ pag
     // Il parametro esce dall'indirizzo: ricaricare non riapre la scheda.
     await expect(page).not.toHaveURL(/prodotto=/);
 });
+
+test("«La storia» apre il lettore nel foglio con «‹ Nome», e tornando la scheda è dov'era", async ({ page }) => {
+    await stubPublicPage(page, { ordering: false, details: true, allergens: true, story: true });
+    await page.goto(`/${SLUG}`);
+    await page.getByText("Antipasti 1", { exact: true }).waitFor();
+    test.skip((await page.getByRole("button", { name: "Altre opzioni" }).count()) === 0, "pagina senza redesign");
+
+    await page.getByText("Primi 1", { exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    const storyRow = dialog.getByRole("button", { name: /La pasta della nonna/ });
+    await storyRow.scrollIntoViewIfNeeded();
+    const scrolledTo = await dialog.locator("[class*='page']").first().evaluate(el => el.scrollTop);
+    expect(scrolledTo).toBeGreaterThan(0);
+
+    await storyRow.click();
+    await expect(page.getByRole("dialog", { name: "La pasta della nonna" })).toBeVisible();
+    await expect(dialog.getByText("Tradizione", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Il grano", { exact: true })).toBeVisible();
+    await expect(dialog.locator("strong", { hasText: "a mano" })).toBeVisible();
+    // Il blocco Prodotto porta a «Dolci 2»; il rimando «Dal menu» al piatto di partenza non c'è (fa già «‹»).
+    await expect(dialog.getByRole("button", { name: /Dolci 2/ })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /Dal menu/ })).toHaveCount(0);
+
+    await dialog.getByRole("button", { name: "Torna a Primi 1" }).click();
+    await expect(page.getByRole("dialog", { name: "Primi 1" })).toBeVisible();
+    await expect(storyRow).toBeInViewport();
+    expect(await dialog.locator("[class*='page']").first().evaluate(el => el.scrollTop)).toBe(scrolledTo);
+
+    // Dal racconto a un altro piatto, a spinta: «‹ La pasta della nonna».
+    await storyRow.click();
+    await dialog.getByRole("button", { name: /Dolci 2/ }).click();
+    await expect(page.getByRole("dialog", { name: "Dolci 2" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Torna a La pasta della nonna" })).toBeVisible();
+});

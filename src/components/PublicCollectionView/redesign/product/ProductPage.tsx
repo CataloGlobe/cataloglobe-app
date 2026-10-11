@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ScrollText } from "lucide-react";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
@@ -7,7 +7,7 @@ import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/components/productImageFraming";
 import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { SheetsSlotContext } from "../slots";
-import { closeSheet } from "../sheets/sheetStack";
+import { loadStoryPage, pushStorySheet } from "../story/storySheet";
 import { formatPublicPrice, formatSurcharge } from "../price";
 import { groupRule, pushProductSheet, VISIBLE_ROWS } from "./productSheet";
 import { OrderAddonGroup, OrderFormats, OrderQtyNote, type OrderBinding } from "../order/OrderChoices";
@@ -25,13 +25,19 @@ type Props = Omit<SheetsSlotContext["product"], "order"> & {
  * Scheda prodotto nel foglio unico (spec §6), in lettura: nome su due righe,
  * prezzo o formati, descrizione; scelte con la regola nel titolo; Dettagli;
  * Ingredienti; Caratteristiche e allergeni con la riga fissa; Perfetto con a
- * spinta; La storia. In modo ordine il pulsante sta in fondo al foglio.
+ * spinta; La storia, a spinta col lettore nel foglio. In modo ordine il
+ * pulsante sta in fondo al foglio.
  */
-export default function ProductPage({ item, findProduct, showImage, onOpenStory, onTrackOpen, order }: Props) {
+export default function ProductPage({ item, findProduct, showImage, slug, onTrackOpen, order }: Props) {
     const { t } = useTranslation("public");
     const formats = item.optionGroups?.find(group => group.group_kind === "PRIMARY_PRICE");
     const addons = item.optionGroups?.filter(group => group.group_kind !== "PRIMARY_PRICE" && group.values.length > 0) ?? [];
     const details = [...(item.notes ?? []), ...(item.attributes ?? [])];
+    const hasStory = Boolean(item.story_ref && slug);
+    // Il lettore arriva prima del tocco su «La storia»: la spinta non entra su una pagina vuota.
+    useEffect(() => {
+        if (hasStory) void loadStoryPage();
+    }, [hasStory]);
     const traits = [
         ...(item.characteristics ?? []).map(c => ({ key: `c-${c.id}`, icon: <CharacteristicIcon icon={c.icon} size={16} variant="bare" />, label: c.label })),
         ...(item.allergens ?? []).map(a => ({ key: `a-${a.id}`, icon: <AllergenIcon code={a.code} size={16} variant="bare" />, label: a.label }))
@@ -161,17 +167,12 @@ export default function ProductPage({ item, findProduct, showImage, onOpenStory,
                 </Block>
             ) : null}
 
-            {item.story_ref ? (
+            {item.story_ref && hasStory ? (
                 <Block title={t("product_sheet.story")}>
                     <button
                         type="button"
                         className={styles.story}
-                        onClick={() => {
-                            const storyId = item.story_ref!.id;
-                            closeSheet();
-                            // La tab Storia al frame dopo: il blocco della pagina si toglie nel commit della chiusura.
-                            requestAnimationFrame(() => onOpenStory(storyId));
-                        }}
+                        onClick={() => pushStorySheet(item.story_ref!)}
                     >
                         {item.story_ref.cover ? (
                             <img className={styles.storyCover} src={item.story_ref.cover} alt="" width={56} height={56} loading="lazy" decoding="async" />

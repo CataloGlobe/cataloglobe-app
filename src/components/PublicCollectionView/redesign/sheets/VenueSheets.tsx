@@ -36,6 +36,7 @@ import CategoryList from "../categories/CategoryList";
 import SearchHeader from "../search/SearchHeader";
 import ProductPage, { ProductUnavailable } from "../product/ProductPage";
 import { productIdOf } from "../product/productSheet";
+import { loadStoryPage, pageBelow, storyRefOf } from "../story/storySheet";
 import { ProductOrderFooter, type OrderBinding } from "../order/OrderChoices";
 import { draftFromLine, draftToLine, type OrderDraft } from "../order/orderDraft";
 import { showAdded } from "../order/addedNoticeStore";
@@ -58,6 +59,8 @@ const ReviewsView = lazy(() => import("@components/PublicCollectionView/ReviewsV
 // I passi della prenotazione (calendario, orari, campi della pagina /prenota) in un chunk loro.
 const loadBooking = () => import("../booking/BookingPages");
 const BookingPage = lazy(loadBooking);
+// Il lettore porta i blocchi delle storie (video compreso): si carica alla prima storia aperta.
+const StoryPage = lazy(loadStoryPage);
 const BookingFooter = lazy(() => loadBooking().then(module => ({ default: module.BookingFooter })));
 const BookingCtaFooter = lazy(() => loadBooking().then(module => ({ default: module.BookingCtaFooter })));
 
@@ -270,6 +273,23 @@ function VenuePage({
                     />
                 ) : (
                     <ProductUnavailable />
+                );
+            }
+            const story = storyRefOf(page);
+            if (story && props.product.slug) {
+                return (
+                    <Suspense fallback={null}>
+                        <StoryPage
+                            slug={props.product.slug}
+                            story={story}
+                            findProduct={props.product.findProduct}
+                            onTrackOpen={props.product.onTrackOpen}
+                            fromProductId={() => {
+                                const below = pageBelow(page.key);
+                                return below ? productIdOf(below) : null;
+                            }}
+                        />
+                    </Suspense>
                 );
             }
             const productId = productIdOf(page);

@@ -3696,7 +3696,7 @@ export default function CollectionView({
                 product: {
                     findProduct: findProductById,
                     showImage: style.productStyle !== "compact" && style.cardTemplate !== "no-image",
-                    onOpenStory: openStoryFromProduct,
+                    slug: slug ?? null,
                     onTrackOpen: trackProductOpen,
                     order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined
                 },
