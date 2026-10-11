@@ -118,6 +118,10 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         []
     );
 
+    // Dopo una spinta in avanti `leaving` è già vuoto: lo stesso stato, nessun render
+    // proprio nel frame in cui finisce la corsa.
+    const clearLeaving = useCallback(() => setLeaving(prev => (prev.length ? [] : prev)), []);
+
     const cancelAnimations = useCallback(() => {
         for (const animation of animations.current) animation.cancel();
         animations.current = [];
@@ -164,6 +168,7 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
     useEffect(() => {
         if (isOpen || !present) return;
         const panel = panelRef.current;
+        const backdrop = backdropRef.current;
         const { offset, velocity } = exitFrom.current;
         exitFrom.current = { offset: 0, velocity: 0 };
         let cancelled = false;
@@ -191,15 +196,17 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
                   ],
             duration
         );
-        play(backdropRef.current, [{ opacity: backdropOpacity(backdropRef.current) }, { opacity: 0 }], duration);
+        play(backdrop, [{ opacity: backdropOpacity(backdrop) }, { opacity: 0 }], duration);
         if (!exiting) {
             finish();
         } else {
-            // fill:"none" → a fine animazione il pannello tornerebbe visibile per
-            // un frame: lo si tiene fuori scena finché non si smonta.
+            // fill:"none" → a fine animazione pannello e velo tornerebbero visibili
+            // per un frame (il velo a opacità piena: un lampo scuro a tutta pagina):
+            // si tengono fuori scena finché non si smonta.
             exiting.finished.then(
                 () => {
                     if (panel) panel.style.visibility = "hidden";
+                    if (backdrop) backdrop.style.visibility = "hidden";
                     finish();
                 },
                 () => undefined
@@ -208,6 +215,7 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         return () => {
             cancelled = true;
             if (panel) panel.style.visibility = "";
+            if (backdrop) backdrop.style.visibility = "";
         };
     }, [isOpen, present, cancelAnimations, play]);
 
@@ -251,18 +259,18 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
                 // Solo se è ancora l'ultima: una cancellata non svuota `leaving`.
                 animation.finished.then(
                     () => {
-                        if (trackAnimation.current === animation) setLeaving([]);
+                        if (trackAnimation.current === animation) clearLeaving();
                     },
                     () => undefined
                 );
             } else {
-                setLeaving([]);
+                clearLeaving();
             }
             // Il fuoco segue la spinta: la pagina che lo aveva è diventata inert.
             panelRef.current?.focus({ preventScroll: true });
         }
         prevIndex.current = index;
-    }, [present, index, state.move, play]);
+    }, [present, index, state.move, play, clearLeaving]);
 
     // Altezza: segue il contenuto della pagina attiva (ResizeObserver); nella
     // spinta passa da un'altezza all'altra in animazione, altrimenti si imposta.
