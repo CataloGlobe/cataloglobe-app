@@ -1,4 +1,7 @@
 .banco {
+    --pub-bg: #fff;
+    --pub-border: #e5e5e5;
+
     position: relative;
     min-height: 100svh;
     background: #fff;
@@ -31,9 +34,29 @@
     color: #555;
 }
 
-.riempitivo {
-    margin: 0 0 14px;
-    color: #777;
+.sezione {
+    scroll-margin-top: 124px;
+
+    h2 {
+        margin: 24px 0 12px;
+        font-size: 20px;
+    }
+}
+
+.storia {
+    padding-top: 16px;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.stati {
+    display: flex;
+    gap: 4px;
+
+    [aria-pressed="true"] {
+        background: #fff;
+        color: #111;
+    }
 }
 
 .volante {
@@ -112,21 +135,33 @@
     font: inherit;
 }
 
-/* Interruttori degli effetti: agiscono sui componenti veri dall'esterno. */
+/* Interruttori degli effetti: agiscono sui componenti veri dall'esterno
+   (le classi dei moduli restano `_nome_hash`). */
 .banco[data-isola-blur] header > div[aria-hidden] {
     -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
     background: rgb(20 20 20 / 62%);
 }
 
-.banco[data-barra-piena] [class*="capsula"],
-.banco[data-barra-piena] [class*="ordine"] {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-    background: color-mix(in srgb, #fff 94%, transparent) !important;
+/* Il materiale di prima: blur sulla barra ferma (si spegne quando parte per nascondersi). */
+.banco[data-barra-blur] [class*="_wrap_"]:not([data-hidden]) > [class*="_capsula_"],
+.banco[data-barra-blur] [class*="_wrap_"]:not([data-hidden]) > [class*="_ordine_"] {
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    backdrop-filter: blur(18px) saturate(1.4);
+    background: color-mix(in srgb, #fff 66%, transparent);
 }
 
-.banco[data-senza-ombre] [class*="capsula"],
-.banco[data-senza-ombre] [class*="ordine"] {
-    box-shadow: none !important;
+.banco[data-senza-ombre] [class*="_capsula_"],
+.banco[data-senza-ombre] [class*="_ordine_"] {
+    box-shadow: none;
+}
+
+/* Strato fisso (`will-change: transform`): la barra lo ha di suo, qui si toglie;
+   ai testi dell'isola si aggiunge. */
+.banco[data-senza-strato-barra] [class*="_wrap_"]:has(> [class*="_ordine_"]) {
+    will-change: auto;
+}
+
+.banco[data-strato-isola] header [class*="_testi_"] {
+    will-change: transform;
 }
