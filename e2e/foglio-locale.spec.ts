@@ -54,7 +54,7 @@ test("â‹¯ spinge Informazioni e Orari, Esc torna indietro e il fuoco torna al â‹
 
 test("la pillola dello stato apre Orari con Informazioni sotto", async ({ page }) => {
     const dialog = page.getByRole("dialog");
-    await page.getByRole("button", { name: "Aperto" }).click();
+    await page.getByRole("button", { name: "Aperto", exact: true }).click();
     await expect(dialog.getByRole("heading", { name: "Orari di apertura" })).toBeVisible();
 
     await dialog.getByRole("button", { name: "Torna a Informazioni" }).click();

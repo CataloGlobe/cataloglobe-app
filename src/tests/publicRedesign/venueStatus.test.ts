@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeVenueStatus, CLOSING_SOON_MINUTES } from "@/components/PublicCollectionView/redesign/venue/venueStatus";
+import { computeVenueStatus, CLOSING_SOON_MINUTES, todayOpeningRanges } from "@/components/PublicCollectionView/redesign/venue/venueStatus";
 import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 
 // Istanti scritti in UTC; ottobre 2026 a Roma è UTC+2 fino al 25/10 (poi UTC+1).
@@ -142,5 +142,44 @@ describe("computeVenueStatus", () => {
             kind: "closed",
             opensAt: { dayOffset: 0, time: "12:00" }
         });
+    });
+});
+
+describe("todayOpeningRanges", () => {
+    it("senza orari → null", () => {
+        expect(todayOpeningRanges(at("2026-10-12T10:00:00Z"), [], [])).toBeNull();
+    });
+
+    it("fasce di oggi a Roma, in ordine", () => {
+        // lun 12/10, anche a fascia chiusa
+        expect(todayOpeningRanges(at("2026-10-12T20:00:00Z"), lunedi, [])).toEqual(["12:00–15:00", "19:00–23:00"]);
+    });
+
+    it("giorno senza fasce → []", () => {
+        // mar 13/10
+        expect(todayOpeningRanges(at("2026-10-13T10:00:00Z"), lunedi, [])).toEqual([]);
+    });
+
+    it("dopo la mezzanotte UTC conta il giorno di Roma", () => {
+        // dom 11/10 23:30 UTC = lun 12/10 01:30 Roma
+        expect(todayOpeningRanges(at("2026-10-11T23:30:00Z"), lunedi, [])).toEqual(["12:00–15:00", "19:00–23:00"]);
+    });
+
+    it("la fascia oltre la mezzanotte si legge con l'ora di chiusura", () => {
+        const sera = [slot(0, "19:00", "02:00", { closes_next_day: true })];
+        expect(todayOpeningRanges(at("2026-10-12T10:00:00Z"), sera, [])).toEqual(["19:00–02:00"]);
+    });
+
+    it("la chiusura straordinaria di oggi sostituisce le fasce", () => {
+        const chiusura: UpcomingClosure = { closure_date: "2026-10-12", end_date: null, label: null, is_closed: true, slots: null };
+        expect(todayOpeningRanges(at("2026-10-12T10:00:00Z"), lunedi, [chiusura])).toEqual([]);
+        const speciale: UpcomingClosure = {
+            closure_date: "2026-10-12",
+            end_date: null,
+            label: null,
+            is_closed: false,
+            slots: [{ opens_at: "18:00", closes_at: "22:00", closes_next_day: false }]
+        };
+        expect(todayOpeningRanges(at("2026-10-12T10:00:00Z"), lunedi, [speciale])).toEqual(["18:00–22:00"]);
     });
 });

@@ -75,6 +75,11 @@ export const CATEGORIES = ["Antipasti", "Primi", "Secondi", "Dolci"];
 
 const GLUTEN = { id: 1, code: "gluten", label: "Glutine" };
 const MILK = { id: 7, code: "milk", label: "Latte" };
+const SYSTEM_ALLERGENS = [
+    { id: 1, code: "gluten", label_it: "Glutine", label_en: "Gluten", sort_order: 1 },
+    { id: 3, code: "eggs", label_it: "Uova", label_en: "Eggs", sort_order: 3 },
+    { id: 7, code: "milk", label_it: "Latte", label_en: "Milk", sort_order: 7 }
+];
 
 /**
  * «Primi 1» con la scheda piena (`details`): formati, un gruppo di aggiunte da
@@ -199,7 +204,8 @@ function payload(
         tenantLogoUrl: null,
         base_language_code: "it",
         effective_language: "it",
-        public_allergens: [],
+        // Con `allergens` anche l'elenco di legge (qui tre): il fondo lo apre da «Allergeni».
+        public_allergens: allergens ? SYSTEM_ALLERGENS : [],
         resolved: {
             catalog: { id: "catalog-1", name: "Menu", categories: categories(allergens, details) },
             featured: featuredSlots,

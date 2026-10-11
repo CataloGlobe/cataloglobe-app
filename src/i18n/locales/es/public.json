@@ -615,5 +615,28 @@
         "rule_up_to_optional": "hasta {{count}} · opcional",
         "rule_optional": "opcional",
         "unavailable": "Este plato ya no está disponible."
+    },
+    "page_end": {
+        "end_of_menu": "Fin del menú",
+        "rate_title": "¿Qué tal ha ido?",
+        "rate_subtitle": "Tu opinión solo llega al local",
+        "rated_title": "Gracias por tu valoración",
+        "rated_subtitle": "Tu opinión ha llegado al local",
+        "today": "Hoy {{hours}}",
+        "today_closed": "Hoy cerrado",
+        "all_hours": "Todos los horarios",
+        "useful_info": "Información útil",
+        "allergens_help_one": "El alérgeno de declaración obligatoria y en qué platos está",
+        "allergens_help_other": "Los {{count}} alérgenos de declaración obligatoria y en qué platos están",
+        "characteristics_help": "Las indicaciones sobre los platos de este menú",
+        "allergens_intro": "Cuántos platos de este menú contienen cada alérgeno.",
+        "in_dishes_one": "En {{count}} plato",
+        "in_dishes_other": "En {{count}} platos",
+        "not_in_menu": "No está en este menú",
+        "call": "Llamar",
+        "directions": "Cómo llegar",
+        "new_window": "(se abre en una ventana nueva)",
+        "privacy": "Privacidad",
+        "terms": "Términos"
     }
 }

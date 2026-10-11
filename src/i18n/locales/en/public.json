@@ -615,5 +615,28 @@
         "rule_up_to_optional": "up to {{count}} · optional",
         "rule_optional": "optional",
         "unavailable": "This dish is no longer available."
+    },
+    "page_end": {
+        "end_of_menu": "End of the menu",
+        "rate_title": "How was it?",
+        "rate_subtitle": "Your feedback goes only to the venue",
+        "rated_title": "Thanks for your rating",
+        "rated_subtitle": "Your feedback has reached the venue",
+        "today": "Today {{hours}}",
+        "today_closed": "Closed today",
+        "all_hours": "All hours",
+        "useful_info": "Useful information",
+        "allergens_help_one": "The regulated allergen and which dishes have it",
+        "allergens_help_other": "The {{count}} regulated allergens and which dishes have them",
+        "characteristics_help": "Notes on the dishes of this menu",
+        "allergens_intro": "How many dishes on this menu contain each allergen.",
+        "in_dishes_one": "In {{count}} dish",
+        "in_dishes_other": "In {{count}} dishes",
+        "not_in_menu": "Not in this menu",
+        "call": "Call",
+        "directions": "Directions",
+        "new_window": "(opens in a new window)",
+        "privacy": "Privacy",
+        "terms": "Terms"
     }
 }

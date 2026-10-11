@@ -614,5 +614,28 @@
         "rule_up_to_optional": "fino a {{count}} · facoltativa",
         "rule_optional": "facoltativa",
         "unavailable": "Questo piatto non è più disponibile."
+    },
+    "page_end": {
+        "end_of_menu": "Fine del menu",
+        "rate_title": "Com'è andata?",
+        "rate_subtitle": "Il tuo parere arriva solo al locale",
+        "rated_title": "Grazie, hai votato",
+        "rated_subtitle": "Il tuo parere è arrivato al locale",
+        "today": "Oggi {{hours}}",
+        "today_closed": "Oggi chiuso",
+        "all_hours": "Tutti gli orari",
+        "useful_info": "Informazioni utili",
+        "allergens_help_one": "L'allergene di legge e in quali piatti è",
+        "allergens_help_other": "I {{count}} allergeni di legge e in quali piatti sono",
+        "characteristics_help": "Le indicazioni sui piatti di questo menu",
+        "allergens_intro": "Quanti piatti di questo menu contengono ciascun allergene.",
+        "in_dishes_one": "In {{count}} piatto",
+        "in_dishes_other": "In {{count}} piatti",
+        "not_in_menu": "Non presente in questo menu",
+        "call": "Chiama",
+        "directions": "Indicazioni",
+        "new_window": "(si apre in una nuova finestra)",
+        "privacy": "Privacy",
+        "terms": "Termini"
     }
 }

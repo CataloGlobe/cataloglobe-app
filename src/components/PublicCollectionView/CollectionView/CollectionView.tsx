@@ -34,7 +34,7 @@ import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
-import type { BottomBarSlot, FeaturedSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
+import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -836,6 +836,8 @@ type Props = {
     sheetsSlot?: SheetsSlot;
     /** Redesign: carosello «In evidenza» di uno slot (solo modo pubblico). */
     featuredSlot?: FeaturedSlot;
+    /** Redesign: fondo pagina al posto di `PublicFooter` (solo modo pubblico). */
+    footerSlot?: FooterSlot;
 };
 
 export default function CollectionView({
@@ -875,7 +877,8 @@ export default function CollectionView({
     headerSlot,
     bottomBarSlot,
     sheetsSlot,
-    featuredSlot
+    featuredSlot,
+    footerSlot
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -1115,6 +1118,8 @@ export default function CollectionView({
         setIsReviewsSheetOpen(true);
     }, [mode, activityId, activeTab]);
     const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
+    // Redesign: il voto inviato in questa visita trasforma il blocco del fondo in «Grazie».
+    const [reviewSent, setReviewSent] = useState(false);
 
     // ── Indice categorie (sheet): trigger = retap sul tab "Menu" già attivo,
     // sostituisce lo scroll-to-top diretto (vedi handleHubTabTap più sotto).
@@ -3293,7 +3298,21 @@ export default function CollectionView({
                     </div>
 
                     {/* ── FOOTER — in preview solo branding/legal, niente dati sede ── */}
-                    {!emptyState && (
+                    {!emptyState && mode === "public" && footerSlot
+                        ? footerSlot({
+                              activityId,
+                              openingHours: openingHours ?? [],
+                              upcomingClosures: upcomingClosures ?? [],
+                              socialLinks,
+                              address: activityAddress ?? null,
+                              allergensCount: allergens?.length ?? 0,
+                              hasCharacteristics: (catalogCharacteristics?.length ?? 0) > 0,
+                              onOpenReservation: openReservation,
+                              onRate: reviewsProps ? openReviewsSheet : undefined,
+                              reviewed: reviewSent
+                          })
+                        : null}
+                    {!emptyState && !(mode === "public" && footerSlot) && (
                         <PublicFooter
                             socialLinks={mode !== "preview" ? socialLinks : undefined}
                             activityId={mode !== "preview" ? activityId : undefined}
@@ -3379,6 +3398,7 @@ export default function CollectionView({
                                 {...reviewsProps}
                                 initialRating={initialReviewRating}
                                 onReviewSubmitted={() => {
+                                    setReviewSent(true);
                                     // Nascondi FAB e salva timestamp per sopprimerlo per 24h
                                     setValutaVisible(false);
                                     valutaEligibleRef.current = false;
@@ -3557,6 +3577,11 @@ export default function CollectionView({
                     visibleProductCount,
                     onSelectProduct: scrollToProductAndHighlight,
                     activityId
+                },
+                menuInfo: {
+                    allergens: allergens ?? [],
+                    characteristics: catalogCharacteristics ?? [],
+                    groups: sectionGroups
                 },
                 product: {
                     findProduct: findProductById,

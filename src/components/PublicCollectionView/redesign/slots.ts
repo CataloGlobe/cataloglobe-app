@@ -7,7 +7,8 @@ import type {
     SocialLinks
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
-import type { ResolvedAllergen, V2FeaturedContent } from "@/types/resolvedCollections";
+import type { Allergen } from "@/services/supabase/allergens";
+import type { ResolvedAllergen, ResolvedCharacteristic, V2FeaturedContent } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 
 /**
@@ -71,7 +72,17 @@ export type BottomBarSlotContext = {
 export type BottomBarSlot = (context: BottomBarSlotContext) => ReactNode;
 
 /** Fogli del redesign che `CollectionView` apre per nome (⋯, nome, stato del locale). */
-export type PublicSheetName = "more" | "info" | "hours" | "language" | "featured" | "categories" | "search" | "filters";
+export type PublicSheetName =
+    | "more"
+    | "info"
+    | "hours"
+    | "language"
+    | "featured"
+    | "categories"
+    | "search"
+    | "filters"
+    | "allergens"
+    | "characteristics";
 
 /** Aspetto delle card in evidenza, dallo stile del locale. */
 export type FeaturedLook = {
@@ -135,6 +146,15 @@ export type SheetsSlotContext = {
         onSelectProduct: (productId: string) => void;
         activityId?: string;
     };
+    /**
+     * Allergeni e Caratteristiche dal fondo (spec §10): l'elenco di legge e
+     * quante volte compaiono nel menu intero, senza i filtri del cliente.
+     */
+    menuInfo: {
+        allergens: Allergen[];
+        characteristics: ResolvedCharacteristic[];
+        groups: CollectionViewSectionGroup[];
+    };
     /** Scheda prodotto nel foglio (spec §6), in lettura. */
     product: {
         /** Prodotto o variante per id, dal menu risolto (anche per «Perfetto con»). */
@@ -159,3 +179,24 @@ export type SheetsSlot = {
     /** Il foglio è aperto (qualunque pagina): Cmd/Ctrl+F lo lascia stare. */
     isOpen: () => boolean;
 };
+
+/** Dati del fondo pagina (spec §10): Oggi, Informazioni utili, Contatti, Prenota, voto. */
+export type FooterSlotContext = {
+    activityId?: string;
+    openingHours: OpeningHoursEntry[];
+    upcomingClosures: UpcomingClosure[];
+    socialLinks: SocialLinks | undefined;
+    address: string | null;
+    /** C'è l'elenco degli allergeni (ristorazione: sempre). */
+    allergensCount: number;
+    /** Almeno un piatto del menu ha una caratteristica. */
+    hasCharacteristics: boolean;
+    /** Solo se la sede prende prenotazioni online. */
+    onOpenReservation?: () => void;
+    /** Apre il foglio del voto col voto già scelto (lo stesso dell'invito); assente senza recensioni. */
+    onRate?: (rating: number) => void;
+    /** Voto inviato in questa visita: il blocco dice «Grazie». */
+    reviewed: boolean;
+};
+
+export type FooterSlot = (context: FooterSlotContext) => ReactNode;

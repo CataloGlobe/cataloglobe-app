@@ -143,3 +143,33 @@
   white-space: nowrap;
 }
 
+
+/* Allergeni e Caratteristiche dal fondo: righe da leggere, non da toccare. */
+.intro {
+  margin: 0 0 4px;
+  color: color-mix(in srgb, var(--pub-text) 62%, transparent);
+}
+
+.plainList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 0;
+
+  &[data-absent] {
+    opacity: 0.55;
+  }
+}
+
+.note {
+  margin: 12px 0 0;
+  font-size: 0.8125em;
+  color: color-mix(in srgb, var(--pub-text) 62%, transparent);
+}

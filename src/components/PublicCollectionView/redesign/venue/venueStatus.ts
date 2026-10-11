@@ -110,6 +110,23 @@ function merge(intervals: Interval[]): Interval[] {
     return out;
 }
 
+/**
+ * Fasce di oggi (a Roma) per la riga «Oggi» del fondo: «12:00–15:00». La
+ * chiusura straordinaria di oggi sostituisce le fasce. [] = oggi chiuso,
+ * null = la sede non ha orari.
+ */
+export function todayOpeningRanges(
+    now: Date,
+    hours: OpeningHoursEntry[] | undefined,
+    closures: UpcomingClosure[] | undefined
+): string[] | null {
+    if (!hours || hours.length === 0) return null;
+    const today = romeNow(now);
+    return merge(daySlots(today.isoDate, today.dow, hours, closures ?? [])).map(
+        i => `${formatTime(i.start)}–${formatTime(i.end)}`
+    );
+}
+
 export function computeVenueStatus(
     now: Date,
     hours: OpeningHoursEntry[] | undefined,

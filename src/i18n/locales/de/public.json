@@ -615,5 +615,28 @@
         "rule_up_to_optional": "bis zu {{count}} · optional",
         "rule_optional": "optional",
         "unavailable": "Dieses Gericht ist nicht mehr verfügbar."
+    },
+    "page_end": {
+        "end_of_menu": "Ende der Speisekarte",
+        "rate_title": "Wie war es?",
+        "rate_subtitle": "Deine Meinung geht nur an das Lokal",
+        "rated_title": "Danke für deine Bewertung",
+        "rated_subtitle": "Deine Meinung ist beim Lokal angekommen",
+        "today": "Heute {{hours}}",
+        "today_closed": "Heute geschlossen",
+        "all_hours": "Alle Öffnungszeiten",
+        "useful_info": "Nützliche Informationen",
+        "allergens_help_one": "Das kennzeichnungspflichtige Allergen und in welchen Gerichten es ist",
+        "allergens_help_other": "Die {{count}} kennzeichnungspflichtigen Allergene und in welchen Gerichten sie sind",
+        "characteristics_help": "Hinweise zu den Gerichten dieser Karte",
+        "allergens_intro": "Wie viele Gerichte dieser Karte jedes Allergen enthalten.",
+        "in_dishes_one": "In {{count}} Gericht",
+        "in_dishes_other": "In {{count}} Gerichten",
+        "not_in_menu": "Nicht in dieser Karte",
+        "call": "Anrufen",
+        "directions": "Anfahrt",
+        "new_window": "(öffnet in einem neuen Fenster)",
+        "privacy": "Datenschutz",
+        "terms": "AGB"
     }
 }

@@ -3,10 +3,11 @@ import CollectionView from "@/components/PublicCollectionView/CollectionView/Col
 import Island from "./island/Island";
 import BottomBar from "./bar/BottomBar";
 import FeaturedStrip from "./featured/FeaturedStrip";
+import VenueFooter from "./footer/VenueFooter";
 import { closeSheet, getSheetState, useSheetState } from "./sheets/sheetStack";
 import { openVenueSheet } from "./sheets/venueSheetPages";
 import { openProductSheet } from "./product/productSheet";
-import type { BottomBarSlot, FeaturedSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
+import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
 
 /**
  * Radice del redesign della pagina pubblica, scelta da `PublicCatalogReady`
@@ -81,6 +82,7 @@ function LazyVenueSheets(context: SheetsSlotContext) {
 const renderIsland: HeaderSlot = context => <Island {...context} />;
 const renderBottomBar: BottomBarSlot = context => <BottomBar {...context} />;
 const renderFeatured: FeaturedSlot = context => <FeaturedStrip {...context} />;
+const renderFooter: FooterSlot = context => <VenueFooter {...context} />;
 const sheetsSlot: SheetsSlot = {
     render: context => <LazyVenueSheets {...context} />,
     open: openVenueSheet,
@@ -104,6 +106,7 @@ export default function RedesignCollectionView(props: ComponentProps<typeof Coll
             bottomBarSlot={renderBottomBar}
             sheetsSlot={sheetsSlot}
             featuredSlot={renderFeatured}
+            footerSlot={renderFooter}
         />
     );
 }

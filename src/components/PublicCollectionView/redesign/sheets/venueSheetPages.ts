@@ -53,6 +53,10 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
             };
         case "filters":
             return { key: "filters", title: t("search.filters_title"), size: "large", fill: true };
+        case "allergens":
+            return { key: "allergens", title: t("allergens.title"), size: "large" };
+        case "characteristics":
+            return { key: "characteristics", title: t("characteristics.title"), size: "large" };
     }
 }
 

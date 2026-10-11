@@ -37,6 +37,7 @@ import ProductPage, { ProductUnavailable } from "../product/ProductPage";
 import { productIdOf } from "../product/productSheet";
 import SearchPage from "../search/SearchPage";
 import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
+import { AllergensFooter, AllergensPage, CharacteristicsPage } from "./MenuInfoPages";
 import styles from "./VenueSheets.module.scss";
 
 /**
@@ -70,6 +71,7 @@ export default function VenueSheets(props: SheetsSlotContext) {
             renderHeader={page => (page.key === "search" ? <SearchHeader query={query} onQueryChange={setQuery} /> : null)}
             renderFooter={page => {
                 if (page.key === "filters") return <FiltersFooter {...props.search} />;
+                if (page.key === "allergens") return <AllergensFooter hasAllergensInCatalog={props.hasAllergensInCatalog} />;
                 const block = featuredOf(page, props.featured.contents);
                 return block && hasFeaturedCta(block) ? <FeaturedCtaFooter block={block} /> : null;
             }}
@@ -105,6 +107,10 @@ function VenuePage({ page, ...props }: SheetsSlotContext & { page: SheetPage }) 
             return <CategoriesPage {...props.categories} />;
         case "filters":
             return <FiltersPage {...props.search} />;
+        case "allergens":
+            return <AllergensPage {...props.menuInfo} />;
+        case "characteristics":
+            return <CharacteristicsPage {...props.menuInfo} />;
         case "featured":
             return (
                 <EventsView
