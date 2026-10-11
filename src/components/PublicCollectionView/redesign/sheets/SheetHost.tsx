@@ -45,6 +45,21 @@ type Props = {
     backgroundRef?: RefObject<HTMLElement | null>;
 };
 
+/** Cenno di scorrimento: quanto sale il contenuto e in quanto torna (spec §5). */
+const NUDGE_PX = 12;
+const NUDGE_DURATION_MS = 600;
+/** Pagine che hanno già fatto il cenno in questa visita. */
+const nudgedPages = new Set<string>();
+
+function hasMore(page: HTMLElement): boolean {
+    return page.scrollHeight - page.scrollTop - page.clientHeight > 1;
+}
+
+function markMore(page: HTMLElement): void {
+    const more = hasMore(page);
+    if ((page.dataset.more === "true") !== more) page.dataset.more = String(more);
+}
+
 // Host montati adesso: uno solo nella pagina, ma lo smontaggio va contato (vedi sotto).
 let mountedHosts = 0;
 
@@ -305,6 +320,41 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         return () => observer.disconnect();
     }, [present, index, shown, play]);
 
+    // Segnali di scorrimento (spec §5): sfumatura in fondo finché c'è altro sotto
+    // (`data-more` sulla pagina, letto dal CSS), e una volta per pagina per visita
+    // il contenuto sale di 12 px e torna, dopo l'entrata o la spinta.
+    useLayoutEffect(() => {
+        const page = trackRef.current?.children[index] as HTMLElement | undefined;
+        const content = page?.firstElementChild as HTMLElement | null | undefined;
+        if (!present || !page || !content || !activePage) return;
+        const update = () => markMore(page);
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(page);
+        observer.observe(content);
+        // Fuori da `play`: un'altra entrata o un trascinamento non lo annullano a metà
+        // (resta sul contenuto, non tocca pannello né binario).
+        if (
+            hasMore(page) &&
+            !nudgedPages.has(activePage.key) &&
+            !env.current.reducedMotion &&
+            typeof content.animate === "function"
+        ) {
+            nudgedPages.add(activePage.key);
+            content.animate(
+                [{ transform: "translateY(0)" }, { transform: `translateY(-${NUDGE_PX}px)` }, { transform: "translateY(0)" }],
+                {
+                    duration: NUDGE_DURATION_MS,
+                    delay: state.move === "open" ? ENTER_DURATION_MS : PUSH_DURATION_MS,
+                    easing: "ease-in-out"
+                }
+            );
+        }
+        return () => observer.disconnect();
+        // `state.move` si legge al momento della pagina nuova, non è un motivo per rifare il giro.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [present, index, activePage]);
+
     // ── Trascinamento per chiudere (solo mobile, maniglia e testata) ─────────
     const onDragStart = (event: ReactPointerEvent<HTMLElement>) => {
         if (!env.current.isMobile || (event.target as HTMLElement).closest("button")) return;
@@ -408,6 +458,7 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
                                 className={styles.page}
                                 inert={i !== index}
                                 aria-hidden={i !== index}
+                                onScroll={event => markMore(event.currentTarget)}
                             >
                                 <div className={styles.pageContent}>{renderPage(page)}</div>
                             </div>
