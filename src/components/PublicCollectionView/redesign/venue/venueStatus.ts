@@ -21,7 +21,7 @@ export type VenueStatus =
     | { kind: "unknown" }
     | { kind: "open" }
     | { kind: "closing-soon"; minutes: number }
-    | { kind: "closed"; opensAt: { dayOffset: number; time: string } | null };
+    | { kind: "closed"; opensAt: { dayOffset: number; time: string; dow: number } | null };
 
 type Interval = { start: number; end: number };
 
@@ -143,8 +143,10 @@ export function computeVenueStatus(
 
     const next = merged.find(i => i.start > n);
     if (!next) return { kind: "closed", opensAt: null };
+    const dayOffset = Math.floor(next.start / MINUTES_PER_DAY);
     return {
         kind: "closed",
-        opensAt: { dayOffset: Math.floor(next.start / MINUTES_PER_DAY), time: formatTime(next.start) }
+        // dow: giorno della settimana dell'apertura, lunedì = 0 (serve a nominarlo oltre domani).
+        opensAt: { dayOffset, time: formatTime(next.start), dow: (((today.dow + dayOffset) % 7) + 7) % 7 }
     };
 }

@@ -35,6 +35,14 @@
         "more_aria": "More options",
         "logo_alt": "{{name}} logo"
     },
+    "venue": {
+        "open": "Open",
+        "closing_soon": "Closes in {{minutes}} min",
+        "closed": "Closed",
+        "closed_opens_today": "Closed · opens at {{time}}",
+        "closed_opens_tomorrow": "Closed · opens tomorrow at {{time}}",
+        "closed_opens_day": "Closed · opens {{day}} at {{time}}"
+    },
     "nav": {
         "bottom_aria": "Navigation",
         "subcategories_aria": "Subcategories of {{name}}"

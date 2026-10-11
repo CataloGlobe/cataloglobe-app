@@ -143,6 +143,18 @@ $passaggio: 220ms;
   transition: opacity $passaggio ease;
 }
 
+/* Riga dello stato del locale: si chiude con la compattazione, come la seconda riga. */
+.stato {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows $passaggio ease, opacity $passaggio ease;
+
+  > * {
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
 .icona {
   position: relative;
   flex-shrink: 0;
@@ -232,7 +244,8 @@ $passaggio: 220ms;
     margin-right: -10px;
   }
 
-  .secondaRiga {
+  .secondaRiga,
+  .stato {
     grid-template-rows: 0fr;
     opacity: 0;
   }
@@ -241,6 +254,7 @@ $passaggio: 220ms;
 @media (prefers-reduced-motion: reduce) {
   .logo,
   .menu,
+  .stato,
   .secondaRiga {
     transition-duration: 1ms;
   }

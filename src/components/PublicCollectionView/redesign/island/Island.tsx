@@ -6,6 +6,7 @@ import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/
 import { SEARCH_TRIGGER_ID } from "@components/PublicCollectionView/PublicCollectionHeader/PublicCollectionHeader";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import type { HeaderSlotContext } from "../slots";
+import VenuePill from "../venue/VenuePill";
 import styles from "./Island.module.scss";
 
 // Isteresi: compatta oltre 40 px, torna estesa sotto 8 px. Validata su iPhone e Android (PR 1).
@@ -61,7 +62,10 @@ export default function Island({
     onOpenMore,
     activeTab,
     onTabChange,
-    showStoryTab
+    showStoryTab,
+    openingHours,
+    upcomingClosures,
+    onOpenHours
 }: HeaderSlotContext) {
     const { t } = useTranslation("public");
     const { compatta, alta, bassa } = useCompatta();
@@ -167,6 +171,11 @@ export default function Island({
                     <div className={styles.testi}>
                         <span className={styles.nome}>{activityName}</span>
                         {menuName && <span className={styles.menu}>{menuName}</span>}
+                        <div className={styles.stato}>
+                            <div>
+                                <VenuePill hours={openingHours} closures={upcomingClosures} onOpenHours={onOpenHours} />
+                            </div>
+                        </div>
                     </div>
                     <LanguageSelector />
                     <button
