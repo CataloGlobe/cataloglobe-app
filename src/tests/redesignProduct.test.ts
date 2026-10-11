@@ -14,6 +14,10 @@ describe("prezzi della pagina pubblica nuova", () => {
         expect(formatSurcharge(null)).toBeNull();
         expect(formatSurcharge(undefined)).toBeNull();
     });
+
+    it("uno sconto col segno meno vero", () => {
+        expect(formatSurcharge(-2)).toBe("\u22122,00\u00a0€");
+    });
 });
 
 describe("regola di un gruppo di scelte (spec §6)", () => {

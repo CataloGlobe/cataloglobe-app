@@ -605,6 +605,7 @@
         "rule_up_to_required": "up to {{count}} · required",
         "rule_required": "required",
         "rule_up_to_optional": "up to {{count}} · optional",
-        "rule_optional": "optional"
+        "rule_optional": "optional",
+        "unavailable": "This dish is no longer available."
     }
 }

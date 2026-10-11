@@ -605,6 +605,7 @@
     "rule_up_to_required": "jusqu'à {{count}} · obligatoire",
     "rule_required": "obligatoire",
     "rule_up_to_optional": "jusqu'à {{count}} · facultatif",
-    "rule_optional": "facultatif"
+    "rule_optional": "facultatif",
+    "unavailable": "Ce plat n'est plus disponible."
   }
 }

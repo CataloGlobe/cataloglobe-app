@@ -605,6 +605,7 @@
         "rule_up_to_required": "hasta {{count}} · obligatoria",
         "rule_required": "obligatoria",
         "rule_up_to_optional": "hasta {{count}} · opcional",
-        "rule_optional": "opcional"
+        "rule_optional": "opcional",
+        "unavailable": "Este plato ya no está disponible."
     }
 }

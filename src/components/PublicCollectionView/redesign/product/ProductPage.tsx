@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ScrollText } from "lucide-react";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
@@ -22,7 +22,7 @@ type Props = SheetsSlotContext["product"] & { item: CollectionViewSectionItem };
  * Ingredienti; Caratteristiche e allergeni con la riga fissa; Perfetto con a
  * spinta; La storia. L'ordine al tavolo dalla scheda arriva con la PR 6.
  */
-export default function ProductPage({ item, findProduct, showImage, onOpenStory }: Props) {
+export default function ProductPage({ item, findProduct, showImage, onOpenStory, onTrackOpen }: Props) {
     const { t } = useTranslation("public");
     const formats = item.optionGroups?.find(group => group.group_kind === "PRIMARY_PRICE");
     const addons = item.optionGroups?.filter(group => group.group_kind !== "PRIMARY_PRICE" && group.values.length > 0) ?? [];
@@ -132,7 +132,11 @@ export default function ProductPage({ item, findProduct, showImage, onOpenStory 
                             return (
                                 <li key={pairing.id}>
                                     {target ? (
-                                        <button type="button" className={styles.pairing} onClick={() => pushProductSheet(target)}>
+                                        <button type="button" className={styles.pairing} onClick={() => {
+                                                pushProductSheet(target);
+                                                onTrackOpen(target);
+                                            }}
+                                        >
                                             {content}
                                             <ChevronRight size={16} aria-hidden="true" className={styles.muted} />
                                         </button>
@@ -245,10 +249,20 @@ function Block({ title, rule, children }: { title: string; rule?: string; childr
 function Expandable({ rows }: { rows: ReactNode[] }) {
     const { t } = useTranslation("public");
     const [open, setOpen] = useState(false);
+    const listRef = useRef<HTMLUListElement>(null);
     const collapsed = !open && rows.length > VISIBLE_ROWS;
+    // Il pulsante sparisce col fuoco sopra: il fuoco passa alla prima voce comparsa.
+    useLayoutEffect(() => {
+        if (!open) return;
+        const first = listRef.current?.children[VISIBLE_ROWS];
+        if (first instanceof HTMLElement) {
+            first.tabIndex = -1;
+            first.focus({ preventScroll: true });
+        }
+    }, [open]);
     return (
         <>
-            <ul className={styles.list}>{collapsed ? rows.slice(0, VISIBLE_ROWS) : rows}</ul>
+            <ul ref={listRef} className={styles.list}>{collapsed ? rows.slice(0, VISIBLE_ROWS) : rows}</ul>
             {collapsed ? (
                 <button type="button" className={styles.showAll} onClick={() => setOpen(true)}>
                     {t("product_sheet.show_all", { count: rows.length })}
@@ -256,4 +270,10 @@ function Expandable({ rows }: { rows: ReactNode[] }) {
             ) : null}
         </>
     );
+}
+
+/** Il menu è cambiato a scheda aperta (regola, lingua): il piatto non c'è più. */
+export function ProductUnavailable() {
+    const { t } = useTranslation("public");
+    return <p className={styles.muted}>{t("product_sheet.unavailable")}</p>;
 }

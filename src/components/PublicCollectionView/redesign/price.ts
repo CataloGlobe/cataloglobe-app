@@ -8,7 +8,11 @@ export function formatPublicPrice(value: number): string {
     return `${formatDecimal(value)}\u00a0€`;
 }
 
-/** Sovrapprezzo di una scelta: solo se c'è, mai «+0» né «incluso». */
+/**
+ * Differenza di prezzo di una scelta: solo se c'è, mai «+0» né «incluso».
+ * Uno sconto si scrive col segno meno vero: «−2,00 €».
+ */
 export function formatSurcharge(value: number | null | undefined): string | null {
-    return value != null && value > 0 ? `+${formatPublicPrice(value)}` : null;
+    if (value == null || value === 0) return null;
+    return value > 0 ? `+${formatPublicPrice(value)}` : `\u2212${formatPublicPrice(-value)}`;
 }

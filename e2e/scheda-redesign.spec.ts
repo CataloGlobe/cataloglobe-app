@@ -43,6 +43,8 @@ test("il piatto apre la scheda: blocchi, prezzi, regola, «Mostra tutti» e «Pe
     await expect(showAll).toHaveCount(2);
     await showAll.first().click();
     await expect(dialog.getByText("Aggiunta 7")).toBeVisible();
+    // Il pulsante sparisce: il fuoco passa alla prima voce comparsa, non al body.
+    await expect(dialog.getByRole("listitem").filter({ hasText: "Aggiunta 6" })).toBeFocused();
     await expect(dialog.getByRole("button", { name: "Mostra tutti (7)" })).toHaveCount(1);
 
     await dialog.getByRole("button", { name: /Dolci 2/ }).click();
@@ -64,4 +66,6 @@ test("`?prodotto=` apre la pagina con la scheda già sul prodotto", async ({ pag
     const dialog = page.getByRole("dialog", { name: "Secondi 4" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText("12,00\u00a0€")).toBeVisible();
+    // Il parametro esce dall'indirizzo: ricaricare non riapre la scheda.
+    await expect(page).not.toHaveURL(/prodotto=/);
 });

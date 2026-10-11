@@ -604,6 +604,7 @@
         "rule_up_to_required": "fino a {{count}} · obbligatoria",
         "rule_required": "obbligatoria",
         "rule_up_to_optional": "fino a {{count}} · facoltativa",
-        "rule_optional": "facoltativa"
+        "rule_optional": "facoltativa",
+        "unavailable": "Questo piatto non è più disponibile."
     }
 }

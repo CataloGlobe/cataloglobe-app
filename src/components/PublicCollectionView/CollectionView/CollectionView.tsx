@@ -1444,6 +1444,20 @@ export default function CollectionView({
     // keepPairingBackStack: SOLO la catena abbinato→abbinato (ordinazioni
     // OFF) preserva lo stack "Torna a". Ogni altra apertura (menu, storia,
     // edit selezione, upsell) è "fresca" → stack azzerato.
+    const trackProductOpen = useCallback(
+        (item: CollectionViewSectionItem) => {
+            if (mode !== "public" || !activityId) return;
+            const section = sections.find(s => s.items.some(i => i.id === item.id));
+            trackEvent(activityId, "product_detail_open", {
+                product_id: item.id,
+                product_name: item.name,
+                category: section?.name,
+                price: item.effective_price ?? item.price ?? undefined
+            });
+        },
+        [mode, activityId, sections]
+    );
+
     const openItemDetail = useCallback(
         (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
             // Redesign: senza ordine al tavolo la scheda è una pagina del foglio
@@ -1455,17 +1469,9 @@ export default function CollectionView({
                 setSelectedItem(item);
                 setOpenSeq(s => s + 1);
             }
-            if (mode === "public" && activityId) {
-                const section = sections.find(s => s.items.some(i => i.id === item.id));
-                trackEvent(activityId, "product_detail_open", {
-                    product_id: item.id,
-                    product_name: item.name,
-                    category: section?.name,
-                    price: item.effective_price ?? item.price ?? undefined
-                });
-            }
+            trackProductOpen(item);
         },
-        [mode, activityId, sections, sheetsSlot, orderingActive, itemDetailOrderingDisabled]
+        [mode, sheetsSlot, orderingActive, itemDetailOrderingDisabled, trackProductOpen]
     );
 
     const addToSelection = useCallback((
@@ -1819,13 +1825,18 @@ export default function CollectionView({
     }, [onTabChange]);
 
     // Redesign: `?prodotto=<id>` apre la pagina con la scheda già sul prodotto
-    // (spec §6, v26). Una volta sola, al primo render col menu pronto.
+    // (spec §6, v26). Una volta sola, al primo render col menu pronto; poi il
+    // parametro esce dall'indirizzo, così ricaricare o rimontare non la riapre.
     const deepLinkHandledRef = useRef(false);
     useEffect(() => {
         if (deepLinkHandledRef.current || mode !== "public" || !sheetsSlot) return;
         deepLinkHandledRef.current = true;
-        const productId = new URLSearchParams(window.location.search).get("prodotto");
-        const item = productId ? findProductById(productId) : null;
+        const url = new URL(window.location.href);
+        const productId = url.searchParams.get("prodotto");
+        if (!productId) return;
+        url.searchParams.delete("prodotto");
+        window.history.replaceState(window.history.state, "", url);
+        const item = findProductById(productId);
         if (item) openItemDetail(item);
     }, [mode, sheetsSlot, findProductById, openItemDetail]);
 
@@ -3535,7 +3546,8 @@ export default function CollectionView({
                 product: {
                     findProduct: findProductById,
                     showImage: style.productStyle !== "compact" && style.cardTemplate !== "no-image",
-                    onOpenStory: openStoryFromProduct
+                    onOpenStory: openStoryFromProduct,
+                    onTrackOpen: trackProductOpen
                 }
             })}
 

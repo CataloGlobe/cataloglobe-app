@@ -605,6 +605,7 @@
         "rule_up_to_required": "bis zu {{count}} · Pflicht",
         "rule_required": "Pflicht",
         "rule_up_to_optional": "bis zu {{count}} · optional",
-        "rule_optional": "optional"
+        "rule_optional": "optional",
+        "unavailable": "Dieses Gericht ist nicht mehr verfügbar."
     }
 }

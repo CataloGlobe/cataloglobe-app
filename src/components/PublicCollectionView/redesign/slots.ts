@@ -134,6 +134,8 @@ export type SheetsSlotContext = {
         showImage: boolean;
         /** Porta alla tab Storia sul racconto; si chiama a foglio chiuso. */
         onOpenStory: (storyId: string) => void;
+        /** Analitiche dell'apertura di una scheda raggiunta da «Perfetto con». */
+        onTrackOpen: (item: CollectionViewSectionItem) => void;
     };
 };
 
