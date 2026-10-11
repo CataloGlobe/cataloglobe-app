@@ -20,7 +20,9 @@ describe("CG-11: permesso sulla sede nelle edge dei tavoli e della disponibilitÃ
     for (const g of GATES) {
         const source = readFileSync(`supabase/functions/${g.fn}/index.ts`, "utf8");
         // Il corpo dell'handler: le definizioni in testa al file non contano.
-        const handler = source.slice(source.indexOf("serve("));
+        // Le edge avvolte da `withAppCors` hanno l'handler in `handle()`.
+        const named = source.indexOf("async function handle(");
+        const handler = source.slice(named >= 0 ? named : source.indexOf("serve("));
 
         it(`${g.fn}: chiede ${g.permission} sulla sede giusta`, () => {
             const call = new RegExp(

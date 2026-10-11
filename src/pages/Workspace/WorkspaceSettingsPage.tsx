@@ -36,6 +36,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { supabase } from "@/services/supabase/client";
 import { DeleteAccountDrawer } from "@/pages/Dashboard/Settings/DeleteAccountDrawer";
 import styles from "./WorkspaceSettingsPage.module.scss";
+import { PasswordField } from "@/pages/Auth/PasswordField";
 
 export default function WorkspaceSettingsPage() {
     const { user } = useAuth();
@@ -504,9 +505,8 @@ export default function WorkspaceSettingsPage() {
 
                 <ModalLayoutContent>
                     <form noValidate className={styles.modalForm} onSubmit={handlePasswordChange}>
-                        <TextInput
+                        <PasswordField
                             label="Nuova password"
-                            type="password"
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             autoComplete="new-password"
@@ -516,9 +516,8 @@ export default function WorkspaceSettingsPage() {
 
                         <PasswordRequirements value={password} />
 
-                        <TextInput
+                        <PasswordField
                             label="Conferma nuova password"
-                            type="password"
                             value={confirmPassword}
                             onChange={e => setConfirmPassword(e.target.value)}
                             autoComplete="new-password"

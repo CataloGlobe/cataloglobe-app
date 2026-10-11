@@ -144,7 +144,9 @@ export default function BusinessCard({
             onClick: () => onLeave(tenant.id),
             variant: "destructive",
             separator: true,
-            hidden: isOwner || !isActivated
+            // Uscire non dipende dall'abbonamento: chi è stato invitato in un'attività
+            // non ancora attivata deve poterla lasciare (non può eliminarla).
+            hidden: isOwner
         },
         {
             label: "Elimina attività",
@@ -177,24 +179,30 @@ export default function BusinessCard({
         ]
             .filter(Boolean)
             .join(" · ");
+        // La riga resta tutta cliccabile; il menu «⋯» sta accanto, fuori dal
+        // pulsante (niente bottoni annidati), così «Lascia attività» ed
+        // «Elimina» restano raggiungibili anche da 3 attività in su.
         return (
-            <button
-                type="button"
-                className={`${styles.card} ${styles.compact}`}
-                onClick={enter}
-                aria-label={isActivated ? `Entra in ${tenant.name}` : `Attiva ${tenant.name}`}
-            >
-                {logo}
-                <span className={styles.titles}>
-                    <Text as="span" variant="body" weight={600} className={styles.name}>
-                        {tenant.name}
-                    </Text>
-                    <Text as="span" variant="caption" colorVariant="muted" className={styles.meta}>
-                        {compactMeta}
-                    </Text>
-                </span>
-                <ChevronRight size={16} aria-hidden className={styles.chevron} />
-            </button>
+            <div className={`${styles.card} ${styles.compact}`}>
+                <button
+                    type="button"
+                    className={styles.compactMain}
+                    onClick={enter}
+                    aria-label={isActivated ? `Entra in ${tenant.name}` : `Attiva ${tenant.name}`}
+                >
+                    {logo}
+                    <span className={styles.titles}>
+                        <Text as="span" variant="body" weight={600} className={styles.name}>
+                            {tenant.name}
+                        </Text>
+                        <Text as="span" variant="caption" colorVariant="muted" className={styles.meta}>
+                            {compactMeta}
+                        </Text>
+                    </span>
+                    <ChevronRight size={16} aria-hidden className={styles.chevron} />
+                </button>
+                {hasActions && <TableRowActions actions={actions} />}
+            </div>
         );
     }
 
