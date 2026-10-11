@@ -189,13 +189,25 @@ export function historyKey(): string {
     return `${prefix()}:history`;
 }
 
-/** Il riepilogo vale se copre fino a ieri e ha tutti i servizi. */
+/**
+ * Il riepilogo vale se copre esattamente i giorni chiusi richiesti (stesso
+ * primo e ultimo giorno, stessa lunghezza) per tutti i servizi. Se cambia la
+ * finestra (UPTIME_DAYS) si ricalcola invece di mostrare giorni vuoti.
+ */
 export function isHistoryFresh(
     history: UptimeHistory | null | undefined,
-    yesterday: string
+    pastDays: string[]
 ): history is UptimeHistory {
-    if (!history || history.through !== yesterday || !history.days) return false;
-    return SERVICE_KEYS.every(s => Array.isArray(history.days[s]));
+    if (!history || !history.days) return false;
+    if (history.through !== pastDays[pastDays.length - 1]) return false;
+    return SERVICE_KEYS.every(s => {
+        const buckets = history.days[s];
+        return (
+            Array.isArray(buckets) &&
+            buckets.length === pastDays.length &&
+            buckets[0]?.date === pastDays[0]
+        );
+    });
 }
 
 /** Giorni chiusi (riepilogo) + oggi (contatori vivi) → finestra completa. */
@@ -263,7 +275,7 @@ export async function readUptime(
 
     let history: UptimeHistory | null = null;
     if (pastDays.length > 0) {
-        history = isHistoryFresh(historyRaw, pastDays[pastDays.length - 1])
+        history = isHistoryFresh(historyRaw, pastDays)
             ? historyRaw
             : await rebuildHistory(pastDays);
     }

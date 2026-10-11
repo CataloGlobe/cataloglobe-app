@@ -5,8 +5,10 @@ import {
     isHistoryFresh,
     lastUtcDays,
     readUptime,
-    uptimeKey
+    uptimeKey,
+    type UptimeHistory
 } from "../../../api/_lib/statusRedis";
+import { SERVICE_KEYS } from "../../../api/_lib/statusServices";
 
 describe("bucketFromCounts", () => {
     it("peggiore del giorno: un solo down rende il giorno down", () => {
@@ -106,7 +108,31 @@ describe("readUptime", () => {
 });
 
 describe("isHistoryFresh", () => {
-    it("riepilogo senza tutti i servizi → da ricalcolare", () => {
-        expect(isHistoryFresh({ through: "2026-10-10", days: {} } as never, "2026-10-10")).toBe(false);
+    const pastDays = ["2026-10-08", "2026-10-09", "2026-10-10"];
+    const full = (dates: string[]) => ({
+        through: dates[dates.length - 1],
+        days: Object.fromEntries(
+            SERVICE_KEYS.map(s => [s, dates.map(d => bucketFromCounts(d, null))])
+        )
+    }) as UptimeHistory;
+
+    it("copre esattamente i giorni chiusi → valido", () => {
+        expect(isHistoryFresh(full(pastDays), pastDays)).toBe(true);
+    });
+
+    it("assente → da ricalcolare", () => {
+        expect(isHistoryFresh(null, pastDays)).toBe(false);
+    });
+
+    it("fermo a ieri l'altro → da ricalcolare", () => {
+        expect(isHistoryFresh(full(["2026-10-07", "2026-10-08", "2026-10-09"]), pastDays)).toBe(false);
+    });
+
+    it("finestra diversa (stesso ultimo giorno, meno giorni) → da ricalcolare", () => {
+        expect(isHistoryFresh(full(["2026-10-09", "2026-10-10"]), pastDays)).toBe(false);
+    });
+
+    it("senza tutti i servizi → da ricalcolare", () => {
+        expect(isHistoryFresh({ through: "2026-10-10", days: {} } as never, pastDays)).toBe(false);
     });
 });
