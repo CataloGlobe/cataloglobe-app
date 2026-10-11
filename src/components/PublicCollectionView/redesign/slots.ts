@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { HubTab } from "@/types/collectionStyle";
+import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 
 /**
  * Agganci con cui il redesign sostituisce un pezzo di `CollectionView` senza
@@ -27,6 +28,11 @@ export type HeaderSlotContext = {
     activeTab: HubTab;
     onTabChange: (tab: HubTab) => void;
     showStoryTab: boolean;
+    /** Orari e chiusure straordinarie: l'isola ne ricava «Aperto / Chiude tra / Chiuso». */
+    openingHours: OpeningHoursEntry[];
+    upcomingClosures: UpcomingClosure[];
+    /** Il tocco sullo stato del locale: apre le Informazioni (dove stanno gli orari). */
+    onOpenHours: () => void;
 };
 
 export type HeaderSlot = (context: HeaderSlotContext) => ReactNode;
