@@ -229,11 +229,14 @@ export function OrderQtyNote({ itemId, order }: { itemId: string; order: OrderBi
 export function ProductOrderFooter({
     item,
     order,
-    onAdd
+    onAdd,
+    actionKey = "order_sheet.add"
 }: {
     item: CollectionViewSectionItem;
     order: OrderBinding;
     onAdd: () => void;
+    /** Testo del pulsante a scelte fatte, col prezzo: «Aggiungi · …», o «Aggiorna · …» da «Modifica». */
+    actionKey?: string;
 }) {
     const { t } = useTranslation("public");
     const missing = missingChoice(item, order.draft);
@@ -243,7 +246,7 @@ export function ProductOrderFooter({
             ? t("order_sheet.choose_format")
             : t("order_sheet.choose_group", { name: missing.name })
         : total != null
-          ? t("order_sheet.add", { price: formatPublicPrice(total) })
+          ? t(actionKey, { price: formatPublicPrice(total) })
           : t("item_detail.price_unavailable");
     return (
         <div className={styles.footer}>

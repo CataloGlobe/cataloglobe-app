@@ -35,7 +35,8 @@ import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
-import { addLine, lineQty, undoLine } from "../redesign/order/orderDraft";
+import { addLine, lineQty, replaceLine, undoLine } from "../redesign/order/orderDraft";
+import { orderRequest, sendFailure, type SendFailure } from "../redesign/order/orderSend";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -1639,9 +1640,14 @@ export default function CollectionView({
     }, [customerSession?.session?.jwt]);
 
     const openOrdering = useCallback(() => {
+        // Redesign: «Il tuo ordine» è una pagina del foglio unico (spec §7).
+        if (mode === "public" && sheetsSlot) {
+            sheetsSlot.open("order");
+            return;
+        }
         setActiveOrderingTab(selectionCount > 0 ? "cart" : "orders");
         setIsOrderingOpen(true);
-    }, [selectionCount]);
+    }, [selectionCount, mode, sheetsSlot]);
 
     // ── Bottom bar: nascondi/mostra tutto o niente (regole in bottomBarVisibility.ts) ──
     // Barra del redesign (solo pubblico): senza Storia e senza ordini non c'è nessuna barra.
@@ -1802,6 +1808,33 @@ export default function CollectionView({
             setIsSubmittingOrder(false);
         }
     }, [customerSession, selection, orderNote, clearSelection]);
+
+    // Invio dal foglio del redesign: stesse righe e stessi casi di `handleSubmitOrder`,
+    // ma l'esito resta nel foglio (niente conferma a parte né avviso in pagina).
+    const sendFromRedesign = useCallback(async (): Promise<SendFailure | null> => {
+        const jwt = customerSession?.session?.jwt;
+        if (!jwt) return { kind: "session" };
+        const { items, notes } = orderRequest(selection, orderNote);
+        if (items.length === 0) return { kind: "empty" };
+        try {
+            await submitOrder(jwt, items, notes);
+            clearSelection();
+            setOrdersRefreshKey(k => k + 1);
+            return null;
+        } catch (err) {
+            const failure = sendFailure(err);
+            if (failure.kind === "maintenance") {
+                setDiscoveredMaintenance({ reason: failure.reason, message: failure.message });
+            } else if (failure.kind === "session") {
+                customerSession?.clear();
+            }
+            return failure;
+        }
+    }, [customerSession, selection, orderNote, clearSelection]);
+
+    const replaceSelectionLine = useCallback((index: number, line: SelectionItem) => {
+        setSelection(prev => replaceLine(prev, index, line));
+    }, []);
 
     const findProductById = useCallback((productId: string): CollectionViewSectionItem | null => {
         for (const group of sectionGroups) {
@@ -3635,7 +3668,25 @@ export default function CollectionView({
                     onOpenStory: openStoryFromProduct,
                     onTrackOpen: trackProductOpen,
                     order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined
-                }
+                },
+                ordering: orderingActive && !shouldHideOrderingEntry
+                    ? {
+                        selection,
+                        tableLabel: customerSession?.session?.tableLabel ?? null,
+                        jwt: customerSession?.session?.jwt ?? null,
+                        blockedMessage: effectiveMaintenance?.message ?? null,
+                        setQty: updateSelectionQty,
+                        remove: removeFromSelection,
+                        replaceLine: replaceSelectionLine,
+                        send: sendFromRedesign,
+                        onSessionExpired: () => customerSession?.clear(),
+                        refreshKey: ordersRefreshKey,
+                        billRequestedAt,
+                        onBillRequestedAtChange: setBillRequestedAt,
+                        waiterCalledAt,
+                        onWaiterCalledAtChange: setWaiterCalledAt
+                    }
+                    : undefined
             })}
 
             {isOrderingOpen && (

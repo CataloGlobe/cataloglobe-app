@@ -15,7 +15,10 @@ type OrderItem = Pick<CollectionViewSectionItem, "id" | "name" | "price" | "effe
 /** Stesso tetto di `ItemNoteEditor` e del server. */
 export const ITEM_NOTE_MAX = 140;
 export const QTY_MIN = 1;
+/** Il «+» della scheda si ferma qui. */
 export const QTY_MAX = 20;
+/** Il tetto del server per riga: una riga sommata o portata più in alto da «Il tuo ordine» non lo passa. */
+export const LINE_QTY_MAX = 99;
 
 export type OrderDraft = {
     formatId: string | null;
@@ -67,9 +70,10 @@ export function toggleAddon(
 /** Id del gruppo nella pagina, per il pulsante che porta a ciò che manca. */
 export const choiceGroupId = (itemId: string, groupId: string) => `oc-${itemId}-${groupId}`;
 
+/** Una riga già sopra il tetto della scheda (da «Modifica») scende di uno, non salta a 20. */
 export const setQty = (draft: OrderDraft, qty: number): OrderDraft => ({
     ...draft,
-    qty: Math.min(QTY_MAX, Math.max(QTY_MIN, Math.round(qty)))
+    qty: Math.min(Math.max(QTY_MAX, draft.qty), LINE_QTY_MAX, Math.max(QTY_MIN, Math.round(qty)))
 });
 
 export const setNote = (draft: OrderDraft, note: string): OrderDraft => ({ ...draft, note: note.slice(0, ITEM_NOTE_MAX) });
@@ -120,6 +124,40 @@ export function draftToLine(item: OrderItem, draft: OrderDraft): SelectionItem |
     };
 }
 
+/**
+ * «Modifica» da «Il tuo ordine»: la bozza che riparte dalla riga. Le scelte che
+ * il menu non ha più cadono; il formato che non c'è più torna da scegliere.
+ */
+export function draftFromLine(item: OrderItem, line: SelectionItem): OrderDraft {
+    const formats = formatGroupOf(item);
+    const formatId = line.selectedFormat?.id ?? null;
+    const addons: Record<string, string[]> = {};
+    for (const group of addonGroupsOf(item)) {
+        const ids = (line.selectedAddons ?? [])
+            .filter(addon => addon.groupId === group.id && group.values.some(v => v.id === addon.id))
+            .map(addon => addon.id);
+        if (ids.length > 0) addons[group.id] = ids;
+    }
+    return {
+        formatId: formats?.values.some(v => v.id === formatId) ? formatId : initialDraft(item).formatId,
+        addons,
+        qty: Math.min(LINE_QTY_MAX, Math.max(QTY_MIN, line.qty)),
+        note: (line.note ?? "").slice(0, ITEM_NOTE_MAX)
+    };
+}
+
+/**
+ * Riga modificata: prende il posto della vecchia; se ora è uguale a un'altra
+ * riga (stesse scelte e nota) le due si sommano, al posto della prima.
+ */
+export function replaceLine(selection: SelectionItem[], index: number, line: SelectionItem): SelectionItem[] {
+    if (index < 0 || index >= selection.length) return selection;
+    const rest = selection.filter((_, i) => i !== index);
+    const twin = rest.findIndex(existing => sameLine(existing, line));
+    if (twin < 0) return selection.map((existing, i) => (i === index ? line : existing));
+    return rest.map((existing, i) => (i === twin ? { ...existing, qty: Math.min(LINE_QTY_MAX, existing.qty + line.qty) } : existing));
+}
+
 /** Il prezzo che il pulsante mostra: formato (o prezzo) più sovrapprezzi, per la quantità. */
 export function draftTotal(item: OrderItem, draft: OrderDraft): number | null {
     const formats = formatGroupOf(item);
@@ -149,7 +187,7 @@ const sameLine = (a: SelectionItem, b: SelectionItem) => lineKey(a) === lineKey(
 export function addLine(selection: SelectionItem[], line: SelectionItem): SelectionItem[] {
     const index = selection.findIndex(existing => sameLine(existing, line));
     if (index < 0) return [...selection, line];
-    return selection.map((existing, i) => (i === index ? { ...existing, qty: existing.qty + line.qty } : existing));
+    return selection.map((existing, i) => (i === index ? { ...existing, qty: Math.min(LINE_QTY_MAX, existing.qty + line.qty) } : existing));
 }
 
 /** Quanti ne ha la riga dove `addLine` ha messo `line` (per le analitiche). */

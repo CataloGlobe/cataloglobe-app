@@ -57,6 +57,9 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
             return { key: "allergens", title: t("allergens.title"), size: "large" };
         case "characteristics":
             return { key: "characteristics", title: t("characteristics.title"), size: "large" };
+        case "order":
+            // Il titolo sta nel corpo, col tavolo: «Il tuo ordine · Tavolo 12».
+            return { key: "order", title: t("ordering.title"), size: "large", titleHidden: true };
     }
 }
 

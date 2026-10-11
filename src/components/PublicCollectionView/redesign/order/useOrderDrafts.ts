@@ -29,9 +29,10 @@ export function useOrderDrafts(order: SheetsSlotContext["product"]["order"]) {
     }
 
     /** La bozza della pagina; undefined se qui non si ordina (niente QR, piatto spento, prezzo che non c'è). */
-    return (pageKey: string, item: CollectionViewSectionItem): OrderBinding | undefined => {
+    /** `initial`: da dove riparte la bozza (la riga, da «Modifica»). */
+    return (pageKey: string, item: CollectionViewSectionItem, initial?: OrderDraft): OrderBinding | undefined => {
         if (!order || item.is_disabled === true || !hasOrderablePrice(item)) return undefined;
-        const entry = entries[pageKey] ?? { draft: initialDraft(item), hint: null };
+        const entry = entries[pageKey] ?? { draft: initial ?? initialDraft(item), hint: null };
         return {
             ...entry,
             setDraft: (draft, hint = null) => setEntries(prev => ({ ...prev, [pageKey]: { draft, hint } }))

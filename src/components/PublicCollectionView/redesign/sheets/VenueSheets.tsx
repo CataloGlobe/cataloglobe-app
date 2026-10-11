@@ -30,16 +30,19 @@ import type { SheetsSlotContext } from "../slots";
 import { useVenueStatus } from "../venue/useVenueStatus";
 import { venueStatusLabel } from "../venue/venueLabel";
 import SheetHost from "./SheetHost";
-import { closeSheet, getSheetState, useSheetState, type SheetPage } from "./sheetStack";
+import { closeSheet, getSheetState, popSheetPage, useSheetState, type SheetPage } from "./sheetStack";
 import { FEATURED_DETAIL_PREFIX, pushFeaturedDetail, pushVenueSheet } from "./venueSheetPages";
 import CategoryList from "../categories/CategoryList";
 import SearchHeader from "../search/SearchHeader";
 import ProductPage, { ProductUnavailable } from "../product/ProductPage";
 import { productIdOf } from "../product/productSheet";
 import { ProductOrderFooter, type OrderBinding } from "../order/OrderChoices";
-import { draftToLine } from "../order/orderDraft";
+import { draftFromLine, draftToLine, type OrderDraft } from "../order/orderDraft";
 import { showAdded } from "../order/addedNoticeStore";
 import { useOrderDrafts } from "../order/useOrderDrafts";
+import OrderPage, { OrderFooter } from "../order/OrderPage";
+import { editTargetKey } from "../order/orderSheet";
+import { useOrderSend, type OrderSendState } from "../order/useOrderSend";
 import SearchPage from "../search/SearchPage";
 import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
 import { AllergensFooter, AllergensPage, CharacteristicsPage } from "./MenuInfoPages";
@@ -59,6 +62,7 @@ export default function VenueSheets(props: SheetsSlotContext) {
     const searchInStack = useSheetState().pages.some(page => page.key === "search");
     const [searchWasInStack, setSearchWasInStack] = useState(searchInStack);
     const orderFor = useOrderDrafts(props.product.order);
+    const sendState = useOrderSend(props.ordering);
     if (searchInStack !== searchWasInStack) {
         setSearchWasInStack(searchInStack);
         if (searchInStack) setQuery("");
@@ -71,13 +75,37 @@ export default function VenueSheets(props: SheetsSlotContext) {
                 page.key === "search" ? (
                     <SearchPage query={query} onQueryChange={setQuery} search={props.search} categories={props.categories} />
                 ) : (
-                    <VenuePage page={page} {...props} orderFor={orderFor} />
+                    <VenuePage page={page} {...props} orderFor={orderFor} sendState={sendState} />
                 )
             }
             renderHeader={page => (page.key === "search" ? <SearchHeader query={query} onQueryChange={setQuery} /> : null)}
             renderFooter={page => {
                 if (page.key === "filters") return <FiltersFooter {...props.search} />;
                 if (page.key === "allergens") return <AllergensFooter hasAllergensInCatalog={props.hasAllergensInCatalog} />;
+                if (page.key === "order") {
+                    return <OrderFooter ordering={props.ordering} findProduct={props.product.findProduct} sendState={sendState} />;
+                }
+                const edit = editTargetOf(page, props);
+                const editOrder = edit
+                    ? orderFor(page.key, edit.item, edit.line ? draftFromLine(edit.item, edit.line) : undefined)
+                    : undefined;
+                if (edit && editOrder) {
+                    return (
+                        <ProductOrderFooter
+                            item={edit.item}
+                            order={editOrder}
+                            actionKey="order_sheet.update"
+                            onAdd={() => {
+                                // Durante il ritorno a «Il tuo ordine» un secondo tocco non sostituisce di nuovo.
+                                if (getSheetState().pages.at(-1)?.key !== page.key || !edit.line) return;
+                                const line = draftToLine(edit.item, editOrder.draft);
+                                if (!line || !props.ordering) return;
+                                props.ordering.replaceLine(edit.index, line);
+                                popSheetPage();
+                            }}
+                        />
+                    );
+                }
                 const productId = productIdOf(page);
                 const item = productId ? props.product.findProduct(productId) : null;
                 const order = item ? orderFor(page.key, item) : undefined;
@@ -105,6 +133,20 @@ export default function VenueSheets(props: SheetsSlotContext) {
     );
 }
 
+/**
+ * La riga di «Il tuo ordine» che una pagina `order-edit:` modifica, col suo piatto.
+ * `line` è null quando a quell'indice non c'è più quel piatto (la riga si è appena
+ * sommata a un'altra): la pagina che scende resta sulla sua bozza, «Aggiorna» non fa nulla.
+ */
+function editTargetOf(page: SheetPage, props: SheetsSlotContext) {
+    const key = editTargetKey(page);
+    if (!key) return null;
+    const item = props.product.findProduct(key.productId);
+    if (!item) return null;
+    const line = props.ordering?.selection[key.index];
+    return { index: key.index, item, line: line?.id === key.productId ? line : null };
+}
+
 /** Il contenuto in evidenza di una pagina di dettaglio (`featured:<id>`); null altrimenti. */
 function featuredOf(page: SheetPage, contents: V2FeaturedContent[]): V2FeaturedContent | null {
     if (!page.key.startsWith(FEATURED_DETAIL_PREFIX)) return null;
@@ -115,9 +157,23 @@ function featuredOf(page: SheetPage, contents: V2FeaturedContent[]): V2FeaturedC
 function VenuePage({
     page,
     orderFor,
+    sendState,
     ...props
-}: SheetsSlotContext & { page: SheetPage; orderFor: (pageKey: string, item: CollectionViewSectionItem) => OrderBinding | undefined }) {
+}: SheetsSlotContext & {
+    page: SheetPage;
+    orderFor: (pageKey: string, item: CollectionViewSectionItem, initial?: OrderDraft) => OrderBinding | undefined;
+    sendState: OrderSendState;
+}) {
     switch (page.key) {
+        case "order":
+            return (
+                <OrderPage
+                    ordering={props.ordering}
+                    findProduct={props.product.findProduct}
+                    canEdit={props.product.order != null}
+                    sendState={sendState}
+                />
+            );
         case "more":
             return <MorePage {...props} />;
         case "info":
@@ -154,6 +210,18 @@ function VenuePage({
                 />
             );
         default: {
+            if (editTargetKey(page)) {
+                const edit = editTargetOf(page, props);
+                return edit ? (
+                    <ProductPage
+                        item={edit.item}
+                        {...props.product}
+                        order={orderFor(page.key, edit.item, edit.line ? draftFromLine(edit.item, edit.line) : undefined)}
+                    />
+                ) : (
+                    <ProductUnavailable />
+                );
+            }
             const productId = productIdOf(page);
             if (productId) {
                 const item = props.product.findProduct(productId);

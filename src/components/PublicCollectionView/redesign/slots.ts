@@ -11,6 +11,7 @@ import type { Allergen } from "@/services/supabase/allergens";
 import type { ResolvedAllergen, ResolvedCharacteristic, V2FeaturedContent } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import type { SelectionItem } from "@components/PublicCollectionView/OrderingSheet/OrderingSheet";
+import type { SendFailure } from "./order/orderSend";
 
 /**
  * Agganci con cui il redesign sostituisce un pezzo di `CollectionView` senza
@@ -83,7 +84,8 @@ export type PublicSheetName =
     | "search"
     | "filters"
     | "allergens"
-    | "characteristics";
+    | "characteristics"
+    | "order";
 
 /** Aspetto delle card in evidenza, dallo stile del locale. */
 export type FeaturedLook = {
@@ -168,6 +170,32 @@ export type SheetsSlotContext = {
         /** Solo quando si può ordinare dalla scheda: aggiunge la riga e restituisce il suo «Annulla». */
         order?: { add: (line: SelectionItem) => () => void };
     };
+    /** Foglio «Il tuo ordine · Tavolo N» (spec §7): solo col QR del tavolo. */
+    ordering?: OrderingContext;
+};
+
+/** Il carrello e il tavolo, tenuti da `CollectionView` (stessa selezione e stessa sessione di oggi). */
+export type OrderingContext = {
+    selection: SelectionItem[];
+    /** Etichetta del tavolo dal QR; null se la sessione non la porta. */
+    tableLabel: string | null;
+    /** Token della sessione del tavolo, per leggere e annullare gli ordini; null = sessione finita. */
+    jwt: string | null;
+    /** Ordini sospesi o tavolo chiuso: il messaggio da mostrare al posto dell'invio. */
+    blockedMessage: string | null;
+    setQty: (index: number, qty: number) => void;
+    remove: (index: number) => void;
+    replaceLine: (index: number, line: SelectionItem) => void;
+    /** Manda la selezione alla cucina; null = inviato (selezione svuotata), altrimenti cosa è andato storto. */
+    send: () => Promise<SendFailure | null>;
+    /** Sessione scaduta mentre si leggevano o annullavano gli ordini. */
+    onSessionExpired: () => void;
+    /** Sale a ogni invio riuscito: gli ordini si rileggono. */
+    refreshKey: number;
+    billRequestedAt: string | null;
+    onBillRequestedAtChange: (next: string | null) => void;
+    waiterCalledAt: string | null;
+    onWaiterCalledAtChange: (next: string | null) => void;
 };
 
 /**
