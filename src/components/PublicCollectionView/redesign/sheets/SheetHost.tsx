@@ -251,7 +251,12 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
             const width = aligned
                 ? align.width
                 : Math.min(anchor.width ?? ANCHORED_WIDTH_PX, window.innerWidth - 2 * ANCHOR_MARGIN_PX);
-            const left = aligned ? align.left : Math.max(ANCHOR_MARGIN_PX, below.right - (anchor.inset ?? 0) - width);
+            const left = aligned
+                ? align.left
+                : Math.min(
+                      window.innerWidth - ANCHOR_MARGIN_PX - width,
+                      Math.max(ANCHOR_MARGIN_PX, below.right - (anchor.inset ?? 0) - width)
+                  );
             // «field»: a tendina sotto il campo; «end»: popover dal bordo destro del pulsante.
             root.dataset.anchored = aligned ? "field" : "end";
             panel.style.setProperty("--sheet-anchor-top", `${Math.round(below.bottom + ANCHOR_GAP_PX)}px`);
@@ -260,8 +265,13 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
         };
         place();
         window.addEventListener("resize", place);
+        // Anche se cambia solo l'isola (font del locale che arriva, isola che si compatta).
+        const target = document.getElementById(anchor.below);
+        const ro = target ? new ResizeObserver(place) : null;
+        if (target) ro?.observe(target);
         return () => {
             window.removeEventListener("resize", place);
+            ro?.disconnect();
             clear();
         };
     }, [present, isMobile, anchor]);

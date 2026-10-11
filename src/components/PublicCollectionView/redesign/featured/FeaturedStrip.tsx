@@ -10,8 +10,9 @@ import { FEATURED_TYPE_KEY, featuredStripItems } from "./stripItems";
 import styles from "./FeaturedStrip.module.scss";
 
 /**
- * Carosello «In evidenza» del redesign (spec §9, carosello C): card all'80% con
- * la successiva di lato, una linea di avanzamento al posto dei puntini, card
+ * Carosello «In evidenza» del redesign (spec §9, carosello C): al telefono card
+ * all'80% con la successiva di lato e una linea di avanzamento al posto dei
+ * puntini; su desktop tre card per vista e frecce ai lati (spec §13). Card
  * finale «Altri N · Vedi tutti (N)» solo oltre 5. Un contenuto: una card a tutta
  * larghezza, senza indicatori. La card apre il dettaglio nel foglio unico,
  * «Vedi tutti» l'elenco.
@@ -71,7 +72,9 @@ export default function FeaturedStrip({ blocks, slot, totalCount, activityId, la
 
     const page = (direction: 1 | -1) => {
         const track = trackRef.current;
-        if (track) track.scrollBy({ left: direction * track.clientWidth, behavior: "smooth" });
+        if (!track) return;
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        track.scrollBy({ left: direction * track.clientWidth, behavior: reduce ? "auto" : "smooth" });
     };
 
     const openDetail = (block: V2FeaturedContent) => {

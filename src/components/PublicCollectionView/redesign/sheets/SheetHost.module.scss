@@ -238,7 +238,7 @@
     }
   }
 
-  .root[data-anchored="end"] .panel {
+  .root[data-anchored="end"] .panel[data-size] {
     transform-origin: top right;
   }
 }
