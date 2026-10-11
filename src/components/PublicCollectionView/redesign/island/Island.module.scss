@@ -159,7 +159,6 @@ $scia: 54px; /* logo 44 + gap 10 */
   transition: opacity $passaggio ease, visibility 0s;
 }
 
-/* Riga dello stato del locale: si chiude con la compattazione, come la seconda riga. */
 /* Riga dello stato del locale: sfuma con la compattazione, senza cambiare altezza. */
 .stato {
   transition: opacity $passaggio ease, visibility 0s;

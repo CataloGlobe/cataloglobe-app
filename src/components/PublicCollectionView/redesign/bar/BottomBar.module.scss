@@ -1,8 +1,12 @@
 /* Barra in basso del redesign. Solo telefono. z-index 150: sopra contenuto e FAB,
    sotto toast, ricerca (200) e fogli (900). Ingombro in fondo: l'altezza la misura
    BottomBar.tsx in `--pub-bottombar-h`; distanza dal fondo e clearance stanno su `.page`
-   (CollectionView.module.scss). Mai backdrop-filter su un elemento che trasla:
-   il blur c'è solo a riposo, durante il passaggio il materiale è pieno (`data-moving`). */
+   (CollectionView.module.scss). Stessi principi dell'isola: si anima solo transform e
+   opacity, niente backdrop-filter (la barra trasla), materiale pieno semitrasparente
+   che non cambia mai, nemmeno ai capi del passaggio. `will-change: transform` sul
+   `.wrap`: la barra resta su uno strato suo, ombra compresa, e nascondi/mostra non
+   la ri-rasterizza (banco, Chromium CPU 4×, un giro: raster da 34 a 6 task, da ~13 a
+   ~2 ms; senza strato l'ombra è quasi tutto il costo). */
 
 $entrata: 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 $uscita: 220ms ease-in;
@@ -21,6 +25,7 @@ $uscita: 220ms ease-in;
   max-width: calc(100vw - 24px);
   margin: 0 auto;
   visibility: visible;
+  will-change: transform;
   transition: transform $entrata, opacity $entrata, visibility 0s linear 0s;
   animation: entra 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 
@@ -38,27 +43,14 @@ $uscita: 220ms ease-in;
   }
 }
 
-/* Un solo materiale per capsula e cerchio: ibrido. */
+/* Un solo materiale per capsula e cerchio: pieno al 92%, senza blur. */
 .capsula,
 .ordine {
-  --materiale: color-mix(in srgb, var(--pub-surface, #fff) 66%, transparent);
-  --materiale-pieno: color-mix(in srgb, var(--pub-surface, #fff) 94%, transparent);
   --testo: var(--pub-surface-text, #171717);
 
   border: 1px solid var(--pub-surface-border, rgb(0 0 0 / 7%));
-  background: var(--materiale);
+  background: color-mix(in srgb, var(--pub-surface, #fff) 92%, transparent);
   box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  backdrop-filter: blur(18px) saturate(1.4);
-}
-
-.wrap[data-moving] {
-  .capsula,
-  .ordine {
-    background: var(--materiale-pieno);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
 }
 
 .capsula {
@@ -82,9 +74,10 @@ $uscita: 220ms ease-in;
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 0;
   border-radius: 999px;
   background: color-mix(in srgb, var(--pub-surface-text, #171717) 10%, transparent);
-  transition: left 0.4s cubic-bezier(0.32, 0.72, 0, 1), width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
   pointer-events: none;
 }
 
