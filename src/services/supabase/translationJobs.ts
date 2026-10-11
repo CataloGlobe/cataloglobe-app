@@ -125,10 +125,12 @@ export async function translateNow(
  *
  * Flusso:
  *  1. Vertical-aware skip (Q-CN2).
- *  2. newSourceText null → DELETE translations + skip enqueue.
+ *  2. newSourceText null → DELETE translations e job pending + skip enqueue.
  *  3. Fetch lingue attive del tenant (escluse base).
  *  4. Per ogni lingua: SELECT translation esistente; se source_hash diverso
- *     o translation mancante → marca per enqueue.
+ *     o translation mancante → marca per enqueue. Le altre lingue non devono
+ *     tenere un job pending di un testo vecchio (es. A → B → A dentro i 10
+ *     minuti): quei job si cancellano.
  *  5. Dedup + INSERT/UPDATE i job pending. Il trigger
  *     trg_translation_jobs_debounce mette `run_after` a now() + 10 minuti
  *     (anche su UPDATE con hash nuovo): il job parte solo se il testo resta
@@ -158,6 +160,9 @@ export async function enqueueTranslationJobsIfChanged(input: {
             .eq("entity_id", input.entityId)
             .eq("field", input.field);
         if (error) throw error;
+        // Anche i job in attesa del testo appena svuotato: dopo 10 minuti
+        // riscriverebbero una traduzione di un testo che non c'è più.
+        await deleteStalePendingJobs(input, null, []);
         return 0;
     }
 
@@ -194,6 +199,12 @@ export async function enqueueTranslationJobsIfChanged(input: {
         const existingRow = existing.find(t => t.language_code === lang);
         return !existingRow || existingRow.source_hash !== input.newSourceHash;
     });
+
+    // Un job pending con un hash diverso, per una lingua che non serve più
+    // (traduzione già al testo attuale, o manuale), tradurrebbe un testo
+    // vecchio e sovrascriverebbe quella buona. Le lingue in langsNeedingJob
+    // vengono aggiornate dal dedup qui sotto.
+    await deleteStalePendingJobs(input, input.newSourceHash, langsNeedingJob);
 
     if (langsNeedingJob.length === 0) return 0;
 
@@ -342,6 +353,32 @@ export async function deleteTranslationJobsForEntity(
 }
 
 // Helpers ---------------------------------------------------------------
+
+/**
+ * Cancella i job `pending` di (entity, field) con un hash diverso da
+ * `keepHash` (tutti se null), salvo le lingue in `exceptLanguages`. I
+ * `processing` restano: sono già partiti.
+ */
+async function deleteStalePendingJobs(
+    input: { tenantId: string; entityType: TranslationEntityType; entityId: string; field: TranslationField },
+    keepHash: string | null,
+    exceptLanguages: string[]
+): Promise<void> {
+    let query = supabase
+        .from("translation_jobs")
+        .delete()
+        .eq("tenant_id", input.tenantId)
+        .eq("entity_type", input.entityType)
+        .eq("entity_id", input.entityId)
+        .eq("field", input.field)
+        .eq("status", "pending");
+    if (keepHash !== null) query = query.neq("source_hash", keepHash);
+    if (exceptLanguages.length > 0) {
+        query = query.not("target_language_code", "in", `(${exceptLanguages.join(",")})`);
+    }
+    const { error } = await query;
+    if (error) throw error;
+}
 
 async function getTenantVerticalType(tenantId: string): Promise<string> {
     const { data, error } = await supabase
