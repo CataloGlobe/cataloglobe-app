@@ -1,5 +1,7 @@
 import { lazy, Suspense, type ComponentProps } from "react";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import Island from "./island/Island";
+import type { HeaderSlot } from "./slots";
 
 /**
  * Radice del redesign della pagina pubblica, scelta da `PublicCatalogReady`
@@ -13,6 +15,8 @@ import CollectionView from "@/components/PublicCollectionView/CollectionView/Col
 // /*#__PURE__*/: senza, `lazy()` è un effetto di bordo e il chunk entra nel bundle anche col flag spento.
 const ProvaTecnica = /*#__PURE__*/ lazy(() => import("./prova/ProvaTecnica"));
 
+const renderIsland: HeaderSlot = context => <Island {...context} />;
+
 export default function RedesignCollectionView(props: ComponentProps<typeof CollectionView>) {
     // Pagina di prova della PR 1: `?prova-tecnica=1` su una sede, solo con il flag.
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("prova-tecnica")) {
@@ -22,5 +26,5 @@ export default function RedesignCollectionView(props: ComponentProps<typeof Coll
             </Suspense>
         );
     }
-    return <CollectionView {...props} />;
+    return <CollectionView {...props} headerSlot={renderIsland} />;
 }

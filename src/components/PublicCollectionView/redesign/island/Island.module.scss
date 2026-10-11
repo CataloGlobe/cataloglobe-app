@@ -1,0 +1,247 @@
+/* Isola della pagina pubblica (redesign). Si anima solo transform/opacity; la
+   seconda riga si chiude con una transizione di righe di griglia, dentro un
+   elemento fuori flusso (nessun reflow sulla pagina). */
+
+$passaggio: 220ms;
+
+.primer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 16px;
+}
+
+.sentinelle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 0;
+  pointer-events: none;
+}
+
+.sentinella {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.cover {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  overflow: hidden;
+  background: var(--pub-header-bg, #1a1a1a);
+}
+
+.coverImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Contenitore sticky: altezza dell'isola estesa (messa da JS), trasparente ai tocchi. */
+.slot {
+  position: sticky;
+  top: 10px;
+  z-index: 30;
+  height: 108px;
+  margin-inline: 10px;
+  pointer-events: none;
+
+  &[data-cover] {
+    /* L'isola sta a cavallo del bordo inferiore della foto. */
+    margin-top: -56px;
+  }
+
+  &:not([data-cover]) {
+    top: 0;
+    margin-inline: 0;
+  }
+}
+
+.isola {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 820px;
+  margin-inline: auto;
+  padding: 14px;
+  border-radius: 22px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(20 20 20 / 62%);
+  color: #fff;
+  font-family: var(--pub-font-family, inherit);
+  pointer-events: auto;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+
+  /* Senza foto: vetro scuro a tutta larghezza, senza raggio. */
+  &:not([data-cover]) {
+    max-width: none;
+    border-radius: 0;
+    border-width: 0 0 1px;
+  }
+
+  /* Durante il passaggio il vetro è pieno: su WebKit un blur che cambia sfarfalla. */
+  &[data-moving] {
+    background: rgb(20 20 20 / 94%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.riga {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.logo {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  transition: opacity $passaggio ease, width $passaggio ease, margin $passaggio ease;
+}
+
+.testi {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nome {
+  display: block;
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.72;
+  transition: opacity $passaggio ease;
+}
+
+.icona {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 12%);
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.96));
+  }
+}
+
+.conto {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--pub-accent, #fff);
+  color: var(--pub-cta-text, #111);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.secondaRiga {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows $passaggio ease, opacity $passaggio ease;
+
+  > * {
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+.capsula {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 10%);
+}
+
+.voce {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &[data-active] {
+    background: #fff;
+    color: #111;
+    font-weight: 600;
+  }
+}
+
+/* Compatta: sparisce il nome del menu, il logo e la capsula; restano nome, lingua, lente e ⋯. */
+.isola[data-compact="true"] {
+  gap: 0;
+
+  .menu,
+  .logo {
+    opacity: 0;
+  }
+
+  .logo {
+    width: 0;
+    margin-right: -10px;
+  }
+
+  .secondaRiga {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo,
+  .menu,
+  .secondaRiga {
+    transition-duration: 1ms;
+  }
+}
