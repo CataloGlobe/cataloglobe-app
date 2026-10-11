@@ -13,6 +13,7 @@ import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/compone
 import styles from "./ItemDetail.module.scss";
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
 import type { SelectedAddon, SelectedFormat } from "../OrderingSheet/OrderingSheet";
+import { formatDecimal } from "@/utils/formatCurrency";
 
 type Props = {
     item: CollectionViewSectionItem | null;
@@ -314,22 +315,22 @@ export default function ItemDetail({
                                 <Text variant="body" weight={600} className={styles.price} color="var(--pub-surface-text)">
                                     {displayItem.original_price != null && (
                                         <span className={styles.priceOriginal}>
-                                            {t("product.price_from", { price: `€ ${displayItem.original_price.toFixed(2)}` })}
+                                            {t("product.price_from", { price: `€ ${formatDecimal(displayItem.original_price)}` })}
                                         </span>
                                     )}
                                     <span className={styles.priceCurrent}>
-                                        {t("product.price_from", { price: `€ ${displayItem.from_price.toFixed(2)}` })}
+                                        {t("product.price_from", { price: `€ ${formatDecimal(displayItem.from_price)}` })}
                                     </span>
                                 </Text>
                             ) : displayPrice != null ? (
                                 <Text variant="body" weight={600} className={styles.price} color="var(--pub-surface-text)">
                                     {displayItem.original_price != null && (
                                         <span className={styles.priceOriginal}>
-                                            € {displayItem.original_price.toFixed(2)}
+                                            € {formatDecimal(displayItem.original_price)}
                                         </span>
                                     )}
                                     <span className={styles.priceCurrent}>
-                                        € {displayPrice.toFixed(2)}
+                                        € {formatDecimal(displayPrice)}
                                     </span>
                                 </Text>
                             ) : null
@@ -364,10 +365,10 @@ export default function ItemDetail({
                                                     <span className={styles.formatPillPrice}>
                                                         {v.originalPrice != null && (
                                                             <span className={styles.formatPillPriceOriginal}>
-                                                                € {v.originalPrice.toFixed(2)}
+                                                                € {formatDecimal(v.originalPrice)}
                                                             </span>
                                                         )}
-                                                        € {v.absolutePrice.toFixed(2)}
+                                                        € {formatDecimal(v.absolutePrice)}
                                                     </span>
                                                 )}
                                             </button>
@@ -388,11 +389,11 @@ export default function ItemDetail({
                                                     <div className={styles.formatPriceValue}>
                                                         {v.originalPrice != null && (
                                                             <span className={styles.priceOriginal}>
-                                                                € {v.originalPrice.toFixed(2)}
+                                                                € {formatDecimal(v.originalPrice)}
                                                             </span>
                                                         )}
                                                         <Text variant="body-sm" weight={600} color="var(--pub-surface-text)">
-                                                            € {v.absolutePrice.toFixed(2)}
+                                                            € {formatDecimal(v.absolutePrice)}
                                                         </Text>
                                                     </div>
                                                 )}
@@ -519,8 +520,8 @@ export default function ItemDetail({
                                                                         {v.priceModifier === 0
                                                                             ? t("product.included")
                                                                             : v.priceModifier > 0
-                                                                                ? `+ € ${v.priceModifier.toFixed(2)}`
-                                                                                : `- € ${Math.abs(v.priceModifier).toFixed(2)}`}
+                                                                                ? `+ € ${formatDecimal(v.priceModifier)}`
+                                                                                : `- € ${formatDecimal(Math.abs(v.priceModifier))}`}
                                                                     </span>
                                                                 )}
                                                             </label>
@@ -555,8 +556,8 @@ export default function ItemDetail({
                                                                 {v.priceModifier === 0
                                                                     ? t("product.included")
                                                                     : v.priceModifier > 0
-                                                                        ? `+${v.priceModifier.toFixed(2)} €`
-                                                                        : `${v.priceModifier.toFixed(2)} €`}
+                                                                        ? `+${formatDecimal(v.priceModifier)} €`
+                                                                        : `${formatDecimal(v.priceModifier)} €`}
                                                             </Text>
                                                         )}
                                                     </div>
@@ -706,7 +707,7 @@ export default function ItemDetail({
                         ) : (
                             <>
                                 <span>{submitLabelResolved}</span>
-                                <span>€ {computedPrice.toFixed(2)}</span>
+                                <span>€ {formatDecimal(computedPrice)}</span>
                             </>
                         )}
                     </button>

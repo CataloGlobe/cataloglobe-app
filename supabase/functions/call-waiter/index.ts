@@ -15,7 +15,6 @@
 //
 // Risposta 200: { waiter_called_at: string; rate_limited: boolean }
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyCustomerJwt } from "../_shared/customerJwt.ts";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
@@ -47,7 +46,7 @@ function jsonResponse(status: number, body: unknown, extraHeaders: Record<string
     });
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

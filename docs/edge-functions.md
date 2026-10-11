@@ -2,6 +2,8 @@
 
 Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verify_jwt: false` su tutte.
 
+CORS delle edge chiamate dall'app (checkout, portale, abbonamento, fatturazione, eliminazione account, prenotazioni, assistenza, lead): una sola lista di origin in `_shared/cors.ts` (`APP_ORIGINS`, `appCorsHeaders`). Un origin nuovo si aggiunge lì, non nelle singole funzioni.
+
 ## Catalogo funzioni
 
 | Funzione | Abilitata | Scopo |

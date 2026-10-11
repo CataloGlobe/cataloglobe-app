@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { deleteStripeCustomer, stripeClientOptions } from "../_shared/stripe-helpers.ts";
@@ -20,24 +19,10 @@ import {
     resolveReturnUrl,
     TRIAL_DAYS_METADATA_KEY
 } from "../_shared/checkoutPolicy.ts";
-
-const ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://staging.cataloglobe.com",
-    "https://cataloglobe.com",
-    "https://www.cataloglobe.com",
-];
+import { APP_ORIGINS, appCorsHeaders } from "../_shared/cors.ts";
 
 function corsHeaders(req: Request): Record<string, string> {
-    const origin = req.headers.get("origin") ?? "";
-    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
-    return {
-        "Access-Control-Allow-Origin": allowed,
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Vary": "Origin",
-        "Content-Type": "application/json"
-    };
+    return appCorsHeaders(req.headers.get("origin"), { json: true });
 }
 
 const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
@@ -121,7 +106,7 @@ type CheckoutBody = {
     promotionCode?: string;
 };
 
-serve(async req => {
+Deno.serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
     if (req.method !== "POST") return json(req, 405, { error: "method_not_allowed" });
 
@@ -197,8 +182,8 @@ serve(async req => {
         // Both URLs must sit on one of our app origins: Stripe redirects there
         // after payment, so a URL from the body would otherwise be an open
         // redirect behind a trusted checkout page. Missing or foreign → 400.
-        const allowedSuccessUrl = resolveReturnUrl(payload?.successUrl, ALLOWED_ORIGINS);
-        const cancelUrl = resolveReturnUrl(payload?.cancelUrl, ALLOWED_ORIGINS);
+        const allowedSuccessUrl = resolveReturnUrl(payload?.successUrl, APP_ORIGINS);
+        const cancelUrl = resolveReturnUrl(payload?.cancelUrl, APP_ORIGINS);
         if (!allowedSuccessUrl || !cancelUrl) {
             console.warn("stripe-checkout: refused, successUrl/cancelUrl missing or not on an app origin");
             return json(req, 400, { error: "invalid_return_url" });
