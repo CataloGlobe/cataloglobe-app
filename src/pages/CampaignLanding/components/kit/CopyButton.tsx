@@ -21,11 +21,16 @@ export default function CopyButton({ text, label, copiedLabel }: CopyButtonProps
 
     useEffect(() => () => window.clearTimeout(timer.current), []);
 
+    // «Copiato» solo se la copia è riuscita (su http o senza permesso fallisce).
     const copy = () => {
-        navigator.clipboard?.writeText(text).catch(() => undefined);
-        setCopied(true);
-        window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setCopied(false), COPIED_MS);
+        navigator.clipboard
+            ?.writeText(text)
+            .then(() => {
+                setCopied(true);
+                window.clearTimeout(timer.current);
+                timer.current = window.setTimeout(() => setCopied(false), COPIED_MS);
+            })
+            .catch(() => undefined);
     };
 
     return (

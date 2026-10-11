@@ -661,5 +661,7 @@ export const FOOTER = {
         contacts: { title: "Contatti", phone: "Telefono", copy: "Copia l’indirizzo email", copied: "Copiato" }
     },
     vatLabel: "P.IVA",
+    /** Anno del © nell'HTML prerenderizzato; il footer lo aggiorna dopo l'idratazione. */
+    year: 2026,
     cookiePreferences: "Preferenze cookie"
 };

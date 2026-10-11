@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Logo } from "@components/ui/Logo/Logo";
 import { WORDMARK_INTRINSIC } from "@components/ui/Logo/logoDimensions";
 import { COMPANY } from "@/config/company";
@@ -15,6 +16,9 @@ export default function Footer() {
     const { product, legal, contacts } = FOOTER.columns;
     // company.ts è `as const`: oggi il telefono è la stringa vuota letterale.
     const phone: string = contact.phone;
+    // Il prerender congela l'anno del build: quello vero arriva dopo l'idratazione.
+    const [year, setYear] = useState(FOOTER.year);
+    useEffect(() => setYear(new Date().getFullYear()), []);
 
     return (
         <footer className={styles.footer} data-tone="dark">
@@ -61,8 +65,7 @@ export default function Footer() {
                 </div>
 
                 <p className={styles.legal}>
-                    {/* L'anno del prerender può non essere quello di chi legge. */}
-                    <span suppressHydrationWarning>© {new Date().getFullYear()}</span> {legalName} · {legalAddress.city} ({legalAddress.province}) · {FOOTER.vatLabel} {vatNumber}
+                    <span>© {year}</span> {legalName} · {legalAddress.city} ({legalAddress.province}) · {FOOTER.vatLabel} {vatNumber}
                 </p>
             </div>
         </footer>
