@@ -286,7 +286,8 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     };
     const back = () => u(x => void (x.i = stepFrom(x, c, i, -1)));
 
-    const landing = (k: CreaKind, id: string) => `${b}/${PAGE_OF[k]}/${id}`;
+    // lo stile non ha una pagina sua: il suo editor è questo tunnel, e si torna all'elenco
+    const landing = (k: CreaKind, id: string) => (k === "stile" ? `${b}/${PAGE_OF[k]}` : `${b}/${PAGE_OF[k]}/${id}`);
 
     // i passi già riusciti di un salvataggio fallito a metà: «Riprova» riparte da lì
     const progress = useRef(new Map<string, unknown>());

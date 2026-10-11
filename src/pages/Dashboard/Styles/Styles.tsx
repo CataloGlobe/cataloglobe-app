@@ -173,8 +173,9 @@ export default function Styles() {
         compact: headerCompact
     });
 
+    // L'editor è il tunnel, per creare e per modificare (D186).
     const styleUrl = useCallback(
-        (style: V2Style) => `/business/${currentTenantId}/styles/${style.id}`,
+        (style: V2Style) => `/business/${currentTenantId}/crea/stile/${style.id}?da=stili`,
         [currentTenantId]
     );
 

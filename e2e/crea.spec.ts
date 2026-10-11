@@ -538,7 +538,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         stub = await stubProgrammazione(page);
     });
 
-    test("stile: le sei parti dell'aspetto, la bozza ha i token giusti e si atterra sull'editor", async ({ page }) => {
+    test("stile: le sei parti dell'aspetto, la bozza ha i token giusti e si torna all'elenco degli stili", async ({ page }) => {
         stub.onWrite("styles.POST", ({ body }) => ({ id: ID.style, ...first(body) }));
         stub.onWrite("style_versions.POST", ({ body }) => ({ id: ID.version, ...first(body) }));
         stub.onWrite("styles.PATCH", ({ body }) => ({ id: ID.style, name: "Natale", ...first(body) }));
@@ -566,7 +566,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await expect(pal).toHaveCount(0);
         await expect(second.getByRole("button", { name: "Un tuo colore" })).toBeVisible();
         await button(page, "Tieni come bozza").click();
-        await expect(page).toHaveURL(new RegExp(`/styles/${ID.style}$`), { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
         expect(bodyOf(stub, "styles.POST")).toMatchObject({ name: "Natale", is_system: false });
         const config = JSON.stringify(bodyOf(stub, "style_versions.POST").config);
         expect(config).toContain("#be123c");
