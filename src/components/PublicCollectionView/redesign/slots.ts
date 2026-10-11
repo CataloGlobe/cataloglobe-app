@@ -57,7 +57,7 @@ export type BottomBarSlotContext = {
 export type BottomBarSlot = (context: BottomBarSlotContext) => ReactNode;
 
 /** Fogli del redesign che `CollectionView` apre per nome (⋯, nome, stato del locale). */
-export type PublicSheetName = "more" | "info" | "hours";
+export type PublicSheetName = "more" | "info" | "hours" | "language";
 
 /** Dati e gesti dei fogli del locale: Altre opzioni, Informazioni, Orari. */
 export type SheetsSlotContext = {

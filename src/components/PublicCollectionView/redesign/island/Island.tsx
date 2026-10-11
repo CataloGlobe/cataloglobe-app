@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MoreHorizontal, Search } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
-import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import { SEARCH_TRIGGER_ID } from "@components/PublicCollectionView/PublicCollectionHeader/PublicCollectionHeader";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import type { HeaderSlotContext } from "../slots";
 import VenuePill from "../venue/VenuePill";
+import LanguageButton from "./LanguageButton";
 import styles from "./Island.module.scss";
 
 // Isteresi: compatta oltre 40 px, torna estesa sotto 8 px. Validata su iPhone e Android (PR 1).
@@ -177,7 +177,7 @@ export default function Island({
                             </div>
                         </div>
                     </div>
-                    <LanguageSelector />
+                    <LanguageButton className={styles.icona} />
                     <button
                         type="button"
                         id={SEARCH_TRIGGER_ID}

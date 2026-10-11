@@ -67,6 +67,11 @@
   color: color-mix(in srgb, var(--pub-text) 45%, transparent);
 }
 
+.check {
+  flex-shrink: 0;
+  color: var(--pub-primary, currentColor);
+}
+
 .section {
   padding-top: 16px;
 }

@@ -132,7 +132,16 @@ export type StyleConfig = Record<string, unknown>;
 function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig, venueInfo = false): ResolvedPayloadShape {
     return {
         business: business(venueInfo),
-        ...(venueInfo ? { opening_hours: OPENING_HOURS, upcoming_closures: [] } : {}),
+        ...(venueInfo
+            ? {
+                  opening_hours: OPENING_HOURS,
+                  upcoming_closures: [],
+                  available_languages: [
+                      { code: "it", name_native: "Italiano", flag_emoji: "🇮🇹" },
+                      { code: "en", name_native: "English", flag_emoji: "🇬🇧" },
+                  ],
+              }
+            : {}),
         tenantLogoUrl: null,
         base_language_code: "it",
         effective_language: "it",

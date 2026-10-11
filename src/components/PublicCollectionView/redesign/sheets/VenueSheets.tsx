@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
     CalendarCheck,
+    Check,
     ChevronRight,
     Clock,
     Facebook,
@@ -9,12 +10,14 @@ import {
     Globe,
     Info,
     Instagram,
+    Languages,
     Mail,
     MapPin,
     MessageCircle,
     Phone,
     Share2
 } from "lucide-react";
+import { useLanguage } from "@context/Language/useLanguage";
 import PublicOpeningHours from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import { PublicFeeRows } from "@components/PublicCollectionView/PublicFooter/PublicFees";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
@@ -27,8 +30,8 @@ import { pushVenueSheet } from "./venueSheetPages";
 import styles from "./VenueSheets.module.scss";
 
 /**
- * Il foglio unico del locale nel redesign: ⋯ (Altre opzioni), Informazioni e
- * Orari sono pagine della stessa pila, a spinta, al posto dei due `PublicSheet`
+ * Il foglio unico del locale nel redesign: ⋯ (Altre opzioni), Informazioni,
+ * Orari e Lingua sono pagine della stessa pila, a spinta, al posto dei due `PublicSheet`
  * di oggi (niente più chiudi-e-riapri dopo 300 ms). Montato una volta da
  * `CollectionView` tramite `sheetsSlot`.
  */
@@ -51,6 +54,8 @@ function VenuePage({ page, ...props }: SheetsSlotContext & { page: SheetPage }) 
                     surface="surface"
                 />
             );
+        case "language":
+            return <LanguagePage />;
         default:
             return null;
     }
@@ -116,6 +121,9 @@ function MorePage({
         window.setTimeout(() => setShareFeedback(null), 2000);
     };
 
+    const { currentLang, availableLanguages } = useLanguage();
+    const activeLanguage = availableLanguages.find(lang => lang.code === currentLang);
+
     const filtersDisabled = !hasAllergensInCatalog;
     const filtersSubtitle = filtersDisabled
         ? t("allergens.filter_empty")
@@ -135,6 +143,14 @@ function MorePage({
             ) : null}
             {openingHours.length > 0 ? (
                 <HoursRow openingHours={openingHours} upcomingClosures={upcomingClosures} onClick={() => pushVenueSheet("hours")} />
+            ) : null}
+            {availableLanguages.length > 1 ? (
+                <Row
+                    icon={<Languages size={18} strokeWidth={2} />}
+                    label={t("language_selector.sheet_title")}
+                    subtitle={activeLanguage?.name_native ?? currentLang.toUpperCase()}
+                    onClick={() => pushVenueSheet("language")}
+                />
             ) : null}
             {onOpenReservation ? (
                 <Row
@@ -178,6 +194,40 @@ function MorePage({
             <span className={styles.liveRegion} role="status" aria-live="polite">
                 {shareFeedback === "copied" ? t("more.share_copied") : shareFeedback === "error" ? t("more.share_error") : ""}
             </span>
+        </div>
+    );
+}
+
+/** Elenco delle lingue: la scelta chiude il foglio e cambia la lingua della pagina. */
+function LanguagePage() {
+    const { t } = useTranslation("public");
+    const { currentLang, availableLanguages, setLang } = useLanguage();
+    return (
+        <div className={styles.list} role="listbox" aria-label={t("language_selector.list_aria")}>
+            {availableLanguages.map(lang => {
+                const active = lang.code === currentLang;
+                return (
+                    <button
+                        key={lang.code}
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        className={styles.row}
+                        onClick={() => {
+                            closeSheet();
+                            if (!active) setLang(lang.code);
+                        }}
+                    >
+                        <span className={styles.rowIcon} aria-hidden>
+                            {lang.flag_emoji ?? lang.code.toUpperCase()}
+                        </span>
+                        <span className={styles.rowText}>
+                            <span className={styles.rowLabel}>{lang.name_native}</span>
+                        </span>
+                        {active ? <Check size={18} strokeWidth={2.5} className={styles.check} aria-hidden /> : null}
+                    </button>
+                );
+            })}
         </div>
     );
 }

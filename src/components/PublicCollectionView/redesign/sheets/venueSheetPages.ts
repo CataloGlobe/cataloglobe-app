@@ -3,7 +3,7 @@ import type { PublicSheetName } from "../slots";
 import { openSheet, openSheetAt, pushSheetPage, type SheetPage } from "./sheetStack";
 
 /**
- * Pagine del foglio del locale: Altre opzioni (⋯), Informazioni, Orari. Il
+ * Pagine del foglio del locale: Altre opzioni (⋯), Informazioni, Orari, Lingua. Il
  * titolo si legge nella lingua della pagina al momento dell'apertura.
  */
 export function venueSheetPage(name: PublicSheetName): SheetPage {
@@ -15,6 +15,8 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
             return { key: "info", title: t("info.title"), size: "large" };
         case "hours":
             return { key: "hours", title: t("opening_hours.title"), size: "large" };
+        case "language":
+            return { key: "language", title: t("language_selector.sheet_title"), size: "medium" };
     }
 }
 
