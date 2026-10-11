@@ -5101,6 +5101,7 @@ export type Database = {
           id: string
           last_error: string | null
           processed_at: string | null
+          run_after: string
           source_hash: string
           source_text: string
           status: string
@@ -5117,6 +5118,7 @@ export type Database = {
           id?: string
           last_error?: string | null
           processed_at?: string | null
+          run_after?: string
           source_hash: string
           source_text: string
           status?: string
@@ -5133,6 +5135,7 @@ export type Database = {
           id?: string
           last_error?: string | null
           processed_at?: string | null
+          run_after?: string
           source_hash?: string
           source_text?: string
           status?: string
@@ -6500,6 +6503,15 @@ export type Database = {
         Args: { p_new_owner_user_id: string; p_tenant_id: string }
         Returns: undefined
       }
+      translate_now: {
+        Args: {
+          p_entity_id?: string
+          p_entity_type?: string
+          p_tenant_id: string
+        }
+        Returns: number
+      }
+      translation_debounce_interval: { Args: never; Returns: unknown }
       undo_seating: { Args: { p_seating_id: string }; Returns: undefined }
       unlock_owned_tenants: { Args: { p_user_id: string }; Returns: number }
       update_schedule_targets: {
