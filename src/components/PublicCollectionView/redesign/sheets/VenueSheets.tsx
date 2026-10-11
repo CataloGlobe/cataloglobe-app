@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
     CalendarCheck,
@@ -29,9 +29,12 @@ import type { SheetsSlotContext } from "../slots";
 import { useVenueStatus } from "../venue/useVenueStatus";
 import { venueStatusLabel } from "../venue/venueLabel";
 import SheetHost from "./SheetHost";
-import { closeSheet, type SheetPage } from "./sheetStack";
+import { closeSheet, useSheetState, type SheetPage } from "./sheetStack";
 import { FEATURED_DETAIL_PREFIX, pushFeaturedDetail, pushVenueSheet } from "./venueSheetPages";
-import { categoryBoxes } from "../categories/categoryBoxes";
+import CategoryList from "../categories/CategoryList";
+import SearchHeader from "../search/SearchHeader";
+import SearchPage from "../search/SearchPage";
+import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
 import styles from "./VenueSheets.module.scss";
 
 /**
@@ -41,11 +44,27 @@ import styles from "./VenueSheets.module.scss";
  * `CollectionView` tramite `sheetsSlot`.
  */
 export default function VenueSheets(props: SheetsSlotContext) {
+    // Il testo della ricerca vive qui: testata (campo) e pagina (risultati) lo
+    // condividono, e sopravvive al giro nei Filtri. Si svuota quando «Cerca» esce dalla pila.
+    const [query, setQuery] = useState("");
+    const searchInStack = useSheetState().pages.some(page => page.key === "search");
+    useEffect(() => {
+        if (!searchInStack) setQuery("");
+    }, [searchInStack]);
+
     return (
         <SheetHost
             backgroundRef={props.pageRef}
-            renderPage={page => <VenuePage page={page} {...props} />}
+            renderPage={page =>
+                page.key === "search" ? (
+                    <SearchPage query={query} onQueryChange={setQuery} search={props.search} categories={props.categories} />
+                ) : (
+                    <VenuePage page={page} {...props} />
+                )
+            }
+            renderHeader={page => (page.key === "search" ? <SearchHeader query={query} onQueryChange={setQuery} /> : null)}
             renderFooter={page => {
+                if (page.key === "filters") return <FiltersFooter {...props.search} />;
                 const block = featuredOf(page, props.featured.contents);
                 return block && hasFeaturedCta(block) ? <FeaturedCtaFooter block={block} /> : null;
             }}
@@ -79,6 +98,8 @@ function VenuePage({ page, ...props }: SheetsSlotContext & { page: SheetPage }) 
             return <LanguagePage />;
         case "categories":
             return <CategoriesPage {...props.categories} />;
+        case "filters":
+            return <FiltersPage {...props.search} />;
         case "featured":
             return (
                 <EventsView
@@ -129,7 +150,6 @@ function MorePage({
     upcomingClosures,
     activeFilterCount,
     hasAllergensInCatalog,
-    onOpenFilters,
     onOpenReservation,
     shareUrl,
     shareTitle
@@ -205,13 +225,7 @@ function MorePage({
                 label={t("more.filters_label")}
                 subtitle={filtersSubtitle}
                 disabled={filtersDisabled}
-                onClick={() => {
-                    // I filtri stanno nella ricerca: il foglio si chiude nello stesso
-                    // commit in cui la ricerca si apre, il blocco della pagina passa
-                    // dall'uno all'altra prima del paint.
-                    closeSheet();
-                    onOpenFilters();
-                }}
+                onClick={() => pushVenueSheet("filters")}
             />
             {shareUrl ? (
                 <Row
@@ -395,42 +409,22 @@ function InfoPage({
 }
 
 /**
- * Foglio «Categorie» (spec §4, D36): un riquadro per categoria principale,
- * sottocategorie dentro, la corrente col fondo acceso. Il tocco chiude il
- * foglio e scorre alla sezione come le pill, a pagina già sbloccata.
+ * Foglio «Categorie» (spec §4, D36). Il tocco chiude il foglio e scorre alla
+ * sezione come le pill, al frame dopo: il blocco della pagina si toglie nel
+ * commit della chiusura.
  */
 function CategoriesPage({ groups, activeSectionId, onSelectSection, onSelectSubSection }: SheetsSlotContext["categories"]) {
     const { t } = useTranslation("public");
-    const boxes = categoryBoxes(groups);
-    const go = (id: string, depth: number) => {
-        closeSheet();
-        // Il blocco della pagina si toglie nel commit della chiusura: lo scroll al frame dopo.
-        requestAnimationFrame(() => (depth === 0 ? onSelectSection(id) : onSelectSubSection(id)));
-    };
     return (
         <nav aria-label={t("categories.sheet_title")}>
-            <ul className={styles.boxes}>
-                {boxes.map(box => (
-                    <li key={box.id} className={styles.box}>
-                        <ul className={styles.boxRows}>
-                            {box.rows.map(row => (
-                                <li key={row.id}>
-                                    <button
-                                        type="button"
-                                        className={styles.categoryRow}
-                                        data-depth={Math.min(row.depth, 2)}
-                                        aria-current={row.id === activeSectionId ? "location" : undefined}
-                                        onClick={() => go(row.id, row.depth)}
-                                    >
-                                        <span className={styles.categoryName}>{row.name}</span>
-                                        {row.count !== null ? <span className={styles.categoryCount}>{row.count}</span> : null}
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </li>
-                ))}
-            </ul>
+            <CategoryList
+                groups={groups}
+                activeSectionId={activeSectionId}
+                onSelect={(id, depth) => {
+                    closeSheet();
+                    requestAnimationFrame(() => (depth === 0 ? onSelectSection(id) : onSelectSubSection(id)));
+                }}
+            />
         </nav>
     );
 }

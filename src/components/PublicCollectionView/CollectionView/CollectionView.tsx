@@ -986,14 +986,17 @@ export default function CollectionView({
     // «Filtri» dentro «…» apre direttamente i filtri. Il valore viene sempre
     // riscritto all'apertura, quindi non resta incollato fra due aperture.
     const [searchRootView, setSearchRootView] = useState<"search" | "filters">("search");
+    // Redesign: ricerca e Filtri sono pagine del foglio unico (spec §4).
     const handleOpenSearch = useCallback(() => {
+        if (mode === "public" && sheetsSlot) return sheetsSlot.open("search");
         setSearchRootView("search");
         setIsSearchOpen(true);
-    }, []);
+    }, [mode, sheetsSlot]);
     const handleOpenFilters = useCallback(() => {
+        if (mode === "public" && sheetsSlot) return sheetsSlot.open("filters");
         setSearchRootView("filters");
         setIsSearchOpen(true);
-    }, []);
+    }, [mode, sheetsSlot]);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
     // Prefetch del chunk SearchOverlay su pointerdown del bottone header:
     // il pointerdown precede il click, il chunk arriva prima del tap-up.
@@ -3491,7 +3494,6 @@ export default function CollectionView({
                 hasInfo: hasAnyInfo,
                 activeFilterCount: allergenFilterIds.length,
                 hasAllergensInCatalog: allergensInCatalog.length > 0,
-                onOpenFilters: handleOpenFilters,
                 onOpenReservation: openReservation,
                 shareUrl,
                 shareTitle: businessName,
@@ -3501,6 +3503,15 @@ export default function CollectionView({
                     activeSectionId,
                     onSelectSection: scrollToSection,
                     onSelectSubSection: scrollToSubSection
+                },
+                search: {
+                    sections: searchableSections,
+                    allergens: allergensByFrequency,
+                    appliedFilterIds: allergenFilterIds,
+                    onApplyFilters: setAllergenFilterIds,
+                    visibleProductCount,
+                    onSelectProduct: scrollToProductAndHighlight,
+                    activityId
                 }
             })}
 

@@ -86,7 +86,11 @@
         "clear_aria": "Clear text",
         "close_aria": "Close search",
         "close_label": "Cancel",
-        "dialog_aria": "Catalog search"
+        "dialog_aria": "Catalog search",
+        "recent_title": "Recent",
+        "reset": "Clear",
+        "show_count_one": "Show {{count}} dish",
+        "show_count_other": "Show {{count}} dishes"
     },
     "filters": {
         "hidden_count_one": "{{count}} dish hidden by filters",

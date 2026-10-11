@@ -16,6 +16,8 @@ export type SheetPage = {
     title: string;
     /** Altezza massima: media lascia visibile l'isola, grande arriva sotto la barra di stato. */
     size?: SheetSize;
+    /** Alta quanto il tetto anche con poco contenuto (la ricerca: non salta mentre si scrive). */
+    fill?: boolean;
 };
 
 /** Come si è arrivati allo stato corrente: serve a scegliere il verso dell'animazione. */

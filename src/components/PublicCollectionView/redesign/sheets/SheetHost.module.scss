@@ -80,6 +80,16 @@
   white-space: nowrap;
 }
 
+/* Titolo della pagina con testata su misura: solo per i lettori di schermo. */
+.hiddenTitle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .iconButton {
   display: inline-flex;
   align-items: center;

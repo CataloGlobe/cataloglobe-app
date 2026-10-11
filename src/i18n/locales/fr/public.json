@@ -86,7 +86,11 @@
     "clear_aria": "Supprimer le texte",
     "close_aria": "Fermer la recherche",
     "close_label": "Annuler",
-    "dialog_aria": "Recherche dans le catalogue"
+    "dialog_aria": "Recherche dans le catalogue",
+    "recent_title": "Récentes",
+    "reset": "Effacer",
+    "show_count_one": "Afficher {{count}} plat",
+    "show_count_other": "Afficher {{count}} plats"
   },
   "filters": {
     "hidden_count_one": "{{count}} plat masqué par les filtres",

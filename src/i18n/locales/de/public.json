@@ -86,7 +86,11 @@
         "clear_aria": "Text löschen",
         "close_aria": "Suche beenden",
         "close_label": "Abbrechen",
-        "dialog_aria": "Suche im Katalog"
+        "dialog_aria": "Suche im Katalog",
+        "recent_title": "Zuletzt gesucht",
+        "reset": "Zurücksetzen",
+        "show_count_one": "{{count}} Gericht anzeigen",
+        "show_count_other": "{{count}} Gerichte anzeigen"
     },
     "filters": {
         "hidden_count_one": "{{count}} Gericht durch Filter ausgeblendet",

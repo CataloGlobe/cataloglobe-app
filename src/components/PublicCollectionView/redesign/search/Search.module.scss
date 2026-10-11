@@ -1,0 +1,262 @@
+/* Ricerca e Filtri nel foglio unico (spec §4). Colori del locale (--pub-*),
+   nessun movimento: le pagine scorrono già con la spinta del foglio. */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 10px;
+}
+
+.field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 6px 0 12px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--pub-text) 7%, transparent);
+}
+
+.fieldIcon {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  /* 16 px: sotto, iOS ingrandisce la pagina al fuoco */
+  font: inherit;
+  font-size: max(16px, 1em);
+
+  &::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+.clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pub-text) 12%, transparent);
+  color: inherit;
+  cursor: pointer;
+}
+
+.cancel {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Spazio in fondo grande quanto la tastiera (useKeyboardInset). */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: var(--keyboard-inset, 0px);
+}
+
+.sectionTitle {
+  margin: 0 0 6px;
+  color: color-mix(in srgb, var(--pub-text) 62%, transparent);
+  font: inherit;
+  font-weight: 600;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.muted {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+}
+
+.recent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recentText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filtersRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filtersText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.filtersLabel {
+  font-weight: 600;
+}
+
+.count {
+  margin: 0;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+
+  &:empty {
+    display: none;
+  }
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--pub-text) 7%, transparent);
+}
+
+.resultText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.resultName {
+  font-weight: 600;
+}
+
+.resultDescription {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Testo trovato: fondo tenue nel colore del locale, senza il giallo del browser. */
+.mark {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--pub-accent, var(--pub-primary)) 22%, transparent);
+  color: inherit;
+}
+
+.price {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+
+  p {
+    margin: 0;
+  }
+}
+
+.clearFilters,
+.reset,
+.show {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 22px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clearFilters,
+.reset {
+  background: color-mix(in srgb, var(--pub-text) 8%, transparent);
+  color: inherit;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.filters {
+  padding-bottom: 8px;
+}
+
+.footer {
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, transparent);
+}
+
+.show {
+  flex: 1;
+  background: var(--pub-primary);
+  color: var(--pub-primary-text);
+}

@@ -73,7 +73,11 @@ const OPENING_HOURS = Array.from({ length: 7 }, (_, day) => ({
 
 export const CATEGORIES = ["Antipasti", "Primi", "Secondi", "Dolci"];
 
-function categories(): ResolvedCategory[] {
+const GLUTEN = { id: 1, code: "gluten", label: "Glutine" };
+const MILK = { id: 7, code: "milk", label: "Latte" };
+
+/** Con `allergens`: un piatto su tre col glutine, uno su quattro col latte. */
+function categories(allergens = false): ResolvedCategory[] {
     return CATEGORIES.map((name, c) => ({
         id: `cat-${c}`,
         name,
@@ -87,6 +91,7 @@ function categories(): ResolvedCategory[] {
             price: 9 + p,
             is_visible: true,
             parentSelected: true,
+            ...(allergens ? { allergens: [...(p % 3 === 0 ? [GLUTEN] : []), ...(p % 4 === 0 ? [MILK] : [])] } : {}),
         })),
     }));
 }
@@ -129,7 +134,13 @@ export type FeaturedSlots = {
 /** Config dello stile risolto (`resolved.style.config`, formato di `parseTokens`). Assente = default. */
 export type StyleConfig = Record<string, unknown>;
 
-function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig, venueInfo = false, story = false): ResolvedPayloadShape {
+function payload(
+    featuredSlots: FeaturedSlots,
+    styleConfig?: StyleConfig,
+    venueInfo = false,
+    story = false,
+    allergens = false
+): ResolvedPayloadShape {
     return {
         business: business(venueInfo),
         ...(story ? { has_story: true } : {}),
@@ -148,7 +159,7 @@ function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig, venueI
         effective_language: "it",
         public_allergens: [],
         resolved: {
-            catalog: { id: "catalog-1", name: "Menu", categories: categories() },
+            catalog: { id: "catalog-1", name: "Menu", categories: categories(allergens) },
             featured: featuredSlots,
             hasRenderableItems: true,
             ...(styleConfig ? { style: { id: "style-1", name: "Stile e2e", config: styleConfig } } : {}),
@@ -158,11 +169,11 @@ function payload(featuredSlots: FeaturedSlots, styleConfig?: StyleConfig, venueI
 
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story)) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     await page.route("**/functions/v1/get-orders-for-session**", route =>

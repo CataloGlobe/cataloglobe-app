@@ -43,6 +43,12 @@ type Props = {
      */
     renderFooter?: (page: SheetPage) => ReactNode;
     /**
+     * Testata su misura della pagina in cima (es. il campo della ricerca con
+     * «Annulla») al posto di «‹ Madre», titolo e chiudi. Il titolo resta per i
+     * lettori di schermo. Null = testata normale.
+     */
+    renderHeader?: (page: SheetPage) => ReactNode;
+    /**
      * Radice della pagina sotto il foglio: riceve `inert` finché il foglio è
      * aperto (niente fuoco né tocchi fuori, senza focus trap). NON deve
      * contenere il punto d'innesto del portal, altrimenti blocca anche il foglio.
@@ -127,7 +133,7 @@ function useMediaQuery(query: string, subscribe: (notify: () => void) => () => v
  *
  * Non è montato nella pagina di oggi: lo usano le PR del redesign.
  */
-export default function SheetHost({ renderPage, renderFooter, backgroundRef }: Props) {
+export default function SheetHost({ renderPage, renderFooter, renderHeader, backgroundRef }: Props) {
     const { t } = useTranslation("public");
     const state = useSheetState();
     const isOpen = state.pages.length > 0;
@@ -228,7 +234,9 @@ export default function SheetHost({ renderPage, renderFooter, backgroundRef }: P
             ENTER_DURATION_MS
         );
         play(backdropRef.current, [{ opacity: 0 }, { opacity: 1 }], ENTER_DURATION_MS);
-        panel.focus({ preventScroll: true });
+        // Un campo della pagina può aver già preso il fuoco (la ricerca, nel gesto
+        // della lente): rubarlo chiuderebbe la tastiera su iOS.
+        if (!panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
     }, [isOpen, cancelAnimations, play]);
 
     // ── Uscita ───────────────────────────────────────────────────────────────
@@ -342,7 +350,12 @@ export default function SheetHost({ renderPage, renderFooter, backgroundRef }: P
                 clearLeaving();
             }
             // Il fuoco segue la spinta: la pagina che lo aveva è diventata inert.
-            panelRef.current?.focus({ preventScroll: true });
+            // Resta dov'è se la pagina nuova (o la sua testata) l'ha già preso.
+            const panel = panelRef.current;
+            const active = document.activeElement;
+            if (panel && !(active && active !== panel && panel.contains(active) && !active.closest("[inert]"))) {
+                panel.focus({ preventScroll: true });
+            }
         }
         prevIndex.current = index;
     }, [present, index, state.move, play, clearLeaving]);
@@ -353,9 +366,17 @@ export default function SheetHost({ renderPage, renderFooter, backgroundRef }: P
         const viewport = viewportRef.current;
         const content = trackRef.current?.children[index]?.firstElementChild;
         if (!present || !viewport || !content) return;
+        const fill = shown[index]?.fill === true;
         const apply = () => {
             const previous = viewport.getBoundingClientRect().height;
-            const next = cutAtHalfRow(viewport, content as HTMLElement);
+            let next: number;
+            if (fill) {
+                // Più alta del tetto: il flex del pannello la riporta al massimo disponibile.
+                viewport.style.height = "200vh";
+                next = viewport.clientHeight;
+            } else {
+                next = cutAtHalfRow(viewport, content as HTMLElement);
+            }
             if (animateHeight.current && previous > 0 && previous !== next) {
                 play(viewport, [{ height: `${previous}px` }, { height: `${next}px` }], PUSH_DURATION_MS);
             }
@@ -404,7 +425,7 @@ export default function SheetHost({ renderPage, renderFooter, backgroundRef }: P
 
     // ── Trascinamento per chiudere (solo mobile, maniglia e testata) ─────────
     const onDragStart = (event: ReactPointerEvent<HTMLElement>) => {
-        if (!env.current.isMobile || (event.target as HTMLElement).closest("button")) return;
+        if (!env.current.isMobile || (event.target as HTMLElement).closest("button, input, textarea, select, a")) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         cancelAnimations();
         drag.current = {
@@ -456,6 +477,7 @@ export default function SheetHost({ renderPage, renderFooter, backgroundRef }: P
 
     if (!present || !activePage) return null;
     const footer = renderFooter?.(activePage) ?? null;
+    const customHeader = renderHeader?.(activePage) ?? null;
 
     const tree = (
         <div className={styles.root}>
@@ -477,26 +499,35 @@ export default function SheetHost({ renderPage, renderFooter, backgroundRef }: P
                     onPointerCancel={onDragEnd}
                 >
                     <span className={styles.handle} aria-hidden="true" />
-                    <div className={styles.header}>
-                        {parentPage ? (
-                            // «‹ Madre»: si sa dove si torna (spec §5, v25).
-                            <button
-                                type="button"
-                                className={styles.backButton}
-                                onClick={popSheetPage}
-                                aria-label={t("sheet.back_to", { title: parentPage.title })}
-                            >
-                                <ChevronLeft size={20} aria-hidden="true" />
-                                <span className={styles.backLabel}>{parentPage.title}</span>
+                    {customHeader ? (
+                        <div key={activePage.key} className={styles.header}>
+                            <h2 id="pub-sheet-title" className={styles.hiddenTitle}>
+                                {activePage.title}
+                            </h2>
+                            {customHeader}
+                        </div>
+                    ) : (
+                        <div className={styles.header}>
+                            {parentPage ? (
+                                // «‹ Madre»: si sa dove si torna (spec §5, v25).
+                                <button
+                                    type="button"
+                                    className={styles.backButton}
+                                    onClick={popSheetPage}
+                                    aria-label={t("sheet.back_to", { title: parentPage.title })}
+                                >
+                                    <ChevronLeft size={20} aria-hidden="true" />
+                                    <span className={styles.backLabel}>{parentPage.title}</span>
+                                </button>
+                            ) : null}
+                            <h2 id="pub-sheet-title" className={styles.title}>
+                                {activePage.title}
+                            </h2>
+                            <button type="button" className={styles.iconButton} onClick={closeSheet} aria-label={t("sheet.close")}>
+                                <X size={18} aria-hidden="true" />
                             </button>
-                        ) : null}
-                        <h2 id="pub-sheet-title" className={styles.title}>
-                            {activePage.title}
-                        </h2>
-                        <button type="button" className={styles.iconButton} onClick={closeSheet} aria-label={t("sheet.close")}>
-                            <X size={18} aria-hidden="true" />
-                        </button>
-                    </div>
+                        </div>
+                    )}
                 </div>
                 <div ref={viewportRef} className={styles.viewport}>
                     <div ref={trackRef} className={styles.track}>

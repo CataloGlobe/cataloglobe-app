@@ -85,7 +85,11 @@
         "clear_aria": "Cancella testo",
         "close_aria": "Chiudi ricerca",
         "close_label": "Annulla",
-        "dialog_aria": "Ricerca nel catalogo"
+        "dialog_aria": "Ricerca nel catalogo",
+        "recent_title": "Recenti",
+        "reset": "Azzera",
+        "show_count_one": "Mostra {{count}} piatto",
+        "show_count_other": "Mostra {{count}} piatti"
     },
     "filters": {
         "hidden_count_one": "{{count}} piatto nascosto dai filtri",

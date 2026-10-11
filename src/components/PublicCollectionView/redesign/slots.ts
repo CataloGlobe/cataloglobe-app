@@ -1,8 +1,12 @@
 import type { ReactNode, RefObject } from "react";
 import type { ActivityFee } from "@/types/activity";
-import type { CollectionViewSectionGroup, SocialLinks } from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import type {
+    CollectionViewSection,
+    CollectionViewSectionGroup,
+    SocialLinks
+} from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
-import type { V2FeaturedContent } from "@/types/resolvedCollections";
+import type { ResolvedAllergen, V2FeaturedContent } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 
 /**
@@ -58,7 +62,7 @@ export type BottomBarSlotContext = {
 export type BottomBarSlot = (context: BottomBarSlotContext) => ReactNode;
 
 /** Fogli del redesign che `CollectionView` apre per nome (⋯, nome, stato del locale). */
-export type PublicSheetName = "more" | "info" | "hours" | "language" | "featured" | "categories";
+export type PublicSheetName = "more" | "info" | "hours" | "language" | "featured" | "categories" | "search" | "filters";
 
 /** Aspetto delle card in evidenza, dallo stile del locale. */
 export type FeaturedLook = {
@@ -95,8 +99,6 @@ export type SheetsSlotContext = {
     hasInfo: boolean;
     activeFilterCount: number;
     hasAllergensInCatalog: boolean;
-    /** Filtri degli allergeni: stanno nella ricerca, il foglio si chiude prima. */
-    onOpenFilters: () => void;
     /** Solo se la sede prende prenotazioni online. */
     onOpenReservation?: () => void;
     /** Indirizzo pubblico della sede, senza lingua né query (assente in SSR). */
@@ -111,6 +113,18 @@ export type SheetsSlotContext = {
         /** Scorrono come le pill; si chiamano a foglio chiuso (pagina sbloccata). */
         onSelectSection: (sectionId: string) => void;
         onSelectSubSection: (sectionId: string) => void;
+    };
+    /** Ricerca e Filtri nel foglio (spec §4): piatti già filtrati, filtri dal vivo. */
+    search: {
+        sections: CollectionViewSection[];
+        /** Allergeni del menu, dal più frequente. */
+        allergens: ResolvedAllergen[];
+        appliedFilterIds: number[];
+        onApplyFilters: (ids: number[]) => void;
+        visibleProductCount: number;
+        /** Scorre al piatto e lo accende; si chiama a foglio chiuso. */
+        onSelectProduct: (productId: string) => void;
+        activityId?: string;
     };
 };
 

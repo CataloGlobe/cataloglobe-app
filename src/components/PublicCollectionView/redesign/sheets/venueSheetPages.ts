@@ -23,6 +23,10 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
             return { key: "featured", title: t("hub.events"), size: "large" };
         case "categories":
             return { key: "categories", title: t("categories.sheet_title"), size: "large" };
+        case "search":
+            return { key: "search", title: t("search.back_to_search"), size: "large", fill: true };
+        case "filters":
+            return { key: "filters", title: t("search.filters_title"), size: "large", fill: true };
     }
 }
 
