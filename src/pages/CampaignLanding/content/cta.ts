@@ -10,7 +10,8 @@ export type CtaPlacement =
     | "pricing-base"
     | "pricing-pro"
     | "start" // sezione «Cosa ti costa provarlo»
-    | "final"; // submit del form di contatto (variante form)
+    | "final" // submit del form di contatto (variante form)
+    | "callback"; // submit del form «ti chiamiamo noi», sotto la prova (variante signup)
 
 /** `note`: righe sotto (o accanto a) il pulsante; una riga per elemento. */
 export type CtaEntry = { label: string; href: string; note?: string[] };
@@ -32,7 +33,9 @@ export const CTA: Record<Variante, Record<CtaPlacement, CtaEntry>> = {
         start: { label: FORM_LABEL, href: FORM_HREF, note: [`${CALLBACK} Nessun impegno.`] },
         // Submit del form di contatto: `href` resta per completezza del tipo,
         // LandingCta rende un <button type="submit">.
-        final: { label: FORM_LABEL, href: FORM_HREF }
+        final: { label: FORM_LABEL, href: FORM_HREF },
+        // Non usato in form (il form è `final`): c'è perché la mappa è completa.
+        callback: { label: FORM_LABEL, href: FORM_HREF }
     },
     signup: {
         hero: { ...SIGNUP, note: [PRICE_NOTE] },
@@ -40,7 +43,8 @@ export const CTA: Record<Variante, Record<CtaPlacement, CtaEntry>> = {
         "bar-mobile": SIGNUP,
         "pricing-base": SIGNUP,
         "pricing-pro": SIGNUP,
-        start: SIGNUP,
-        final: SIGNUP
+        start: { ...SIGNUP, note: ["Due minuti per iniziare. Nessun addebito per 30 giorni."] },
+        final: SIGNUP,
+        callback: { label: "Richiedi una chiamata", href: "#contatto" }
     }
 };

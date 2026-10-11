@@ -55,16 +55,39 @@
     color: var(--ld-dark-quiet);
 }
 
+// Al telefono due colonne (Prodotto, Legale) e Contatti a tutta riga sotto.
 .columns {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 24px;
     margin-top: 24px;
 
     @include desktop {
-        flex-wrap: nowrap;
+        display: flex;
         gap: 64px;
         margin-top: 0;
+    }
+}
+
+.contacts {
+    @include mobile-only {
+        grid-column: 1 / -1;
+    }
+}
+
+.mailRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+
+    @include desktop {
+        margin-top: 6px;
+    }
+
+    .link {
+        margin-top: 0;
+        white-space: nowrap;
     }
 }
 
@@ -75,24 +98,46 @@
     color: var(--ld-dark-quiet);
 }
 
-// Al telefono righe da 44 px al tocco; da desktop la lista fitta della tavola.
-.link {
+// Al telefono righe da 36 px, toccabili a 44 (area invisibile); da desktop la
+// lista fitta della tavola, con la sottolineatura che scorre al passaggio.
+@mixin footer-link {
+    position: relative;
     display: block;
+    width: fit-content;
     margin-top: 10px;
     font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    color: var(--ld-dark-link);
     text-decoration: none;
 
     @include mobile-only {
         margin-top: 0;
-        padding: 13px 0;
+        padding: 8px 0;
+        @include ld-hit-area;
     }
 
-    &,
-    &:hover {
-        color: var(--ld-dark-link);
+    @include desktop {
+        background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+
+        @include motion-ok {
+            transition: background-size 250ms var(--ld-ease);
+        }
+
+        &:hover {
+            background-size: 100% 1px;
+        }
     }
 
     @include ld-focus;
+}
+
+.link {
+    @include footer-link;
+
+    &:hover {
+        color: var(--ld-dark-link);
+    }
 }
 
 .legal {
@@ -113,17 +158,6 @@
 // l'aspetto dei link della colonna.
 .linkButton {
     @include ld-reset-button;
-
-    display: block;
-    margin-top: 10px;
-    font-size: 14px;
+    @include footer-link;
     text-align: left;
-    color: var(--ld-dark-link);
-
-    @include mobile-only {
-        margin-top: 0;
-        padding: 13px 0;
-    }
-
-    @include ld-focus;
 }

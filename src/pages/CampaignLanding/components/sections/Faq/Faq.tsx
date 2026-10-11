@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { Rocket, Tag, Utensils, type LucideIcon } from "lucide-react";
-import { Logo } from "@components/ui/Logo/Logo";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, SplitHeading } from "@pages/CampaignLanding/components/kit/Kit";
+import CopyButton from "@pages/CampaignLanding/components/kit/CopyButton";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
 import { FAQ, type FaqGroupIcon } from "@pages/CampaignLanding/content/landing";
 import { COMPANY } from "@/config/company";
@@ -10,51 +10,14 @@ import styles from "./Faq.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
-const COPIED_MS = 1800;
-
 const GROUP_ICONS: Record<FaqGroupIcon, LucideIcon> = { rocket: Rocket, utensils: Utensils, tag: Tag };
 
 /** Indice in `FAQ.items` della prima domanda di ogni gruppo. */
 const GROUP_START = FAQ.groups.map((_, g) => FAQ.groups.slice(0, g).reduce((n, group) => n + group.items.length, 0));
 
-/** Copia negli appunti; l'icona diventa una spunta e compare «Copiato» per 1,8 s. */
-function CopyButton({ text }: { text: string }) {
-    const [copied, setCopied] = useState(false);
-    const timer = useRef(0);
-
-    useEffect(() => () => window.clearTimeout(timer.current), []);
-
-    const copy = () => {
-        navigator.clipboard?.writeText(text).catch(() => undefined);
-        setCopied(true);
-        window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setCopied(false), COPIED_MS);
-    };
-
-    return (
-        <span className={styles.copyWrap}>
-            <button type="button" className={cx(styles.copy, copied && styles.copied)} aria-label={FAQ.copy} onClick={copy}>
-                <svg className={styles.icCopy} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <rect x="9" y="9" width="12" height="12" rx="2.5" />
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-                <svg className={styles.icOk} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M5 12.5l4.5 4.5L19 7.5" />
-                </svg>
-            </button>
-            <span className={styles.tip} aria-hidden="true">
-                {FAQ.copied}
-            </span>
-            <span className={styles.srOnly} role="status">
-                {copied ? FAQ.copied : ""}
-            </span>
-        </span>
-    );
-}
-
 /**
  * 10 · Domande, in breve: pill dei gruppi (tablist) sopra la fisarmonica (una
- * domanda aperta alla volta) + riquadro contatto. Tutti i pannelli stanno
+ * scheda sola, una domanda aperta alla volta) + contatto in una riga. Tutti i pannelli stanno
  * nell'HTML prerenderizzato; quelli inattivi con `hidden`, mai smontati.
  */
 export default function Faq() {
@@ -64,7 +27,7 @@ export default function Faq() {
     const listRef = useRef<HTMLDivElement>(null);
     const pillRef = useRef<HTMLSpanElement>(null);
 
-    // Pill che scivola sotto la voce scelta (solo al telefono, vedi .pill). Posizione
+    // Pill che scivola sotto la voce scelta (vedi .pill). Posizione
     // scritta dal ref; `data-pill` sulla lista dice al CSS che la pill è al suo
     // posto e può prendere il posto dello sfondo della voce attiva.
     useLayoutEffect(() => {
@@ -160,7 +123,7 @@ export default function Faq() {
                             const isOpen = i === open;
                             const id = `landing-faq-${i}`;
                             return (
-                                <div key={item.q} className={styles.item}>
+                                <div key={item.q} className={cx(styles.item, isOpen && styles.itemOpen)} style={{ "--k": k } as CSSProperties}>
                                     <h3 className={styles.qWrap}>
                                         <button
                                             type="button"
@@ -191,17 +154,12 @@ export default function Faq() {
                 ))}
 
                 <div className={styles.contact}>
-                    <span className={styles.mark} aria-hidden="true">
-                        <Logo variant="icon" color="mono-white" className={styles.markIcon} alt="" />
-                    </span>
-                    <div className={styles.contactText}>
-                        <p className={styles.more}>{FAQ.more}</p>
-                        <div className={styles.mailRow}>
-                            <a className={styles.mail} href={`mailto:${email}`}>
-                                {email}
-                            </a>
-                            <CopyButton text={email} />
-                        </div>
+                    <p className={styles.more}>{FAQ.more}</p>
+                    <div className={styles.mailRow}>
+                        <a className={styles.mail} href={`mailto:${email}`}>
+                            {email}
+                        </a>
+                        <CopyButton text={email} label={FAQ.copy} copiedLabel={FAQ.copied} />
                     </div>
                 </div>
             </div>

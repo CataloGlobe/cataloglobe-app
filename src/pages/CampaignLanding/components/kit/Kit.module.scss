@@ -137,6 +137,7 @@
     font-size: 17px;
     line-height: 1.5;
     color: var(--ld-ink);
+    text-wrap: pretty;
 
     @include desktop {
         font-size: 18px;
@@ -145,6 +146,8 @@
 
 // ── Riga di menù con i puntini ──────────────────────────────────────────────
 .row {
+    position: relative;
+    isolation: isolate;
     display: flex;
     align-items: baseline;
     gap: 8px;
@@ -159,7 +162,57 @@
 .rowName {
     font-size: 15px;
     color: var(--ld-body);
-    transition: color 300ms ease;
+    transition: color var(--ld-dur-swap) var(--ld-ease);
+}
+
+// Lampo azzurro dietro la riga (MenuRow `flash`).
+.rowFlash {
+    display: none;
+}
+
+@include motion-ok {
+    .rowFlash {
+        display: block;
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        animation: ld-kit-flash var(--ld-dur-flash) var(--ld-ease) both;
+    }
+}
+
+@keyframes ld-kit-flash {
+    from {
+        background: rgba(70, 72, 198, 0.1);
+    }
+    to {
+        background: rgba(70, 72, 198, 0);
+    }
+}
+
+// Etichetta e prezzo vecchio entrano allargandosi (MenuRow, Grow). Chiuso
+// non occupa spazio: il margine negativo toglie lo spazio in più della riga.
+.grow {
+    display: grid;
+    grid-template-columns: 0fr;
+    margin-inline-end: -8px;
+}
+
+.growOn {
+    grid-template-columns: 1fr;
+    margin-inline-end: 0;
+}
+
+.growIn {
+    min-width: 0;
+    overflow: hidden;
+}
+
+@include motion-ok {
+    .grow {
+        transition:
+            grid-template-columns var(--ld-dur-in) var(--ld-ease),
+            margin var(--ld-dur-in) var(--ld-ease);
+    }
 }
 
 .rowLeader {
@@ -169,6 +222,8 @@
 }
 
 .rowOld {
+    display: block;
+    white-space: nowrap;
     font-size: 13px;
     color: var(--ld-off-ink);
     text-decoration: line-through;
@@ -178,7 +233,7 @@
     font-size: 15px;
     font-weight: 600;
     color: var(--ld-body);
-    transition: color 300ms ease;
+    transition: color var(--ld-dur-swap) var(--ld-ease);
 }
 
 .rowPriceUp {
@@ -195,7 +250,9 @@
 }
 
 .badge {
+    display: block;
     flex-shrink: 0;
+    white-space: nowrap;
     padding: 2px 8px;
     border-radius: 999px;
     background: var(--ld-peach);
@@ -207,7 +264,7 @@
 
 @include motion-ok {
     .pop {
-        animation: ld-kit-pop 420ms ease both;
+        animation: ld-kit-pop var(--ld-dur-in) var(--ld-ease) both;
     }
 }
 

@@ -24,8 +24,28 @@
 // Submit durante l'invio. Su `aria-busy`, non su `:disabled`: prima
 // dell'idratazione il submit è disabilitato ma deve restare uguale.
 .cta[aria-busy="true"] {
+    gap: 10px;
     cursor: progress;
-    opacity: 0.72;
+    opacity: 0.85;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    animation: ld-cta-spin 700ms linear infinite;
+
+    @include reduced-motion {
+        animation-duration: 2s;
+    }
+}
+
+@keyframes ld-cta-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 // ── look ──

@@ -18,6 +18,7 @@ import {
     type HeroEvent,
     type HeroState
 } from "./heroSequence";
+import { Swap } from "@pages/CampaignLanding/components/kit/Swap";
 import styles from "./HeroStage.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -223,10 +224,12 @@ function PhoneCaption({ state }: { state: HeroState }) {
                     <i key={s.clock} className={cx(styles.pcDot, s.kind === "live" && styles.pcDotLive, i <= at && styles.pcDotOn, i === at && styles.pcDotNow)} />
                 ))}
             </span>
-            <span key={at} className={cx(styles.pcText, step?.kind === "live" && styles.pcTextLive)}>
-                {step && <span className={styles.pcTime}>{step.clock} · </span>}
-                {text}
-            </span>
+            <Swap id={at} block className={styles.pcSwap}>
+                <span className={cx(styles.pcText, step?.kind === "live" && styles.pcTextLive)}>
+                    {step && <span className={styles.pcTime}>{step.clock} · </span>}
+                    {text}
+                </span>
+            </Swap>
         </div>
     );
 }
@@ -244,7 +247,7 @@ function HeroPhone({ state }: { state: HeroState }) {
     return (
         <Phone className={styles.phone}>
             <div className={styles.content}>
-                <PhoneStatusBar time={state.clock} timeOut={state.clockOut} />
+                <PhoneStatusBar time={state.clock} />
                 <div className={styles.cover}>
                     <div className={styles.coverId}>
                         <span className={styles.logo}>
@@ -252,13 +255,14 @@ function HeroPhone({ state }: { state: HeroState }) {
                         </span>
                         <span>
                             <span className={styles.venue}>{PHONE.venue}</span>
-                            <span key={state.menu} className={cx(styles.menuName, styles.enter, state.menuOut && styles.leaving)}>
-                                {menu.name}
+                            <span className={styles.menuName}>
+                                <Swap id={state.menu}>{menu.name}</Swap>
                             </span>
                         </span>
                     </div>
                 </div>
-                <div key={state.menu} className={cx(styles.menuBody, styles.enter, state.menuOut && styles.leaving)}>
+                <Swap id={state.menu} block>
+                <div className={styles.menuBody}>
                     <div className={styles.chips}>
                         {menu.chips.map((c, j) => (
                             <span key={c} className={cx(styles.chip, j === 0 && styles.chipOn)}>
@@ -285,7 +289,9 @@ function HeroPhone({ state }: { state: HeroState }) {
                                             </div>
                                             <span className={styles.itemPrice}>
                                                 {up && <s className={styles.itemOld}>{d.price} €</s>}
-                                                <span className={styles.itemValue}>{mod?.kind === "price" ? mod.to : d.price} €</span>
+                                                <Swap id={up ? "up" : "base"} roll className={styles.itemValue}>
+                                                    {mod?.kind === "price" ? mod.to : d.price} €
+                                                </Swap>
                                             </span>
                                         </div>
                                     );
@@ -294,6 +300,7 @@ function HeroPhone({ state }: { state: HeroState }) {
                         ))}
                     </div>
                 </div>
+                </Swap>
             </div>
         </Phone>
     );
@@ -331,11 +338,19 @@ export default function HeroStage({ onFascia, scheduleRef, phoneRef }: HeroStage
     return (
         <div ref={ref} className={styles.stage} aria-hidden="true">
             <div ref={scheduleRef} className={styles.scheduleTilt}>
-                <Timeline state={state} />
-                <Track state={state} />
+                <div className={cx(styles.schedule3d, !visible && styles.paused)}>
+                    <Timeline state={state} />
+                    <Track state={state} />
+                </div>
             </div>
             <div ref={phoneRef} className={styles.phoneTilt}>
-                <HeroPhone state={state} />
+                <div className={cx(styles.phone3d, !visible && styles.paused)}>
+                    <span className={styles.phoneGround} />
+                    <div className={styles.phoneFloat}>
+                        <span className={styles.phoneEdge} />
+                        <HeroPhone state={state} />
+                    </div>
+                </div>
                 <PhoneCaption state={state} />
             </div>
         </div>

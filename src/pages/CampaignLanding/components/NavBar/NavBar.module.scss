@@ -47,6 +47,16 @@
         color 250ms ease;
 }
 
+// Sull'hero dopo il primo scroll: il titolo passa sotto la pillola e non deve
+// leggersi attraverso.
+.pillGlass {
+    background: rgba(21, 20, 43, 0.86);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+}
+
 .pillSolid {
     background: rgba(255, 255, 255, 0.94);
     border-color: var(--ld-line);
@@ -152,7 +162,8 @@
     pointer-events: auto;
 }
 
-// Al form esce solo il pulsante; il suo posto resta, la barra non cambia altezza.
+// Il pulsante esce con la barra (al form); la dissolvenza propria resta per
+// l'ingresso dopo l'hero.
 .mobileCta {
     opacity: 0;
     transform: translateY(-4px);

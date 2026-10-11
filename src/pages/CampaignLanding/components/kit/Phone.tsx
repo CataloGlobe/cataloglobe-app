@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Swap } from "@pages/CampaignLanding/components/kit/Swap";
 import styles from "./Phone.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -39,11 +40,11 @@ function StatusIcons() {
     );
 }
 
-/** Barra di stato, dentro il contenuto da 300 px. `shade`: velo scuro per gli screenshot. */
-export function PhoneStatusBar({ time, timeOut, shade }: { time: string; timeOut?: boolean; shade?: boolean }) {
+/** Barra di stato, dentro il contenuto da 300 px. `shade`: velo scuro per gli screenshot. L'ora nuova entra in dissolvenza. */
+export function PhoneStatusBar({ time, shade }: { time: string; shade?: boolean }) {
     return (
         <div className={cx(styles.statusBar, shade && styles.statusShade)} aria-hidden="true">
-            <span className={cx(styles.sbTime, timeOut && styles.sbTimeOut)}>{time}</span>
+            <Swap id={time}>{time}</Swap>
             <StatusIcons />
         </div>
     );

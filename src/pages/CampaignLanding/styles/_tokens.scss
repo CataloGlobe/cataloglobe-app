@@ -44,6 +44,7 @@ $ld-page-bg: #FFFFFF;
     --ld-terra-light: #E9A07F;   // note a mano su scuro
     --ld-terra-ink: #8E3B1A;     // problema in corsivo sui foglietti
     --ld-ok: #2F7D53;            // interruttore «Disponibile»
+    --ld-ok-soft: #E2F1E8;       // pillole verdi dei prezzi («30 giorni gratis»)
     // ── stati di una riga di menù ──
     --ld-off-ink: #A9A6BC;       // nome esaurito, prezzo barrato
     --ld-off-label: #6B6788;     // pulsante spento da leggere («Controlla e pubblica»): 4,5:1 su line-2
@@ -91,10 +92,15 @@ $ld-page-bg: #FFFFFF;
     --ld-live-text: #F3E7E0;
     --ld-live-caption: #F0B08E;
     // ── bacheca: foglietti ──
-    --ld-note-paper: #FFFDF6;
+    --ld-note-paper: #FFFCF2;
+    --ld-note-paper-end: #FBF6E8;   // fondo della carta e bordo strappato
     --ld-note-icon: #2B2A6B;
     --ld-note-icon-fill: #F6DCCB;
-    --ld-string: #D9C3A0;
+    --ld-string: #B9996C;
+    --ld-string-dark: #7E6240;
+    --ld-string-hi: #EBD7B4;
+    --ld-stamp-blue: #3D3FB8;       // timbro «Con CataloGlobe», icone
+    --ld-stamp-red: #B23A1C;        // timbro «Piano Pro»
     // ── ordini: comanda e sala ──
     --ld-ticket-paper: #FFFEF7;
     --ld-ticket-ink: #1E1C2E;
@@ -133,6 +139,10 @@ $ld-page-bg: #FFFFFF;
     // ── curve e tempi ──
     --ld-ease: cubic-bezier(0.22, 1, 0.36, 1);
     --ld-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+    // Tre durate per tutta la pagina: cambi di testo e colore, ingressi, lampi.
+    --ld-dur-swap: 250ms;        // ⚠️ come SWAP_MS in kit/Swap.tsx
+    --ld-dur-in: 400ms;
+    --ld-dur-flash: 900ms;
     // ── famiglie ──
     --ld-font-serif: 'Young Serif', Georgia, 'Times New Roman', serif;
     --ld-font-sans: 'Instrument Sans Variable', system-ui, -apple-system, sans-serif;

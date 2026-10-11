@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CUSTOMER_LABEL, PHONE_LABEL, PRO_BADGE, WITH_US, type SplitTitle, type UnderlinedTitle } from "@pages/CampaignLanding/content/landing";
+import { Swap } from "@pages/CampaignLanding/components/kit/Swap";
 import styles from "./Kit.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -85,6 +86,7 @@ export function MenuRow({
     oldPrice,
     off = false,
     badge,
+    flash,
     className
 }: {
     name: string;
@@ -93,16 +95,32 @@ export function MenuRow({
     /** Esaurito: nome e prezzo grigi. */
     off?: boolean;
     badge?: string;
+    /** Lampo sulla riga: riparte a ogni valore nuovo. */
+    flash?: string | number;
     className?: string;
 }) {
     return (
         <div className={cx(styles.row, off && styles.rowOff, className)}>
+            {flash !== undefined && <span key={flash} className={styles.rowFlash} aria-hidden="true" />}
             <span className={styles.rowName}>{name}</span>
-            {badge && <span className={cx(styles.badge, styles.pop)}>{badge}</span>}
+            <Grow on={Boolean(badge)}>{badge && <span className={cx(styles.badge, styles.pop)}>{badge}</span>}</Grow>
             <span className={styles.rowLeader} aria-hidden="true" />
-            {oldPrice && <span className={styles.rowOld}>{oldPrice}</span>}
-            <span className={cx(styles.rowPrice, oldPrice && styles.rowPriceUp)}>{price}</span>
+            <Grow on={Boolean(oldPrice)}>{oldPrice && <span className={styles.rowOld}>{oldPrice}</span>}</Grow>
+            <span className={cx(styles.rowPrice, oldPrice && styles.rowPriceUp)}>
+                <Swap id={price} roll>
+                    {price}
+                </Swap>
+            </span>
         </div>
+    );
+}
+
+/** Si allarga piano quando arriva il contenuto: i puntini si accorciano senza scatti. */
+function Grow({ on, children }: { on: boolean; children: ReactNode }) {
+    return (
+        <span className={cx(styles.grow, on && styles.growOn)}>
+            <span className={styles.growIn}>{children}</span>
+        </span>
     );
 }
 

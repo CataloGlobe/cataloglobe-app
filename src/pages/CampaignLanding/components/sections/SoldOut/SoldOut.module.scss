@@ -4,7 +4,7 @@
     font-size: 13px;
     font-weight: 700;
     color: var(--ld-ok);
-    transition: color 300ms ease;
+    transition: color var(--ld-dur-swap) var(--ld-ease);
 }
 
 .stateOff {
@@ -45,8 +45,9 @@
     transform: translateX(16px);
 }
 
+// Frase guida sopra la scheda: l'invito prima del gesto (come il fornitore).
 .hint {
-    margin: 10px 0 0;
+    margin: 0 0 10px;
     font-size: 13px;
     color: var(--ld-muted);
     text-align: center;

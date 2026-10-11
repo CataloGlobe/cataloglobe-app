@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import { Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { COMPANY } from "@/config/company";
 import { validateLead, type LeadField, type LeadFieldError, type LeadInterest } from "@/utils/leadValidation";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
@@ -215,6 +215,9 @@ function ContactForm() {
                             const on = interests.includes(interest.id);
                             return (
                                 <button key={interest.id} type="button" className={cx(styles.pill, on && styles.pillOn)} aria-pressed={on} onClick={() => toggle(interest.id)}>
+                                    <span className={styles.pillTick} aria-hidden="true">
+                                        <Check size={14} strokeWidth={3} />
+                                    </span>
                                     {interest.label}
                                 </button>
                             );
@@ -246,7 +249,17 @@ function ContactForm() {
                     {fieldError("consent")}
                 </div>
 
-                <LandingCta placement="final" shape="submit" busyLabel={status === "sending" ? CONTACT.sending : undefined} />
+                <div className={styles.submit}>
+                    <LandingCta placement={variante === "signup" ? "callback" : "final"} shape="submit" busyLabel={status === "sending" ? CONTACT.sending : undefined} />
+                    <ul className={styles.reassure}>
+                        {CONTACT.reassurance.map((line) => (
+                            <li key={line}>
+                                <Check size={13} strokeWidth={3} aria-hidden="true" />
+                                {line}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
 
                 {status === "error" && (
                     <p className={styles.failure} role="alert">
@@ -260,7 +273,9 @@ function ContactForm() {
             {success && (
                 <div className={cx(styles.form, styles.done)} data-tone="light" role="status">
                     <span className={styles.doneIcon} aria-hidden="true">
-                        <Check size={26} strokeWidth={2.5} />
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path className={styles.doneTick} d="M20 6 9 17l-5-5" pathLength={1} />
+                        </svg>
                     </span>
                     <h3 ref={doneTitle} className={styles.doneTitle} tabIndex={-1}>
                         {success.title}
@@ -276,6 +291,12 @@ function ContactForm() {
                             CONTACT.success.textNoPhone
                         )}
                     </p>
+                    <div className={styles.doneNext}>
+                        <a className={styles.doneMore} href={CONTACT.success.more.href}>
+                            {CONTACT.success.more.label}
+                            <ArrowRight size={16} strokeWidth={2.5} aria-hidden="true" />
+                        </a>
+                    </div>
                 </div>
             )}
         </div>
@@ -283,9 +304,54 @@ function ContactForm() {
 }
 
 /**
+ * Variante signup: la scheda della prova (tre punti e «Provalo gratis») e,
+ * sotto, «ti chiamiamo noi» che apre lo stesso form della variante form, per
+ * chi non è pronto a registrarsi. Il form parte chiuso anche nel prerender.
+ */
+function SignupClose() {
+    const [open, setOpen] = useState(false);
+    const formWrap = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (open) formWrap.current?.querySelector<HTMLElement>('[data-field="name"]')?.focus();
+    }, [open]);
+
+    return (
+        <div className={styles.signupCol}>
+            <div className={cx(styles.form, styles.trial)} data-tone="light">
+                <ul className={styles.trialPoints}>
+                    {CONTACT.signup.points.map((point) => (
+                        <li key={point}>
+                            <span className={styles.trialTick} aria-hidden="true">
+                                <Check size={12} strokeWidth={3.5} />
+                            </span>
+                            {point}
+                        </li>
+                    ))}
+                </ul>
+                <LandingCta placement="final" shape="start" className={styles.trialCta} />
+            </div>
+
+            {open ? (
+                <div ref={formWrap} className={styles.callForm}>
+                    <ContactForm />
+                </div>
+            ) : (
+                <>
+                    <span className={styles.or}>{CONTACT.signup.or}</span>
+                    <button type="button" className={styles.callMe} aria-expanded={false} onClick={() => setOpen(true)}>
+                        {CONTACT.signup.callMe}
+                    </button>
+                </>
+            )}
+        </div>
+    );
+}
+
+/**
  * 11 · Chiusura. Variante form: testo a sinistra, form a destra (sotto su
- * mobile). Variante signup: stesso titolo e lede, CTA verso la registrazione
- * e la riga per chi preferisce scrivere, niente form.
+ * mobile). Variante signup: stesso titolo, a destra la scheda della prova con
+ * «ti chiamiamo noi» (SignupClose).
  */
 export default function Contact() {
     const variante = useLandingVariant();
@@ -295,35 +361,22 @@ export default function Contact() {
         <Section tone="dark" id="contatto" space="form" className={styles.section} labelledBy="landing-contact-title">
             <div className={styles.grid}>
                 <Reveal>
-                    <HandNote size="form">{CONTACT.note}</HandNote>
+                    <HandNote size="form">{variante === "signup" ? CONTACT.signup.note : CONTACT.note}</HandNote>
                     <h2 id="landing-contact-title" className={styles.title}>
                         <UnderlinedText title={CONTACT.title} className={styles.titleHl} />
                     </h2>
-                    <p className={styles.lede}>{CONTACT.lede}</p>
-                    {variante === "form" ? (
-                        <p className={cx(styles.write, styles.writeDesktop)}>
-                            {CONTACT.writeInstead} <a href={`mailto:${email}`}>{email}</a>
-                        </p>
-                    ) : (
-                        <>
-                            <div className={styles.signupCta}>
-                                <LandingCta placement="final" shape="start" />
-                            </div>
-                            <p className={styles.write}>
-                                {CONTACT.talkInstead} <a href={`mailto:${email}`}>{email}</a>
-                            </p>
-                        </>
-                    )}
+                    {variante === "form" && <p className={styles.lede}>{CONTACT.lede}</p>}
+                    <p className={cx(styles.write, styles.writeDesktop)}>
+                        {variante === "form" ? CONTACT.writeInstead : CONTACT.talkInstead} <a href={`mailto:${email}`}>{email}</a>
+                    </p>
                 </Reveal>
 
-                {variante === "form" && (
-                    <Reveal className={styles.formCol}>
-                        <ContactForm />
-                        <p className={cx(styles.write, styles.writeMobile)}>
-                            {CONTACT.writeInstead} <a href={`mailto:${email}`}>{email}</a>
-                        </p>
-                    </Reveal>
-                )}
+                <Reveal className={styles.formCol}>
+                    {variante === "form" ? <ContactForm /> : <SignupClose />}
+                    <p className={cx(styles.write, styles.writeMobile)}>
+                        {variante === "form" ? CONTACT.writeInstead : CONTACT.talkInstead} <a href={`mailto:${email}`}>{email}</a>
+                    </p>
+                </Reveal>
             </div>
         </Section>
     );
