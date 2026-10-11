@@ -34,6 +34,12 @@
         "info_sheet_aria": "Informazioni sede",
         "more_aria": "Altre opzioni",
         "logo_alt": "Logo {{name}}",
+        "search_field": "Cerca un piatto o un ingrediente",
+        "filters_count_one": "Filtri · {{count}}",
+        "filters_count_other": "Filtri · {{count}}",
+        "all_categories": "Tutte le categorie",
+        "categories_prev": "Categorie precedenti",
+        "categories_next": "Categorie successive",
         "search_filters_aria_one": "Cerca nel catalogo, 1 filtro attivo",
         "search_filters_aria_other": "Cerca nel catalogo, {{count}} filtri attivi"
     },

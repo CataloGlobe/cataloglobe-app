@@ -2836,7 +2836,12 @@ export default function CollectionView({
                       showStoryTab,
                       openingHours: openingHours ?? [],
                       upcomingClosures: upcomingClosures ?? [],
-                      onOpenHours: () => (sheets ? sheets.open("hours") : setIsInfoSheetOpen(true))
+                      onOpenHours: () => (sheets ? sheets.open("hours") : setIsInfoSheetOpen(true)),
+                      sections: activeTab === "menu" && !emptyState && !allFiltered ? navItems : [],
+                      activeSectionId,
+                      onSelectSection: scrollToSection,
+                      onOpenCategories: () => (sheets ? sheets.open("categories") : setIsCategoriesSheetOpen(true)),
+                      onOpenFilters: handleOpenFilters
                   })
                 : hasHeader && (
                 <PublicCollectionHeader
@@ -3044,19 +3049,28 @@ export default function CollectionView({
             {activeTab === "menu" && (
                 <>
                     {/* ── NAV – sticky, topOffset dinamico ── */}
-                    {!emptyState && !allFiltered && (
-                        <CollectionSectionNav
-                            navRef={navRef}
-                            sections={navItems}
-                            activeSectionId={activeSectionId}
-                            onSelect={scrollToSection}
-                            onChildSelect={scrollToSubSection}
-                            variant={mode === "public" ? "public" : "preview"}
-                            style={{
-                                navStyle: style.sectionNavStyle
-                            }}
-                        />
-                    )}
+                    {!emptyState && !allFiltered && (() => {
+                        const sectionNav = (
+                            <CollectionSectionNav
+                                navRef={navRef}
+                                sections={navItems}
+                                activeSectionId={activeSectionId}
+                                onSelect={scrollToSection}
+                                onChildSelect={scrollToSubSection}
+                                variant={mode === "public" ? "public" : "preview"}
+                                style={{
+                                    navStyle: style.sectionNavStyle
+                                }}
+                            />
+                        );
+                        // Redesign: su desktop le categorie stanno nell'isola. Il contenitore
+                        // `display: contents` non tocca lo sticky della barra sul telefono.
+                        return mode === "public" && headerSlot ? (
+                            <div className={styles.redesignNav}>{sectionNav}</div>
+                        ) : (
+                            sectionNav
+                        );
+                    })()}
 
                     {/* ── FRAME – contenuto centrato e max-width responsivo ── */}
                     <div className={styles.frame}>

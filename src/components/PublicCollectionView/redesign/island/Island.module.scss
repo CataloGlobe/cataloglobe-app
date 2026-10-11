@@ -259,3 +259,219 @@ $passaggio: 220ms;
     transition-duration: 1ms;
   }
 }
+
+/* ── Desktop (spec §13) ─────────────────────────────────────────────────────
+   Estesa: riga 1 logo, nome e stato, campo di ricerca, lingua, ⋯; riga 2 pagine
+   e categorie. Compatta: una riga sola, logo, nome, categorie, lente, lingua, ⋯.
+   Le righe del telefono diventano `display: contents` e l'isola una griglia:
+   ogni pezzo sta in un'area, e le aree cambiano tra estesa e compatta. */
+.campo,
+.fila {
+  display: none;
+}
+
+/* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts) e DESKTOP_QUERY (Island.tsx). */
+@media (min-width: 641px) {
+  .slot,
+  .slot:not([data-cover]) {
+    top: 14px;
+    margin-inline: 24px;
+  }
+
+  .slot[data-cover] {
+    margin-top: -58px;
+  }
+
+  .slot:not([data-cover]) {
+    margin-top: 14px;
+  }
+
+  .isola,
+  .isola:not([data-cover]) {
+    display: grid;
+    grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto auto;
+    grid-template-rows: minmax(58px, auto) auto;
+    grid-template-areas:
+      "logo testi campo lingua piu"
+      "fila fila fila fila fila";
+    column-gap: 12px;
+    row-gap: 4px;
+    max-width: 1248px;
+    padding: 0 12px 10px;
+    border-width: 1px;
+    border-radius: 22px;
+  }
+
+  .riga {
+    display: contents;
+  }
+
+  .secondaRiga {
+    display: none;
+  }
+
+  .logo {
+    grid-area: logo;
+    align-self: center;
+  }
+
+  .testi {
+    grid-area: testi;
+    align-self: center;
+    max-width: 320px;
+  }
+
+  /* Nome lungo: completo fino a due righe, poi puntini. */
+  .nome {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .menu {
+    display: none;
+  }
+
+  .lingua {
+    grid-area: lingua;
+    align-self: center;
+  }
+
+  .lente {
+    grid-area: lente;
+    align-self: center;
+    display: none;
+  }
+
+  .piu {
+    grid-area: piu;
+    align-self: center;
+  }
+
+  .campo {
+    grid-area: campo;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 44px;
+    padding-right: 6px;
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 12%);
+  }
+
+  .campoTesto {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 42px;
+    padding: 0 0 0 16px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 15px;
+    text-align: left;
+    cursor: text;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0.72;
+    }
+  }
+
+  /* «Filtri» quieto; con filtri attivi una pillola piena «Filtri · 2». */
+  .campoFiltri {
+    flex-shrink: 0;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0.82;
+
+    &[data-active] {
+      background: #fff;
+      color: #111;
+      font-weight: 600;
+      opacity: 1;
+    }
+  }
+
+  .fila {
+    grid-area: fila;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+
+    > :last-child {
+      flex: 1 1 auto;
+    }
+  }
+
+  .capsulaFila {
+    flex-shrink: 0;
+  }
+
+  /* Compatta: una riga sola. Logo, lingua e ⋯ restano dove sono; lo stato si chiude,
+     il campo lascia il posto alla lente, le categorie salgono accanto al nome. */
+  /* Lingua e ⋯ non si muovono: la lente entra prima della lingua. */
+  .isola[data-compact="true"] {
+    grid-template-rows: 58px;
+    grid-template-areas: "logo testi fila lente lingua piu";
+    grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto auto auto;
+    padding-bottom: 0;
+    /* Il compatto del telefono azzera `gap`: qui le colonne restano distanziate. */
+    column-gap: 12px;
+
+    .logo {
+      width: 44px;
+      margin-right: 0;
+      opacity: 1;
+    }
+
+    .testi {
+      max-width: 220px;
+    }
+
+    .nome {
+      -webkit-line-clamp: 1;
+    }
+
+    .campo,
+    .capsulaFila {
+      display: none;
+    }
+
+    .lente {
+      display: flex;
+    }
+  }
+
+  /* Senza logo: niente colonna vuota (il suo spazio sposterebbe il nome dal filo delle categorie). */
+  .isola:not([data-logo]) {
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "testi campo lingua piu"
+      "fila fila fila fila";
+  }
+
+  .isola[data-compact="true"]:not([data-logo]) {
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto auto auto;
+    grid-template-areas: "testi fila lente lingua piu";
+  }
+}

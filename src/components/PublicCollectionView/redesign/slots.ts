@@ -41,6 +41,14 @@ export type HeaderSlotContext = {
     upcomingClosures: UpcomingClosure[];
     /** Il tocco sullo stato del locale: apre le Informazioni (dove stanno gli orari). */
     onOpenHours: () => void;
+    /** Categorie del menu per l'isola desktop (vuote fuori dal Menu o senza piatti). */
+    sections: { id: string; name: string }[];
+    activeSectionId: string | null;
+    onSelectSection: (sectionId: string) => void;
+    /** «Tutte le categorie» dell'isola desktop. */
+    onOpenCategories: () => void;
+    /** «Filtri» nel campo di ricerca desktop. */
+    onOpenFilters: () => void;
 };
 
 export type HeaderSlot = (context: HeaderSlotContext) => ReactNode;

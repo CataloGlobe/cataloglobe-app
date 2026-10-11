@@ -1,0 +1,104 @@
+/* Categorie nell'isola desktop: pill sul vetro scuro, fila che scorre di lato. */
+
+.root {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Sotto le frecce le pill sfumano: il testo non finisce tagliato dietro il cerchio. */
+.track[data-start] .list {
+  mask-image: linear-gradient(to right, transparent 0, #000 48px);
+}
+
+.track[data-end] .list {
+  mask-image: linear-gradient(to left, transparent 0, #000 48px);
+}
+
+.track[data-start][data-end] .list {
+  mask-image: linear-gradient(to right, transparent 0, #000 48px, #000 calc(100% - 48px), transparent 100%);
+}
+
+.list {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.pill {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0.82;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  &[aria-current] {
+    background: #fff;
+    color: #111;
+    font-weight: 600;
+    opacity: 1;
+  }
+}
+
+/* Frecce sopra i bordi della fila, solo quando c'è altro da quella parte. */
+.arrow {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(36 36 36);
+  color: inherit;
+  cursor: pointer;
+  transform: translateY(-50%);
+
+  &[data-side="start"] {
+    left: 0;
+  }
+
+  &[data-side="end"] {
+    right: 0;
+  }
+}
+
+.all {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 8%);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+}

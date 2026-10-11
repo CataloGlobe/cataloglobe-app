@@ -8,6 +8,7 @@ import lensStyles from "./LensDot.module.scss";
 import type { HeaderSlotContext } from "../slots";
 import { rememberSheetOpener } from "../sheets/sheetStack";
 import VenuePill from "../venue/VenuePill";
+import IslandCategories from "./IslandCategories";
 import LanguageButton from "./LanguageButton";
 import styles from "./Island.module.scss";
 
@@ -18,6 +19,10 @@ const SOGLIA_BASSA = 8;
 const PASSAGGIO_MS = 220;
 /** Altezza dell'isola compatta + distanza dal bordo: da qui parte la barra delle categorie sticky. */
 const ALTEZZA_COMPATTA_PX = 68;
+/** Desktop: le categorie stanno nell'isola, gli scroll verso le sezioni partono sotto la riga unica. */
+const ALTEZZA_COMPATTA_DESKTOP_PX = 82;
+/** ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts) e con Island.module.scss. */
+const DESKTOP_QUERY = "(min-width: 641px)";
 
 const HUB_TABS: { id: HubTab; labelKey: string }[] = [
     { id: "menu", labelKey: "hub.menu" },
@@ -67,7 +72,12 @@ export default function Island({
     showStoryTab,
     openingHours,
     upcomingClosures,
-    onOpenHours
+    onOpenHours,
+    sections,
+    activeSectionId,
+    onSelectSection,
+    onOpenCategories,
+    onOpenFilters
 }: HeaderSlotContext) {
     const { t } = useTranslation("public");
     const { compatta, alta, bassa } = useCompatta();
@@ -109,13 +119,28 @@ export default function Island({
     useEffect(() => {
         const main = rootRef.current?.closest("main") as HTMLElement | null;
         if (!main) return;
-        main.style.setProperty("--pub-header-height", `${ALTEZZA_COMPATTA_PX}px`);
+        const mq = window.matchMedia(DESKTOP_QUERY);
+        const apply = () =>
+            main.style.setProperty(
+                "--pub-header-height",
+                `${mq.matches ? ALTEZZA_COMPATTA_DESKTOP_PX : ALTEZZA_COMPATTA_PX}px`
+            );
+        apply();
+        mq.addEventListener("change", apply);
         return () => {
+            mq.removeEventListener("change", apply);
             main.style.removeProperty("--pub-header-height");
         };
     }, []);
 
     const coverSet = coverImageUrl ? buildCoverImageSet(coverImageUrl) : null;
+    const openSearch = (trigger: HTMLElement) => {
+        // Focus sincrono in-gesto sul campo fantasma: la tastiera iOS sale subito.
+        // Alla chiusura il fuoco torna a chi ha aperto, non al campo fantasma.
+        rememberSheetOpener(trigger);
+        primerRef.current?.focus();
+        onSearchOpen();
+    };
     const tabs = showStoryTab ? HUB_TABS : [];
 
     return (
@@ -158,6 +183,7 @@ export default function Island({
                 data-compact={compatta}
                 data-moving={inPassaggio || undefined}
                 data-cover={!!coverImageUrl || undefined}
+                data-logo={!!logoUrl || undefined}
             >
                 <div className={styles.riga}>
                     {logoUrl && (
@@ -179,18 +205,34 @@ export default function Island({
                             </div>
                         </div>
                     </div>
-                    <LanguageButton className={styles.icona} />
+                    {/* Desktop, isola estesa: il campo di ricerca prende lo spazio libero (spec §13). */}
+                    <div className={styles.campo}>
+                        <button
+                            type="button"
+                            className={styles.campoTesto}
+                            onClick={event => openSearch(event.currentTarget)}
+                            onPointerDown={onSearchPointerDown}
+                        >
+                            <Search size={16} strokeWidth={2} aria-hidden />
+                            <span>{t("header.search_field")}</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.campoFiltri}
+                            data-active={allergensCount > 0 || undefined}
+                            onClick={onOpenFilters}
+                        >
+                            {allergensCount > 0
+                                ? t("header.filters_count", { count: allergensCount })
+                                : t("more.filters_label")}
+                        </button>
+                    </div>
+                    <LanguageButton className={`${styles.icona} ${styles.lingua}`} />
                     <button
                         type="button"
                         id={SEARCH_TRIGGER_ID}
-                        className={styles.icona}
-                        onClick={event => {
-                            // Focus sincrono in-gesto sul campo fantasma: la tastiera iOS sale subito.
-                            // Alla chiusura il fuoco torna alla lente, non al campo fantasma.
-                            rememberSheetOpener(event.currentTarget);
-                            primerRef.current?.focus();
-                            onSearchOpen();
-                        }}
+                        className={`${styles.icona} ${styles.lente}`}
+                        onClick={event => openSearch(event.currentTarget)}
                         onPointerDown={onSearchPointerDown}
                         aria-label={
                             allergensCount > 0
@@ -202,7 +244,12 @@ export default function Island({
                         {/* Filtro attivo: un pallino, non un numero (spec §4, v32). */}
                         {allergensCount > 0 && <span className={lensStyles.dot} aria-hidden />}
                     </button>
-                    <button type="button" className={styles.icona} onClick={onOpenMore} aria-label={t("header.more_aria")}>
+                    <button
+                        type="button"
+                        className={`${styles.icona} ${styles.piu}`}
+                        onClick={onOpenMore}
+                        aria-label={t("header.more_aria")}
+                    >
                         <MoreHorizontal size={16} strokeWidth={2} />
                     </button>
                 </div>
@@ -226,6 +273,33 @@ export default function Island({
                         </div>
                     </div>
                 )}
+
+                {/* Desktop: seconda riga (pagine e categorie); da compatta le categorie salgono nella riga unica. */}
+                <div className={styles.fila}>
+                    {tabs.length > 0 && (
+                        <div className={`${styles.capsula} ${styles.capsulaFila}`} role="tablist">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeTab === tab.id}
+                                    className={styles.voce}
+                                    data-active={activeTab === tab.id || undefined}
+                                    onClick={() => onTabChange(tab.id)}
+                                >
+                                    {t(tab.labelKey)}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    <IslandCategories
+                        sections={sections}
+                        activeId={activeSectionId}
+                        onSelect={onSelectSection}
+                        onOpenAll={onOpenCategories}
+                    />
+                </div>
             </header>
             </div>
         </>

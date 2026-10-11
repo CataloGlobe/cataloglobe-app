@@ -35,6 +35,12 @@
         "info_sheet_aria": "Informationen zum Veranstaltungsort",
         "more_aria": "Weitere Optionen",
         "logo_alt": "Logo {{name}}",
+        "search_field": "Gericht oder Zutat suchen",
+        "filters_count_one": "Filter · {{count}}",
+        "filters_count_other": "Filter · {{count}}",
+        "all_categories": "Alle Kategorien",
+        "categories_prev": "Vorherige Kategorien",
+        "categories_next": "Nächste Kategorien",
         "search_filters_aria_one": "Suche im Katalog, 1 aktiver Filter",
         "search_filters_aria_other": "Suche im Katalog, {{count}} aktive Filter"
     },

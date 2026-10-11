@@ -1,11 +1,14 @@
 /* Ricerca e Filtri nel foglio unico (spec §4). Colori del locale (--pub-*),
    nessun movimento: le pagine scorrono già con la spinta del foglio. */
 
+/* Dentro la testata del foglio, che ha già i suoi margini: prende tutta la riga. */
 .header {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 8px;
-  padding: 4px 16px 10px;
+  min-width: 0;
+  padding-bottom: 2px;
 }
 
 .field {

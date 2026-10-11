@@ -35,6 +35,12 @@
         "info_sheet_aria": "Venue information",
         "more_aria": "More options",
         "logo_alt": "{{name}} logo",
+        "search_field": "Search for a dish or an ingredient",
+        "filters_count_one": "Filters · {{count}}",
+        "filters_count_other": "Filters · {{count}}",
+        "all_categories": "All categories",
+        "categories_prev": "Previous categories",
+        "categories_next": "Next categories",
         "search_filters_aria_one": "Search the catalog, 1 active filter",
         "search_filters_aria_other": "Search the catalog, {{count}} active filters"
     },

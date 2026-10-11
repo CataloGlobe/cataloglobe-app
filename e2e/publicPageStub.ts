@@ -14,13 +14,13 @@ export const SLUG = "sede-e2e-barra";
 export const ACTIVITY_ID = "00000000-0000-4000-8000-0000000000a1";
 const TENANT_ID = "00000000-0000-4000-8000-0000000000b1";
 
-function business(venueInfo = false): PublicBusiness {
+function business(venueInfo = false, cover: string | null = null): PublicBusiness {
     const base: PublicBusiness = {
         id: ACTIVITY_ID,
         tenant_id: TENANT_ID,
         name: "Sede e2e barra",
         slug: SLUG,
-        cover_image: null,
+        cover_image: cover,
         status: "active",
         ordering_enabled: true,
         enable_reservations: false,
@@ -180,10 +180,11 @@ function payload(
     venueInfo = false,
     story = false,
     allergens = false,
-    details = false
+    details = false,
+    cover: string | null = null
 ): ResolvedPayloadShape {
     return {
-        business: business(venueInfo),
+        business: business(venueInfo, cover),
         ...(story ? { has_story: true } : {}),
         ...(venueInfo
             ? {
@@ -210,11 +211,11 @@ function payload(
 
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details)) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     await page.route("**/functions/v1/get-orders-for-session**", route =>
