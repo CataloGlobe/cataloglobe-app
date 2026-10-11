@@ -1,10 +1,19 @@
 import { supabase } from "./client";
+import { isJobWaiting } from "./translationJobs";
 
 export type FieldTranslationStatus = {
     field: string;
     totalLanguages: number;
     doneCount: number;
+    /** Job in corso: `processing`, o `pending` già partibile. */
     pendingCount: number;
+    /**
+     * Job `pending` in attesa (`run_after` futuro): partono dopo 10 minuti senza
+     * modifiche al testo, o prima con «Traduci ora».
+     */
+    waitingCount: number;
+    /** Primo `run_after` fra i job in attesa; null se nessuno. */
+    nextRunAt: string | null;
     errorCount: number;
     /**
      * Traduzioni manuali rimaste indietro rispetto al sorgente IT corrente
@@ -22,11 +31,13 @@ export type FieldTranslationStatus = {
     languages?: FieldLanguageStatus[];
 };
 
-export type FieldLanguageState = "done" | "pending" | "failed" | "stale" | "missing";
+export type FieldLanguageState = "done" | "pending" | "waiting" | "failed" | "stale" | "missing";
 
 export type FieldLanguageStatus = {
     code: string;
     state: FieldLanguageState;
+    /** Solo per `waiting`: quando parte la traduzione. */
+    runAfter?: string;
 };
 
 export type SupportedEntityField =
@@ -98,6 +109,8 @@ export async function getFieldTranslationStatus(
             totalLanguages: 0,
             doneCount: 0,
             pendingCount: 0,
+            waitingCount: 0,
+            nextRunAt: null,
             errorCount: 0,
             staleCount: 0,
             sourceHash: null
@@ -112,6 +125,8 @@ export async function getFieldTranslationStatus(
             totalLanguages,
             doneCount: 0,
             pendingCount: 0,
+            waitingCount: 0,
+            nextRunAt: null,
             errorCount: 0,
             staleCount: 0,
             sourceHash: null,
@@ -122,7 +137,7 @@ export async function getFieldTranslationStatus(
     const [jobsRes, translationsRes] = await Promise.all([
         supabase
             .from("translation_jobs")
-            .select("status, target_language_code, last_error")
+            .select("status, target_language_code, last_error, run_after")
             .eq("tenant_id", tenantId)
             .eq("entity_type", entityType)
             .eq("entity_id", entityId)
@@ -161,8 +176,16 @@ export async function getFieldTranslationStatus(
 
     const doneCount = translations.filter(tr => tr.source_hash === sourceHash).length;
     const staleCount = translations.filter(isStale).length;
+    const now = Date.now();
+    const waitingJobs = jobs.filter(j => isJobWaiting(j, now));
     const errorCount = jobs.filter(j => j.status === "failed").length;
-    const pendingCount = jobs.filter(j => j.status === "pending" || j.status === "processing").length;
+    const pendingCount =
+        jobs.filter(j => j.status === "pending" || j.status === "processing").length - waitingJobs.length;
+    const waitingCount = waitingJobs.length;
+    const nextRunAt =
+        waitingJobs
+            .map(j => j.run_after as string)
+            .sort()[0] ?? null;
     const lastErrorJob = jobs.find(j => j.status === "failed" && j.last_error);
 
     // Prima il job in corso o fallito (l'ultima parola sul sorgente attuale),
@@ -170,6 +193,7 @@ export async function getFieldTranslationStatus(
     const languages = languageCodes.map((code): FieldLanguageStatus => {
         const job = jobs.find(j => j.target_language_code === code);
         if (job?.status === "failed") return { code, state: "failed" };
+        if (job && isJobWaiting(job, now)) return { code, state: "waiting", runAfter: job.run_after as string };
         if (job?.status === "pending" || job?.status === "processing") return { code, state: "pending" };
         const tr = translations.find(t => t.language_code === code);
         if (tr?.source_hash === sourceHash) return { code, state: "done" };
@@ -182,6 +206,8 @@ export async function getFieldTranslationStatus(
         totalLanguages,
         doneCount,
         pendingCount,
+        waitingCount,
+        nextRunAt,
         errorCount,
         staleCount,
         sourceHash,
