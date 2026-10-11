@@ -49,7 +49,10 @@
         "closed": "Chiuso",
         "closed_opens_today": "Chiuso · apre alle {{time}}",
         "closed_opens_tomorrow": "Chiuso · apre domani alle {{time}}",
-        "closed_opens_day": "Chiuso · apre {{day}} alle {{time}}"
+        "closed_opens_day": "Chiuso · apre {{day}} alle {{time}}",
+        "closed_opens_today_short": "Chiuso · oggi {{time}}",
+        "closed_opens_tomorrow_short": "Chiuso · domani {{time}}",
+        "closed_opens_day_short": "Chiuso · {{day}} {{time}}"
     },
     "nav": {
         "bottom_aria": "Navigazione",

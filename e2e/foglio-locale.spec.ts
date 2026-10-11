@@ -92,3 +92,15 @@ test("su uno schermo basso la sfumatura dice che c'è altro sotto", async ({ pag
     await scroller.evaluate(el => el.scrollTo(0, el.scrollHeight));
     await expect(scroller).toHaveAttribute("data-more", "false");
 });
+
+test("a locale chiuso la pillola è corta, con la frase intera come descrizione", async ({ page }) => {
+    // Mercoledì alle 23:30: chiuso, riapre domani alle 12:00.
+    await page.clock.setFixedTime(new Date("2026-10-14T23:30:00+02:00"));
+    await page.reload();
+    await page.getByText("Antipasti 1", { exact: true }).waitFor();
+    const pill = page.getByRole("button", { name: "Chiuso · domani 12:00", exact: true });
+    await expect(pill).toHaveAccessibleDescription("Chiuso · apre domani alle 12:00");
+    // Il testo sta nella pillola senza tagliarsi.
+    const clipped = await pill.locator("span").nth(1).evaluate(el => el.scrollWidth > el.clientWidth);
+    expect(clipped).toBe(false);
+});

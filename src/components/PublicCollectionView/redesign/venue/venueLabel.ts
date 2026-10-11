@@ -1,16 +1,25 @@
 import type { VenueStatus } from "./venueStatus";
 
-/** Nome del giorno nella lingua della pagina, con la maiuscola che gli spetta (lunedì, Montag, Monday). */
-function weekdayName(dow: number, lang: string): string {
+/** Nome del giorno nella lingua della pagina, con la maiuscola che gli spetta (lunedì, Montag, Monday; corto: lun, Mo, Mon). */
+function weekdayName(dow: number, lang: string, short = false): string {
     // 1 gennaio 2024 era un lunedì.
-    return new Intl.DateTimeFormat(lang, { weekday: "long", timeZone: "UTC" }).format(new Date(Date.UTC(2024, 0, 1 + dow)));
+    return new Intl.DateTimeFormat(lang, { weekday: short ? "short" : "long", timeZone: "UTC" }).format(new Date(Date.UTC(2024, 0, 1 + dow)));
 }
 
 /**
  * Parole dello stato del locale («Aperto», «Chiude tra 20 min», «Chiuso · apre
- * domani alle 12:00»): le stesse nell'isola e nella riga Orari del foglio.
+ * domani alle 12:00»), nella riga Orari del foglio e nel fondo pagina. `short`
+ * per la pillola dell'isola, dove lo spazio è poco: «Chiuso · domani 12:00»,
+ * «Chiuso · lun 12:00» (deciso da Lorenzo il 2026-10-11); la frase intera resta
+ * il nome accessibile.
  */
-export function venueStatusLabel(status: VenueStatus, t: (key: string, o?: Record<string, unknown>) => string, lang: string): string | null {
+export function venueStatusLabel(
+    status: VenueStatus,
+    t: (key: string, o?: Record<string, unknown>) => string,
+    lang: string,
+    short = false
+): string | null {
+    const suffix = short ? "_short" : "";
     switch (status.kind) {
         case "unknown":
             return null;
@@ -21,9 +30,9 @@ export function venueStatusLabel(status: VenueStatus, t: (key: string, o?: Recor
         case "closed": {
             const next = status.opensAt;
             if (!next) return t("venue.closed");
-            if (next.dayOffset === 0) return t("venue.closed_opens_today", { time: next.time });
-            if (next.dayOffset === 1) return t("venue.closed_opens_tomorrow", { time: next.time });
-            return t("venue.closed_opens_day", { day: weekdayName(next.dow, lang), time: next.time });
+            if (next.dayOffset === 0) return t(`venue.closed_opens_today${suffix}`, { time: next.time });
+            if (next.dayOffset === 1) return t(`venue.closed_opens_tomorrow${suffix}`, { time: next.time });
+            return t(`venue.closed_opens_day${suffix}`, { day: weekdayName(next.dow, lang, short), time: next.time });
         }
     }
 }

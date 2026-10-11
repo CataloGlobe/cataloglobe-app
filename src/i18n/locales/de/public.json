@@ -50,7 +50,10 @@
         "closed": "Geschlossen",
         "closed_opens_today": "Geschlossen · öffnet um {{time}} Uhr",
         "closed_opens_tomorrow": "Geschlossen · öffnet morgen um {{time}} Uhr",
-        "closed_opens_day": "Geschlossen · öffnet {{day}} um {{time}} Uhr"
+        "closed_opens_day": "Geschlossen · öffnet {{day}} um {{time}} Uhr",
+        "closed_opens_today_short": "Geschlossen · heute {{time}}",
+        "closed_opens_tomorrow_short": "Geschlossen · morgen {{time}}",
+        "closed_opens_day_short": "Geschlossen · {{day}} {{time}}"
     },
     "nav": {
         "bottom_aria": "Navigation",
