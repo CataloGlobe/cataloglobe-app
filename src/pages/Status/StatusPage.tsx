@@ -190,7 +190,8 @@ function ServiceRow({
     );
 }
 
-const STALE_THRESHOLD_MS = 10 * 60 * 1000;
+// il controllo gira ogni 5 minuti: 15 tollera due giri saltati prima di dire che il monitoring è fermo
+const STALE_THRESHOLD_MS = 15 * 60 * 1000;
 
 export default function StatusPage() {
     usePageTitle("Stato sistema");
@@ -289,7 +290,7 @@ export default function StatusPage() {
                     className={`${styles.headerMeta} ${isStale ? styles.headerMetaStale : ""}`}
                     title={
                         isStale
-                            ? "Il monitoring potrebbe essere fermo: ultimo check oltre 10 minuti fa."
+                            ? "Il monitoring potrebbe essere fermo: ultimo check oltre 15 minuti fa."
                             : undefined
                     }
                 >
