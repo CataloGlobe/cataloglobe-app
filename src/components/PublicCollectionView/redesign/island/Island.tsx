@@ -6,6 +6,7 @@ import { SEARCH_TRIGGER_ID } from "@components/PublicCollectionView/PublicCollec
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import lensStyles from "./LensDot.module.scss";
 import type { HeaderSlotContext } from "../slots";
+import { rememberSheetOpener } from "../sheets/sheetStack";
 import VenuePill from "../venue/VenuePill";
 import LanguageButton from "./LanguageButton";
 import styles from "./Island.module.scss";
@@ -183,8 +184,10 @@ export default function Island({
                         type="button"
                         id={SEARCH_TRIGGER_ID}
                         className={styles.icona}
-                        onClick={() => {
+                        onClick={event => {
                             // Focus sincrono in-gesto sul campo fantasma: la tastiera iOS sale subito.
+                            // Alla chiusura il fuoco torna alla lente, non al campo fantasma.
+                            rememberSheetOpener(event.currentTarget);
                             primerRef.current?.focus();
                             onSearchOpen();
                         }}

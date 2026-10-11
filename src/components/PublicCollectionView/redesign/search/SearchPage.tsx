@@ -118,25 +118,23 @@ export default function SearchPage({ query, onQueryChange, search, categories }:
 
     return (
         <div ref={rootRef} className={styles.page}>
-            <p className={styles.count} role="status">
-                {total > 0 ? t("search.results_count", { count: total }) : ""}
+            {/* Una regione sola, sempre montata: annuncia il numero e anche «nessun risultato». */}
+            <p className={total > 0 ? styles.count : styles.emptyTitle} role="status">
+                {total > 0
+                    ? t("search.results_count", { count: total })
+                    : filterCount > 0
+                      ? t("search.no_results_filtered", { query: query.trim() })
+                      : `${t("search.no_results")} «${query.trim()}»`}
             </p>
             {total === 0 ? (
-                <div className={styles.empty}>
-                    <p>
-                        {filterCount > 0
-                            ? t("search.no_results_filtered", { query: query.trim() })
-                            : `${t("search.no_results")} «${query.trim()}»`}
-                    </p>
-                    {filterCount > 0 ? (
-                        <>
-                            <p className={styles.muted}>{t("search.no_results_filtered_hint")}</p>
-                            <button type="button" className={styles.clearFilters} onClick={() => search.onApplyFilters([])}>
-                                {t("search.clear_filters")}
-                            </button>
-                        </>
-                    ) : null}
-                </div>
+                filterCount > 0 ? (
+                    <div className={styles.empty}>
+                        <p className={styles.muted}>{t("search.no_results_filtered_hint")}</p>
+                        <button type="button" className={styles.clearFilters} onClick={() => search.onApplyFilters([])}>
+                            {t("search.clear_filters")}
+                        </button>
+                    </div>
+                ) : null
             ) : (
                 groups.map(group => (
                     <section key={group.section.id} aria-label={group.section.name}>

@@ -135,4 +135,6 @@ export type SheetsSlotContext = {
 export type SheetsSlot = {
     render: (context: SheetsSlotContext) => ReactNode;
     open: (name: PublicSheetName) => void;
+    /** Il foglio è aperto (qualunque pagina): Cmd/Ctrl+F lo lascia stare. */
+    isOpen: () => boolean;
 };

@@ -210,6 +210,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+.emptyTitle {
+  margin: 0;
+}
+
 .empty {
   display: flex;
   flex-direction: column;
