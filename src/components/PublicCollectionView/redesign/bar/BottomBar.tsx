@@ -13,9 +13,6 @@ const loadVote = () => import("../vote/VoteControls");
 const VoteInviteCard = lazy(() => loadVote().then(m => ({ default: m.VoteInviteCard })));
 const VoteButton = lazy(() => loadVote().then(m => ({ default: m.VoteButton })));
 
-/** Durata della transizione di nascondi/mostra: per tutto il passaggio il materiale è pieno. */
-const PASSAGGIO_MS = 280;
-
 const VOCI: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
     { id: "menu", icon: <Utensils size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
     { id: "storia", icon: <ScrollText size={19} strokeWidth={1.9} />, labelKey: "hub.storia" }
@@ -29,8 +26,10 @@ const VOCI: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
  * vola qui accanto al cerchio dell'ordine (spec §11, `vote/`). Nascondi/mostra lo
  * decide `useBottomBarAutoHide` (prop `hidden`).
  *
- * Materiale ibrido: sfocato da fermo, pieno mentre la barra si muove (su WebKit un
- * blur su un elemento che trasla si ridisegna a ogni frame).
+ * Materiale pieno semitrasparente, senza blur, come l'isola: la barra trasla quando
+ * si nasconde e su WebKit un blur su un elemento che trasla si ridisegna a ogni
+ * fotogramma; accenderlo e spegnerlo ai capi del passaggio (il materiale ibrido di
+ * prima) faceva lo scatto. Nascondi/mostra non fa render: solo `data-hidden`.
  */
 export default function BottomBar({
     activeTab,
@@ -47,23 +46,10 @@ export default function BottomBar({
     const gruppoRef = useRef<HTMLDivElement>(null);
     const vociRef = useRef<Partial<Record<HubTab, HTMLButtonElement | null>>>({});
     const [indicatore, setIndicatore] = useState({ left: 0, width: 0 });
-    const [inPassaggio, setInPassaggio] = useState(false);
-    const primoGiro = useRef(true);
     const { state: voteState, send: sendVote } = useVoteInvite(vote);
     const [flightFrom, setFlightFrom] = useState<FlightOrigin | null>(null);
     const landed = useCallback(() => setFlightFrom(null), []);
     const rateFromInvite = useCallback((rating: number) => vote?.onRate(rating), [vote]);
-
-    // Pieno mentre si nasconde o si mostra, sfocato da fermo.
-    useEffect(() => {
-        if (primoGiro.current) {
-            primoGiro.current = false;
-            return;
-        }
-        setInPassaggio(true);
-        const id = window.setTimeout(() => setInPassaggio(false), PASSAGGIO_MS + 30);
-        return () => window.clearTimeout(id);
-    }, [hidden]);
 
     // Altezza reale → `--pub-bottombar-h` su `main.page`: da qui parte lo spazio in fondo
     // (`--pub-bottom-clearance`, scrim, toast). Non cambia quando la barra si nasconde.
@@ -85,7 +71,7 @@ export default function BottomBar({
         };
     }, []);
 
-    // Il fondo morbido scorre tra le voci: si misura la voce attiva.
+    // Il fondo morbido scorre tra le voci (transform, la larghezza è di una foglia): si misura la voce attiva.
     const misura = () => {
         const btn = vociRef.current[activeTab];
         if (btn) setIndicatore({ left: btn.offsetLeft, width: btn.offsetWidth });
@@ -122,7 +108,6 @@ export default function BottomBar({
                 ref={wrapRef}
                 className={styles.wrap}
                 data-hidden={hidden ? "true" : undefined}
-                data-moving={inPassaggio || undefined}
                 inert={hidden}
                 aria-hidden={hidden ? true : undefined}
             >
@@ -131,7 +116,7 @@ export default function BottomBar({
                         <div className={styles.gruppo} ref={gruppoRef}>
                             <span
                                 className={styles.fondo}
-                                style={{ left: indicatore.left, width: indicatore.width }}
+                                style={{ width: indicatore.width, transform: `translateX(${indicatore.left}px)` }}
                                 aria-hidden="true"
                             />
                             {VOCI.map(voce => {

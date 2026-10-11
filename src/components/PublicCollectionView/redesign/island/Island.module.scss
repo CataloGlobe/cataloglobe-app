@@ -1,8 +1,12 @@
-/* Isola della pagina pubblica (redesign). Si anima solo transform/opacity; la
-   seconda riga si chiude con una transizione di righe di griglia, dentro un
-   elemento fuori flusso (nessun reflow sulla pagina). */
+/* Isola della pagina pubblica (redesign). Il contenuto non cambia mai misura:
+   resta in flusso alla sua altezza da estesa e, compattando, sfuma (opacity) o
+   scivola (transform). Cambia altezza solo il guscio, un elemento senza figli
+   fuori flusso, che porta il vetro. Niente blur: costa un ri-rasterizzo per
+   fotogramma su WebKit e riaccenderlo a fine passaggio faceva lo scatto. */
 
 $passaggio: 220ms;
+$altezza-compatta: 68px;
+$scia: 54px; /* logo 44 + gap 10 */
 
 .primer {
   position: fixed;
@@ -75,35 +79,55 @@ $passaggio: 220ms;
   max-width: 820px;
   margin-inline: auto;
   padding: 14px;
-  border-radius: 22px;
-  border: 1px solid rgb(255 255 255 / 8%);
-  background: rgb(20 20 20 / 62%);
   color: #fff;
   font-family: var(--pub-font-family, inherit);
-  pointer-events: auto;
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  pointer-events: none;
 
-  /* Senza foto: vetro scuro a tutta larghezza, senza raggio. */
   &:not([data-cover]) {
     max-width: none;
+  }
+
+  > * {
+    position: relative;
+  }
+}
+
+/* Il vetro: l'unico pezzo che cambia altezza (leaf fuori flusso, nessun testo dentro).
+   Eccezione voluta alla regola «solo transform/opacity»: con scaleY gli angoli
+   arrotondati si deformerebbero; il layout costa poco (nessun figlio), resta il
+   ridisegno del solo vetro per 220 ms. */
+.guscio {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 100%;
+  border-radius: 22px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(20 20 20 / 90%);
+  pointer-events: auto;
+  transition: height $passaggio ease;
+
+  .isola:not([data-cover]) & {
     border-radius: 0;
     border-width: 0 0 1px;
   }
 
-  /* Durante il passaggio il vetro è pieno: su WebKit un blur che cambia sfarfalla. */
-  &[data-moving] {
-    background: rgb(20 20 20 / 94%);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+  .isola[data-compact="true"] & {
+    height: $altezza-compatta;
   }
 }
 
+/* Ai tocchi solo i pulsanti: da compatta la riga (alta come i tre testi) sporge sotto
+   il guscio e coprirebbe la cima della barra delle categorie. Il vuoto dell'isola
+   estesa lo prende il guscio. */
 .riga {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   min-height: 44px;
+
+  > :not(.testi, .logo) {
+    pointer-events: auto;
+  }
 }
 
 .logo {
@@ -112,7 +136,7 @@ $passaggio: 220ms;
   height: 44px;
   border-radius: 12px;
   object-fit: cover;
-  transition: opacity $passaggio ease, width $passaggio ease, margin $passaggio ease;
+  transition: opacity $passaggio ease, visibility 0s;
 }
 
 .testi {
@@ -121,6 +145,7 @@ $passaggio: 220ms;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  transition: transform $passaggio ease;
 }
 
 .nome {
@@ -140,19 +165,13 @@ $passaggio: 220ms;
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.72;
-  transition: opacity $passaggio ease;
+  transition: opacity $passaggio ease, visibility 0s;
 }
 
-/* Riga dello stato del locale: si chiude con la compattazione, come la seconda riga. */
+/* Riga dello stato del locale: sfuma con la compattazione, senza cambiare altezza. */
 .stato {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows $passaggio ease, opacity $passaggio ease;
-
-  > * {
-    min-height: 0;
-    overflow: hidden;
-  }
+  pointer-events: auto;
+  transition: opacity $passaggio ease, visibility 0s;
 }
 
 .icona {
@@ -192,14 +211,8 @@ $passaggio: 220ms;
 }
 
 .secondaRiga {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows $passaggio ease, opacity $passaggio ease;
-
-  > * {
-    min-height: 0;
-    overflow: hidden;
-  }
+  pointer-events: auto;
+  transition: opacity $passaggio ease, visibility 0s;
 }
 
 .capsula {
@@ -230,28 +243,32 @@ $passaggio: 220ms;
   }
 }
 
-/* Compatta: sparisce il nome del menu, il logo e la capsula; restano nome, lingua, lente e ⋯. */
+/* Compatta: sparisce il nome del menu, il logo, lo stato e la capsula; il nome scende al centro
+   della prima riga e prende il posto del logo. Solo opacity e transform. */
 .isola[data-compact="true"] {
-  gap: 0;
-
   .menu,
-  .logo {
+  .logo,
+  .stato,
+  .secondaRiga {
+    visibility: hidden;
     opacity: 0;
+    pointer-events: none;
+    transition: opacity $passaggio ease, visibility 0s linear $passaggio;
   }
 
-  .logo {
-    width: 0;
-    margin-right: -10px;
-  }
-
-  .secondaRiga,
-  .stato {
-    grid-template-rows: 0fr;
-    opacity: 0;
+  .testi {
+    transform: translate(-$scia, 12px);
   }
 }
 
+/* Senza logo il nome parte già dal bordo: niente scia a sinistra, solo la discesa. */
+.isola[data-compact="true"]:not([data-logo]) .testi {
+  transform: translateY(12px);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .guscio,
+  .testi,
   .logo,
   .menu,
   .stato,

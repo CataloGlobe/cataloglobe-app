@@ -16,8 +16,6 @@ import styles from "./Island.module.scss";
 // Isteresi: compatta oltre 40 px, torna estesa sotto 8 px. Validata su iPhone e Android (PR 1).
 const SOGLIA_ALTA = 40;
 const SOGLIA_BASSA = 8;
-/** Durata della transizione CSS: per tutto il passaggio il vetro è pieno, niente blur che cambia. */
-const PASSAGGIO_MS = 220;
 /** Altezza dell'isola compatta + distanza dal bordo: da qui parte la barra delle categorie sticky. */
 const ALTEZZA_COMPATTA_PX = 68;
 /** Desktop: le categorie stanno nell'isola, gli scroll verso le sezioni partono sotto la riga unica. */
@@ -88,19 +86,6 @@ export default function Island({
     const primerRef = useRef<HTMLInputElement>(null);
     const campoRef = useRef<HTMLButtonElement>(null);
     const lenteRef = useRef<HTMLButtonElement>(null);
-    const [inPassaggio, setInPassaggio] = useState(false);
-    const primoGiro = useRef(true);
-
-    // Vetro pieno mentre l'isola cambia misura, sfocato da fermo.
-    useEffect(() => {
-        if (primoGiro.current) {
-            primoGiro.current = false;
-            return;
-        }
-        setInPassaggio(true);
-        const id = window.setTimeout(() => setInPassaggio(false), PASSAGGIO_MS + 30);
-        return () => window.clearTimeout(id);
-    }, [compatta]);
 
     // Desktop: da estesa a compatta il campo lascia il posto alla lente (e viceversa).
     // Se il fuoco era sul pezzo che sparisce, passa all'altro: non cade sul body.
@@ -198,10 +183,10 @@ export default function Island({
                 id={ISLAND_ID}
                 className={styles.isola}
                 data-compact={compatta}
-                data-moving={inPassaggio || undefined}
                 data-cover={!!coverImageUrl || undefined}
                 data-logo={!!logoUrl || undefined}
             >
+                <div className={styles.guscio} aria-hidden />
                 <div className={styles.riga}>
                     {logoUrl && (
                         <img
