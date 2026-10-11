@@ -1024,7 +1024,7 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
                                             <span className={cx(s.tg, need(x) ? s.chk : s.new)}>{need(x) ? x.why ?? "manca il prezzo" : "a posto"}</span>
                                             <span>va in {nameOf(x.to)}</span>
                                             <button type="button" className={s.lk} onClick={() => item(k, y => void (y.on = false))}>
-                                                Non aggiungerlo
+                                                Lascia fuori questo piatto
                                             </button>
                                         </span>
                                     </div>
@@ -1061,7 +1061,7 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
                         </button>
                     )}
                     <button type="button" className={s.btn} onClick={dropImport}>
-                        Butta via
+                        Butta via tutto l'import
                     </button>
                     <button type="button" className={cx(s.btn, s.pri)} disabled={miss > 0 || !on} onClick={applyImport}>
                         Aggiungi {on} {on === 1 ? "piatto" : "piatti"} al menù
@@ -1155,11 +1155,11 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
                             <b>
                                 {t.lastImport.dishes.length} {t.lastImport.dishes.length === 1 ? "piatto aggiunto" : "piatti aggiunti"} da «{t.lastImport.file}».
                             </b>{" "}
-                            Li scriviamo quando salvi.
+                            Li scriviamo quando salvi. Se ci ripensi, li togli tutti insieme.
                         </span>
                         <span className={s.grow} />
                         <button type="button" className={s.lk} onClick={undoImport}>
-                            Annulla l'import
+                            Annulla l'import: togli {t.lastImport.dishes.length === 1 ? "questo piatto" : `questi ${t.lastImport.dishes.length} piatti`}
                         </button>
                     </div>
                 )}

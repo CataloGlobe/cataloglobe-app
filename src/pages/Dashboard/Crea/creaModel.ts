@@ -344,7 +344,7 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
         case "parti":
             return t.name.trim() ? "" : "Manca il nome del menù";
         case "sezioni":
-            return t.impOpen ? "Hai un import aperto: aggiungilo o buttalo via" : hasDish(t) ? "" : "Aggiungi almeno un piatto";
+            return t.impOpen ? "Hai un import aperto: aggiungi i piatti o butta via l'import" : hasDish(t) ? "" : "Aggiungi almeno un piatto";
         case "nome":
             if (!t.name.trim()) return "Manca il nome dello stile";
             return t.base === "copy" && !t.baseStyleId ? "Scegli lo stile da cui partire" : "";

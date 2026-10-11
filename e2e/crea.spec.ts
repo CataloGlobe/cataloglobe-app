@@ -388,7 +388,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(button(page, /^1 da controllare/)).toBeVisible();
         // con l'import aperto non si va avanti
         await expect(button(page, "Avanti")).toBeDisabled();
-        await expect(main(page).getByText("Hai un import aperto: aggiungilo o buttalo via")).toBeVisible();
+        await expect(main(page).getByText("Hai un import aperto: aggiungi i piatti o butta via l'import")).toBeVisible();
         await button(page, "Aggiungi 2 piatti al menù").click();
         await expect(main(page).getByText("2 piatti aggiunti da «menu.png».")).toBeVisible();
         await expect(button(page, "Togli Bufalina")).toBeVisible();
@@ -414,7 +414,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByText("Nel file «menu.png» ho trovato 2 piatti")).toBeVisible();
         await expect(main(page).getByRole("alert")).toHaveCount(0);
         await button(page, "Aggiungi 2 piatti al menù").click();
-        await button(page, "Annulla l'import").click();
+        await button(page, "Annulla l'import: togli questi 2 piatti").click();
         await expect(main(page).getByText("Il menù è vuoto")).toBeVisible();
         await button(page, "Esci").click();
         await page.getByRole("alertdialog", { name: "Uscire dal tunnel?" }).getByRole("button", { name: "Esci senza salvare" }).click();
