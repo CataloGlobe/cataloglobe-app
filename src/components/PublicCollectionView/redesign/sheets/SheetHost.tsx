@@ -34,6 +34,10 @@ import {
 } from "./sheetStack";
 import styles from "./SheetHost.module.scss";
 
+/** Finestra a tendina: 8 px sotto l'isola (spec §13), larga 560 se non c'è il campo a cui allinearsi. */
+const ANCHOR_GAP_PX = 8;
+const ANCHORED_WIDTH_PX = 560;
+
 type Props = {
     /** Contenuto di una pagina del foglio, dalla sua `key`. */
     renderPage: (page: SheetPage) => ReactNode;
@@ -152,6 +156,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
     }
     if (isOpen && !present) setPresent(true);
 
+    const rootRef = useRef<HTMLDivElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
     const backdropRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
@@ -214,6 +219,47 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
     const index = Math.max(0, shown.length - 1);
     const activePage = shown[index];
     const parentPage = index > 0 ? shown[index - 1] : undefined;
+
+    // ── Finestra a tendina (desktop) ─────────────────────────────────────────
+    // La prima pagina decide: la ricerca si apre sotto l'isola, non al centro.
+    // Misura dopo il blocco del body (layout effect dichiarato prima), e a ogni resize.
+    const anchor = shown[0]?.anchor;
+    useLayoutEffect(() => {
+        const root = rootRef.current;
+        const panel = panelRef.current;
+        if (!root || !panel) return;
+        const clear = () => {
+            delete root.dataset.anchored;
+            for (const name of ["--sheet-anchor-top", "--sheet-anchor-left", "--sheet-anchor-width"]) {
+                panel.style.removeProperty(name);
+            }
+        };
+        if (!present || isMobile || !anchor) {
+            clear();
+            return;
+        }
+        const place = () => {
+            const below = document.getElementById(anchor.below)?.getBoundingClientRect();
+            if (!below || below.width === 0) {
+                clear();
+                return;
+            }
+            const align = anchor.align ? document.getElementById(anchor.align)?.getBoundingClientRect() : undefined;
+            const aligned = !!align && align.width > 0;
+            const width = aligned ? align.width : Math.min(ANCHORED_WIDTH_PX, below.width - 24);
+            const left = aligned ? align.left : below.right - 12 - width;
+            root.dataset.anchored = "true";
+            panel.style.setProperty("--sheet-anchor-top", `${Math.round(below.bottom + ANCHOR_GAP_PX)}px`);
+            panel.style.setProperty("--sheet-anchor-left", `${Math.round(left)}px`);
+            panel.style.setProperty("--sheet-anchor-width", `${Math.round(width)}px`);
+        };
+        place();
+        window.addEventListener("resize", place);
+        return () => {
+            window.removeEventListener("resize", place);
+            clear();
+        };
+    }, [present, isMobile, anchor]);
 
     // ── Entrata ──────────────────────────────────────────────────────────────
     useLayoutEffect(() => {
@@ -480,7 +526,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
     const customHeader = renderHeader?.(activePage) ?? null;
 
     const tree = (
-        <div className={styles.root}>
+        <div ref={rootRef} className={styles.root}>
             <div ref={backdropRef} className={styles.backdrop} onClick={closeSheet} role="presentation" />
             <div
                 ref={panelRef}

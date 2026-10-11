@@ -418,7 +418,8 @@ $passaggio: 220ms;
     gap: 12px;
     min-width: 0;
 
-    > :last-child {
+    /* Le categorie prendono la riga; la capsula Menu/Storia, anche da sola, resta stretta. */
+    > nav {
       flex: 1 1 auto;
     }
   }
@@ -460,6 +461,12 @@ $passaggio: 220ms;
     .lente {
       display: flex;
     }
+  }
+
+  /* Niente pagine né categorie (Storia senza tab, menu vuoto): nessuno spazio sotto la riga. */
+  .isola:has(> .fila:empty) {
+    row-gap: 0;
+    padding-bottom: 0;
   }
 
   /* Senza logo: niente colonna vuota (il suo spazio sposterebbe il nome dal filo delle categorie). */

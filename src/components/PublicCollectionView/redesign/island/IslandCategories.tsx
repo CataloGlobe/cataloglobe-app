@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import styles from "./IslandCategories.module.scss";
+
+/** Larghezza della sfumatura sotto le frecce: una pill dentro questa fascia non è «in vista». */
+const EDGE_PX = 48;
 
 type Props = {
     sections: { id: string; name: string }[];
@@ -18,7 +21,23 @@ type Props = {
 export default function IslandCategories({ sections, activeId, onSelect, onOpenAll }: Props) {
     const { t } = useTranslation("public");
     const listRef = useRef<HTMLDivElement>(null);
+    const prevRef = useRef<HTMLButtonElement>(null);
+    const nextRef = useRef<HTMLButtonElement>(null);
     const [edges, setEdges] = useState({ start: false, end: false });
+
+    // La categoria in vista resta in vista anche nella fila (fuori dalle sfumature):
+    // scorre solo la fila, mai la pagina.
+    const revealActive = useCallback((behavior: ScrollBehavior) => {
+        const list = listRef.current;
+        const active = list?.querySelector<HTMLElement>("[aria-current]");
+        if (!list || !active) return;
+        const left = active.offsetLeft;
+        const right = left + active.offsetWidth;
+        if (left < list.scrollLeft + EDGE_PX) list.scrollTo({ left: left - EDGE_PX, behavior });
+        else if (right > list.scrollLeft + list.clientWidth - EDGE_PX) {
+            list.scrollTo({ left: right - list.clientWidth + EDGE_PX, behavior });
+        }
+    }, []);
 
     useEffect(() => {
         const list = listRef.current;
@@ -26,30 +45,34 @@ export default function IslandCategories({ sections, activeId, onSelect, onOpenA
         const update = () => {
             const start = list.scrollLeft > 1;
             const end = list.scrollLeft + list.clientWidth < list.scrollWidth - 1;
+            // Una freccia che sparisce col fuoco sopra lo lascerebbe cadere sul body:
+            // passa alla pill di quel bordo.
+            const focused = document.activeElement;
+            if (!start && focused === prevRef.current) list.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+            if (!end && focused === nextRef.current) {
+                list.querySelector<HTMLElement>("button:last-child")?.focus({ preventScroll: true });
+            }
             setEdges(prev => (prev.start === start && prev.end === end ? prev : { start, end }));
         };
         update();
         list.addEventListener("scroll", update, { passive: true });
-        const ro = new ResizeObserver(update);
+        // Anche le pill: il font del locale che arriva dopo cambia la loro misura, non quella della fila.
+        // Al cambio di misura (isola estesa ↔ compatta) la categoria in vista torna in vista.
+        const ro = new ResizeObserver(() => {
+            update();
+            revealActive("auto");
+        });
         ro.observe(list);
+        for (const pill of Array.from(list.children)) ro.observe(pill);
         return () => {
             list.removeEventListener("scroll", update);
             ro.disconnect();
         };
-    }, [sections]);
+    }, [sections, revealActive]);
 
-    // La categoria in vista resta in vista anche nella fila: scorre solo la fila, mai la pagina.
     useEffect(() => {
-        const list = listRef.current;
-        const active = list?.querySelector<HTMLElement>("[aria-current]");
-        if (!list || !active) return;
-        const left = active.offsetLeft;
-        const right = left + active.offsetWidth;
-        if (left < list.scrollLeft) list.scrollTo({ left: left - 8, behavior: "smooth" });
-        else if (right > list.scrollLeft + list.clientWidth) {
-            list.scrollTo({ left: right - list.clientWidth + 8, behavior: "smooth" });
-        }
-    }, [activeId]);
+        revealActive("smooth");
+    }, [activeId, sections, revealActive]);
 
     const page = (direction: 1 | -1) => {
         const list = listRef.current;
@@ -76,6 +99,7 @@ export default function IslandCategories({ sections, activeId, onSelect, onOpenA
                 </div>
                 {edges.start && (
                     <button
+                        ref={prevRef}
                         type="button"
                         className={styles.arrow}
                         data-side="start"
@@ -87,6 +111,7 @@ export default function IslandCategories({ sections, activeId, onSelect, onOpenA
                 )}
                 {edges.end && (
                     <button
+                        ref={nextRef}
                         type="button"
                         className={styles.arrow}
                         data-side="end"

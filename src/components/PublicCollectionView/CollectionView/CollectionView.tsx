@@ -3065,7 +3065,8 @@ export default function CollectionView({
                         );
                         // Redesign: su desktop le categorie stanno nell'isola. Il contenitore
                         // `display: contents` non tocca lo sticky della barra sul telefono.
-                        return mode === "public" && headerSlot ? (
+                        // Senza isola (stile con testata spenta) la barra resta anche su desktop.
+                        return mode === "public" && headerSlot && hasHeader ? (
                             <div className={styles.redesignNav}>{sectionNav}</div>
                         ) : (
                             sectionNav

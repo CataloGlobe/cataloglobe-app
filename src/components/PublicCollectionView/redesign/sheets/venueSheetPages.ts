@@ -1,6 +1,7 @@
 import i18next from "i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import { FEATURED_TYPE_KEY } from "../featured/stripItems";
+import { ISLAND_ID, SEARCH_FIELD_ID } from "../island/anchors";
 import type { PublicSheetName } from "../slots";
 import { openSheet, openSheetAt, pushSheetPage, type SheetPage } from "./sheetStack";
 
@@ -24,7 +25,14 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
         case "categories":
             return { key: "categories", title: t("categories.sheet_title"), size: "large" };
         case "search":
-            return { key: "search", title: t("search.back_to_search"), size: "large", fill: true };
+            return {
+                key: "search",
+                title: t("search.back_to_search"),
+                size: "large",
+                fill: true,
+                // Su desktop a tendina sotto il campo dell'isola (spec §13).
+                anchor: { below: ISLAND_ID, align: SEARCH_FIELD_ID }
+            };
         case "filters":
             return { key: "filters", title: t("search.filters_title"), size: "large", fill: true };
     }

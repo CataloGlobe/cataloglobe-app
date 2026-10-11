@@ -20,6 +20,12 @@ export type SheetPage = {
     fill?: boolean;
     /** Titolo invisibile in testata (resta per i lettori di schermo e per «‹ Titolo» nelle figlie): il corpo lo mostra da sé. */
     titleHidden?: boolean;
+    /**
+     * Solo desktop, sulla prima pagina della pila: la finestra si apre 8 px sotto
+     * l'elemento `below` invece che al centro, larga e allineata come `align` se
+     * si vede (il campo di ricerca), altrimenti sul bordo destro di `below`.
+     */
+    anchor?: { below: string; align?: string };
 };
 
 /** Come si è arrivati allo stato corrente: serve a scegliere il verso dell'animazione. */

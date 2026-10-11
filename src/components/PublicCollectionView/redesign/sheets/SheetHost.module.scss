@@ -215,6 +215,27 @@
   .handle {
     display: none;
   }
+
+  /* A tendina sotto l'isola (la ricerca): posizione e larghezza misurate da SheetHost. */
+  .root[data-anchored] {
+    align-items: flex-start;
+    justify-content: flex-start;
+
+    .backdrop {
+      background: color-mix(in srgb, black 18%, transparent);
+    }
+
+    .panel[data-size] {
+      --sheet-max-height: min(560px, calc(100dvh - var(--sheet-anchor-top) - 24px));
+
+      position: absolute;
+      top: var(--sheet-anchor-top);
+      left: var(--sheet-anchor-left);
+      width: var(--sheet-anchor-width);
+      border-radius: 22px;
+      transform-origin: top center;
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

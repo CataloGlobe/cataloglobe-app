@@ -8,6 +8,7 @@ import lensStyles from "./LensDot.module.scss";
 import type { HeaderSlotContext } from "../slots";
 import { rememberSheetOpener } from "../sheets/sheetStack";
 import VenuePill from "../venue/VenuePill";
+import { ISLAND_ID, SEARCH_FIELD_ID } from "./anchors";
 import IslandCategories from "./IslandCategories";
 import LanguageButton from "./LanguageButton";
 import styles from "./Island.module.scss";
@@ -85,6 +86,8 @@ export default function Island({
     const rootRef = useRef<HTMLElement>(null);
     const compattaRef = useRef(false);
     const primerRef = useRef<HTMLInputElement>(null);
+    const campoRef = useRef<HTMLButtonElement>(null);
+    const lenteRef = useRef<HTMLButtonElement>(null);
     const [inPassaggio, setInPassaggio] = useState(false);
     const primoGiro = useRef(true);
 
@@ -97,6 +100,19 @@ export default function Island({
         setInPassaggio(true);
         const id = window.setTimeout(() => setInPassaggio(false), PASSAGGIO_MS + 30);
         return () => window.clearTimeout(id);
+    }, [compatta]);
+
+    // Desktop: da estesa a compatta il campo lascia il posto alla lente (e viceversa).
+    // Se il fuoco era sul pezzo che sparisce, passa all'altro: non cade sul body.
+    useEffect(() => {
+        const campo = campoRef.current;
+        const lente = lenteRef.current;
+        const active = document.activeElement;
+        if (!campo || !lente || (active !== campo && active !== lente)) return;
+        const other = active === campo ? lente : campo;
+        if ((active as HTMLElement).offsetParent === null && other.offsetParent !== null) {
+            other.focus({ preventScroll: true });
+        }
     }, [compatta]);
 
     // Il contenitore sticky tiene l'altezza dell'isola estesa: quando l'isola si compatta
@@ -179,6 +195,7 @@ export default function Island({
             <div ref={slotRef} className={styles.slot} data-cover={!!coverImageUrl || undefined}>
             <header
                 ref={rootRef}
+                id={ISLAND_ID}
                 className={styles.isola}
                 data-compact={compatta}
                 data-moving={inPassaggio || undefined}
@@ -206,8 +223,9 @@ export default function Island({
                         </div>
                     </div>
                     {/* Desktop, isola estesa: il campo di ricerca prende lo spazio libero (spec §13). */}
-                    <div className={styles.campo}>
+                    <div id={SEARCH_FIELD_ID} className={styles.campo}>
                         <button
+                            ref={campoRef}
                             type="button"
                             className={styles.campoTesto}
                             onClick={event => openSearch(event.currentTarget)}
@@ -229,6 +247,7 @@ export default function Island({
                     </div>
                     <LanguageButton className={`${styles.icona} ${styles.lingua}`} />
                     <button
+                        ref={lenteRef}
                         type="button"
                         id={SEARCH_TRIGGER_ID}
                         className={`${styles.icona} ${styles.lente}`}

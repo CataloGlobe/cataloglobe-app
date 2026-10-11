@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
+import type { Locator } from "@playwright/test";
 import { SLUG, stubPublicPage } from "./publicPageStub";
+
+const box = async (locator: Locator) => {
+    const b = await locator.boundingBox();
+    if (!b) throw new Error("elemento senza riquadro");
+    return b;
+};
 
 /**
  * Isola desktop del redesign (spec §13): estesa su due righe, col campo di
@@ -32,6 +39,12 @@ test("isola estesa: campo di ricerca, «Filtri», pagine e categorie in seconda 
     await field.click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("searchbox")).toBeFocused();
+    // A tendina: 8 px sotto l'isola, larga e allineata come il campo.
+    const island = await box(page.locator("#pub-island"));
+    const fieldBox = await box(page.locator("#pub-search-field"));
+    await expect.poll(async () => Math.round((await box(dialog)).y - (island.y + island.height))).toBe(8);
+    await expect.poll(async () => Math.abs(Math.round((await box(dialog)).x - fieldBox.x))).toBe(0);
+    await expect.poll(async () => Math.abs(Math.round((await box(dialog)).width - fieldBox.width))).toBe(0);
     await dialog.getByRole("button", { name: "Annulla" }).click();
     await expect(dialog).toHaveCount(0);
     await expect(field).toBeFocused();
@@ -54,6 +67,21 @@ test("una categoria porta alla sua sezione e l'isola resta su una riga, con la l
         .toBeLessThan(140);
     await expect(page.getByRole("button", { name: /^Cerca nel catalogo/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Cerca un piatto o un ingrediente" })).toBeHidden();
+
+    // Da compatta la ricerca si apre sotto l'isola, sul bordo destro.
+    await page.getByRole("button", { name: /^Cerca nel catalogo/ }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("searchbox")).toBeFocused();
+    const island = await box(page.locator("#pub-island"));
+    await expect.poll(async () => Math.round((await box(dialog)).y - (island.y + island.height))).toBe(8);
+    await expect
+        .poll(async () => {
+            const panel = await box(dialog);
+            return Math.abs(Math.round(island.x + island.width - 12 - (panel.x + panel.width)));
+        })
+        .toBe(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
 
     await categories.getByRole("button", { name: "Tutte le categorie" }).click();
     await expect(page.getByRole("dialog").getByRole("heading", { name: "Categorie" })).toBeVisible();
