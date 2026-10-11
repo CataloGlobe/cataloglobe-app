@@ -26,6 +26,8 @@ import { entriesOf, type Loaded } from "./creaLoad";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
 import { StileAspetto } from "./StileAspetto";
+import { StilePhone } from "./StilePhone";
+import { lookKey } from "./stileLook";
 import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
 import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
@@ -157,6 +159,12 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
     const liveTokens = useMemo(() => tokensOf(liveStyle), [liveStyle]);
     const tk = t.kind === "stile" && (i > 0 || t.edit) ? styleTokens(t) : liveTokens;
     useFonts(step === "aspetto" ? FONT_ALL : [tk.typography.fontFamily]);
+
+    // nel passo dell'aspetto il telefono è la pagina vera; «com'era prima» vale finché non si tocca altro
+    const realPhone = t.kind === "stile" && step === "aspetto" && !showAfter;
+    const was = t.edit?.orig.look ?? null;
+    const [cmpKey, setCmpKey] = useState("");
+    const cmp = !!cmpKey && cmpKey === lookKey(t.look);
 
     // scegliere lo stile di partenza riporta tutto l'aspetto a com'è lì
     const onBase = (id: string | null) =>
@@ -480,8 +488,13 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
                 <p>{qp}</p>
             </div>
             <div className={s.phoneBox} ref={boxRef} style={fit.boxStyle}>
-                <CreaPhone t={phoneT} step={showAfter ? "controlla" : step} tk={tk} business={business} menus={menus} sample={sample} L={L} imageUrl={imageUrl} coverUrl={coverUrl} />
+                {realPhone ? <StilePhone look={cmp && was ? was : tk} business={business} menu={menus[0] ?? ""} /> : <CreaPhone t={phoneT} step={showAfter ? "controlla" : step} tk={tk} business={business} menus={menus} sample={sample} L={L} imageUrl={imageUrl} coverUrl={coverUrl} />}
             </div>
+            {realPhone && was && lookKey(was) !== lookKey(t.look) && (
+                <button type="button" className={s.cmpb} aria-pressed={cmp} onClick={() => setCmpKey(cmp ? "" : lookKey(t.look))}>
+                    {cmp ? "Torna alle tue modifiche" : "Guarda com'era prima"}
+                </button>
+            )}
         </aside>
     );
 

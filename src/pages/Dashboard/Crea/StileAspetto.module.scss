@@ -439,6 +439,15 @@
     }
 }
 
+/* il telefono: la cornice vera si adatta a questo spazio (375 × 667 in scala) */
+.phone {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    width: 300px;
+    height: 534px;
+}
+
 /* creando: gli abbinamenti pronti */
 .start {
     display: flex;

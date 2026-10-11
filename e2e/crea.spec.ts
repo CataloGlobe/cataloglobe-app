@@ -548,6 +548,8 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await next(page);
         // l'aspetto va già bene com'è: si può andare avanti senza toccare niente
         await expect(button(page, "Avanti")).toBeEnabled();
+        // nel telefono c'è la pagina vera del cliente, la stessa dell'editor dello stile
+        await expect(page.getByLabel("Così lo vede il cliente").getByText("Happy Hour Estivo").first()).toBeVisible();
         await button(page, "Rosso").click();
         await button(page, "Scuro").click();
         await button(page, "Lora").click();
