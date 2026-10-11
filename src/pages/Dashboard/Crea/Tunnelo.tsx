@@ -18,9 +18,10 @@ import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/Setti
 import type { Draft, Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { NO_IMPATTO, dropAside, scontriWait, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { rebase, KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
+import { loadTunnel } from "./creaLoad";
 import { entriesOf, type Loaded } from "./creaLoad";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
@@ -322,6 +323,12 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
             return true;
         } catch (error) {
             console.error("[Crea] salvataggio non riuscito:", error);
+            // in modifica una parte può essere già scritta: si rilegge, e «Riprova» fa solo quel che manca
+            if (t.edit) {
+                const fresh = await loadTunnel(t.kind, t.edit.id, tenantId, data).catch(() => null);
+                if (fresh) setT(cur => rebase(cur, fresh.t));
+                void reload();
+            }
             showToast({ message: `Non siamo riusciti a salvare ${IL[t.kind]}. Riprova.`, type: "error" });
             return false;
         } finally {

@@ -2,7 +2,7 @@
 // modificando: a sinistra l'albero, a destra il menù nell'ordine del cliente.
 // Si trascina prima, dopo o dentro; l'import apre un resoconto e il menù non
 // cambia finché non si tocca «Aggiungi». Artifact «Il menù nel tunnel», v8.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowDown, ArrowLeftToLine, ArrowUp, Check, Folder, GripVertical, Plus, RefreshCw, Sparkles, Trash2, TriangleAlert, Upload, Utensils, X } from "lucide-react";
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { MAX_IMPORT_FILES, key, priceText, type Dish, type Read, type Section, type Tunnel } from "./creaModel";
@@ -23,6 +23,8 @@ type Imp =
 type Ai = { open: boolean; loading: boolean; list: Suggest[]; page: number; error: boolean };
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
+/** Il livello nell'albero: il rientro lo fa il foglio di stile. */
+const lv = (n: number) => ({ "--lv": n }) as CSSProperties;
 const parsePrice = (x: string) => {
     const n = parseFloat(x.replace(",", "."));
     return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
@@ -822,9 +824,9 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
     /* ---------- a sinistra: l'albero ---------- */
     const wire = (d: number, last: boolean, trail: boolean[]) => (
         <>
-            {trail.map((on, j) => j >= 1 && j < d && on && <span key={j} className={cx(s.wr, s.th)} style={{ left: (j - 1) * 22 + 15 }} />)}
-            {d > 0 && <span className={cx(s.wr, s.el)} style={{ left: (d - 1) * 22 + 15 }} />}
-            {d > 0 && !last && <span className={cx(s.wr, s.dn)} style={{ left: (d - 1) * 22 + 15 }} />}
+            {trail.map((on, j) => j >= 1 && j < d && on && <span key={j} className={cx(s.wr, s.th)} style={lv(j - 1)} />)}
+            {d > 0 && <span className={cx(s.wr, s.el)} style={lv(d - 1)} />}
+            {d > 0 && !last && <span className={cx(s.wr, s.dn)} style={lv(d - 1)} />}
         </>
     );
     const row = (x: Section, d: number, last: boolean, trail: boolean[]): ReactNode => {
@@ -835,7 +837,7 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
                 key={x.key}
                 type="button"
                 className={cx(s.tr, s.t2, g && s.ghostrow)}
-                style={{ paddingLeft: 8 + d * 22 }}
+                style={lv(d)}
                 data-k={"t" + x.key}
                 data-kind="tr"
                 data-lift

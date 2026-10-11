@@ -12,7 +12,7 @@ import {
 } from "@/services/supabase/featuredContents";
 import { listLayoutRules } from "@/services/supabase/layoutScheduling";
 import { updateStory, type StoryUpdateInput } from "@/services/supabase/stories";
-import { uploadFeaturedContentImage, uploadStoryImage } from "@/services/supabase/upload";
+import { uploadFeaturedContentImage, deleteStoryImageBestEffort, uploadStoryImage } from "@/services/supabase/upload";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
@@ -68,11 +68,12 @@ async function savePiatti(t: Tunnel, tenantId: string) {
 async function saveStoria(t: Tunnel, orig: Tunnel, c: EditCtx, dove: boolean) {
     const id = t.edit!.id;
     const patch: StoryUpdateInput = {};
+    let fresh: string | null = null;
     if (changed(t, "racconto")) {
         patch.eyebrow = t.kicker.trim() || null;
         patch.title = thingName(t);
         patch.product_id = t.linked || null;
-        if (t.cover) patch.cover_media = await uploadStoryImage(c.tenantId, id, await compressImage(t.cover, COMPRESS_PROFILES.cover));
+        if (t.cover) patch.cover_media = fresh = await uploadStoryImage(c.tenantId, id, await compressImage(t.cover, COMPRESS_PROFILES.cover));
         else if (orig.coverUrl && !t.coverUrl) patch.cover_media = null;
     }
     if (changed(t, "blocchi")) {
@@ -89,7 +90,15 @@ async function saveStoria(t: Tunnel, orig: Tunnel, c: EditCtx, dove: boolean) {
         const w = t.where;
         patch.activity_id = !w.all && w.activityIds.length === 1 && !w.groupIds.length ? w.activityIds[0] : null;
     }
-    await updateStory(id, c.tenantId, patch);
+    try {
+        await updateStory(id, c.tenantId, patch);
+    } catch (e) {
+        // la copertina appena caricata non la usa nessuno
+        if (fresh) await deleteStoryImageBestEffort(c.tenantId, id, fresh).catch(() => {});
+        throw e;
+    }
+    // quella di prima non serve più
+    if (orig.coverUrl && patch.cover_media !== undefined) await deleteStoryImageBestEffort(c.tenantId, id, orig.coverUrl).catch(() => {});
 }
 
 /** Il quando e il dove: si riscrive la sua regola del Calendario, come da lì. */

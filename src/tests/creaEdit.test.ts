@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asEdit, asInside, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import { asEdit, asInside, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { aspectOf, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 
@@ -98,6 +98,39 @@ describe("modifica nel tunnel: viola e grigi", () => {
         const empty = upd(menu(), x => void (x.edit!.orig.sections = x.sections = []));
         expect(firstBlock(upd(empty, x => void (x.name = "Cena")), OWNER)).toBeNull();
         expect(firstBlock(upd(menu(), x => void (x.name = " ")), OWNER)).toEqual({ i: 1, why: "Manca il nome del menù" });
+    });
+});
+
+describe("modifica nel tunnel: quello che il Salva non potrebbe scrivere (review #388)", () => {
+    it("lo stesso piatto due volte nello stesso ramo ferma il passo, con i nomi", () => {
+        const twice = upd(menu(), x => void x.sections[0].dishes.push({ key: "n", productId: "p1", name: "Risotto", price: 12 }));
+        expect(blocker(twice, "sezioni", OWNER)).toBe("«Risotto» è due volte in «Primi»: toglilo una volta");
+        const below = upd(menu(), x => void x.sections[0].subs.push({ key: "s", name: "Di mare", dishes: [{ key: "n", productId: "p1", name: "Risotto", price: 12 }], subs: [] }));
+        expect(blocker(below, "sezioni", OWNER)).toBe("«Risotto» è sia in «Primi» sia in «Di mare», che le sta dentro: toglilo da una delle due");
+        const apart = upd(menu(), x => void x.sections.push({ key: "s", name: "Di mare", dishes: [{ key: "n", productId: "p1", name: "Risotto", price: 12 }], subs: [] }));
+        expect(blocker(apart, "sezioni", OWNER)).toBe("");
+    });
+    it("una variante lasciata a metà ferma il passo invece di sparire salvando", () => {
+        const t = upd(menu(), x => void x.sections[0].dishes.push({ key: "n", productId: null, name: "Pizza", price: null, formats: [{ name: "Intera", price: 9 }, { name: "", price: 5 }] }));
+        expect(blocker(t, "sezioni", OWNER)).toBe("«Pizza»: una variante è senza nome o senza prezzo");
+    });
+    it("dopo un salvataggio fermo a metà il confronto riparte da quello che c'è nel database", () => {
+        // il nome era già scritto, la categoria nuova anche, il suo piatto no
+        const draft = upd(menu(), x => {
+            x.name = "Cena";
+            x.sections.push({ key: "c", name: "Dolci", dishes: [{ key: "d", productId: "p9", name: "Tiramisù", price: 6 }], subs: [] });
+        });
+        const db = upd(menu(), x => {
+            x.name = "Cena";
+            x.sections.push({ key: "zz", id: "c2", sort: 10, name: "Dolci", dishes: [], subs: [] });
+            x.edit!.orig = { ...structuredClone(x), edit: null };
+        });
+        const again = rebase(draft, db);
+        expect(changed(again, "nome")).toBe(false);
+        expect(changed(again, "sezioni")).toBe(true);
+        expect(again.sections[1]).toMatchObject({ id: "c2", sort: 10 });
+        expect(again.sections[1].dishes[0].linkId).toBeUndefined();
+        expect(draft.sections[1].id).toBeUndefined();
     });
 });
 

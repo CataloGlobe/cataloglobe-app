@@ -124,3 +124,62 @@ export function dropDish(root: Section[], k: string, to: Drop) {
     if (g) g.list.splice(g.k + (to.zone === "after" ? 1 : 0), 0, r.dish);
     else r.list.splice(r.k, 0, r.dish);
 }
+
+/** Lo stesso prodotto due volte nello stesso ramo (la categoria, chi le sta sopra, chi le sta sotto): il database non lo ammette. */
+export function clash(list: readonly Section[], above: ReadonlyMap<string, Section> = new Map()): { dish: Dish; a: Section; b: Section } | null {
+    for (const sec of list) {
+        const seen = new Map(above);
+        for (const d of sec.dishes) {
+            if (!d.productId) continue;
+            const k = d.parentId ? `${d.parentId}/${d.productId}` : d.productId;
+            const a = seen.get(k);
+            if (a) return { dish: d, a, b: sec };
+            seen.set(k, sec);
+        }
+        const r = clash(sec.subs, seen);
+        if (r) return r;
+    }
+    return null;
+}
+
+/** Un piatto nuovo con una variante senza nome o senza prezzo: salvando andrebbe persa. */
+export const badFormat = (list: readonly Section[]): Dish | null =>
+    allDishes(list).find(d => !d.productId && (d.formats ?? []).some(f => !f.name.trim() || f.price === null)) ?? null;
+
+/**
+ * Dopo un salvataggio fermo a metà: `fresh` è il menù riletto dal database.
+ * Quello che nella bozza è nuovo ma lì c'è già prende il suo id, e quello che
+ * lì non c'è più lo perde: così «Riprova» scrive solo ciò che manca.
+ */
+export function adopt(draft: Section[], fresh: readonly Section[]) {
+    const byId = new Map(allSecs(fresh).map(x => [x.sec.id!, x.sec]));
+    const links = new Set(allDishes(fresh).map(d => d.linkId!));
+    for (const { sec } of allSecs(draft)) {
+        if (sec.id && !byId.has(sec.id)) sec.id = sec.sort = undefined;
+        for (const d of sec.dishes) if (d.linkId && !links.has(d.linkId)) d.linkId = d.sort = undefined;
+    }
+    const usedS = new Set(allSecs(draft).map(x => x.sec.id));
+    const usedD = new Set(allDishes(draft).map(d => d.linkId));
+    const walk = (list: Section[], sibs: readonly Section[]) => {
+        for (const sec of list) {
+            if (!sec.id) {
+                const m = sibs.find(f => !usedS.has(f.id) && same(f.name, sec.name.trim() || "Piatti"));
+                if (m) {
+                    Object.assign(sec, { id: m.id, sort: m.sort });
+                    usedS.add(m.id);
+                }
+            }
+            const f = sec.id ? byId.get(sec.id) : undefined;
+            for (const d of f ? sec.dishes : []) {
+                if (d.linkId) continue;
+                const m = f!.dishes.find(x => !usedD.has(x.linkId) && (x.parentId ?? null) === (d.parentId ?? null) && (d.productId ? x.productId === d.productId : same(x.name, d.name)));
+                if (m) {
+                    Object.assign(d, { linkId: m.linkId, sort: m.sort, productId: m.productId });
+                    usedD.add(m.linkId);
+                }
+            }
+            walk(sec.subs, f ? f.subs : []);
+        }
+    };
+    walk(draft, fresh);
+}

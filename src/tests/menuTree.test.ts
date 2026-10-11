@@ -27,7 +27,7 @@ vi.mock("@/services/supabase/productOptions", () => ({ createPrimaryPriceFormat:
 
 import type { Dish, Section } from "@/pages/Dashboard/Crea/creaModel";
 import { places, saveSezioni, writeSections } from "@/pages/Dashboard/Crea/menuSave";
-import { cats, dropDish, dropSec, ensure, findSec, height, moveOut, total } from "@/pages/Dashboard/Crea/menuTree";
+import { adopt, badFormat, cats, clash, dropDish, dropSec, ensure, findSec, height, moveOut, total } from "@/pages/Dashboard/Crea/menuTree";
 
 // L'albero del menù nel tunnel (D177): categorie dentro categorie, e il
 // salvataggio che scrive solo quello che è cambiato.
@@ -82,6 +82,42 @@ describe("l'albero del menù", () => {
         expect(places([3, 7, undefined])).toEqual([3, 7, 17]);
         expect(places([1, 0])).toEqual([0, 10]);
         expect(places([0, undefined, 1])).toEqual([0, 10, 20]);
+    });
+});
+
+describe("quello che il Salva non potrebbe scrivere (review #388)", () => {
+    it("lo stesso prodotto due volte nello stesso ramo si vede prima; in due rami diversi va bene", () => {
+        expect(clash([S("A", [D("x")]), S("B", [D("y", { productId: "p-x" })])])).toBeNull();
+        expect(clash([S("A", [D("x"), D("y", { productId: "p-x" })])])?.dish.key).toBe("y");
+        const deep = clash([S("A", [D("x")], [S("B", [], [S("C", [D("y", { productId: "p-x" })])])])]);
+        expect([deep?.a.name, deep?.b.name]).toEqual(["A", "C"]);
+        // due varianti diverse dello stesso prodotto sono due righe diverse
+        expect(clash([S("A", [D("x", { parentId: "v1" }), D("y", { productId: "p-x", parentId: "v2" })])])).toBeNull();
+        expect(clash([S("A", [D("x", { productId: null }), D("y", { productId: null })])])).toBeNull();
+    });
+    it("una variante senza nome o senza prezzo di un piatto nuovo si vede prima", () => {
+        expect(badFormat([S("A", [D("x", { productId: null, formats: [{ name: "Piccola", price: 3 }] })])])).toBeNull();
+        expect(badFormat([S("A", [], [S("B", [D("x", { productId: null, formats: [{ name: "", price: 3 }] })])])])?.key).toBe("x");
+        expect(badFormat([S("A", [D("x", { productId: null, formats: [{ name: "Grande", price: null }] })])])?.key).toBe("x");
+    });
+    it("adopt: dopo un salvataggio a metà la bozza prende gli id di quello che è già scritto e lascia quelli spariti", () => {
+        const draft = [
+            S("Antipasti", [D("a", { linkId: "la", sort: 0 }), D("n", { productId: null, name: "Patate" })], [], { id: "c1", sort: 0 }),
+            S("Nuova", [D("b")], [S("Sotto", [D("z")])]),
+            S("Tolta", [D("q", { linkId: "lq", sort: 0 })], [], { id: "c9", sort: 3 })
+        ];
+        const fresh = [
+            S("Antipasti", [D("a", { linkId: "la", sort: 0 }), D("f1", { productId: "p77", name: "patate", linkId: "l77", sort: 10 })], [], { id: "c1", sort: 0 }),
+            S("nuova", [D("f2", { productId: "p-b", linkId: "l88", sort: 0 })], [], { id: "c5", sort: 12 })
+        ];
+        adopt(draft, fresh);
+        expect(draft[0].dishes[1]).toMatchObject({ productId: "p77", linkId: "l77", sort: 10 });
+        expect(draft[1]).toMatchObject({ id: "c5", sort: 12 });
+        expect(draft[1].dishes[0].linkId).toBe("l88");
+        expect(draft[1].subs[0].id).toBeUndefined();
+        expect(draft[1].subs[0].dishes[0].linkId).toBeUndefined();
+        expect(draft[2].id).toBeUndefined();
+        expect(draft[2].dishes[0].linkId).toBeUndefined();
     });
 });
 
@@ -146,11 +182,22 @@ describe("salvare «Categorie e piatti» in modifica", () => {
         ]);
     });
 
+    it("un piatto spostato fuori da una sottocategoria tolta: prima se ne va lei coi suoi posti, poi lui trova il nuovo", async () => {
+        const out = await save(x => {
+            dropDish(x, "b", { type: "sec", key: "Primi", zone: "inside" });
+            x[1].subs = [];
+        });
+        expect(out).toEqual([
+            ["deleteCategory", "c3", "T"],
+            ["addProductToCategory", "T", "m1", "c2", "p-b", 0, null]
+        ]);
+    });
+
     it("una categoria nuova con un piatto nuovo e le sue varianti nasce in fondo", async () => {
         const out = await save(x => void x.push(S("Contorni", [D("e", { productId: null, name: "Patate", formats: [{ name: "Piccola", price: 3 }, { name: "", price: 9 }] })])));
         expect(out).toEqual([
             ["createCategory", "T", "m1", "Contorni", 1, null, 12],
-            ["createProduct", "T", { name: "Patate", description: null, base_price: null }],
+            ["createProduct", "T", { name: "Patate", description: null, base_price: null, product_type: "formats" }],
             ["createPrimaryPriceFormat", "p2", "T", "Piccola", 3],
             ["addProductToCategory", "T", "m1", "n1", "p2", 0, null]
         ]);

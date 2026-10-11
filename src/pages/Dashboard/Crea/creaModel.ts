@@ -17,7 +17,7 @@ import { durLabel, hhmm, type CalWhen, type CalWhere } from "@/pages/Dashboard/P
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { AiMenuCategory } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyzeMenu";
 import { computeProductMatch } from "@/utils/importMatching";
-import { allDishes, total } from "./menuTree";
+import { adopt, allDishes, badFormat, clash, total } from "./menuTree";
 
 export type CreaKind = "menu" | "stile" | "evid" | "storia";
 export const CREA_KINDS: readonly CreaKind[] = ["menu", "stile", "evid", "storia"];
@@ -344,7 +344,7 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
         case "parti":
             return t.name.trim() ? "" : "Manca il nome del menù";
         case "sezioni":
-            return t.impOpen ? "Hai un import aperto: aggiungi i piatti o butta via l'import" : hasDish(t) ? "" : "Aggiungi almeno un piatto";
+            return t.impOpen ? "Hai un import aperto: aggiungi i piatti o butta via l'import" : hasDish(t) ? menuProblem(t.sections) : "Aggiungi almeno un piatto";
         case "nome":
             if (!t.name.trim()) return "Manca il nome dello stile";
             return t.base === "copy" && !t.baseStyleId ? "Scegli lo stile da cui partire" : "";
@@ -441,6 +441,14 @@ export function readFromAi(categories: readonly AiMenuCategory[], pick: readonly
     });
 }
 
+/** Quello che il Salva non potrebbe scrivere: meglio dirlo nel passo che fermarsi a metà. */
+function menuProblem(sections: readonly Section[]): string {
+    const c = clash(sections);
+    if (c) return c.a === c.b ? `«${c.dish.name}» è due volte in «${c.a.name}»: toglilo una volta` : `«${c.dish.name}» è sia in «${c.a.name}» sia in «${c.b.name}», che le sta dentro: toglilo da una delle due`;
+    const f = badFormat(sections);
+    return f ? `«${f.name}»: una variante è senza nome o senza prezzo` : "";
+}
+
 /** C'è qualcosa da perdere uscendo. */
 export const isDirty = (t: Tunnel) =>
     !!t.impOpen || (t.edit ? EDIT_PARTS.some(s => changed(t, s)) :
@@ -521,6 +529,18 @@ export function stepFrom(t: Tunnel, c: Ctx, i: number, dir: 1 | -1): number {
 export function asEdit(t: Tunnel, id: string, rule: { id: string | null; count: number }): Tunnel {
     const orig = { ...t, i: 0, seen: 0, edit: null };
     return { ...structuredClone(orig), seen: 99, edit: { id, picked: [], orig, ruleId: rule.id, rules: rule.count } };
+}
+
+/**
+ * Dopo un salvataggio in modifica fermo a metà: `fresh` è la cosa riletta dal database.
+ * La bozza resta com'è, ma il confronto riparte da quello che c'è davvero: «Riprova»
+ * non rifà i passi già scritti e non cerca righe che non ci sono più (review #388.2).
+ */
+export function rebase(t: Tunnel, fresh: Tunnel): Tunnel {
+    if (!t.edit || !fresh.edit) return t;
+    const sections = structuredClone(t.sections);
+    adopt(sections, fresh.edit.orig.sections);
+    return { ...t, sections, edit: { ...t.edit, orig: fresh.edit.orig, ruleId: fresh.edit.ruleId, rules: fresh.edit.rules } };
 }
 
 /** Il clic sulla riga: lo stesso tunnel, già dentro al primo passo, senza niente di scelto. */

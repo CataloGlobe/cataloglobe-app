@@ -14,7 +14,7 @@ const always: Once = (_key, run) => run();
 export async function productOf(d: Dish, tenantId: string, once: Once = always, at = ""): Promise<string> {
     if (d.productId) return d.productId;
     const formats = (d.formats ?? []).filter((f): f is { name: string; price: number } => !!f.name.trim() && f.price !== null);
-    const id = await once(`prod:${at}:${d.name.trim()}`, async () => (await createProduct(tenantId, { name: d.name.trim(), description: d.description ?? null, base_price: formats.length ? null : d.price })).id);
+    const id = await once(`prod:${at}:${d.name.trim()}`, async () => (await createProduct(tenantId, { name: d.name.trim(), description: d.description ?? null, base_price: formats.length ? null : d.price, product_type: formats.length ? "formats" : "simple" })).id);
     for (const [k, f] of formats.entries()) await once(`format:${id}:${k}`, () => createPrimaryPriceFormat(id, tenantId, f.name.trim(), f.price));
     return id;
 }
@@ -56,8 +56,8 @@ export function places(xs: readonly (number | undefined)[]): number[] {
 /**
  * Categorie e piatti (D177): nomi, ordine, sottocategorie, piatti tolti,
  * spostati e nuovi. Prima le categorie dall'alto in basso (una sottocategoria
- * vuole il suo genitore), poi i piatti, e solo alla fine le categorie tolte:
- * così una sottocategoria portata fuori non sparisce col genitore.
+ * vuole il suo genitore, e una portata fuori non deve sparire col suo), poi le
+ * categorie tolte, e solo alla fine i piatti.
  */
 export async function saveSezioni(sections: readonly Section[], origSections: readonly Section[], catalogId: string, tenantId: string) {
     const was = new Map(allSecs(origSections).map(({ sec, path }) => [sec.id!, { sec, parent: path[path.length - 2]?.id ?? null, level: path.length }]));
@@ -88,7 +88,11 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
     const kept = new Set(now.map(x => x.id).filter(Boolean));
     const stays = (d: Dish, sec: Section) => !!d.linkId && wasIn.get(d.linkId) === sec.id;
     const here = new Set(now.flatMap(sec => sec.dishes.filter(d => stays(d, sec)).map(d => d.linkId!)));
-    // i piatti tolti o spostati lasciano il posto; quelli di una categoria tolta se ne vanno con lei
+    // le categorie tolte se ne vanno subito, dal livello più profondo, coi loro piatti: un piatto
+    // spostato da lì a un'altra del ramo troverebbe ancora il suo vecchio posto (review #388.1)
+    const gone = [...was].filter(([id]) => !kept.has(id)).sort((a, b) => b[1].level - a[1].level);
+    for (const [id] of gone) await deleteCategory(id, tenantId);
+    // i piatti tolti o spostati lasciano il posto
     for (const [linkId, catId] of wasIn) if (!here.has(linkId) && kept.has(catId)) await removeProductFromCategory(tenantId, linkId);
     for (const sec of now) {
         const sort = places(sec.dishes.map(d => (stays(d, sec) ? d.sort : undefined)));
@@ -103,6 +107,4 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
         }
     }
 
-    const gone = [...was].filter(([id]) => !kept.has(id)).sort((a, b) => b[1].level - a[1].level);
-    for (const [id] of gone) await deleteCategory(id, tenantId);
 }
