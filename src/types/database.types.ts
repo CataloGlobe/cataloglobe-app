@@ -5931,6 +5931,10 @@ export type Database = {
         Args: { p_action: string; p_table_id: string; p_tenant_id: string }
         Returns: Json
       }
+      count_tenant_language_backfill: {
+        Args: { p_target_lang: string; p_tenant_id: string }
+        Returns: number
+      }
       create_schedule_with_targets: {
         Args: {
           p_name: string

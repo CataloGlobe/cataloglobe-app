@@ -96,7 +96,13 @@
         "read_only_role": "Nur Lesezugriff: Sprachen aktivieren und verwalten dürfen Inhaber und Administratoren.",
         "read_only_subscription": "Nur Lesezugriff: Das Abonnement ist nicht aktiv.",
         "load_error_desc": "Prüfe die Verbindung und versuche es erneut.",
-        "confirm_ai_credit": "Die Übersetzungen nutzen das KI-Guthaben deines Tarifs."
+        "confirm_ai_credit": "Die Übersetzungen nutzen das KI-Guthaben deines Tarifs.",
+        "confirm_counting": "Zu übersetzende Texte werden gezählt…",
+        "confirm_count_one": "Wir übersetzen {{count}} Text (Produkte, Kategorien und andere Inhalte) ins {{lang}}. Er ist in wenigen Minuten fertig.",
+        "confirm_count_other": "Wir übersetzen {{count}} Texte (Produkte, Kategorien und andere Inhalte) ins {{lang}}. Sie sind in wenigen Minuten fertig.",
+        "confirm_count_zero": "Es gibt keine Texte zu übersetzen: {{lang}} ist sofort bereit.",
+        "confirm_ai_used": "Übersetzungen nutzen das KI-Guthaben deines Tarifs: In diesem Zyklus hast du {{percent}}% verbraucht.",
+        "confirm_ai_blocked": "Das KI-Guthaben dieses Zyklus ist aufgebraucht: Die Übersetzungen starten mit der Verlängerung."
     },
     "errors": {
         "load_failed": "Fehler beim Laden von Sprachen",

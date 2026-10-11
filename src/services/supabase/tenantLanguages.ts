@@ -57,6 +57,21 @@ export async function listTenantLanguages(tenantId: string): Promise<TenantLangu
  * Il backfill può essere ri-tentato manualmente (UI futura) o si attende che
  * gli utenti modifichino contenuti (trigger in-place via enqueueTranslationJobsIfChanged).
  */
+/**
+ * Quanti testi dell'azienda non hanno ancora una traduzione aggiornata in
+ * `languageCode` (attiva o no): il numero della conferma prima di accendere
+ * una lingua, cioè quanto accoderà il recupero. RPC
+ * `count_tenant_language_backfill` (membro con `translations.write`).
+ */
+export async function countLanguageBackfill(tenantId: string, languageCode: string): Promise<number> {
+    const { data, error } = await supabase.rpc("count_tenant_language_backfill", {
+        p_tenant_id: tenantId,
+        p_target_lang: languageCode
+    });
+    if (error) throw error;
+    return data ?? 0;
+}
+
 export async function activateTenantLanguage(
     tenantId: string,
     languageCode: string

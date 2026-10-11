@@ -96,7 +96,13 @@
         "read_only_role": "Solo lectura: activar y gestionar los idiomas corresponde a propietarios y administradores.",
         "read_only_subscription": "Solo lectura: la suscripción no está activa.",
         "load_error_desc": "Comprueba la conexión y vuelve a intentarlo.",
-        "confirm_ai_credit": "Las traducciones usan el crédito de IA incluido en tu plan."
+        "confirm_ai_credit": "Las traducciones usan el crédito de IA incluido en tu plan.",
+        "confirm_counting": "Contando los textos que traducir…",
+        "confirm_count_one": "Traduciremos {{count}} texto (productos, categorías y otros contenidos) al {{lang}}. Estará listo en pocos minutos.",
+        "confirm_count_other": "Traduciremos {{count}} textos (productos, categorías y otros contenidos) al {{lang}}. Estarán listos en pocos minutos.",
+        "confirm_count_zero": "No hay textos que traducir: {{lang}} estará lista enseguida.",
+        "confirm_ai_used": "Las traducciones usan el crédito de IA del plan: en este ciclo has usado el {{percent}}%.",
+        "confirm_ai_blocked": "El crédito de IA de este ciclo se ha agotado: las traducciones empezarán con la renovación."
     },
     "errors": {
         "load_failed": "Error al cargar idiomas",
