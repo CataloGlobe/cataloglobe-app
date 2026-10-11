@@ -283,7 +283,11 @@
         "see_all": "Vedi tutti",
         "see_all_label_one": "contenuto in evidenza",
         "see_all_label_other": "contenuti in evidenza",
-        "see_all_aria": "Vedi tutti i contenuti in evidenza ({{count}})"
+        "see_all_aria": "Vedi tutti i contenuti in evidenza ({{count}})",
+        "more_count_one": "Un altro",
+        "more_count_other": "Altri {{count}}",
+        "see_all_count": "Vedi tutti ({{count}})",
+        "position": "{{index}} di {{count}}"
     },
     "events": {
         "list_aria": "In evidenza",

@@ -284,7 +284,11 @@
         "see_all": "See all",
         "see_all_label_one": "featured item",
         "see_all_label_other": "featured items",
-        "see_all_aria": "See all featured content ({{count}})"
+        "see_all_aria": "See all featured content ({{count}})",
+        "more_count_one": "1 more",
+        "more_count_other": "{{count}} more",
+        "see_all_count": "See all ({{count}})",
+        "position": "{{index}} of {{count}}"
     },
     "events": {
         "list_aria": "Featured",

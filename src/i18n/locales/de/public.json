@@ -284,7 +284,11 @@
         "see_all": "Alle ansehen",
         "see_all_label_one": "hervorgehobener Inhalt",
         "see_all_label_other": "hervorgehobene Inhalte",
-        "see_all_aria": "Alle hervorgehobenen Inhalte ansehen ({{count}})"
+        "see_all_aria": "Alle hervorgehobenen Inhalte ansehen ({{count}})",
+        "more_count_one": "1 weiterer",
+        "more_count_other": "{{count}} weitere",
+        "see_all_count": "Alle ansehen ({{count}})",
+        "position": "{{index}} von {{count}}"
     },
     "events": {
         "list_aria": "Hervorgehoben",

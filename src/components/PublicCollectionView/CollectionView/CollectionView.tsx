@@ -34,7 +34,7 @@ import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
-import type { BottomBarSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
+import type { BottomBarSlot, FeaturedSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -834,6 +834,8 @@ type Props = {
      * nome. Solo mode "public"; assente → i `PublicSheet` di oggi.
      */
     sheetsSlot?: SheetsSlot;
+    /** Redesign: carosello «In evidenza» di uno slot (solo modo pubblico). */
+    featuredSlot?: FeaturedSlot;
 };
 
 export default function CollectionView({
@@ -872,7 +874,8 @@ export default function CollectionView({
     initialSelection,
     headerSlot,
     bottomBarSlot,
-    sheetsSlot
+    sheetsSlot,
+    featuredSlot
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -1362,8 +1365,16 @@ export default function CollectionView({
             return true;
         });
     }, [featuredBeforeCatalog, featuredAfterCatalog]);
+    const featuredLook = {
+        layout: style.featuredStyle ?? "card",
+        showSubtitle: style.showFeaturedSubtitle ?? true,
+        showTitle: style.showFeaturedTitle ?? true,
+        showCta: style.showFeaturedCta ?? true
+    };
     const renderFeaturedBlock = (slot: "before_catalog" | "after_catalog", blocks: V2FeaturedContent[]) =>
-        blocks.length > 0 ? (
+        blocks.length === 0 ? null : mode === "public" && featuredSlot ? (
+            featuredSlot({ ...featuredLook, blocks, slot, totalCount: featuredContents.length, activityId })
+        ) : (
             <FeaturedBlock
                 blocks={blocks}
                 activityId={mode === "public" ? activityId : undefined}
@@ -1378,7 +1389,7 @@ export default function CollectionView({
                 // Style Editor: card e «Vedi tutti» visibili ma inerti.
                 interactive={mode === "public"}
             />
-        ) : null;
+        );
     // Nessuna surface preview per "storia": has_story assente nei mock StylePreview
     // (sub-fase 7 introdurrà l'anteprima) → tab semplicemente nascosto in preview.
     const showStoryTab = hasStory === true;
@@ -3482,7 +3493,8 @@ export default function CollectionView({
                 onOpenFilters: handleOpenFilters,
                 onOpenReservation: openReservation,
                 shareUrl,
-                shareTitle: businessName
+                shareTitle: businessName,
+                featured: { ...featuredLook, contents: featuredContents }
             })}
 
             {isOrderingOpen && (

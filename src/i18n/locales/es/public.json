@@ -284,7 +284,11 @@
         "see_all": "Ver todos",
         "see_all_label_one": "contenido destacado",
         "see_all_label_other": "contenidos destacados",
-        "see_all_aria": "Ver todos los contenidos destacados ({{count}})"
+        "see_all_aria": "Ver todos los contenidos destacados ({{count}})",
+        "more_count_one": "1 más",
+        "more_count_other": "{{count}} más",
+        "see_all_count": "Ver todos ({{count}})",
+        "position": "{{index}} de {{count}}"
     },
     "events": {
         "list_aria": "Destacado",

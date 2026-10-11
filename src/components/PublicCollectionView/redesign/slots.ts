@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from "react";
 import type { ActivityFee } from "@/types/activity";
 import type { SocialLinks } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
+import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 
 /**
@@ -57,7 +58,27 @@ export type BottomBarSlotContext = {
 export type BottomBarSlot = (context: BottomBarSlotContext) => ReactNode;
 
 /** Fogli del redesign che `CollectionView` apre per nome (⋯, nome, stato del locale). */
-export type PublicSheetName = "more" | "info" | "hours" | "language";
+export type PublicSheetName = "more" | "info" | "hours" | "language" | "featured";
+
+/** Aspetto delle card in evidenza, dallo stile del locale. */
+export type FeaturedLook = {
+    layout: "card" | "highlight" | "compact";
+    showSubtitle: boolean;
+    showTitle: boolean;
+    showCta: boolean;
+};
+
+/** Dati del carosello «In evidenza» di uno slot (spec §9). */
+export type FeaturedSlotContext = FeaturedLook & {
+    blocks: V2FeaturedContent[];
+    slot: "before_catalog" | "after_catalog";
+    /** Contenuti di oggi nei due slot, senza doppioni: «Vedi tutti (N)». */
+    totalCount: number;
+    /** Solo nella pagina pubblica: le analitiche dei tocchi. */
+    activityId?: string;
+};
+
+export type FeaturedSlot = (context: FeaturedSlotContext) => ReactNode;
 
 /** Dati e gesti dei fogli del locale: Altre opzioni, Informazioni, Orari. */
 export type SheetsSlotContext = {
@@ -81,6 +102,8 @@ export type SheetsSlotContext = {
     /** Indirizzo pubblico della sede, senza lingua né query (assente in SSR). */
     shareUrl?: string;
     shareTitle: string;
+    /** Contenuti in evidenza di oggi (elenco e dettaglio nel foglio). */
+    featured: FeaturedLook & { contents: V2FeaturedContent[] };
 };
 
 /**

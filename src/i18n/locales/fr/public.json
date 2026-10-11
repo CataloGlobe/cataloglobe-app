@@ -284,7 +284,11 @@
     "see_all": "Tout voir",
     "see_all_label_one": "contenu en vedette",
     "see_all_label_other": "contenus en vedette",
-    "see_all_aria": "Voir tous les contenus en vedette ({{count}})"
+    "see_all_aria": "Voir tous les contenus en vedette ({{count}})",
+    "more_count_one": "1 autre",
+    "more_count_other": "{{count}} autres",
+    "see_all_count": "Tout voir ({{count}})",
+    "position": "{{index}} sur {{count}}"
   },
   "events": {
     "list_aria": "En vedette",

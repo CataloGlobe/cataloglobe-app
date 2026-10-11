@@ -1,4 +1,6 @@
 import i18next from "i18next";
+import type { V2FeaturedContent } from "@/types/resolvedCollections";
+import { FEATURED_TYPE_KEY } from "../featured/stripItems";
 import type { PublicSheetName } from "../slots";
 import { openSheet, openSheetAt, pushSheetPage, type SheetPage } from "./sheetStack";
 
@@ -17,7 +19,28 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
             return { key: "hours", title: t("opening_hours.title"), size: "large" };
         case "language":
             return { key: "language", title: t("language_selector.sheet_title"), size: "medium" };
+        case "featured":
+            return { key: "featured", title: t("hub.events"), size: "large" };
     }
+}
+
+/** Prefisso della pagina di dettaglio di un contenuto in evidenza (`featured:<id>`). */
+export const FEATURED_DETAIL_PREFIX = "featured:";
+
+// In testata il tipo («Evento»), non il titolo: il corpo si apre già col titolo.
+function featuredDetailPage(block: V2FeaturedContent): SheetPage {
+    const title = i18next.t(FEATURED_TYPE_KEY[block.content_type], { ns: "public" });
+    return { key: `${FEATURED_DETAIL_PREFIX}${block.id}`, title, size: "large" };
+}
+
+/** Dalla card del carosello: il dettaglio da solo, senza elenco sotto (spec §9, v33). */
+export function openFeaturedDetail(block: V2FeaturedContent): void {
+    openSheet(featuredDetailPage(block));
+}
+
+/** Dall'elenco «In evidenza»: il dettaglio entra a spinta, con «‹ In evidenza». */
+export function pushFeaturedDetail(block: V2FeaturedContent): void {
+    pushSheetPage(featuredDetailPage(block));
 }
 
 /**

@@ -21,12 +21,16 @@ import { useLanguage } from "@context/Language/useLanguage";
 import PublicOpeningHours from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import { PublicFeeRows } from "@components/PublicCollectionView/PublicFooter/PublicFees";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
+import type { V2FeaturedContent } from "@/types/resolvedCollections";
+import EventsView from "@components/PublicCollectionView/EventsView/EventsView";
+import { FeaturedContentDetail, FeaturedCtaFooter } from "@components/PublicCollectionView/FeaturedBlock/FeaturedContentDetail";
+import { hasFeaturedCta } from "@components/PublicCollectionView/FeaturedBlock/featuredCta";
 import type { SheetsSlotContext } from "../slots";
 import { useVenueStatus } from "../venue/useVenueStatus";
 import { venueStatusLabel } from "../venue/venueLabel";
 import SheetHost from "./SheetHost";
 import { closeSheet, type SheetPage } from "./sheetStack";
-import { pushVenueSheet } from "./venueSheetPages";
+import { FEATURED_DETAIL_PREFIX, pushFeaturedDetail, pushVenueSheet } from "./venueSheetPages";
 import styles from "./VenueSheets.module.scss";
 
 /**
@@ -36,7 +40,23 @@ import styles from "./VenueSheets.module.scss";
  * `CollectionView` tramite `sheetsSlot`.
  */
 export default function VenueSheets(props: SheetsSlotContext) {
-    return <SheetHost backgroundRef={props.pageRef} renderPage={page => <VenuePage page={page} {...props} />} />;
+    return (
+        <SheetHost
+            backgroundRef={props.pageRef}
+            renderPage={page => <VenuePage page={page} {...props} />}
+            renderFooter={page => {
+                const block = featuredOf(page, props.featured.contents);
+                return block && hasFeaturedCta(block) ? <FeaturedCtaFooter block={block} /> : null;
+            }}
+        />
+    );
+}
+
+/** Il contenuto in evidenza di una pagina di dettaglio (`featured:<id>`); null altrimenti. */
+function featuredOf(page: SheetPage, contents: V2FeaturedContent[]): V2FeaturedContent | null {
+    if (!page.key.startsWith(FEATURED_DETAIL_PREFIX)) return null;
+    const id = page.key.slice(FEATURED_DETAIL_PREFIX.length);
+    return contents.find(block => block.id === id) ?? null;
 }
 
 function VenuePage({ page, ...props }: SheetsSlotContext & { page: SheetPage }) {
@@ -56,8 +76,22 @@ function VenuePage({ page, ...props }: SheetsSlotContext & { page: SheetPage }) 
             );
         case "language":
             return <LanguagePage />;
-        default:
-            return null;
+        case "featured":
+            return (
+                <EventsView
+                    featuredContents={props.featured.contents}
+                    layout={props.featured.layout}
+                    showSubtitle={props.featured.showSubtitle}
+                    showTitle={props.featured.showTitle}
+                    showCta={props.featured.showCta}
+                    selectedFeatured={null}
+                    onSelectFeatured={block => block && pushFeaturedDetail(block)}
+                />
+            );
+        default: {
+            const block = featuredOf(page, props.featured.contents);
+            return block ? <FeaturedContentDetail block={block} /> : null;
+        }
     }
 }
 

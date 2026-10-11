@@ -23,6 +23,8 @@ export type FeaturedCardProps = {
     eager?: boolean;
     /** false in StyleEditor preview: card e CTA restano visive ma inerti (niente click/modale/navigazione). Default true. */
     interactive?: boolean;
+    /** Nome accessibile della card (redesign: «Tipo: titolo. sottotitolo. 1 di 8»). */
+    ariaLabel?: string;
 };
 
 function formatPrice(price: number): string {
@@ -42,7 +44,7 @@ function getTagKey(contentType: string | null): string {
     }
 }
 
-export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", showSubtitle: showSubtitleProp = true, showTitle: showTitleProp = true, showCta: showCtaProp = true, eager = false, interactive = true }: FeaturedCardProps) {
+export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", showSubtitle: showSubtitleProp = true, showTitle: showTitleProp = true, showCta: showCtaProp = true, eager = false, interactive = true, ariaLabel }: FeaturedCardProps) {
     const { t } = useTranslation("public");
     const tagLabel = t(getTagKey(block.content_type));
     const hasImage = !!block.media_id;
@@ -64,6 +66,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
         return (
             <div
                 role="listitem"
+                aria-label={ariaLabel}
                 tabIndex={interactive ? 0 : -1}
                 className={`${styles.cardCompact} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
                 onClick={interactive ? onClick : undefined}
@@ -121,6 +124,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
         return (
             <div
                 role="listitem"
+                aria-label={ariaLabel}
                 tabIndex={interactive ? 0 : -1}
                 className={`${styles.card} ${styles.cardHighlight} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
                 onClick={interactive ? onClick : undefined}
@@ -181,6 +185,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
     return (
         <div
             role="listitem"
+                aria-label={ariaLabel}
             tabIndex={interactive ? 0 : -1}
             className={`${styles.card} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
             onClick={interactive ? onClick : undefined}

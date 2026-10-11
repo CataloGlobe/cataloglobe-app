@@ -1,0 +1,104 @@
+/* Carosello «In evidenza» del redesign (spec §9, carosello C).
+   ⚠️ SYNC soglia mobile con publicBreakpoints.ts (max 640 / min 641). */
+
+.strip {
+  /* stesso marcatore del blocco di oggi: `.container` gli dà il ritmo verticale */
+  composes: pub-featured-wrapper from global;
+  width: 100%;
+}
+
+.track {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Al telefono la striscia arriva al bordo dello schermo; la prima card resta
+     sul filo del contenuto (gutter di `.container`, 1rem). */
+  @media (max-width: 640px) {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    scroll-padding-inline: 1rem;
+  }
+}
+
+/* Card all'80%: a 390 px la successiva si vede per circa 55 px
+   (larghezza utile meno 51 px = 1rem di bordo destro + 12 di spazio + ~23). */
+.card {
+  flex: 0 0 auto;
+  width: min(calc(100% - 51px), 440px);
+  scroll-snap-align: start;
+}
+
+.single {
+  width: 100%;
+
+  @container collection (min-width: 700px) {
+    max-width: 500px;
+    margin-inline: auto;
+  }
+}
+
+.moreItem {
+  flex: 0 0 auto;
+  display: flex;
+  width: min(160px, 44%);
+  scroll-snap-align: end;
+}
+
+.more {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--pub-surface-text, currentColor) 12%, transparent);
+  border-radius: var(--pub-radius, 16px);
+  background: var(--pub-surface);
+  color: var(--pub-surface-text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.moreCount {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.moreAction {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pub-accent, var(--pub-primary));
+}
+
+/* Linea di avanzamento al posto dei puntini: la parte piena è la porzione
+   visibile, si sposta con lo scroll (solo transform, scritto da FeaturedStrip). */
+.line {
+  position: relative;
+  display: block;
+  width: 64px;
+  height: 3px;
+  margin: 12px auto 0;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--pub-bg-text) 16%, transparent);
+}
+
+.thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--pub-bg-text) 70%, transparent);
+  transform-origin: left center;
+  transform: scaleX(0);
+}

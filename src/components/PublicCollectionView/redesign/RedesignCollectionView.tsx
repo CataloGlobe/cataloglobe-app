@@ -2,9 +2,10 @@ import { Component, lazy, Suspense, useEffect, useState, type ComponentProps, ty
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import Island from "./island/Island";
 import BottomBar from "./bar/BottomBar";
+import FeaturedStrip from "./featured/FeaturedStrip";
 import { closeSheet, useSheetState } from "./sheets/sheetStack";
 import { openVenueSheet } from "./sheets/venueSheetPages";
-import type { BottomBarSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
+import type { BottomBarSlot, FeaturedSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
 
 /**
  * Radice del redesign della pagina pubblica, scelta da `PublicCatalogReady`
@@ -78,6 +79,7 @@ function LazyVenueSheets(context: SheetsSlotContext) {
 
 const renderIsland: HeaderSlot = context => <Island {...context} />;
 const renderBottomBar: BottomBarSlot = context => <BottomBar {...context} />;
+const renderFeatured: FeaturedSlot = context => <FeaturedStrip {...context} />;
 const sheetsSlot: SheetsSlot = {
     render: context => <LazyVenueSheets {...context} />,
     open: openVenueSheet
@@ -92,5 +94,13 @@ export default function RedesignCollectionView(props: ComponentProps<typeof Coll
             </Suspense>
         );
     }
-    return <CollectionView {...props} headerSlot={renderIsland} bottomBarSlot={renderBottomBar} sheetsSlot={sheetsSlot} />;
+    return (
+        <CollectionView
+            {...props}
+            headerSlot={renderIsland}
+            bottomBarSlot={renderBottomBar}
+            sheetsSlot={sheetsSlot}
+            featuredSlot={renderFeatured}
+        />
+    );
 }

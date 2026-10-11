@@ -38,6 +38,11 @@ type Props = {
     /** Contenuto di una pagina del foglio, dalla sua `key`. */
     renderPage: (page: SheetPage) => ReactNode;
     /**
+     * Piede della pagina in cima (es. il pulsante d'azione): fuori dall'area che
+     * scorre, sempre visibile. Null se la pagina non ne ha.
+     */
+    renderFooter?: (page: SheetPage) => ReactNode;
+    /**
      * Radice della pagina sotto il foglio: riceve `inert` finché il foglio è
      * aperto (niente fuoco né tocchi fuori, senza focus trap). NON deve
      * contenere il punto d'innesto del portal, altrimenti blocca anche il foglio.
@@ -122,7 +127,7 @@ function useMediaQuery(query: string, subscribe: (notify: () => void) => () => v
  *
  * Non è montato nella pagina di oggi: lo usano le PR del redesign.
  */
-export default function SheetHost({ renderPage, backgroundRef }: Props) {
+export default function SheetHost({ renderPage, renderFooter, backgroundRef }: Props) {
     const { t } = useTranslation("public");
     const state = useSheetState();
     const isOpen = state.pages.length > 0;
@@ -450,6 +455,7 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
     };
 
     if (!present || !activePage) return null;
+    const footer = renderFooter?.(activePage) ?? null;
 
     const tree = (
         <div className={styles.root}>
@@ -507,6 +513,11 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
                         ))}
                     </div>
                 </div>
+                {footer ? (
+                    <div key={activePage.key} className={styles.footer}>
+                        {footer}
+                    </div>
+                ) : null}
             </div>
         </div>
     );

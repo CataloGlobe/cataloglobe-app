@@ -169,6 +169,19 @@
   padding: 0 16px 16px;
 }
 
+/* Piede della pagina in cima (pulsante d'azione): fuori dall'area che scorre.
+   Cambia con la pagina: compare in dissolvenza, mai in movimento. */
+.footer {
+  flex-shrink: 0;
+  animation: footer-in 180ms ease both;
+}
+
+@keyframes footer-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (min-width: 641px) {
   .root {
     align-items: center;
