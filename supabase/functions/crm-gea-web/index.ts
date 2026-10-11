@@ -25,13 +25,13 @@ import { loadTeam } from "../_shared/crmLeadMessage.ts";
 import { GEA_TEXT } from "../_shared/crmGea.ts";
 import { think } from "../_shared/crmGeaJob.ts";
 import { GEA_WEB_TEXT, parseGeaWebRequest, webReply, withPageHint } from "../_shared/crmGeaWeb.ts";
+import { withAppCors } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -43,7 +43,7 @@ function json(status: number, body: Record<string, unknown>): Response {
     });
 }
 
-Deno.serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json(500, { error: "not_configured" });
@@ -105,4 +105,6 @@ Deno.serve(async (req: Request) => {
         console.error("crm-gea-web: giro", err?.fn ?? "", err?.code ?? "", err?.message ?? String(err));
         return json(200, { status: "failed", reply: GEA_TEXT.failed });
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));

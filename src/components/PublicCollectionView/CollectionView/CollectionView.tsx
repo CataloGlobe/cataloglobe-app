@@ -87,6 +87,7 @@ import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
+import { formatDecimal } from "@/utils/formatCurrency";
 const importOrderConfirmationSheet = () => import("../OrderConfirmationSheet/OrderConfirmationSheet");
 const OrderConfirmationSheet = lazy(importOrderConfirmationSheet);
 
@@ -427,26 +428,26 @@ function ProductRowInner({
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                {t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })}
+                                {t("product.price_from", { price: `€ ${formatDecimal(dp.originalPrice)}` })}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            {t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })}
+                            {t("product.price_from", { price: `€ ${formatDecimal(dp.price)}` })}
                         </span>
                     </Text>
                 ) : dp.type === "single" ? (
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                € {dp.originalPrice.toFixed(2)}
+                                € {formatDecimal(dp.originalPrice)}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            € {dp.price.toFixed(2)}
+                            € {formatDecimal(dp.price)}
                         </span>
                     </Text>
                 ) : null}
@@ -598,14 +599,14 @@ function ProductCompactRowInner({
                             {dp.originalPrice != null && (
                                 <span className={styles.compactPriceOriginal}>
                                     {dp.type === "from"
-                                        ? t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })
-                                        : `€ ${dp.originalPrice.toFixed(2)}`}
+                                        ? t("product.price_from", { price: `€ ${formatDecimal(dp.originalPrice)}` })
+                                        : `€ ${formatDecimal(dp.originalPrice)}`}
                                 </span>
                             )}
                             <span>
                                 {dp.type === "from"
-                                    ? t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })
-                                    : `€ ${dp.price.toFixed(2)}`}
+                                    ? t("product.price_from", { price: `€ ${formatDecimal(dp.price)}` })
+                                    : `€ ${formatDecimal(dp.price)}`}
                             </span>
                         </span>
                     )}
@@ -2093,8 +2094,25 @@ export default function CollectionView({
             scrollEndCleanupRef.current = () => container.removeEventListener("scroll", onScroll);
         }
 
-        // Rete di sicurezza: l'effetto parte comunque entro ~800ms.
-        highlightMaxTimeoutRef.current = setTimeout(fire, 800);
+        // Rete di sicurezza: dopo 800ms parte solo se lo scroll è arrivato o si è
+        // fermato. Su un menù lungo lo scroll smooth dura più di 800ms: partire
+        // a tempo fisso faceva finire l'effetto con il prodotto ancora fuori
+        // schermo. Tetto a 3s per non restare appesi.
+        const startedAt = performance.now();
+        let lastTop: number | null = null;
+        const safetyCheck = () => {
+            if (done) return;
+            const top = el.getBoundingClientRect().top;
+            const arrived = Math.abs(top - scrollOffset) < 4;
+            const stopped = lastTop !== null && Math.abs(top - lastTop) < 1;
+            if (arrived || stopped || performance.now() - startedAt > 3000) {
+                fire();
+                return;
+            }
+            lastTop = top;
+            highlightMaxTimeoutRef.current = setTimeout(safetyCheck, 150);
+        };
+        highlightMaxTimeoutRef.current = setTimeout(safetyCheck, 800);
     }, [applyHighlight, cleanupHighlightDetector, recomputeStickyOffset, ignoreProgrammaticScroll]);
 
     // Cleanup di timer/listener all'unmount.

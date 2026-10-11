@@ -43,12 +43,12 @@
 //   400 INVALID_BODY · 401 UNAUTHORIZED · 403 FORBIDDEN · 404 ORDER_NOT_FOUND
 //   422 NO_ACTIVE_PRINTERS · 429 RATE_LIMITED · 500 INTERNAL_ERROR
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { pushComandaToPrinter } from "../_shared/printJobs.ts";
 import { renderComandaEscPos } from "../_shared/escpos.ts";
 import { buildComanda } from "../_shared/buildComanda.ts";
+import { withAppCors } from "../_shared/cors.ts";
 
 // ============================================================
 // Constants
@@ -64,7 +64,6 @@ const FUNCTION_NAME = "sunmi-reprint-order";
 const RATE_LIMIT_PER_ACTIVITY_PER_MIN = 20;
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -196,7 +195,7 @@ function _randomTradeNo(): string {
 // Main
 // ============================================================
 
-serve(async (req: Request): Promise<Response> => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") {
         return jsonResponse(405, { code: "METHOD_NOT_ALLOWED", message: "Use POST." });
@@ -367,4 +366,6 @@ serve(async (req: Request): Promise<Response> => {
         console.error(`[${FUNCTION_NAME}] internal error:`, (e as Error)?.message, (e as Error)?.stack);
         return jsonResponse(500, { code: "INTERNAL_ERROR", message: "Errore interno." });
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));
