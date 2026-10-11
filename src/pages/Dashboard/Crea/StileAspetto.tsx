@@ -1,9 +1,15 @@
 // «L'aspetto» nel tunnel dello stile (D186): le sei parti della pagina del cliente,
 // dall'alto in basso, con tutte le scelte dell'editor. Le forme sono quelle
 // dell'artifact «Lo stile nel tunnel», quarta versione.
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { History, TriangleAlert, Undo2 } from "lucide-react";
 import { listStyleVersions } from "@/services/supabase/styles";
+import { listAppearanceSources } from "@/services/supabase/layoutScheduling";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
+import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
+import { appearanceOf, buildAppearance, describeStyleSaveWarning } from "@/utils/ruleAppearance";
+import { useTenant } from "@/context/useTenant";
+import { useLogoColors } from "./creaStyle";
 import { parseTokens, type FontFamily, type StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { COLORS, FONTS, type Tunnel } from "./creaModel";
 import { DARK_BG, LIGHT_BG, PART_IDS, hardToRead, ink, lum, partKey, readable, restore, sameHex, type PartId } from "./stileLook";
@@ -51,6 +57,20 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("it-IT", { day: "n
 
 export function StileAspetto({ t, u, tenantId, rules, onPeek }: { t: Tunnel; u: U; tenantId: string; rules: number; onPeek: (look: Look | null, label?: string) => void }) {
     const editId = t.edit?.id ?? null;
+    const { selectedTenant } = useTenant();
+    const logo = useLogoColors(selectedTenant?.logo_url ? getTenantLogoPublicUrl(selectedTenant.logo_url) : null);
+    // chi vede subito quello che si salva: le sedi dove lo stile è in onda adesso
+    const [seen, setSeen] = useState<string | null>(null);
+    useEffect(() => {
+        if (!editId) return;
+        let off = false;
+        listAppearanceSources(tenantId)
+            .then(src => !off && setSeen(describeStyleSaveWarning(appearanceOf(buildAppearance({ ...src, instant: toRomeDateTime(new Date()), subscriptionInactive: false }), { kind: "style", id: editId }))))
+            .catch(() => undefined);
+        return () => {
+            off = true;
+        };
+    }, [editId, tenantId]);
     // le versioni di prima si leggono la prima volta che si aprono
     const [open, setOpen] = useState(false);
     const [vers, setVers] = useState<{ id: string; when: string; look: Look }[] | "failed" | null>(null);
@@ -82,7 +102,7 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek }: { t: Tunnel; u: 
                 <i className={own ? undefined : s.rainbow} style={own ? ink(value) : undefined} />
                 {own ? "Un tuo colore" : "Un altro colore"}
             </button>
-            {pal === k && <Palette title={title} kind={k === "pageBackground" ? "bg" : "ink"} value={value} used={used} right={right} pick={c => (put(k, c), setPal(null))} live={c => put(k, c)} close={close} />}
+            {pal === k && <Palette title={title} kind={k === "pageBackground" ? "bg" : "ink"} value={value} used={used} logo={logo} right={right} pick={c => (put(k, c), setPal(null))} live={c => put(k, c)} close={close} />}
         </span>
     );
 
@@ -110,10 +130,10 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek }: { t: Tunnel; u: 
         <div className={s.asp}>
             {t.edit && (
                 <div className={s.tools}>
-                    {rules > 0 && (
+                    {(seen || rules > 0) && (
                         <span className={s.inuse}>
                             <i aria-hidden />
-                            Usato in {rules === 1 ? "una regola" : `${rules} regole`} del Calendario: quello che salvi si vede subito lì.
+                            {seen ?? `Usato in ${rules === 1 ? "una regola" : `${rules} regole`} del Calendario: quello che salvi arriva lì.`}
                         </span>
                     )}
                     <button type="button" className={s.linkb} aria-expanded={open} onClick={showVers}>

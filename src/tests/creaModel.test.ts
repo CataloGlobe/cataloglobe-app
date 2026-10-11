@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, readFromAi, steps, tunnelTitle, whenProblem, withAside, type FromMenu } from "@/pages/Dashboard/Crea/creaModel";
 import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
-import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
+import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, logoColors, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
 
 // I tunnel di creazione (D124): i passi, cosa ferma «Avanti», la bozza del
 // Calendario e lo stile fatto con le quattro scelte.
@@ -182,6 +182,13 @@ describe("tunnel dello stile: l'aspetto intero", () => {
         expect(palette("ink")).toHaveLength(50);
         expect(new Set(palette("ink")).size).toBe(50);
         expect(palette("bg").every(c => lum(c) > 0.55 || lum(c) < 0.06)).toBe(true);
+    });
+
+    it("i colori del logo: i più presenti, diversi fra loro, senza il bianco e senza i punti trasparenti", () => {
+        const px = (c: number[], n: number) => Array.from({ length: n }, () => c).flat();
+        const data = [...px([255, 255, 255, 255], 40), ...px([190, 18, 60, 255], 30), ...px([192, 20, 62, 255], 10), ...px([15, 23, 42, 255], 20), ...px([0, 200, 0, 0], 50)];
+        expect(logoColors(data)).toEqual(["#be123c", "#0f172a"]);
+        expect(logoColors([])).toEqual([]);
     });
 
     it("un colore che non si legge sullo sfondo dà l'avviso, e «Rendilo leggibile» lo sistema restando nella tinta", () => {

@@ -58,6 +58,33 @@ const TONES = { ink: [74, 60, 48, 38, 24], bg: [98, 95, 90, 20, 11] } as const;
 export type PaletteKind = keyof typeof TONES;
 export const palette = (kind: PaletteKind): string[] => TONES[kind].flatMap(l => HUES.map(([h, s]) => hsl(h, kind === "bg" ? (l > 50 ? s * 0.8 : s * 0.45) : s, l)));
 
+/**
+ * I colori di un logo, dai suoi punti (RGBA): i più presenti, diversi fra loro,
+ * senza il bianco di fondo e senza i punti trasparenti.
+ */
+export function logoColors(px: ArrayLike<number>, max = 4): string[] {
+    const by = new Map<number, [number, number, number, number]>();
+    for (let i = 0; i + 3 < px.length; i += 4) {
+        if (px[i + 3] < 128) continue;
+        const r = px[i], g = px[i + 1], b = px[i + 2];
+        if (r > 238 && g > 238 && b > 238) continue;
+        const k = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+        const c = by.get(k) ?? [0, 0, 0, 0];
+        c[0] += r;
+        c[1] += g;
+        c[2] += b;
+        c[3] += 1;
+        by.set(k, c);
+    }
+    const out: number[][] = [];
+    for (const c of [...by.values()].sort((a, b) => b[3] - a[3])) {
+        const v = [c[0] / c[3], c[1] / c[3], c[2] / c[3]];
+        if (out.every(o => Math.abs(o[0] - v[0]) + Math.abs(o[1] - v[1]) + Math.abs(o[2] - v[2]) > 90)) out.push(v);
+        if (out.length === max) break;
+    }
+    return out.map(hex);
+}
+
 /** Le sei parti dell'aspetto, nell'ordine del telefono: cosa guarda ognuna e come torna com'era. */
 export type PartId = "cima" | "categorie" | "evidenza" | "piatti" | "colori" | "carattere";
 export const PART_IDS: readonly PartId[] = ["cima", "categorie", "evidenza", "piatti", "colori", "carattere"];

@@ -1,12 +1,12 @@
 // Lo stile nel telefono del tunnel: i token veri dello stile (quello in onda,
 // quello da cui si parte, quello che si sta facendo) e i caratteri da caricare.
-import { useEffect, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { DEFAULT_STYLE_TOKENS, parseTokens, serializeTokens, type FontFamily, type StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { buildSingleFamilyFontUrl } from "@/utils/publicFontUrl";
 import type { V2Style } from "@/services/supabase/styles";
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { FONTS, type Tunnel } from "./creaModel";
-import { DARK_BG, LIGHT_BG, cleanLook, lum } from "./stileLook";
+import { DARK_BG, LIGHT_BG, cleanLook, logoColors, lum } from "./stileLook";
 
 export const FONT_CSS: Record<string, string> = Object.fromEntries(Object.entries(FONTS).map(([k, f]) => [k, f.css]));
 
@@ -48,6 +48,35 @@ export function useFonts(tokens: readonly FontFamily[]) {
         }
     }, [key]);
 }
+
+/** I colori del logo dell'azienda, per la tavolozza; nessuno se il logo non c'è o non si legge. */
+export function useLogoColors(url: string | null): string[] {
+    const [got, setGot] = useState<{ url: string; colors: string[] } | null>(null);
+    useEffect(() => {
+        if (!url) return;
+        let off = false;
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+            try {
+                const cv = document.createElement("canvas");
+                cv.width = cv.height = 32;
+                const cx = cv.getContext("2d");
+                if (!cx || off) return;
+                cx.drawImage(img, 0, 0, 32, 32);
+                setGot({ url, colors: logoColors(cx.getImageData(0, 0, 32, 32).data) });
+            } catch {
+                // un logo che il browser non lascia leggere: la riga non compare
+            }
+        };
+        img.src = url;
+        return () => {
+            off = true;
+        };
+    }, [url]);
+    return got && got.url === url ? got.colors : NO_COLORS;
+}
+const NO_COLORS: string[] = [];
 
 /** I colori dello schermo: quelli dello stile, non quelli del back office. */
 export function phoneVars(tk: StyleTokenModel): CSSProperties {

@@ -386,7 +386,7 @@
     box-shadow: var(--shadow-float);
 
     small {
-        min-width: 58px;
+        min-width: 74px;
         color: var(--k-muted);
         font-weight: 500;
         @include cal.fs(badge);

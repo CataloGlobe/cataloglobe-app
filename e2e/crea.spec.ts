@@ -561,7 +561,9 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         const second = main(page).getByRole("group", { name: "Secondo colore" });
         await second.getByRole("button", { name: "Un altro colore" }).click();
         const pal = page.getByRole("dialog", { name: "Secondo colore" });
-        await expect(pal.getByRole("button")).toHaveCount(50 + 2 + 1);
+        // dieci tinte per cinque toni, il colore del logo, i due già usati e «Altri colori…»
+        await expect(pal.getByText("Dal tuo logo")).toBeVisible();
+        await expect(pal.getByRole("button")).toHaveCount(50 + 1 + 2 + 1);
         await pal.getByRole("button").nth(12).click();
         await expect(pal).toHaveCount(0);
         await expect(second.getByRole("button", { name: "Un tuo colore" })).toBeVisible();

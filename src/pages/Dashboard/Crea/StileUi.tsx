@@ -35,7 +35,7 @@ export function Choice<V extends string>({ label, opts, value, on, wide, cond, m
 }
 
 /** La tavolozza: un fumetto sul pulsante, dieci tinte per cinque toni; in fondo il colore libero. */
-export function Palette({ title, kind, value, used, right, pick, live, close }: { title: string; kind: PaletteKind; value: string; used: readonly string[]; right?: boolean; pick: (c: string) => void; live: (c: string) => void; close: () => void }) {
+export function Palette({ title, kind, value, used, logo, right, pick, live, close }: { title: string; kind: PaletteKind; value: string; used: readonly string[]; logo: readonly string[]; right?: boolean; pick: (c: string) => void; live: (c: string) => void; close: () => void }) {
     const [free, setFree] = useState(false);
     const box = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -52,6 +52,12 @@ export function Palette({ title, kind, value, used, right, pick, live, close }: 
     return (
         <div ref={box} className={[s.pal, right && s.right].filter(Boolean).join(" ")} role="dialog" aria-label={title}>
             <div className={s.pgrid}>{palette(kind).map(cell)}</div>
+            {logo.length > 0 && (
+                <div className={s.prow}>
+                    <small>Dal tuo logo</small>
+                    {logo.map(cell)}
+                </div>
+            )}
             <div className={s.prow}>
                 <small>Già usati</small>
                 {used.map(cell)}
