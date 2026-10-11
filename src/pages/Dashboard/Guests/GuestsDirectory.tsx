@@ -50,6 +50,8 @@ interface Props {
     isSearching: boolean;
     onClearSearch: () => void;
     onOpenGuest: (guest: ReservationGuestSummary) => void;
+    /** Il cliente aperto nel dettaglio accanto: la sua riga resta segnata. */
+    selectedGuestId?: string | null;
     /** `isTenantWide(permissions)`: owner/admin non hanno bisogno del "nelle tue sedi". */
     tenantWide: boolean;
 }
@@ -62,6 +64,7 @@ export default function GuestsDirectory({
     isSearching,
     onClearSearch,
     onOpenGuest,
+    selectedGuestId,
     tenantWide
 }: Props) {
     const footnote = useMemo(() => visibilityFootnote(tenantWide), [tenantWide]);
@@ -131,6 +134,7 @@ export default function GuestsDirectory({
                                 </span>
                             }
                             onClick={() => onOpenGuest(g)}
+                            selected={g.id === selectedGuestId}
                         />
                     );
                 })}

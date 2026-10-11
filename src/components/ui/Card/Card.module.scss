@@ -42,8 +42,11 @@
   }
 }
 
+// Anche un'azione corta che non è un IconButton può restare a destra del
+// titolo: la marca `data-compact-action` (il «Dettagli ›» delle comande).
 .header:has(> .actions > [data-icon-only]:only-child) .headerText,
-.header:has(> .actions > :only-child > [data-icon-only]:only-child) .headerText {
+.header:has(> .actions > :only-child > [data-icon-only]:only-child) .headerText,
+.header:has(> .actions > [data-compact-action]:only-child) .headerText {
   flex-basis: 0;
 }
 

@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 $global-header-height: 56px;
 
 .appLayout {
@@ -32,6 +34,46 @@ $global-header-height: 56px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+// Il contenuto e, a destra, il dettaglio dal vivo (D131). L'aside vuoto non
+// occupa niente; sotto 1024 il dettaglio copre il contenuto (la sidebar
+// resta), al telefono è una pagina sua (`DetailPane`).
+.split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+.column {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail {
+  flex: none;
+  width: var(--detail-pane);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+
+  &:empty {
+    display: none;
+  }
+
+  @include below-sidebar {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    z-index: var(--z-float);
+    border-left: 0;
+  }
 }
 
 .content {

@@ -14,6 +14,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/usePermissions";
 import { useActivityScope } from "@/hooks/useActivityScope";
+import { useDetailParam } from "@/hooks/useDetailParam";
 import { canDoOnActivity } from "@/lib/permissions";
 import { todayIsoDate, shiftIsoDate } from "@/utils/dateLocal";
 
@@ -55,6 +56,9 @@ export default function OrdersHistory() {
     const [operatorNames, setOperatorNames] = useState<Map<string, string>>(() => new Map());
     const [historyOrders, setHistoryOrders] = useState<V2OrderWithItems[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    // Il giorno dell'ultima lettura andata a buon fine: finché non coincide
+    // con quello scelto, l'elenco non dice ancora cosa c'è.
+    const [loadedDay, setLoadedDay] = useState<string | null>(null);
     const [error, setError] = useState<Error | null>(null);
     const [filter, setFilter] = useState<HistoryFilter>("all");
     // Giorno operativo mostrato (data civile Europe/Rome). La finestra
@@ -63,8 +67,8 @@ export default function OrdersHistory() {
     const today = useMemo(() => todayIsoDate(), []);
     const [day, setDay] = useState<string>(() => today);
 
-    const [isDetailOpen, setIsDetailOpen] = useState(false);
-    const [orderInDetail, setOrderInDetail] = useState<HistoryRowWithStorni | null>(null);
+    // L'ordine aperto accanto sta nell'indirizzo (`?ordine=<id>`, D131).
+    const [detailId, openDetail, closeDetail] = useDetailParam("ordine");
 
     const { hasPrinters, orderToPrint, printRef, handlePrint } = useOrderPrinting(tenantId, activityId);
 
@@ -83,7 +87,10 @@ export default function OrdersHistory() {
         try {
             const { dayStart, dayEnd } = await getOperativeDayBounds(day);
             const data = await listOrdersHistory(tenantId, activityId, dayStart, dayEnd);
-            if (request === requestRef.current) setHistoryOrders(data);
+            if (request === requestRef.current) {
+                setHistoryOrders(data);
+                setLoadedDay(day);
+            }
         } catch (err) {
             if (request === requestRef.current) {
                 setError(err instanceof Error ? err : new Error("Errore caricamento storico"));
@@ -139,6 +146,31 @@ export default function OrdersHistory() {
 
     const rows = useMemo(() => annotateHistory(historyOrders), [historyOrders]);
     const filtered = useMemo(() => filterHistory(rows, filter), [rows, filter]);
+
+    // ↑ ↓ scorrono gli ordini mostrati (gli storni stanno sotto il padre).
+    const detailSequence = useMemo(() => filtered.filter(o => !o.is_rectification), [filtered]);
+    const detailIndex = detailId ? detailSequence.findIndex(o => o.id === detailId) : -1;
+    const orderInDetail = detailIndex >= 0 ? detailSequence[detailIndex] : null;
+
+    // L'ordine aperto non è più fra quelli mostrati (altro filtro, altro
+    // giorno, link vecchio): il dettaglio si chiude, e `?ordine=` con lui,
+    // così non ricompare da solo quando il filtro torna.
+    const closedStale = useRef<string | null>(null);
+    useEffect(() => {
+        if (!detailId || orderInDetail) {
+            closedStale.current = null;
+            return;
+        }
+        if (isLoading || loadedDay !== day) return;
+        // Una volta sola per id: chiudere può essere un «indietro».
+        if (closedStale.current === detailId) return;
+        closedStale.current = detailId;
+        closeDetail();
+    }, [detailId, orderInDetail, isLoading, loadedDay, day, closeDetail]);
+    const stepDetail = (by: number) => {
+        const next = detailSequence[detailIndex + by];
+        if (next) openDetail(next.id);
+    };
 
     const isToday = day === today;
     const relativeDayLabel = day === today ? "Oggi" : day === shiftIsoDate(today, -1) ? "Ieri" : null;
@@ -198,10 +230,7 @@ export default function OrdersHistory() {
     const columns = makeHistoryColumns({
         tables,
         operatorNames,
-        onViewDetail: order => {
-            setOrderInDetail(order);
-            setIsDetailOpen(true);
-        },
+        onViewDetail: order => openDetail(order.id),
         onRestore: handleRestore,
         onPrint: handlePrint,
         hasPrinters: hasPrinters === true,
@@ -272,6 +301,10 @@ export default function OrdersHistory() {
                                 columns={columns}
                                 isLoading={isLoading}
                                 getRowId={o => o.id}
+                                activeRowId={detailId}
+                                onRowClick={o => {
+                                    if (!o.is_rectification) openDetail(o.id);
+                                }}
                                 rowWrapper={(rowEl, rowData) => {
                                     // Storno orfano: blocco a sé, solo la striscia.
                                     if (rowData.is_rectification) {
@@ -315,17 +348,18 @@ export default function OrdersHistory() {
                     )}
 
                     <OrderDetailDrawer
-                        open={isDetailOpen}
+                        open={orderInDetail !== null}
                         order={orderInDetail}
+                        backLabel="Storico"
+                        onPrev={detailIndex > 0 ? () => stepDetail(-1) : undefined}
+                        onNext={detailIndex >= 0 && detailIndex < detailSequence.length - 1 ? () => stepDetail(1) : undefined}
+                        position={detailIndex >= 0 ? { index: detailIndex, total: detailSequence.length } : undefined}
                         tableLabel={tableOf(orderInDetail)?.label ?? "?"}
                         tableZone={tableOf(orderInDetail)?.zone_name ?? null}
                         operatorNames={operatorNames}
                         hasPrinters={hasPrinters === true}
                         onPrint={handlePrint}
-                        onClose={() => {
-                            setIsDetailOpen(false);
-                            setOrderInDetail(null);
-                        }}
+                        onClose={closeDetail}
                     />
                 </section>
             )}

@@ -18,6 +18,8 @@ import { useEffect, useSyncExternalStore } from "react";
  */
 
 const dirtyOwners = new Set<symbol>();
+/** Chi ha la bozza dentro un dettaglio nell'indirizzo (`?guest=`): per lui conta anche la query. */
+const searchOwners = new Set<symbol>();
 const listeners = new Set<() => void>();
 let version = 0;
 
@@ -35,22 +37,35 @@ function subscribe(listener: () => void) {
 
 const getSnapshot = () => version;
 
-/** Registra `isDirty` per il chiamante; si deregistra allo smontaggio. */
-export function useUnsavedChangesGuard(isDirty: boolean) {
+/**
+ * Registra `isDirty` per il chiamante; si deregistra allo smontaggio.
+ * `search: true` per una bozza dentro un dettaglio dal vivo (D131): anche
+ * cambiare la query (un altro elemento, chiudere, indietro) la butterebbe.
+ */
+export function useUnsavedChangesGuard(isDirty: boolean, options?: { search?: boolean }) {
+    const search = options?.search === true;
     useEffect(() => {
         if (!isDirty) return;
         const owner = Symbol("unsaved-changes");
         dirtyOwners.add(owner);
+        if (search) searchOwners.add(owner);
         notify();
         return () => {
             dirtyOwners.delete(owner);
+            searchOwners.delete(owner);
             notify();
         };
-    }, [isDirty]);
+    }, [isDirty, search]);
 }
 
 /** True se almeno un chiamante ha modifiche pendenti. Usato dall'host. */
 export function useHasUnsavedChanges(): boolean {
     useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
     return dirtyOwners.size > 0;
+}
+
+/** True se una bozza pendente si perde anche cambiando solo la query. */
+export function useUnsavedChangesWatchSearch(): boolean {
+    useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    return searchOwners.size > 0;
 }

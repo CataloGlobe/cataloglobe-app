@@ -83,3 +83,13 @@
         background-color: var(--brand-primary);
     }
 }
+
+// Comanda nuova (D141): l'azzurro della corsia Nuove della board.
+.new {
+    background-color: var(--order-new-soft);
+    color: var(--order-new-ink);
+
+    .dot {
+        background-color: var(--order-new);
+    }
+}

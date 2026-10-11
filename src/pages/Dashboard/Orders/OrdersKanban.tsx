@@ -17,7 +17,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -56,6 +55,8 @@ interface Props {
     onCancel: (order: V2OrderWithItems) => void;
     onCancelItem: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
+    /** L'ordine col dettaglio aperto accanto, segnato sulla board. */
+    selectedOrderId?: string | null;
     onUnacknowledge?: (order: V2OrderWithItems) => Promise<void>;
     onUnready?: (order: V2OrderWithItems) => Promise<void>;
     /**
@@ -102,6 +103,7 @@ export default function OrdersKanban({
     onCancel,
     onCancelItem,
     onViewDetail,
+    selectedOrderId,
     onUnacknowledge,
     onUnready,
     pulseSubmittedToken,
@@ -214,14 +216,13 @@ export default function OrdersKanban({
                                     isPulsing && col.status === "submitted" ? ` ${styles.pulsing}` : ""
                                 }`}
                             >
-                                <Text as="span" variant="body-sm" weight={600}>
+                                <Text as="span" variant="body-sm" weight={600} className={styles.laneTitle}>
+                                    <span className={styles.laneDot} aria-hidden />
                                     {col.title}
                                 </Text>
-                                <Badge
-                                    variant={col.status === "submitted" && colOrders.length > 0 ? "brand" : "outline"}
-                                >
+                                <Text as="span" variant="caption" weight={600} className={styles.laneCount}>
                                     {colOrders.length}
-                                </Badge>
+                                </Text>
                             </header>
                             <div className={styles.columnList}>
                                 {isLoading && colOrders.length === 0 ? (
@@ -250,6 +251,7 @@ export default function OrdersKanban({
                                                 onCancel={onCancel}
                                                 onCancelItem={onCancelItem}
                                                 onViewDetail={onViewDetail}
+                                                selected={order.id === selectedOrderId}
                                                 onUnacknowledge={onUnacknowledge}
                                                 onUnready={onUnready}
                                                 canManage={canManage}

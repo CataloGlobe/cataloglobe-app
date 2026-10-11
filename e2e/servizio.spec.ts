@@ -132,6 +132,54 @@ test.describe("Servizio", () => {
         await expect(drawer).toHaveCount(0);
     });
 
+    test("#340.1: «Conferma» su un tavolo e subito un altro tavolo: il secondo non mostra gli ordini del primo", async ({ page }) => {
+        // La conferma è finta e lenta: nessuna scrittura, e il tempo di cambiare tavolo.
+        let confirmed = 0;
+        await page.route(/\/functions\/v1\/acknowledge-order/, async route => {
+            await new Promise(r => setTimeout(r, 1200));
+            confirmed += 1;
+            await route.fulfill({ json: { ok: true } });
+        });
+        await openMappa(page);
+        await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
+        const drawer = page.getByRole("dialog");
+        // Il conto senza gli orari («3 min fa», «12:40»), che cambiano da soli.
+        const conto = async () => (await drawer.innerText()).replace(/\d{1,2}:\d{2}|\d+ (min|h|ore|giorni|g)\b/g, "");
+        const loaded = () => expect(drawer.getByText("Fuori servizio", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+        const altro = main(page).getByRole("list", { name: "Senza zona" }).getByRole("button", { name: /, (Aperto|Libero)/ }).first();
+        await altro.click();
+        await loaded();
+        const delSecondo = await conto();
+        await tessera(page).click();
+        await expect(drawer.getByRole("heading", { name: new RegExp(`^${TAVOLO}`) })).toBeVisible({ timeout: 15_000 });
+        await expect(drawer.getByRole("button", { name: "Conferma" }).first()).toBeVisible({ timeout: 15_000 });
+        expect(await conto()).not.toBe(delSecondo);
+
+        await drawer.getByRole("button", { name: "Conferma" }).first().click();
+        await altro.click();
+        await expect.poll(() => confirmed).toBe(1);
+        await page.waitForLoadState("networkidle");
+        await loaded();
+        expect(await conto()).toBe(delSecondo);
+    });
+
+    test("cambiando modo il tavolo aperto si chiude e non si riapre tornando", async ({ page }) => {
+        await openMappa(page);
+        await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
+        await tessera(page).click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await expect(page).toHaveURL(/[?&]tavolo=/);
+
+        await modo(page, "Elenco").click();
+        await expect(modo(page, "Elenco")).toHaveAttribute("aria-selected", "true");
+        await expect(page).not.toHaveURL(/[?&]tavolo=/);
+        await modo(page, "Mappa").click();
+        await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        await expect(page).not.toHaveURL(/[?&]tavolo=/);
+    });
+
     test("la Mappa: «Aperti» e «Liberi» filtrano le tessere", async ({ page }) => {
         await openMappa(page);
         const filtri = main(page).getByRole("radiogroup");

@@ -9,6 +9,7 @@ import {
     formatTableLabels
 } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import type { SeatingStatus, SeatingWithState } from "@/types/seating";
+import type { V2Reservation } from "@/types/reservation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Quale drawer
@@ -124,4 +125,31 @@ export function formatOpenFor(openedAtIso: string, now: Date): string {
     }
     const m = totalMin % 60;
     return m === 0 ? `da ${h} h` : `da ${h} h ${m} min`;
+}
+
+/** Una riga dell'Elenco di Servizio, con il dettaglio che apre. */
+export type ServiceEntry =
+    | { kind: "reservation"; reservation: V2Reservation }
+    | { kind: "seating"; seating: SeatingWithState };
+
+/**
+ * Le righe dell'Elenco nell'ordine in cui si leggono (in sala, in arrivo,
+ * concluse), ognuna col dettaglio che apre la sua riga: la stessa regola di
+ * `ReservationsService`. Serve alle frecce ↑ ↓ del dettaglio accanto (D131).
+ */
+export function serviceSequence(
+    board: { inRoom: SeatingWithState[]; arriving: { reservation: V2Reservation }[]; closed: SeatingWithState[] } | null,
+    reservationsById: ReadonlyMap<string, V2Reservation>
+): ServiceEntry[] {
+    if (!board) return [];
+    const fromSeating = (s: SeatingWithState): ServiceEntry => {
+        if (seatingDrawerFor(s) === "seating") return { kind: "seating", seating: s };
+        const first = reservationsById.get(s.reservations[0].reservation_id);
+        return first ? { kind: "reservation", reservation: first } : { kind: "seating", seating: s };
+    };
+    return [
+        ...board.inRoom.map(fromSeating),
+        ...board.arriving.map(({ reservation }) => ({ kind: "reservation", reservation }) as const),
+        ...board.closed.map(fromSeating)
+    ];
 }

@@ -128,6 +128,48 @@ test.describe("Comande", () => {
         await expect(drawer).toHaveCount(0);
     });
 
+    test("toccando la card il dettaglio si apre accanto, e indietro lo chiude", async ({ page }) => {
+        // D131 «Accanto»: niente velo, la board resta lì e si tocca; il
+        // dettaglio sta nell'indirizzo e ha le azioni della card.
+        await openComande(page);
+        await fixtureCard(page).getByText("Hamburger", { exact: true }).click();
+
+        await expect(page).toHaveURL(/[?&]ordine=/);
+        const pane = page.getByRole("dialog");
+        await expect(pane.getByText(TAVOLO).first()).toBeVisible();
+        await expect(pane.getByRole("button", { name: "Conferma", exact: true })).toBeVisible();
+        await expect(fixtureCard(page)).toHaveAttribute("aria-current", "true");
+        await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
+        // D141: «Dettagli ›» sulla card e «1 di N» fra le frecce.
+        await expect(fixtureCard(page).getByText("Dettagli", { exact: true })).toBeVisible();
+        await expect(pane.getByText(/^\d+ di \d+$/)).toBeVisible();
+
+        await page.goBack();
+        await expect(pane).toHaveCount(0);
+        await expect(page).not.toHaveURL(/[?&]ordine=/);
+    });
+
+    test("al telefono: «Dettagli» si apre da tastiera, il menù sta sopra, Esc chiude", async ({ page }) => {
+        await openComande(page);
+        await page.setViewportSize({ width: 375, height: 812 });
+        const open = fixtureCard(page).getByRole("button", { name: /^Dettagli di / });
+        await open.focus();
+        await page.keyboard.press("Enter");
+
+        const pane = page.getByRole("dialog");
+        await expect(pane.getByText(TAVOLO).first()).toBeVisible();
+        // Il «⋯» del dettaglio apre il suo menù sopra la pagina, non sotto.
+        await pane.getByRole("button", { name: "Altre azioni" }).click();
+        await page.getByRole("menuitem", { name: "Annulla articolo" }).click({ trial: true });
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("menu")).toHaveCount(0);
+        await expect(pane).toBeVisible();
+
+        await page.keyboard.press("Escape");
+        await expect(pane).toHaveCount(0);
+        await expect(page).not.toHaveURL(/[?&]ordine=/);
+    });
+
     test("annullare una comanda si ripara dal toast", async ({ page }) => {
         // Due chiamate edge (cancel + uncancel) e due toast in fila: coi 4
         // worker della suite i 30 s di default non bastano sempre (misurato).

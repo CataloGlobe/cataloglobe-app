@@ -3,6 +3,7 @@ import styles from "./StatusBadge.module.scss";
 
 /**
  * `success · neutral · warning · danger · info` sono le varianti della scheda.
+ * `new` è la comanda appena arrivata (D141): l'azzurro della corsia Nuove.
  * `pending` è confluita in `warning` (stessa resa): resta accettata come alias,
  * si toglie nel lotto 6.
  */
@@ -12,6 +13,7 @@ export type StatusBadgeVariant =
     | "warning"
     | "danger"
     | "info"
+    | "new"
     | "pending";
 
 export interface StatusBadgeProps {

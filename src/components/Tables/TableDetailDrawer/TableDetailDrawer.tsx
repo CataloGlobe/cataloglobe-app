@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useId, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
     Check,
     Clock,
@@ -9,7 +9,7 @@ import {
     Wrench
 } from "lucide-react";
 
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DetailPane } from "@/components/layout/DetailPane/DetailPane";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -74,13 +74,21 @@ interface Props {
      */
     currentTotal: number | null;
     onClose: () => void;
+    /** Il precedente e il successivo della Mappa (↑ ↓), dettaglio accanto (D131). */
+    onPrev?: () => void;
+    onNext?: () => void;
+    /** «2 di 5» fra le frecce (D141). */
+    position?: { index: number; total: number };
+    /**
+     * Cambia quando la riga del tavolo sulla Mappa cambia (realtime): il
+     * dettaglio si ricarica in silenzio e resta dal vivo con la Mappa.
+     */
+    liveKey?: string;
     /**
      * Richiesta di apertura "Chiudi tavolo" dal detail. Il parent
-     * (TablesLiveView) si occupa di:
-     *   1. chiudere il detail drawer,
-     *   2. attendere la durata dell'exit anim,
-     *   3. aprire il TableCloseDrawer con la riga V2TableWithState
-     *      letta da items[] (zero I/O extra).
+     * (TablesLiveView) apre il TableCloseDrawer sopra, con la riga
+     * V2TableWithState letta da items[] (zero I/O extra); il dettaglio
+     * accanto resta aperto.
      * Bottone gated da canDoOnActivity(perms, 'tables.manage', activityId);
      * se omesso o se l'utente non ha il permesso il bottone non viene
      * renderizzato.
@@ -242,6 +250,10 @@ export function TableDetailDrawer({
     tableId,
     currentTotal,
     onClose,
+    onPrev,
+    onNext,
+    position,
+    liveKey,
     onRequestClose,
     onMaintenanceChanged,
     onBillCleared,
@@ -288,9 +300,18 @@ export function TableDetailDrawer({
         !!permissions &&
         canDoOnActivity(permissions, "orders.manage", activityId);
 
-    const loadDetail = useCallback(async () => {
+    // Con ↑ ↓ veloci le letture si accavallano: vale solo l'ultima, così il
+    // tavolo B non mostra mai gli ordini di A.
+    const loadSeq = useRef(0);
+    const shownTable = useRef(tableId);
+    useEffect(() => {
+        shownTable.current = open ? tableId : null;
+    }, [open, tableId]);
+    const loadDetail = useCallback(async (silent = false) => {
         if (!tenantId || !activityId || !tableId) return;
-        setIsLoading(true);
+        const seq = ++loadSeq.current;
+        const current = () => seq === loadSeq.current;
+        if (!silent) setIsLoading(true);
         setError(null);
         try {
             const [table, sessions, openGroup] = await Promise.all([
@@ -304,11 +325,11 @@ export function TableDetailDrawer({
                 includeItems: false,
                 limit: 50
             });
-            setData({ table, sessions, openGroup, orders });
+            if (current()) setData({ table, sessions, openGroup, orders });
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Errore caricamento dettaglio");
+            if (current()) setError(err instanceof Error ? err.message : "Errore caricamento dettaglio");
         } finally {
-            setIsLoading(false);
+            if (current()) setIsLoading(false);
         }
     }, [tenantId, activityId, tableId]);
 
@@ -319,7 +340,8 @@ export function TableDetailDrawer({
             const updated = await updateTable(tableId, tenantId, {
                 maintenance_mode: next
             });
-            setData(d =>
+            // Nel frattempo si è passati a un altro tavolo: i suoi dati non si toccano.
+            if (shownTable.current === tableId) setData(d =>
                 d ? { ...d, table: { ...d.table, maintenance_mode: updated.maintenance_mode } } : d
             );
             showToast({
@@ -342,7 +364,7 @@ export function TableDetailDrawer({
         setIsClearingBill(true);
         try {
             await clearBillRequestsForTable(tableId, tenantId);
-            setData(d =>
+            if (shownTable.current === tableId) setData(d =>
                 d
                     ? {
                           ...d,
@@ -370,7 +392,7 @@ export function TableDetailDrawer({
         setIsClearingWaiter(true);
         try {
             await clearWaiterCallsForTable(tableId, tenantId);
-            setData(d =>
+            if (shownTable.current === tableId) setData(d =>
                 d
                     ? {
                           ...d,
@@ -394,20 +416,23 @@ export function TableDetailDrawer({
     }
 
     async function handleConfirmOrder(orderId: string, version: number): Promise<void> {
+        const forTable = tableId;
         setConfirmingOrderId(orderId);
         try {
             await acknowledgeOrder(orderId, version);
             showToast({ message: "Ordine confermato", type: "success" });
-            await loadDetail();
+            // Passati a un altro tavolo: rileggere questo scarterebbe la sua lettura.
+            if (shownTable.current === forTable) await loadDetail();
         } catch {
             showToast({ message: "Errore durante la conferma dell'ordine", type: "error" });
         } finally {
-            setConfirmingOrderId(null);
+            if (shownTable.current === forTable) setConfirmingOrderId(null);
         }
     }
 
     async function handleOpenStorna(order: V2OrderWithItems): Promise<void> {
         if (!tenantId) return;
+        const forTable = tableId;
         setStornaLoadingOrderId(order.id);
         try {
             const full = await getOrderWithItems(order.id, tenantId);
@@ -424,6 +449,8 @@ export function TableDetailDrawer({
                     type: "warning"
                 });
             }
+            // Nel frattempo si è passati a un altro tavolo: lo storno non si apre lì.
+            if (shownTable.current !== forTable) return;
             setStornaOrder(full);
             setStornaResiduals(residuals);
             setStornaState({ estimate: 0, canConfirm: false });
@@ -450,16 +477,19 @@ export function TableDetailDrawer({
         reason: string
     ): Promise<void> {
         if (!stornaOrder) return;
+        const forTable = tableId;
         setIsSavingStorno(true);
         try {
             await rectifyOrder(stornaOrder.id, items, reason || undefined);
             showToast({ message: "Storno registrato", type: "success" });
-            setView("conto");
-            setStornaOrder(null);
-            setStornaResiduals(null);
-            setStornaState({ estimate: 0, canConfirm: false });
-            await loadDetail();
-            if (tableId) onStornoCreated?.(tableId);
+            if (shownTable.current === forTable) {
+                setView("conto");
+                setStornaOrder(null);
+                setStornaResiduals(null);
+                setStornaState({ estimate: 0, canConfirm: false });
+                await loadDetail();
+            }
+            if (forTable) onStornoCreated?.(forTable);
         } catch (err) {
             // Resta nella vista storna: non perdere la selezione.
             showToast({ message: mapStornoError(err), type: "error" });
@@ -468,19 +498,30 @@ export function TableDetailDrawer({
         }
     }
 
+    // Chiuso o passato a un altro tavolo: si riparte da capo, niente dati,
+    // storno o conferme del tavolo di prima.
     useEffect(() => {
-        if (!open || !tableId) {
-            setData(null);
-            setError(null);
-            setShowAllRecent(false);
-            setView("conto");
-            setStornaOrder(null);
-            setStornaResiduals(null);
-            setStornaState({ estimate: 0, canConfirm: false });
-            return;
-        }
-        void loadDetail();
+        loadSeq.current++;
+        setData(null);
+        setError(null);
+        setShowAllRecent(false);
+        setConfirmingOrderId(null);
+        setView("conto");
+        setStornaOrder(null);
+        setStornaResiduals(null);
+        setStornaLoadingOrderId(null);
+        setStornaState({ estimate: 0, canConfirm: false });
+        if (open && tableId) void loadDetail();
     }, [open, tableId, loadDetail]);
+
+    // La Mappa è cambiata per questo tavolo (un ordine, il conto, il
+    // cameriere): si rilegge senza scheletri, il dettaglio resta com'è.
+    const seenLiveKey = useRef(liveKey);
+    useEffect(() => {
+        if (seenLiveKey.current === liveKey) return;
+        seenLiveKey.current = liveKey;
+        if (open && tableId) void loadDetail(true);
+    }, [liveKey, open, tableId, loadDetail]);
 
     const activeOrders = data
         ? data.orders.filter(o =>
@@ -579,7 +620,7 @@ export function TableDetailDrawer({
     );
 
     return (
-        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+        <DetailPane open={open} onClose={onClose} aria-labelledby={titleId} backLabel="Servizio" onPrev={onPrev} onNext={onNext} position={position}>
             <DrawerLayout
                 title={
                     view === "storna"
@@ -649,7 +690,7 @@ export function TableDetailDrawer({
                     <InlineBanner
                         variant="error"
                         action={
-                            <Button variant="secondary" size="sm" onClick={() => void loadDetail()}>
+                            <Button variant="secondary" size="sm" onClick={() => void loadDetail(false)}>
                                 Riprova
                             </Button>
                         }
@@ -860,7 +901,7 @@ export function TableDetailDrawer({
                     </div>
                 ) : null}
             </DrawerLayout>
-        </SystemDrawer>
+        </DetailPane>
     );
 }
 

@@ -34,6 +34,7 @@ import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 
+import { DetailPaneHostContext, type DetailPaneHost } from "@/components/layout/DetailPane/DetailPaneContext";
 import styles from "./MainLayout.module.scss";
 import { isCanceledAllowedPath } from "./canceledAllowedPath";
 
@@ -128,6 +129,17 @@ export default function MainLayout() {
     usePageTitle(pageName && tenantName ? `${pageName} · ${tenantName}` : pageName);
 
     const contentRef = useRef<HTMLDivElement>(null);
+    // L'aside del dettaglio dal vivo: le pagine ci aprono il loro `DetailPane`.
+    const [detailSlot, setDetailSlot] = useState<HTMLElement | null>(null);
+    const [detailCount, setDetailCount] = useState(0);
+    const registerDetail = useCallback(() => {
+        setDetailCount(c => c + 1);
+        return () => setDetailCount(c => c - 1);
+    }, []);
+    const detailHost = useMemo<DetailPaneHost>(
+        () => ({ slot: detailSlot, open: detailCount > 0, register: registerDetail }),
+        [detailSlot, detailCount, registerDetail]
+    );
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
         if (typeof window === "undefined") return false;
@@ -370,10 +382,19 @@ export default function MainLayout() {
 
                             <main className={styles.main}>
                                 <PageTitleBar actions={titleBarActions} />
-                                <PageHeaderSlot scrollContainerRef={contentRef} />
-                                <div ref={contentRef} className={styles.content}>
-                                    <SubscriptionBanner />
-                                    <Outlet context={outletContext} />
+                                {/* Il dettaglio dal vivo si apre nell'aside, accanto al
+                                    contenuto (D131): la pagina si stringe, non si copre. */}
+                                <div className={styles.split}>
+                                    <div className={styles.column}>
+                                        <PageHeaderSlot scrollContainerRef={contentRef} />
+                                        <div ref={contentRef} className={styles.content}>
+                                            <SubscriptionBanner />
+                                            <DetailPaneHostContext.Provider value={detailHost}>
+                                                <Outlet context={outletContext} />
+                                            </DetailPaneHostContext.Provider>
+                                        </div>
+                                    </div>
+                                    <aside ref={setDetailSlot} className={styles.detail} aria-label="Dettaglio" />
                                 </div>
                             </main>
                         </div>
