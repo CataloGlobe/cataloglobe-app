@@ -118,6 +118,10 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         []
     );
 
+    // Dopo una spinta in avanti `leaving` è già vuoto: lo stesso stato, nessun render
+    // proprio nel frame in cui finisce la corsa.
+    const clearLeaving = useCallback(() => setLeaving(prev => (prev.length ? [] : prev)), []);
+
     const cancelAnimations = useCallback(() => {
         for (const animation of animations.current) animation.cancel();
         animations.current = [];
@@ -255,18 +259,18 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
                 // Solo se è ancora l'ultima: una cancellata non svuota `leaving`.
                 animation.finished.then(
                     () => {
-                        if (trackAnimation.current === animation) setLeaving([]);
+                        if (trackAnimation.current === animation) clearLeaving();
                     },
                     () => undefined
                 );
             } else {
-                setLeaving([]);
+                clearLeaving();
             }
             // Il fuoco segue la spinta: la pagina che lo aveva è diventata inert.
             panelRef.current?.focus({ preventScroll: true });
         }
         prevIndex.current = index;
-    }, [present, index, state.move, play]);
+    }, [present, index, state.move, play, clearLeaving]);
 
     // Altezza: segue il contenuto della pagina attiva (ResizeObserver); nella
     // spinta passa da un'altezza all'altra in animazione, altrimenti si imposta.
