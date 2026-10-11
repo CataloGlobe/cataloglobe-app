@@ -22,7 +22,7 @@ type Props = {
     findProduct: (productId: string) => CollectionViewSectionItem | null;
     /** Analitiche dell'apertura di un piatto dal racconto, come «Perfetto con». */
     onTrackOpen: (item: CollectionViewSectionItem) => void;
-    /** Il piatto da cui si è arrivati, letto una volta all'apertura: il rimando «Dal menu» a lui farebbe solo «‹». */
+    /** Il piatto da cui si è arrivati, letto una volta all'apertura: «Si abbina a» lui farebbe solo «‹». */
     fromProductId: () => string | null;
 };
 
@@ -116,11 +116,11 @@ export default function StoryPage({ slug, story, findProduct, onTrackOpen, fromP
                     type="button"
                     className={styles.product}
                     onClick={() => openProduct(linked.id)}
-                    aria-label={t("story.product_link", { name: linked.name })}
+                    aria-label={t("story.pairs_with", { name: linked.name })}
                 >
                     <ScrollText size={20} aria-hidden="true" className={styles.muted} />
                     <span className={styles.productBody}>
-                        <span className={styles.productLabel}>{t("story.product_link_label")}</span>
+                        <span className={styles.productLabel}>{t("story.pairs_with_label")}</span>
                         <span className={styles.productName}>{linked.name}</span>
                     </span>
                     <ChevronRight size={16} aria-hidden="true" className={styles.muted} />

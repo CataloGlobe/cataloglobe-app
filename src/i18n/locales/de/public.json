@@ -410,6 +410,8 @@
         "back_to_list": "Zurück zu den Geschichten",
         "product_link": "Aus der Speisekarte → {{name}}",
         "product_link_label": "Aus der Speisekarte",
+        "pairs_with_label": "Passt zu",
+        "pairs_with": "Passt zu {{name}}",
         "video_unavailable": "Video nicht verfügbar",
         "video_aria": "Video der Geschichte",
         "video_play": "Video ansehen",

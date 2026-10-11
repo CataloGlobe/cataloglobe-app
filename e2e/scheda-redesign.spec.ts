@@ -88,9 +88,9 @@ test("«La storia» apre il lettore nel foglio con «‹ Nome», e tornando la s
     await expect(dialog.getByText("Tradizione", { exact: true })).toBeVisible();
     await expect(dialog.getByText("Il grano", { exact: true })).toBeVisible();
     await expect(dialog.locator("strong", { hasText: "a mano" })).toBeVisible();
-    // Il blocco Prodotto porta a «Dolci 2»; il rimando «Dal menu» al piatto di partenza non c'è (fa già «‹»).
+    // Il blocco Prodotto porta a «Dolci 2»; «Si abbina a» il piatto di partenza non c'è (fa già «‹»).
     await expect(dialog.getByRole("button", { name: /Dolci 2/ })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: /Dal menu/ })).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: /Si abbina a/ })).toHaveCount(0);
 
     await dialog.getByRole("button", { name: "Torna a Primi 1" }).click();
     await expect(page.getByRole("dialog", { name: "Primi 1" })).toBeVisible();

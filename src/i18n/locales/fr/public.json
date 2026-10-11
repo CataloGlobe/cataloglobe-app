@@ -410,6 +410,8 @@
     "back_to_list": "Retour aux histoires",
     "product_link": "Depuis le menu → {{name}}",
     "product_link_label": "Depuis le menu",
+    "pairs_with_label": "Se marie avec",
+    "pairs_with": "Se marie avec {{name}}",
     "video_unavailable": "Vidéo non disponible",
     "video_aria": "Vidéo de l'histoire",
     "video_play": "Regarder la vidéo",
