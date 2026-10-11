@@ -1,6 +1,8 @@
 {
     "sidebar": {
-        "translations_in_progress": "Translations in progress"
+        "translations_in_progress": "Translations in progress",
+        "translations_waiting_one": "{{count}} translation waiting · starts in {{minutes}} min",
+        "translations_waiting_other": "{{count}} translations waiting · start in {{minutes}} min"
     },
     "languages": {
         "title": "Languages",
@@ -17,7 +19,9 @@
             "badge_queued": "In progress",
             "badge_errors": "To fix",
             "badge_done": "Up to date",
-            "auto_note": "existing content is translated in a few minutes"
+            "auto_note": "existing content is translated in a few minutes",
+            "badge_waiting": "Waiting",
+            "waiting": "{{count}} waiting"
         },
         "review": {
             "title": "To review",
@@ -60,7 +64,8 @@
             "to_review": "{{count}} to review",
             "to_review_hint": "Some translations are behind the Italian source. Review them from each item's page.",
             "last_updated": "updated {{time}}",
-            "inactive_hint": "Not shown to customers"
+            "inactive_hint": "Not shown to customers",
+            "waiting": "{{count}} waiting"
         },
         "activated": "{{lang}} enabled. {{count}} items to update.",
         "activated_no_jobs": "{{lang}} enabled. No new content to translate.",
@@ -79,7 +84,13 @@
             "completed": "Translations updated",
             "translated_aria": "Translated",
             "in_progress_aria": "In progress",
-            "retry_count_label": "{{count}} to retry"
+            "retry_count_label": "{{count}} to retry",
+            "waiting_one": "{{count}} text waiting for translation · starts in {{minutes}} min",
+            "waiting_other": "{{count}} texts waiting for translation · start in {{minutes}} min",
+            "waiting_hint": "Translations start 10 minutes after the last change, so texts still being edited are not translated.",
+            "translate_now": "Translate now",
+            "translate_now_done": "Translations started",
+            "translate_now_error": "Error starting translations"
         },
         "read_only_role": "Read only: activating and managing languages is up to owners and administrators.",
         "read_only_subscription": "Read only: the subscription is not active.",
@@ -139,6 +150,12 @@
         "confirm_revert_message": "The manual translation will be lost. A new automatic translation will be generated within a minute.",
         "confirm": "Confirm",
         "toast_updating_one": "Translations updating in {{count}} language.",
-        "toast_updating_other": "Translations updating in {{count}} languages."
+        "toast_updating_other": "Translations updating in {{count}} languages.",
+        "badge_waiting": "Waiting · in {{count}} min",
+        "waiting_banner_one": "{{count}} language waiting: starts in {{minutes}} min if nothing else changes.",
+        "waiting_banner_other": "{{count}} languages waiting: start in {{minutes}} min if nothing else changes.",
+        "translate_now": "Translate now",
+        "translate_now_done": "Translations started",
+        "translate_now_error": "Error starting translations"
     }
 }

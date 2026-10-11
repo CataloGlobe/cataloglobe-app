@@ -54,6 +54,8 @@ export interface AppSidebarNavItem {
     /** Contatore a destra (`Badge neutral`; `badgeTone="brand"` se sono cose da fare). */
     badge?: number | string;
     badgeTone?: "neutral" | "brand";
+    /** Testo del contatore, come titolo e per i lettori di schermo (es. traduzioni in attesa). */
+    badgeLabel?: string;
     /** Anello attorno al contatore, del colore della cosa più urgente (CRM in /admin). */
     badgeRing?: "warning" | "danger";
     /** Un lavoro in corso su questa voce: spinner 14 ambra, visibile anche collassata. */
@@ -144,6 +146,7 @@ function NavItemBody({ link }: { link: AppSidebarNavItem }) {
                                 variant="caption-xs"
                                 weight={600}
                                 className={styles.miniBadge}
+                                title={link.badgeLabel}
                                 data-tone={link.badgeTone ?? "neutral"}
                                 data-ring={link.badgeRing}
                             >
@@ -179,7 +182,13 @@ function NavItemBody({ link }: { link: AppSidebarNavItem }) {
                         />
                     )}
                     {link.badge !== undefined && (
-                        <span className={styles.badge} data-ring={link.badgeRing} data-tone={link.badgeTone ?? "neutral"}>
+                        <span
+                            className={styles.badge}
+                            data-ring={link.badgeRing}
+                            data-tone={link.badgeTone ?? "neutral"}
+                            title={link.badgeLabel}
+                            aria-label={link.badgeLabel}
+                        >
                             <Badge variant={link.badgeTone ?? "neutral"}>{badgeText(link.badge)}</Badge>
                         </span>
                     )}
