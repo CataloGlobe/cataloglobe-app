@@ -164,6 +164,7 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
     useEffect(() => {
         if (isOpen || !present) return;
         const panel = panelRef.current;
+        const backdrop = backdropRef.current;
         const { offset, velocity } = exitFrom.current;
         exitFrom.current = { offset: 0, velocity: 0 };
         let cancelled = false;
@@ -191,15 +192,17 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
                   ],
             duration
         );
-        play(backdropRef.current, [{ opacity: backdropOpacity(backdropRef.current) }, { opacity: 0 }], duration);
+        play(backdrop, [{ opacity: backdropOpacity(backdrop) }, { opacity: 0 }], duration);
         if (!exiting) {
             finish();
         } else {
-            // fill:"none" → a fine animazione il pannello tornerebbe visibile per
-            // un frame: lo si tiene fuori scena finché non si smonta.
+            // fill:"none" → a fine animazione pannello e velo tornerebbero visibili
+            // per un frame (il velo a opacità piena: un lampo scuro a tutta pagina):
+            // si tengono fuori scena finché non si smonta.
             exiting.finished.then(
                 () => {
                     if (panel) panel.style.visibility = "hidden";
+                    if (backdrop) backdrop.style.visibility = "hidden";
                     finish();
                 },
                 () => undefined
@@ -208,6 +211,7 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
         return () => {
             cancelled = true;
             if (panel) panel.style.visibility = "";
+            if (backdrop) backdrop.style.visibility = "";
         };
     }, [isOpen, present, cancelAnimations, play]);
 
