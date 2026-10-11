@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type CSSProperties, type TouchEvent } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, SplitHeading } from "@pages/CampaignLanding/components/kit/Kit";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
@@ -166,10 +167,18 @@ type Drag = { x: number; y: number; t: number; axis: "x" | "y" | null; dx: numbe
  */
 function Rail({ ids }: { ids: PegIds }) {
     const [index, setIndex] = useState(0);
+    // Da che parte arriva la card attiva: l'oscillazione parte dall'inclinazione che aveva di lato.
+    const [from, setFrom] = useState<"left" | "right">("right");
+    // Freccia: spinta più forte (la card che esce si inclina di più, quella che entra oscilla di più). Col dito no.
+    const [push, setPush] = useState<{ prev: number } | null>(null);
     const trackRef = useRef<HTMLDivElement>(null);
     const drag = useRef<Drag | null>(null);
     const count = BOARD.notes.length;
-    const go = (delta: number) => setIndex((i) => (i + delta + count) % count);
+    const go = (delta: number) => {
+        setFrom(delta > 0 ? "right" : "left");
+        setPush({ prev: index });
+        setIndex((i) => (i + delta + count) % count);
+    };
 
     const release = () => {
         const el = trackRef.current;
@@ -207,7 +216,11 @@ function Rail({ ids }: { ids: PegIds }) {
         const fast = Math.abs(d.dx) / Math.max(performance.now() - d.t, 1) > 0.4;
         const moved = Math.abs(d.dx) > STEP / 3 || (fast && Math.abs(d.dx) > 24) ? Math.sign(-d.dx) : 0;
         const next = Math.min(count - 1, Math.max(0, index + moved));
-        if (next !== index) setIndex(next);
+        if (next !== index) {
+            setFrom(next > index ? "right" : "left");
+            setPush(null);
+            setIndex(next);
+        }
     };
 
     return (
@@ -227,7 +240,12 @@ function Rail({ ids }: { ids: PegIds }) {
                     {BOARD.notes.map((note, i) => (
                         <div
                             key={note.title}
-                            className={cx(styles.card, i === index ? styles.cardOn : i < index ? styles.cardBefore : styles.cardAfter, i === index && index % 2 === 1 && styles.cardOnOdd)}
+                            className={cx(
+                                styles.card,
+                                i === index ? styles.cardOn : i < index ? styles.cardBefore : styles.cardAfter, i === index && from === "left" && styles.cardFromLeft,
+                                i === index && push && styles.cardPush,
+                                push && i === push.prev && i !== index && (from === "right" ? styles.cardLeaveLeft : styles.cardLeaveRight)
+                            )}
                             aria-hidden={i !== index}
                         >
                             <Note note={note} n={i + 1} ids={ids} />
@@ -237,7 +255,7 @@ function Rail({ ids }: { ids: PegIds }) {
             </div>
             <div className={styles.controls}>
                 <button type="button" className={styles.arrow} aria-label={BOARD.prev} onClick={() => go(-1)}>
-                    ‹
+                    <ChevronLeft size={20} strokeWidth={2.25} aria-hidden="true" />
                 </button>
                 <div className={styles.dots} aria-hidden="true">
                     {BOARD.notes.map((note, i) => (
@@ -245,7 +263,7 @@ function Rail({ ids }: { ids: PegIds }) {
                     ))}
                 </div>
                 <button type="button" className={styles.arrow} aria-label={BOARD.next} onClick={() => go(1)}>
-                    ›
+                    <ChevronRight size={20} strokeWidth={2.25} aria-hidden="true" />
                 </button>
             </div>
         </div>

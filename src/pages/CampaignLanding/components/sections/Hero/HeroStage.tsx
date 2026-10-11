@@ -261,7 +261,7 @@ function HeroPhone({ state }: { state: HeroState }) {
                         </span>
                     </div>
                 </div>
-                <Swap id={state.menu} block>
+                <Swap id={state.menu} block soft>
                 <div className={styles.menuBody}>
                     <div className={styles.chips}>
                         {menu.chips.map((c, j) => (

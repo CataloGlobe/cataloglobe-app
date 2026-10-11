@@ -1,14 +1,25 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
 .state {
+    display: inline-grid;
+    justify-items: end;
     font-size: 13px;
     font-weight: 700;
-    color: var(--ld-ok);
-    transition: color var(--ld-dur-swap) var(--ld-ease);
 }
 
-.stateOff {
+.word {
+    grid-area: 1 / 1;
+    color: var(--ld-ok);
+    opacity: 0;
+    transition: opacity var(--ld-dur-swap) var(--ld-ease);
+}
+
+.wordOff {
     color: var(--ld-terra);
+}
+
+.wordOn {
+    opacity: 1;
 }
 
 .switch {

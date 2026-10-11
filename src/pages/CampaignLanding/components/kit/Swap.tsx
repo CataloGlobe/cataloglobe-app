@@ -15,19 +15,24 @@ type Shown = { id: string | number; node: ReactNode };
  * Cambio di contenuto senza scatti: quando `id` cambia, il vecchio contenuto
  * resta per SWAP_MS mentre esce e il nuovo entra nello stesso posto (stessa
  * cella di griglia). `roll`: il vecchio sale e il nuovo arriva dal basso, come
- * un contatore; altrimenti solo dissolvenza. `block` per i contenuti a blocco.
+ * un contatore; `soft`: il vecchio svanisce salendo appena e il nuovo entra
+ * poco dopo dal basso, senza che i due si vedano sovrapposti (blocchi grandi,
+ * come il menù dell'hero); altrimenti solo dissolvenza. `block` per i
+ * contenuti a blocco.
  * Con `prefers-reduced-motion` il vecchio non si vede: cambio secco.
  */
 export function Swap({
     id,
     children,
     roll = false,
+    soft = false,
     block = false,
     className
 }: {
     id: string | number;
     children: ReactNode;
     roll?: boolean;
+    soft?: boolean;
     block?: boolean;
     className?: string;
 }) {
@@ -49,7 +54,7 @@ export function Swap({
 
     const Tag = block ? "div" : "span";
     return (
-        <Tag className={cx(styles.swap, block && styles.block, roll && styles.roll, className)}>
+        <Tag className={cx(styles.swap, block && styles.block, roll && styles.roll, soft && styles.soft, className)}>
             {old && (
                 <Tag key={`old-${old.id}`} className={styles.out} aria-hidden="true">
                     {old.node}

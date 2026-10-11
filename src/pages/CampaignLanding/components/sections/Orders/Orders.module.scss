@@ -246,12 +246,6 @@ $leave-ms: 300ms;
     }
 }
 
-.plusOn {
-    background: var(--ld-azione);
-    border-color: var(--ld-azione);
-    font-size: 13px;
-    color: var(--ld-on-azione);
-}
 
 @include motion-ok {
     .plusTap::after {
@@ -270,13 +264,24 @@ $leave-ms: 300ms;
     }
 }
 
-// Resta blu anche a ordine inviato, come il resto della pagina.
+// Due pezzi: pulsante blu che invia (resta blu anche a ordine inviato) e carrello.
 .sendBar {
     position: absolute;
     right: 12px;
     bottom: 12px;
     left: 12px;
     display: flex;
+    gap: 8px;
+    transform: translateY(80px);
+}
+
+.sendBarUp {
+    transform: none;
+}
+
+.sendBtn {
+    display: flex;
+    flex: 1;
     align-items: center;
     justify-content: space-between;
     padding: 13px 16px;
@@ -286,14 +291,9 @@ $leave-ms: 300ms;
     font-size: 15px;
     font-weight: 600;
     box-shadow: 0 12px 24px -8px rgba(70, 72, 198, 0.55);
-    transform: translateY(80px);
 }
 
-.sendBarUp {
-    transform: none;
-}
-
-.sendBarPress {
+.sendBtnPress {
     transform: scale(0.97);
 }
 
@@ -302,15 +302,9 @@ $leave-ms: 300ms;
         transition: transform 500ms var(--ld-ease);
     }
 
-    .sendBarPress {
-        transition-duration: 120ms;
+    .sendBtn {
+        transition: transform 120ms var(--ld-ease);
     }
-}
-
-.sendCount {
-    font-size: 13px;
-    font-weight: 500;
-    opacity: 0.85;
 }
 
 // ── Passo 2: la comanda ─────────────────────────────────────────────────────
@@ -654,4 +648,49 @@ $leave-ms: 300ms;
 .alertTime {
     font-size: 12px;
     color: var(--ld-alert-time);
+}
+
+// ── Carrello: si riempie a ogni «+» ───────────────────────────────────────
+.cart {
+    position: relative;
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 50px;
+    border: 1.5px solid var(--ld-line);
+    border-radius: 14px;
+    background: var(--ld-white);
+    color: var(--ld-azione);
+}
+
+.cartCount {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    display: grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+@include motion-ok {
+    .cartCount {
+        animation: ld-orders-bump 360ms var(--ld-ease);
+    }
+}
+
+@keyframes ld-orders-bump {
+    from {
+        transform: scale(0.4);
+    }
+    60% {
+        transform: scale(1.25);
+    }
 }

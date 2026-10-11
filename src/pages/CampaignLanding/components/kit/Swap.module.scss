@@ -37,6 +37,30 @@
     .roll .in {
         animation-name: ld-swap-roll-in;
     }
+
+    // Il vecchio esce in 220 ms (dentro SWAP_MS), il nuovo parte a 120 ms:
+    // per un attimo si vede quasi solo il fondo, non due menù uno sull'altro.
+    .soft .out {
+        animation: ld-swap-soft-out 220ms var(--ld-ease) both;
+    }
+
+    .soft .in {
+        animation: ld-swap-soft-in 420ms var(--ld-ease) 120ms both;
+    }
+}
+
+@keyframes ld-swap-soft-out {
+    to {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes ld-swap-soft-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
 }
 
 @keyframes ld-swap-out {

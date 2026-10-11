@@ -256,10 +256,9 @@ export const ORDERS = {
         dishes: [
             { name: "Tagliere della casa", desc: "Salumi e formaggi del territorio", price: "14 €", qty: 1 },
             { name: "Spritz della casa", desc: "Aperol, prosecco, soda", price: "8 €", qty: 2 },
-            { name: "Tiramisù", desc: "Fatto da noi", price: "6 €", qty: 1 }
+            { name: "Tiramisù", desc: "Fatto da noi", price: "6 €", qty: 1 },
+            { name: "Acqua frizzante", desc: "Bottiglia da 0,75 l", price: "3 €", qty: 1 }
         ],
-        count: "4 piatti",
-        total: "36 €",
         send: "Invia l’ordine",
         sent: "Ordine inviato ✓"
     },
@@ -271,7 +270,8 @@ export const ORDERS = {
         lines: [
             { qty: "1", name: "TAGLIERE DELLA CASA" },
             { qty: "2", name: "SPRITZ DELLA CASA" },
-            { qty: "1", name: "TIRAMISÙ" }
+            { qty: "1", name: "TIRAMISÙ" },
+            { qty: "1", name: "ACQUA FRIZZANTE" }
         ],
         note: "Arriva da sola in cucina, stampata o su tablet."
     },
@@ -582,7 +582,9 @@ export const CONTACT = {
         note: "provalo stasera",
         points: ["30 giorni gratis, tutto incluso", "Carta per attivarla, nessun addebito se disdici prima", "Il menù da una foto, online in pochi minuti"],
         or: "oppure",
-        callMe: "Preferisci che ti chiamiamo? Lascia il numero"
+        callMe: "Preferisci che ti chiamiamo? Lascia il numero",
+        /** Dal form della chiamata si torna alla scheda della prova (stesso posto, una cosa alla volta). */
+        back: "Torna a Provalo gratis"
     },
     fields: {
         name: "Nome",
