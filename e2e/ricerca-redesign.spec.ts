@@ -30,6 +30,9 @@ test("la lente apre «Cerca», un risultato porta al piatto e resta fra le recen
     await expect(input).toBeFocused();
     await expect(dialog.getByRole("heading", { name: "Categorie" })).toBeVisible();
 
+    await input.fill("zzz");
+    await expect(dialog.getByRole("status")).toHaveText("Nessun risultato per «zzz»");
+
     await input.fill("dolci 7");
     await expect(dialog.getByText("1 risultato")).toBeVisible();
     await expect(dialog.locator("mark")).toHaveText(["Dolci 7"]);
@@ -46,6 +49,8 @@ test("la lente apre «Cerca», un risultato porta al piatto e resta fra le recen
     await expect(input).toHaveValue("dolci 7");
     await dialog.getByRole("button", { name: "Annulla" }).click();
     await expect(dialog).toHaveCount(0);
+    // Il fuoco torna alla lente, non al campo invisibile che ha fatto salire la tastiera.
+    await expect(lens).toBeFocused();
 });
 
 test("«Filtri» dalla ricerca filtra dal vivo e accende il pallino della lente", async ({ page }) => {
@@ -85,7 +90,7 @@ test("«Filtri» dal ⋯ si spinge con «‹ Opzioni» e «Azzera» toglie i fil
     await reset.click();
     await expect(dialog.getByRole("button", { name: /^Mostra/ })).toHaveText("Mostra 32 piatti");
 
-    await page.keyboard.press("Escape");
-    await page.keyboard.press("Escape");
+    // Dal ⋯, «Mostra N piatti» porta ai piatti: il foglio si chiude, non torna al ⋯.
+    await dialog.getByRole("button", { name: /^Mostra/ }).click();
     await expect(dialog).toHaveCount(0);
 });

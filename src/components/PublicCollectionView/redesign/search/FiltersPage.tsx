@@ -20,8 +20,12 @@ export function FiltersPage({ allergens, appliedFilterIds, onApplyFilters }: Sea
 /** Piede dei Filtri: «Azzera» e «Mostra N piatti», col numero dal vivo. */
 export function FiltersFooter({ appliedFilterIds, onApplyFilters, visibleProductCount }: SearchContext) {
     const { t } = useTranslation("public");
-    // Dalla ricerca si torna ai risultati; aperti da soli, il foglio si chiude sul menu.
-    const show = () => (getSheetState().pages.length > 1 ? popSheetPage() : closeSheet());
+    // Dalla ricerca si torna ai risultati; da soli o dal ⋯, il foglio si chiude sul menu.
+    const show = () => {
+        const pages = getSheetState().pages;
+        if (pages[pages.length - 2]?.key === "search") popSheetPage();
+        else closeSheet();
+    };
     return (
         <div className={styles.footer}>
             <button

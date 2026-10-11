@@ -70,6 +70,7 @@ export function sheetReducer(state: SheetState, action: SheetAction): SheetState
 // qualunque punto (isola, barra, scheda) senza passare dai props.
 let current: SheetState = CLOSED_SHEET;
 let opener: HTMLElement | null = null;
+let pendingOpener: HTMLElement | null = null;
 const listeners = new Set<() => void>();
 
 function dispatch(action: SheetAction): void {
@@ -78,9 +79,10 @@ function dispatch(action: SheetAction): void {
     // Il fuoco torna al pulsante che ha aperto il foglio: lo si ricorda
     // all'apertura, prima che il foglio stesso prenda il fuoco.
     if (current.pages.length === 0 && next.pages.length > 0 && typeof document !== "undefined") {
-        const active = document.activeElement;
+        const active = pendingOpener ?? document.activeElement;
         opener = active instanceof HTMLElement && active !== document.body ? active : null;
     }
+    pendingOpener = null;
     current = next;
     listeners.forEach(listener => listener());
 }
@@ -90,6 +92,15 @@ export const openSheetAt = (pages: readonly SheetPage[]): void => dispatch({ typ
 export const pushSheetPage = (page: SheetPage): void => dispatch({ type: "push", page });
 export const popSheetPage = (): void => dispatch({ type: "pop" });
 export const closeSheet = (): void => dispatch({ type: "close" });
+
+/**
+ * Chi apre il foglio quando il fuoco, al momento dell'apertura, sta altrove: la
+ * lente passa il fuoco al campo fantasma (tastiera iOS) prima di aprire, e alla
+ * chiusura il fuoco deve tornare alla lente, non a un campo invisibile.
+ */
+export function rememberSheetOpener(element: HTMLElement): void {
+    pendingOpener = element;
+}
 
 export function getSheetState(): SheetState {
     return current;

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
     CalendarCheck,
@@ -47,12 +47,15 @@ import styles from "./VenueSheets.module.scss";
  */
 export default function VenueSheets(props: SheetsSlotContext) {
     // Il testo della ricerca vive qui: testata (campo) e pagina (risultati) lo
-    // condividono, e sopravvive al giro nei Filtri. Si svuota quando «Cerca» esce dalla pila.
+    // condividono, e sopravvive al giro nei Filtri. Si svuota quando «Cerca» rientra
+    // nella pila, non quando esce: durante la discesa il foglio tiene i risultati.
     const [query, setQuery] = useState("");
     const searchInStack = useSheetState().pages.some(page => page.key === "search");
-    useEffect(() => {
-        if (!searchInStack) setQuery("");
-    }, [searchInStack]);
+    const [searchWasInStack, setSearchWasInStack] = useState(searchInStack);
+    if (searchInStack !== searchWasInStack) {
+        setSearchWasInStack(searchInStack);
+        if (searchInStack) setQuery("");
+    }
 
     return (
         <SheetHost

@@ -146,4 +146,6 @@ export type SheetsSlot = {
     open: (name: PublicSheetName) => void;
     /** Apre la scheda di un prodotto. */
     openProduct: (item: Pick<CollectionViewSectionItem, "id" | "name">) => void;
+    /** Il foglio è aperto (qualunque pagina): Cmd/Ctrl+F lo lascia stare. */
+    isOpen: () => boolean;
 };

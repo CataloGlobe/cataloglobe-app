@@ -1036,6 +1036,8 @@ export default function CollectionView({
 
             if (!isFindShortcut) return;
             if (isSearchOpen) return;
+            // Redesign: col foglio unico aperto (anche sulla ricerca) resta la find del browser.
+            if (mode === "public" && sheetsSlot?.isOpen()) return;
 
             e.preventDefault();
             handleOpenSearch();
@@ -1043,7 +1045,7 @@ export default function CollectionView({
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [mode, isSearchOpen, handleOpenSearch]);
+    }, [mode, isSearchOpen, handleOpenSearch, sheetsSlot]);
 
     // ── Info sheet ──────────────────────────────────────────────────────────
     const [isInfoSheetOpen, setIsInfoSheetOpen] = useState(false);

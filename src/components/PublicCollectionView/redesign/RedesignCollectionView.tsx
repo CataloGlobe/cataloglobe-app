@@ -3,7 +3,7 @@ import CollectionView from "@/components/PublicCollectionView/CollectionView/Col
 import Island from "./island/Island";
 import BottomBar from "./bar/BottomBar";
 import FeaturedStrip from "./featured/FeaturedStrip";
-import { closeSheet, useSheetState } from "./sheets/sheetStack";
+import { closeSheet, getSheetState, useSheetState } from "./sheets/sheetStack";
 import { openVenueSheet } from "./sheets/venueSheetPages";
 import { openProductSheet } from "./product/productSheet";
 import type { BottomBarSlot, FeaturedSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
@@ -84,7 +84,8 @@ const renderFeatured: FeaturedSlot = context => <FeaturedStrip {...context} />;
 const sheetsSlot: SheetsSlot = {
     render: context => <LazyVenueSheets {...context} />,
     open: openVenueSheet,
-    openProduct: openProductSheet
+    openProduct: openProductSheet,
+    isOpen: () => getSheetState().pages.length > 0
 };
 
 export default function RedesignCollectionView(props: ComponentProps<typeof CollectionView>) {
