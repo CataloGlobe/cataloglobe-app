@@ -30,16 +30,16 @@ describe("computeVenueStatus", () => {
         expect(computeVenueStatus(at("2026-10-12T10:30:00Z"), lunedi, [])).toMatchObject({ kind: "open" });
     });
 
-    it("a meno di un'ora dalla chiusura → closing-soon con i minuti", () => {
+    it("a meno di mezz'ora dalla chiusura → closing-soon con i minuti", () => {
         // lun 12/10 14:40 Roma
         expect(computeVenueStatus(at("2026-10-12T12:40:00Z"), lunedi, [])).toMatchObject({ kind: "closing-soon", minutes: 20 });
     });
 
     it("al confine della soglia", () => {
-        // 14:00 → 60 min: closing-soon; 13:59 → 61 min: open
-        expect(computeVenueStatus(at("2026-10-12T12:00:00Z"), lunedi, []).kind).toBe("closing-soon");
-        expect(computeVenueStatus(at("2026-10-12T11:59:00Z"), lunedi, []).kind).toBe("open");
-        expect(CLOSING_SOON_MINUTES).toBe(60);
+        // 14:30 → 30 min: closing-soon; 14:29 → 31 min: open
+        expect(computeVenueStatus(at("2026-10-12T12:30:00Z"), lunedi, []).kind).toBe("closing-soon");
+        expect(computeVenueStatus(at("2026-10-12T12:29:00Z"), lunedi, []).kind).toBe("open");
+        expect(CLOSING_SOON_MINUTES).toBe(30);
     });
 
     it("l'ora di chiusura è già chiuso", () => {
