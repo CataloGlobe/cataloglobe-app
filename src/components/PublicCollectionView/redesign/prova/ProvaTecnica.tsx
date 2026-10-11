@@ -1,51 +1,73 @@
 import { useEffect, useRef, useState } from "react";
+import type { HubTab } from "@/types/collectionStyle";
+import { useBottomBarAutoHide } from "../../hooks/useBottomBarAutoHide";
+import BottomBar from "../bar/BottomBar";
+import Island from "../island/Island";
 import SheetHost from "../sheets/SheetHost";
 import { openSheet, pushSheetPage, type SheetPage } from "../sheets/sheetStack";
 import styles from "./ProvaTecnica.module.scss";
 
 /**
- * Pagina di prova della PR 1 (solo staging, `?prova-tecnica=1` su una sede con il
- * flag acceso). Serve a guardare su un telefono vero tre cose prima di costruire
- * il resto: isola a soglia, spinta nei fogli, volo del voto. Non è prodotto: si
- * toglie quando la prova è chiusa.
+ * Banco di prova del redesign (solo staging, `?prova-tecnica=1` su una sede con il
+ * flag acceso). Monta i componenti veri (isola, barra, fogli) su una pagina finta,
+ * con un contatore di fotogrammi lenti e interruttori per gli effetti costosi:
+ * si parte dal più fedele al mockup e si spegne un effetto alla volta finché sul
+ * telefono è fluido. Non è prodotto: si toglie quando la prova è chiusa.
  */
 
-const SOGLIA_ALTA = 40;
-const SOGLIA_BASSA = 8;
+const COVER =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9826b"/><stop offset="1" stop-color="#3b6fa8"/></linearGradient></defs><rect width="1920" height="1080" fill="url(#g)"/></svg>'
+    );
+const LOGO =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88"><rect width="88" height="88" fill="#f2c14e"/><circle cx="44" cy="44" r="22" fill="#1b1b1b"/></svg>'
+    );
 
-function useIsolaCompatta(): { compatta: boolean; alta: React.RefObject<HTMLDivElement | null>; bassa: React.RefObject<HTMLDivElement | null> } {
-    // Due sentinelle (40 px e 8 px) per l'isteresi: nessun lavoro a ogni scroll,
-    // un solo render per passaggio.
-    const alta = useRef<HTMLDivElement>(null);
-    const bassa = useRef<HTMLDivElement>(null);
-    const [compatta, setCompatta] = useState(false);
-    useEffect(() => {
-        const a = alta.current;
-        const b = bassa.current;
-        if (!a || !b) return;
-        const oa = new IntersectionObserver(([e]) => {
-            if (!e.isIntersecting) setCompatta(true);
-        });
-        const ob = new IntersectionObserver(([e]) => {
-            if (e.isIntersecting) setCompatta(false);
-        });
-        oa.observe(a);
-        ob.observe(b);
-        return () => {
-            oa.disconnect();
-            ob.disconnect();
-        };
-    }, []);
-    return { compatta, alta, bassa };
-}
-
+const ORARI = Array.from({ length: 7 }, () => []);
 const RIGHE_ORARI = ["Lunedì 12–15 · 19–23", "Martedì 12–15 · 19–23", "Mercoledì chiuso", "Giovedì 12–15 · 19–23", "Venerdì 12–15 · 19–24", "Sabato 12–24", "Domenica 12–22"];
+
+type Effetti = { isolaBlur: boolean; barraPiena: boolean; ombre: boolean };
+const EFFETTI_INIZIALI: Effetti = { isolaBlur: false, barraPiena: false, ombre: true };
+
+/** Fotogrammi: media al secondo, quanti oltre 25 ms negli ultimi 10 s, il peggiore. */
+function useFotogrammi() {
+    const [dati, setDati] = useState({ fps: 0, lenti: 0, peggiore: 0 });
+    const reset = useRef(0);
+    useEffect(() => {
+        let raf = 0;
+        let ultimo = performance.now();
+        let finestra: { t: number; dt: number }[] = [];
+        let prossimo = ultimo + 500;
+        const giro = (ts: number) => {
+            const dt = ts - ultimo;
+            ultimo = ts;
+            finestra.push({ t: ts, dt });
+            finestra = finestra.filter(f => ts - f.t < 10_000 && f.t >= reset.current);
+            if (ts >= prossimo) {
+                prossimo = ts + 500;
+                const ultimoSecondo = finestra.filter(f => ts - f.t < 1000);
+                setDati({
+                    fps: Math.round(ultimoSecondo.length),
+                    lenti: finestra.filter(f => f.dt > 25).length,
+                    peggiore: Math.round(Math.max(0, ...finestra.map(f => f.dt)))
+                });
+            }
+            raf = requestAnimationFrame(giro);
+        };
+        raf = requestAnimationFrame(giro);
+        return () => cancelAnimationFrame(raf);
+    }, []);
+    return { ...dati, azzera: () => (reset.current = performance.now()) };
+}
 
 function PaginaProva({ page }: { page: SheetPage }) {
     if (page.key === "info") {
         return (
             <div className={styles.corto}>
-                <p>Foglio corto (circa 150 px): l'isola resta visibile sotto.</p>
+                <p>Foglio corto: l'isola resta visibile sotto.</p>
                 <button type="button" className={styles.btn} onClick={() => pushSheetPage({ key: "orari", title: "Orari", size: "large" })}>
                     Orari ›
                 </button>
@@ -61,7 +83,6 @@ function PaginaProva({ page }: { page: SheetPage }) {
             </ul>
         );
     }
-    // «lungo»: abbastanza righe da dover scorrere dentro il foglio
     return (
         <ul className={styles.lista}>
             {Array.from({ length: 60 }, (_, i) => (
@@ -72,17 +93,21 @@ function PaginaProva({ page }: { page: SheetPage }) {
 }
 
 export default function ProvaTecnica() {
-    const { compatta, alta, bassa } = useIsolaCompatta();
     const fondo = useRef<HTMLDivElement>(null);
     const stella = useRef<HTMLButtonElement>(null);
-    const barra = useRef<HTMLDivElement>(null);
-    const [volo, setVolo] = useState<string>("");
-    const [conteggio, setConteggio] = useState(0);
+    const [tab, setTab] = useState<HubTab>("menu");
+    const [conto, setConto] = useState(0);
+    const [volo, setVolo] = useState("");
+    const [effetti, setEffetti] = useState<Effetti>(EFFETTI_INIZIALI);
+    const { hidden } = useBottomBarAutoHide({ mounted: true, preview: false, frozen: false });
+    const fps = useFotogrammi();
 
-    // Volo del voto: FLIP a mano con WAAPI su transform e opacity, niente layout.
+    const imposta = (chiave: keyof Effetti) => setEffetti(e => ({ ...e, [chiave]: !e[chiave] }));
+
+    // Volo del voto: FLIP a mano con WAAPI su transform e opacity, verso il cerchio dell'ordine.
     const vola = () => {
         const da = stella.current;
-        const a = barra.current;
+        const a = document.querySelector<HTMLElement>('[class*="ordine"]');
         if (!da || !a || !da.animate) return;
         const r1 = da.getBoundingClientRect();
         const r2 = a.getBoundingClientRect();
@@ -102,25 +127,39 @@ export default function ProvaTecnica() {
         );
         anim.finished.finally(() => {
             clone.remove();
-            setConteggio(c => c + 1);
+            setConto(c => c + 1);
             setVolo(`volo finito in ${Math.round(performance.now() - t0)} ms`);
         });
     };
 
     return (
-        <div className={styles.pagina}>
-            <div ref={alta} className={styles.sentinellaAlta} style={{ top: SOGLIA_ALTA }} aria-hidden />
-            <div ref={bassa} className={styles.sentinellaBassa} style={{ top: SOGLIA_BASSA }} aria-hidden />
-            <div className={styles.isola} data-compact={compatta} role="banner">
-                <strong>Locale di prova</strong>
-                <span className={styles.stato}>{compatta ? "compatta" : "estesa"}</span>
-            </div>
+        <main
+            className={styles.banco}
+            data-isola-blur={effetti.isolaBlur || undefined}
+            data-barra-piena={effetti.barraPiena || undefined}
+            data-senza-ombre={!effetti.ombre || undefined}
+        >
+            <Island
+                logoUrl={LOGO}
+                coverImageUrl={COVER}
+                activityName="Locale di prova"
+                menuName="Menu del giorno"
+                onSearchOpen={() => openSheet({ key: "lungo", title: "Ricerca", size: "large" })}
+                onSearchPointerDown={() => undefined}
+                allergensCount={0}
+                onOpenMore={() => openSheet({ key: "info", title: "Informazioni", size: "medium" })}
+                activeTab={tab}
+                onTabChange={setTab}
+                showStoryTab
+                openingHours={ORARI.map((_, d) => ({ day_of_week: d, slot_index: 0, opens_at: "00:00", closes_at: "23:59", is_closed: false }))}
+                upcomingClosures={[]}
+                onOpenHours={() => openSheet({ key: "info", title: "Informazioni", size: "medium" })}
+            />
+
             <div ref={fondo} className={styles.contenuto}>
-                <h1>Prova tecnica del redesign</h1>
-                <p>Solo staging. Scorri: l'isola passa da estesa a compatta a 40 px e torna a 8 px.</p>
                 <div className={styles.azioni}>
                     <button type="button" className={styles.btn} onClick={() => openSheet({ key: "info", title: "Informazioni", size: "medium" })}>
-                        Foglio corto + spinta
+                        Foglio corto
                     </button>
                     <button type="button" className={styles.btn} onClick={() => openSheet({ key: "lungo", title: "Foglio lungo", size: "large" })}>
                         Foglio lungo
@@ -131,15 +170,41 @@ export default function ProvaTecnica() {
                 </div>
                 <p className={styles.esito}>{volo || "Tocca ★ per far partire il volo"}</p>
                 {Array.from({ length: 40 }, (_, i) => (
-                    <p key={i} className={styles.riempitivo}>
-                        Paragrafo {i + 1} per avere pagina da scorrere.
-                    </p>
+                    <div key={i} className={styles.scheda} data-pari={i % 2 === 0 || undefined}>
+                        Scheda {i + 1}: sotto l'isola e la barra c'è sempre qualcosa di colorato, così si vede il vetro.
+                    </div>
                 ))}
             </div>
-            <div ref={barra} className={styles.barra}>
-                Barra · voti {conteggio}
-            </div>
+
+            <BottomBar
+                activeTab={tab}
+                onTabChange={setTab}
+                showStoryTab
+                orderVisible
+                selectionCount={conto}
+                onOpenOrder={() => openSheet({ key: "lungo", title: "Ordine", size: "large" })}
+                hidden={hidden}
+            />
+
+            <aside className={styles.pannello} aria-label="Strumenti di prova">
+                <div className={styles.numeri}>
+                    <strong>{fps.fps} fps</strong> · lenti {fps.lenti} · peggiore {fps.peggiore} ms
+                    <button type="button" className={styles.mini} onClick={fps.azzera}>
+                        azzera
+                    </button>
+                </div>
+                <label>
+                    <input type="checkbox" checked={effetti.isolaBlur} onChange={() => imposta("isolaBlur")} /> blur isola
+                </label>
+                <label>
+                    <input type="checkbox" checked={effetti.barraPiena} onChange={() => imposta("barraPiena")} /> barra sempre piena
+                </label>
+                <label>
+                    <input type="checkbox" checked={effetti.ombre} onChange={() => imposta("ombre")} /> ombre
+                </label>
+            </aside>
+
             <SheetHost backgroundRef={fondo} renderPage={page => <PaginaProva page={page} />} />
-        </div>
+        </main>
     );
 }
