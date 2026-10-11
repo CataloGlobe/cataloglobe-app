@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
     CalendarCheck,
@@ -46,7 +46,11 @@ import { useOrderSend, type OrderSendState } from "../order/useOrderSend";
 import SearchPage from "../search/SearchPage";
 import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
 import { AllergensFooter, AllergensPage, CharacteristicsPage } from "./MenuInfoPages";
+import { rateOf } from "../vote/rateSheet";
 import styles from "./VenueSheets.module.scss";
+
+// Lo stesso modulo del voto di oggi, nel suo chunk (lo stesso di CollectionView).
+const ReviewsView = lazy(() => import("@components/PublicCollectionView/ReviewsView/ReviewsView"));
 
 /**
  * Il foglio unico del locale nel redesign: ⋯ (Altre opzioni), Informazioni,
@@ -164,6 +168,18 @@ function VenuePage({
     orderFor: (pageKey: string, item: CollectionViewSectionItem, initial?: OrderDraft) => OrderBinding | undefined;
     sendState: OrderSendState;
 }) {
+    const rating = rateOf(page);
+    if (rating !== undefined) {
+        return props.rate ? (
+            <Suspense fallback={null}>
+                <ReviewsView
+                    {...props.rate.props}
+                    initialRating={rating || undefined}
+                    onReviewSubmitted={props.rate.onSubmitted}
+                />
+            </Suspense>
+        ) : null;
+    }
     switch (page.key) {
         case "order":
             return (

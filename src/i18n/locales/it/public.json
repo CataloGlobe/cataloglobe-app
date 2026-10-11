@@ -648,6 +648,10 @@
         "rule_optional": "facoltativa",
         "unavailable": "Questo piatto non è più disponibile."
     },
+    "vote": {
+        "button": "Vota",
+        "dismiss_aria": "No grazie"
+    },
     "page_end": {
         "end_of_menu": "Fine del menu",
         "rate_title": "Com'è andata?",

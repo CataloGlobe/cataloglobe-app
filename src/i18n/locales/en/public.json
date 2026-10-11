@@ -649,6 +649,10 @@
         "rule_optional": "optional",
         "unavailable": "This dish is no longer available."
     },
+    "vote": {
+        "button": "Rate",
+        "dismiss_aria": "No thanks"
+    },
     "page_end": {
         "end_of_menu": "End of the menu",
         "rate_title": "How was it?",

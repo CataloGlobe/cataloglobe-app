@@ -1,10 +1,17 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ReceiptText, ScrollText, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import type { BottomBarSlotContext } from "../slots";
+import { useVoteInvite } from "../vote/useVoteInvite";
+import type { FlightOrigin } from "../vote/VoteControls";
 import styles from "./BottomBar.module.scss";
+
+// Modale e pulsante del voto nel loro chunk: arrivano solo dopo un momento della visita.
+const loadVote = () => import("../vote/VoteControls");
+const VoteInviteCard = lazy(() => loadVote().then(m => ({ default: m.VoteInviteCard })));
+const VoteButton = lazy(() => loadVote().then(m => ({ default: m.VoteButton })));
 
 /** Durata della transizione di nascondi/mostra: per tutto il passaggio il materiale è pieno. */
 const PASSAGGIO_MS = 280;
@@ -18,8 +25,9 @@ const VOCI: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
  * Barra in basso del redesign, solo telefono (≤640 px, via CSS). Capsula Menu/Storia
  * (solo con almeno due pagine) e cerchio dell'ordine (solo con gli ordini al tavolo),
  * staccati. La voce attiva porta icona e nome, le altre solo l'icona; il numero
- * dell'ordine sta accanto all'icona. Niente pulsante delle recensioni: il voto entra
- * con la PR 8. Nascondi/mostra lo decide `useBottomBarAutoHide` (prop `hidden`).
+ * dell'ordine sta accanto all'icona. Il voto non è una voce: arriva come invito e
+ * vola qui accanto al cerchio dell'ordine (spec §11, `vote/`). Nascondi/mostra lo
+ * decide `useBottomBarAutoHide` (prop `hidden`).
  *
  * Materiale ibrido: sfocato da fermo, pieno mentre la barra si muove (su WebKit un
  * blur su un elemento che trasla si ridisegna a ogni frame).
@@ -31,7 +39,8 @@ export default function BottomBar({
     orderVisible,
     selectionCount,
     onOpenOrder,
-    hidden
+    hidden,
+    vote
 }: BottomBarSlotContext) {
     const { t } = useTranslation("public");
     const wrapRef = useRef<HTMLDivElement>(null);
@@ -40,6 +49,10 @@ export default function BottomBar({
     const [indicatore, setIndicatore] = useState({ left: 0, width: 0 });
     const [inPassaggio, setInPassaggio] = useState(false);
     const primoGiro = useRef(true);
+    const { state: voteState, send: sendVote } = useVoteInvite(vote);
+    const [flightFrom, setFlightFrom] = useState<FlightOrigin | null>(null);
+    const landed = useCallback(() => setFlightFrom(null), []);
+    const rateFromInvite = useCallback((rating: number) => vote?.onRate(rating), [vote]);
 
     // Pieno mentre si nasconde o si mostra, sfocato da fermo.
     useEffect(() => {
@@ -90,65 +103,92 @@ export default function BottomBar({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, showStoryTab]);
 
-    return (
-        <div
-            ref={wrapRef}
-            className={styles.wrap}
-            data-hidden={hidden ? "true" : undefined}
-            data-moving={inPassaggio || undefined}
-            inert={hidden}
-            aria-hidden={hidden ? true : undefined}
-        >
-            {showStoryTab && (
-                <nav className={styles.capsula} aria-label={t("nav.bottom_aria")}>
-                    <div className={styles.gruppo} ref={gruppoRef}>
-                        <span
-                            className={styles.fondo}
-                            style={{ left: indicatore.left, width: indicatore.width }}
-                            aria-hidden="true"
-                        />
-                        {VOCI.map(voce => {
-                            const attiva = activeTab === voce.id;
-                            return (
-                                <button
-                                    key={voce.id}
-                                    ref={el => {
-                                        vociRef.current[voce.id] = el;
-                                    }}
-                                    type="button"
-                                    className={styles.voce}
-                                    data-active={attiva || undefined}
-                                    // Menu già attivo: toccarlo di nuovo apre le categorie (spec §4).
-                                    aria-label={t(attiva && voce.id === "menu" ? "hub.menu_retap_aria" : voce.labelKey)}
-                                    aria-current={attiva ? "page" : undefined}
-                                    onClick={() => onTabChange(voce.id)}
-                                >
-                                    {voce.icon}
-                                    {attiva && <span className={styles.nome}>{t(voce.labelKey)}</span>}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </nav>
-            )}
+    // L'invito arriva o vola qui: la barra si deve vedere.
+    const revealRef = useRef(vote?.reveal);
+    revealRef.current = vote?.reveal;
+    const voteWide = voteState.phase === "parked" && voteState.wide;
+    useEffect(() => {
+        if (voteState.phase === "invite" || voteWide) revealRef.current?.();
+    }, [voteState.phase, voteWide]);
 
-            {orderVisible && (
-                <button
-                    type="button"
-                    className={styles.ordine}
-                    aria-label={
-                        selectionCount > 0 ? t("fab.cart_aria_count", { count: selectionCount }) : t("fab.cart_aria")
-                    }
-                    onClick={onOpenOrder}
-                >
-                    <ReceiptText size={22} strokeWidth={1.9} />
-                    {selectionCount > 0 && (
-                        <span className={styles.conto} aria-hidden="true">
-                            {selectionCount}
-                        </span>
-                    )}
-                </button>
+    return (
+        <>
+            {vote && voteState.phase === "invite" && (
+                <Suspense fallback={null}>
+                    <VoteInviteCard send={sendVote} onRate={rateFromInvite} onLeave={setFlightFrom} />
+                </Suspense>
             )}
-        </div>
+            <div
+                ref={wrapRef}
+                className={styles.wrap}
+                data-hidden={hidden ? "true" : undefined}
+                data-moving={inPassaggio || undefined}
+                inert={hidden}
+                aria-hidden={hidden ? true : undefined}
+            >
+                {showStoryTab && (
+                    <nav className={styles.capsula} aria-label={t("nav.bottom_aria")}>
+                        <div className={styles.gruppo} ref={gruppoRef}>
+                            <span
+                                className={styles.fondo}
+                                style={{ left: indicatore.left, width: indicatore.width }}
+                                aria-hidden="true"
+                            />
+                            {VOCI.map(voce => {
+                                const attiva = activeTab === voce.id;
+                                return (
+                                    <button
+                                        key={voce.id}
+                                        ref={el => {
+                                            vociRef.current[voce.id] = el;
+                                        }}
+                                        type="button"
+                                        className={styles.voce}
+                                        data-active={attiva || undefined}
+                                        // Menu già attivo: toccarlo di nuovo apre le categorie (spec §4).
+                                        aria-label={t(attiva && voce.id === "menu" ? "hub.menu_retap_aria" : voce.labelKey)}
+                                        aria-current={attiva ? "page" : undefined}
+                                        onClick={() => onTabChange(voce.id)}
+                                    >
+                                        {voce.icon}
+                                        {attiva && <span className={styles.nome}>{t(voce.labelKey)}</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </nav>
+                )}
+
+                {vote && (voteState.phase === "parked" || voteState.phase === "rating") && (
+                    <Suspense fallback={null}>
+                        <VoteButton
+                            state={voteState}
+                            send={sendVote}
+                            onRate={() => vote.onRate()}
+                            flightFrom={flightFrom}
+                            onLanded={landed}
+                        />
+                    </Suspense>
+                )}
+
+                {orderVisible && (
+                    <button
+                        type="button"
+                        className={styles.ordine}
+                        aria-label={
+                            selectionCount > 0 ? t("fab.cart_aria_count", { count: selectionCount }) : t("fab.cart_aria")
+                        }
+                        onClick={onOpenOrder}
+                    >
+                        <ReceiptText size={22} strokeWidth={1.9} />
+                        {selectionCount > 0 && (
+                            <span className={styles.conto} aria-hidden="true">
+                                {selectionCount}
+                            </span>
+                        )}
+                    </button>
+                )}
+            </div>
+        </>
     );
 }

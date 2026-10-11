@@ -649,6 +649,10 @@
         "rule_optional": "optional",
         "unavailable": "Dieses Gericht ist nicht mehr verfügbar."
     },
+    "vote": {
+        "button": "Bewerten",
+        "dismiss_aria": "Nein danke"
+    },
     "page_end": {
         "end_of_menu": "Ende der Speisekarte",
         "rate_title": "Wie war es?",

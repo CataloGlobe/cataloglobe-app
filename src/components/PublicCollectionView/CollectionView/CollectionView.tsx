@@ -1122,6 +1122,8 @@ export default function CollectionView({
     const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
     // Redesign: il voto inviato in questa visita trasforma il blocco del fondo in «Grazie».
     const [reviewSent, setReviewSent] = useState(false);
+    // Redesign: il voto vive nel foglio unico (stesso modulo, stessi effetti del voto inviato).
+    const openRate = mode === "public" && reviewsProps ? sheetsSlot?.openRate : undefined;
 
     // ── Indice categorie (sheet): trigger = retap sul tab "Menu" già attivo,
     // sostituisce lo scroll-to-top diretto (vedi handleHubTabTap più sotto).
@@ -1614,6 +1616,11 @@ export default function CollectionView({
     const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
     const [waiterCalledAt, setWaiterCalledAt] = useState<string | null>(null);
 
+    // Redesign: momenti della visita al tavolo per l'invito al voto (D38): un ordine
+    // Servito (realtime sotto, una volta per ordine) e il conto chiesto dal foglio.
+    const [tableMoment, setTableMoment] = useState(0);
+    const deliveredCountedRef = useRef(new Set<string>());
+
     // Realtime subscribe customer_sessions: single channel always-on quando
     // JWT presente. Propaga:
     //   - bill_requested_at (admin "Risposto" / close-table clear implicit)
@@ -1686,6 +1693,10 @@ export default function CollectionView({
                 const prev = lastStatusById.get(order.id);
                 lastStatusById.set(order.id, order.status);
                 if (prev !== order.status) revealBottomBar();
+                if (order.status === "delivered" && !deliveredCountedRef.current.has(order.id)) {
+                    deliveredCountedRef.current.add(order.id);
+                    setTableMoment(n => n + 1);
+                }
             },
         });
         return () => {
@@ -2313,6 +2324,19 @@ export default function CollectionView({
     const [valutaVisible, setValutaVisible] = useState(false);
     // true = visitatore di ritorno entro 4h, senza review recente → FAB idoneo
     const valutaEligibleRef = useRef(false);
+
+    // Voto inviato (foglio di oggi o foglio del redesign): fondo in «Grazie»,
+    // niente FAB, e per 24 ore il voto non si richiede.
+    const markReviewed = useCallback(() => {
+        setReviewSent(true);
+        setValutaVisible(false);
+        valutaEligibleRef.current = false;
+        if (activityId) {
+            try {
+                localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
+            } catch { /* Safari private mode */ }
+        }
+    }, [activityId]);
     // Chiavi fab_visit_<id> già scritte in QUESTO mount (StrictMode dev rimonta
     // l'effect 2x, o un futuro dep-change potrebbe rirunnarlo): evita di rileggere
     // un timestamp appena scritto da noi stessi nella stessa execution, che
@@ -3387,7 +3411,7 @@ export default function CollectionView({
                               allergensCount: allergens?.length ?? 0,
                               hasCharacteristics: (catalogCharacteristics?.length ?? 0) > 0,
                               onOpenReservation: openReservation,
-                              onRate: reviewsProps ? openReviewsSheet : undefined,
+                              onRate: reviewsProps ? (openRate ?? openReviewsSheet) : undefined,
                               reviewed: reviewSent
                           })
                         : null}
@@ -3476,17 +3500,7 @@ export default function CollectionView({
                                 key={initialReviewRating ?? "default"}
                                 {...reviewsProps}
                                 initialRating={initialReviewRating}
-                                onReviewSubmitted={() => {
-                                    setReviewSent(true);
-                                    // Nascondi FAB e salva timestamp per sopprimerlo per 24h
-                                    setValutaVisible(false);
-                                    valutaEligibleRef.current = false;
-                                    if (activityId) {
-                                        try {
-                                            localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
-                                        } catch { /* Safari private mode */ }
-                                    }
-                                }}
+                                onReviewSubmitted={markReviewed}
                             />
                         </div>
                     </Suspense>
@@ -3530,14 +3544,18 @@ export default function CollectionView({
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
             {/* Preview mobile: barra montata SOLO per fedeltà di layout, completamente
                 inerte (props no-op, ordering OFF). Runtime (useBottomBar) invariato. */}
-            {isBottomBarMounted && useBarSlot && barSlotShown && bottomBarSlot?.({
+            {isBottomBarMounted && useBarSlot && (barSlotShown || !!openRate) && bottomBarSlot?.({
                 activeTab,
                 onTabChange: handleHubTabTap,
                 showStoryTab,
                 orderVisible: !shouldHideOrderingEntry,
                 selectionCount,
                 onOpenOrder: openOrdering,
-                hidden: isBottomBarHidden
+                hidden: isBottomBarHidden,
+                // Senza Storia e senza ordini la barra c'è solo per il voto (spec §11).
+                vote: openRate && activityId
+                    ? { activityId, tableMoment, reviewed: reviewSent, onRate: openRate, reveal: revealBottomBar }
+                    : undefined
             })}
             {isBottomBarMounted && !useBarSlot && (
                 <PublicBottomBar
@@ -3682,11 +3700,19 @@ export default function CollectionView({
                         onSessionExpired: () => customerSession?.clear(),
                         refreshKey: ordersRefreshKey,
                         billRequestedAt,
-                        onBillRequestedAtChange: setBillRequestedAt,
+                        onBillRequestedAtChange: next => {
+                            // Conto chiesto adesso (non riletto da una sessione già aperta): momento del voto.
+                            if (next && !billRequestedAt) {
+                                setTableMoment(n => n + 1);
+                                revealBottomBar();
+                            }
+                            setBillRequestedAt(next);
+                        },
                         waiterCalledAt,
                         onWaiterCalledAtChange: setWaiterCalledAt
                     }
-                    : undefined
+                    : undefined,
+                rate: reviewsProps ? { props: reviewsProps, onSubmitted: markReviewed } : undefined
             })}
 
             {isOrderingOpen && (

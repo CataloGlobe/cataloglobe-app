@@ -649,6 +649,10 @@
         "rule_optional": "opcional",
         "unavailable": "Este plato ya no está disponible."
     },
+    "vote": {
+        "button": "Valorar",
+        "dismiss_aria": "No, gracias"
+    },
     "page_end": {
         "end_of_menu": "Fin del menú",
         "rate_title": "¿Qué tal ha ido?",

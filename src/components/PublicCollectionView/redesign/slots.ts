@@ -11,6 +11,7 @@ import type { Allergen } from "@/services/supabase/allergens";
 import type { ResolvedAllergen, ResolvedCharacteristic, V2FeaturedContent } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import type { SelectionItem } from "@components/PublicCollectionView/OrderingSheet/OrderingSheet";
+import type { ReviewsViewProps } from "@components/PublicCollectionView/ReviewsView/ReviewsView";
 import type { SendFailure } from "./order/orderSend";
 
 /**
@@ -69,6 +70,21 @@ export type BottomBarSlotContext = {
     onOpenOrder: () => void;
     /** Barra fuori vista, decisa da `useBottomBarAutoHide` in `CollectionView`. */
     hidden: boolean;
+    /** Invito al voto e pulsante «★ Vota» (spec §11); assente senza recensioni. */
+    vote?: VoteSlotContext;
+};
+
+/** Quando e come chiedere il voto (spec §11, D38). */
+export type VoteSlotContext = {
+    activityId: string;
+    /** Sale a ogni fatto della visita al tavolo: un ordine Servito, il conto chiesto. */
+    tableMoment: number;
+    /** Voto inviato in questa visita (anche dal fondo). */
+    reviewed: boolean;
+    /** Apre il modulo del voto nel foglio, col voto già scelto se c'è. */
+    onRate: (rating?: number) => void;
+    /** Rimostra la barra: l'invito vola dentro, il pulsante largo si deve vedere. */
+    reveal: () => void;
 };
 
 export type BottomBarSlot = (context: BottomBarSlotContext) => ReactNode;
@@ -172,6 +188,8 @@ export type SheetsSlotContext = {
     };
     /** Foglio «Il tuo ordine · Tavolo N» (spec §7): solo col QR del tavolo. */
     ordering?: OrderingContext;
+    /** Modulo del voto nel foglio (spec §11): lo stesso di oggi, aperto da invito, barra e fondo. */
+    rate?: { props: ReviewsViewProps; onSubmitted: () => void };
 };
 
 /** Il carrello e il tavolo, tenuti da `CollectionView` (stessa selezione e stessa sessione di oggi). */
@@ -211,6 +229,8 @@ export type SheetsSlot = {
     isOpen: () => boolean;
     /** «Aggiunto · nome» con Annulla, anche per il + della lista (spec §7). */
     notifyAdded?: (name: string, undo: () => void) => void;
+    /** Il modulo del voto nel foglio, col voto già scelto se c'è (spec §11). */
+    openRate?: (rating?: number) => void;
 };
 
 /** Dati del fondo pagina (spec §10): Oggi, Informazioni utili, Contatti, Prenota, voto. */

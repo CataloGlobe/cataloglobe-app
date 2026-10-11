@@ -649,6 +649,10 @@
     "rule_optional": "facultatif",
     "unavailable": "Ce plat n'est plus disponible."
   },
+  "vote": {
+      "button": "Noter",
+      "dismiss_aria": "Non merci"
+  },
   "page_end": {
     "end_of_menu": "Fin du menu",
     "rate_title": "Comment ça s'est passé ?",

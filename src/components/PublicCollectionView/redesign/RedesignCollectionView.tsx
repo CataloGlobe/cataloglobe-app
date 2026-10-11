@@ -7,6 +7,7 @@ import VenueFooter from "./footer/VenueFooter";
 import { closeSheet, getSheetState, useSheetState } from "./sheets/sheetStack";
 import { openVenueSheet } from "./sheets/venueSheetPages";
 import { openProductSheet } from "./product/productSheet";
+import { openRateSheet } from "./vote/rateSheet";
 import AddedNotice from "./order/AddedNotice";
 import { showAdded } from "./order/addedNoticeStore";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
@@ -95,7 +96,8 @@ const sheetsSlot: SheetsSlot = {
     open: openVenueSheet,
     openProduct: openProductSheet,
     isOpen: () => getSheetState().pages.length > 0,
-    notifyAdded: showAdded
+    notifyAdded: showAdded,
+    openRate: openRateSheet
 };
 
 export default function RedesignCollectionView(props: ComponentProps<typeof CollectionView>) {
