@@ -68,16 +68,26 @@ LANGUAGE plpgsql
 SET search_path TO ''
 AS $$
 BEGIN
-    IF current_user <> 'authenticated' OR NEW.status <> 'pending' THEN
+    IF current_user <> 'authenticated' THEN
         RETURN NEW;
     END IF;
 
-    IF TG_OP = 'INSERT'
-       OR NEW.source_hash IS DISTINCT FROM OLD.source_hash THEN
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.status = 'pending' THEN
+            NEW.run_after := now() + public.translation_debounce_interval();
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF NEW.status = 'pending'
+       AND NEW.source_hash IS DISTINCT FROM OLD.source_hash THEN
         NEW.run_after := now() + public.translation_debounce_interval();
     ELSE
-        -- Il client non può anticipare un lavoro scrivendo run_after a mano:
-        -- per quello c'è translate_now().
+        -- Il client non può anticipare un lavoro scrivendo run_after a mano,
+        -- nemmeno passando da un altro stato (pending → failed col run_after
+        -- nel passato → pending): per quello c'è translate_now(). «Riprova»
+        -- (failed → pending, stesso hash) riparte subito perché il run_after
+        -- di un job già eseguito è nel passato.
         NEW.run_after := OLD.run_after;
     END IF;
 
@@ -334,7 +344,10 @@ GRANT  EXECUTE ON FUNCTION public.translate_now(UUID, TEXT, TEXT) TO authenticat
 -- 7. get_translation_coverage -------------------------------------------------------
 -- Identica a 20260623120000 salvo: classe 'waiting' (pending con run_after
 -- futuro, nessun lavoro in corso) prima di 'pending', che resta «in corso
--- adesso»; per lingua anche 'waiting' e 'next_run_at'.
+-- adesso»; per lingua anche 'waiting' e 'next_run_at' (il primo run_after fra
+-- le sole unità in 'waiting'). Le unità restano quelle di 20260623120000:
+-- note e attributi accodati con altri entity_type non sono contati (come
+-- oggi per 'pending').
 
 CREATE OR REPLACE FUNCTION public.get_translation_coverage(p_tenant_id uuid)
 RETURNS jsonb
@@ -465,7 +478,18 @@ BEGIN
                       AND t.language_code = al.language_code
                 ) THEN 'stale'
                 ELSE 'missing'
-            END AS klass
+            END AS klass,
+            (
+                SELECT MIN(tj.run_after)
+                FROM public.translation_jobs tj
+                WHERE tj.tenant_id = p_tenant_id
+                  AND tj.entity_type = u.entity_type
+                  AND tj.entity_id = u.entity_id
+                  AND tj.field = u.field
+                  AND tj.target_language_code = al.language_code
+                  AND tj.status = 'pending'
+                  AND tj.run_after > now()
+            ) AS waiting_at
         FROM active_langs al
         CROSS JOIN units u
     ),
@@ -478,7 +502,10 @@ BEGIN
             COUNT(*) FILTER (WHERE c.klass = 'pending')     AS pending,
             COUNT(*) FILTER (WHERE c.klass = 'waiting')     AS waiting,
             COUNT(*) FILTER (WHERE c.klass = 'failed')      AS failed,
-            COUNT(*) FILTER (WHERE c.klass = 'missing')     AS missing
+            COUNT(*) FILTER (WHERE c.klass = 'missing')     AS missing,
+            -- Solo dalle unità contate in 'waiting': «partono tra X min» si
+            -- riferisce sempre a un lavoro che il numero comprende.
+            MIN(c.waiting_at) FILTER (WHERE c.klass = 'waiting') AS next_run_at
         FROM active_langs al
         LEFT JOIN classified c ON c.language_code = al.language_code
         GROUP BY al.language_code
@@ -494,14 +521,7 @@ BEGIN
                 'waiting',      a.waiting,
                 'failed',       a.failed,
                 'missing',      a.missing,
-                'next_run_at',  (
-                    SELECT MIN(tj.run_after)
-                    FROM public.translation_jobs tj
-                    WHERE tj.tenant_id = p_tenant_id
-                      AND tj.target_language_code = a.language_code
-                      AND tj.status = 'pending'
-                      AND tj.run_after > now()
-                ),
+                'next_run_at',  a.next_run_at,
                 'last_updated', (
                     SELECT MAX(t.updated_at)
                     FROM public.translations t

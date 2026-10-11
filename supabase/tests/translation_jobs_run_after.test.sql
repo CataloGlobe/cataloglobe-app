@@ -20,6 +20,11 @@
 --   8. translate_now con solo uno dei due filtri → 22023
 --   9. get_translation_coverage conta 'waiting' e next_run_at (solo se 'en'
 --      è attiva per McDonald's; altrimenti NOTICE di salto)
+--  10. il client non anticipa passando da un altro stato (pending → failed
+--      col run_after nel passato → pending); «Riprova» del client su un
+--      failed già eseguito riparte subito
+--  11. retry_all_failed_translations chiamata da authenticated (vera RPC
+--      SECURITY DEFINER) non mette attesa
 --
 -- Pattern: setup via postgres role (bypass RLS), poi authenticated.
 -- Dentro una transazione now() è fisso: «scaduto» = run_after nel passato
@@ -30,8 +35,8 @@
 --   - quota AI di McDonald's non bloccata (trg_enforce_ai_quota)
 --   - per il test 9: almeno un prodotto McDonald's con description_hash
 --
--- Esecuzione: Studio SQL Editor di staging (ruolo postgres). Attesi 9
--- `NOTICE … OK` (o 8 più il salto del 9); un `Test N FAIL` interrompe il file.
+-- Esecuzione: Studio SQL Editor di staging (ruolo postgres). Attesi 11
+-- `NOTICE … OK` (o 10 più il salto del 9); un `Test N FAIL` interrompe il file.
 --
 -- UUID di riferimento:
 --   tenant McDonald's        5b37c952-1add-4196-aab3-9775d98a9c32
@@ -339,5 +344,89 @@ BEGIN
   END IF;
   RAISE NOTICE 'Test 9 OK: copertura con % in attesa, prima partenza %',
     v_cov->'en'->>'waiting', v_cov->'en'->>'next_run_at';
+END$$;
+ROLLBACK;
+
+-- -----------------------------------------------------------------------------
+-- TEST 10 — niente scorciatoia passando da failed; «Riprova» parte subito
+-- -----------------------------------------------------------------------------
+BEGIN;
+DO $$
+DECLARE
+  v_id uuid;
+  v_done uuid;
+  v_run_after timestamptz;
+BEGIN
+  -- Pending in attesa accodato dal client, poi giro di stato a mano.
+  PERFORM pg_temp.as_owner();
+  INSERT INTO public.translation_jobs (
+    tenant_id, entity_type, entity_id, field, target_language_code,
+    source_text, source_hash, status, attempts
+  ) VALUES (
+    '5b37c952-1add-4196-aab3-9775d98a9c32', 'product', 'test-run-after-10', 'description', 'en',
+    'Testo di prova', 'h1', 'pending', 0
+  ) RETURNING id INTO v_id;
+  UPDATE public.translation_jobs
+     SET status = 'failed', run_after = now() - interval '1 hour'
+   WHERE id = v_id;
+  UPDATE public.translation_jobs SET status = 'pending' WHERE id = v_id;
+
+  SET LOCAL role postgres;
+  SELECT run_after INTO v_run_after FROM public.translation_jobs WHERE id = v_id;
+  IF v_run_after <> now() + public.translation_debounce_interval() THEN
+    RAISE EXCEPTION 'Test 10 FAIL: giro di stato ha spostato run_after a %', v_run_after;
+  END IF;
+
+  -- Failed già eseguito (run_after nel passato, scritto da postgres):
+  -- «Riprova» dal client lo rimette pending e parte subito.
+  INSERT INTO public.translation_jobs (
+    tenant_id, entity_type, entity_id, field, target_language_code,
+    source_text, source_hash, status, attempts, run_after
+  ) VALUES (
+    '5b37c952-1add-4196-aab3-9775d98a9c32', 'product', 'test-run-after-10b', 'description', 'en',
+    'Testo di prova', 'h1', 'failed', 3, now() - interval '1 hour'
+  ) RETURNING id INTO v_done;
+  PERFORM pg_temp.as_owner();
+  UPDATE public.translation_jobs SET status = 'pending', attempts = 0 WHERE id = v_done;
+
+  SET LOCAL role postgres;
+  SELECT run_after INTO v_run_after FROM public.translation_jobs WHERE id = v_done;
+  IF v_run_after > now() THEN
+    RAISE EXCEPTION 'Test 10 FAIL: «Riprova» messo in attesa fino a %', v_run_after;
+  END IF;
+  RAISE NOTICE 'Test 10 OK: niente scorciatoia da failed, «Riprova» subito';
+END$$;
+ROLLBACK;
+
+-- -----------------------------------------------------------------------------
+-- TEST 11 — retry_all_failed_translations da authenticated: nessuna attesa
+-- -----------------------------------------------------------------------------
+BEGIN;
+DO $$
+DECLARE
+  v_id uuid;
+  v_run_after timestamptz;
+BEGIN
+  SET LOCAL role postgres;
+  INSERT INTO public.translation_jobs (
+    tenant_id, entity_type, entity_id, field, target_language_code,
+    source_text, source_hash, status, attempts, run_after
+  ) VALUES (
+    '5b37c952-1add-4196-aab3-9775d98a9c32', 'product', 'test-run-after-11', 'description', 'en',
+    'Testo di prova', 'h1', 'failed', 3, now() - interval '1 hour'
+  ) RETURNING id INTO v_id;
+
+  PERFORM pg_temp.as_owner();
+  PERFORM public.retry_all_failed_translations('5b37c952-1add-4196-aab3-9775d98a9c32');
+
+  SET LOCAL role postgres;
+  SELECT run_after INTO v_run_after FROM public.translation_jobs WHERE id = v_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Test 11 FAIL: job sparito dopo il retry';
+  END IF;
+  IF v_run_after > now() THEN
+    RAISE EXCEPTION 'Test 11 FAIL: la RPC SECURITY DEFINER ha messo attesa fino a %', v_run_after;
+  END IF;
+  RAISE NOTICE 'Test 11 OK: retry da RPC senza attesa';
 END$$;
 ROLLBACK;
