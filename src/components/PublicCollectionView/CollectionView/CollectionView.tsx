@@ -34,6 +34,7 @@ import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
+import type { HeaderSlot } from "../redesign/slots";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -822,6 +823,11 @@ type Props = {
      * passata dal path pubblico.
      */
     initialSelection?: SelectionItem[];
+    /**
+     * Redesign (PR 2): sostituisce l'header di oggi con l'isola nuova, solo in
+     * mode "public". Assente col flag spento → nessuna differenza di comportamento.
+     */
+    headerSlot?: HeaderSlot;
 };
 
 export default function CollectionView({
@@ -857,7 +863,8 @@ export default function CollectionView({
     slug,
     enableReservations = false,
     previewDevice,
-    initialSelection
+    initialSelection,
+    headerSlot
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -2741,7 +2748,21 @@ export default function CollectionView({
             )}
 
             {/* ── HEADER: sostituisce PublicBrandHeader + CollectionHero ── */}
-            {hasHeader && (
+            {mode === "public" && headerSlot && hasHeader
+                ? headerSlot({
+                      logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
+                      coverImageUrl: style.showCoverImage ? businessImage : null,
+                      activityName: businessName,
+                      menuName: style.showCatalogName ? collectionTitle || null : null,
+                      onSearchOpen: handleOpenSearch,
+                      onSearchPointerDown: handleSearchPrefetch,
+                      allergensCount: allergenFilterIds.length,
+                      onOpenMore: () => setIsMoreSheetOpen(true),
+                      activeTab,
+                      onTabChange: handleHubTabTap,
+                      showStoryTab
+                  })
+                : hasHeader && (
                 <PublicCollectionHeader
                     logoUrl={tenantLogoUrl}
                     activityName={businessName}
