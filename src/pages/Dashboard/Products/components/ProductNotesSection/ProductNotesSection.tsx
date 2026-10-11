@@ -1,7 +1,7 @@
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Text from "@/components/ui/Text/Text";
 import type { ProductNote } from "@/services/supabase/products";
 import styles from "./ProductNotesSection.module.scss";
 
@@ -55,22 +55,22 @@ export default function ProductNotesSection({
     return (
         <section className={styles.root}>
             {isEmpty ? (
-                <EmptyState
-                    variant="inline"
-                    icon={null}
-                    title="Nessuna nota"
-                    action={
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={addRow}
-                            disabled={disabled}
-                            leftIcon={<Plus size={14} />}
-                        >
-                            Aggiungi nota
-                        </Button>
-                    }
-                />
+                <>
+                    {/* Come la scheda del prodotto: una riga sola, il bottone sotto. */}
+                    <Text variant="body-sm" colorVariant="muted">
+                        Nessuna nota.
+                    </Text>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={addRow}
+                        disabled={disabled}
+                        leftIcon={<Plus size={14} />}
+                        className={styles.addButton}
+                    >
+                        Aggiungi una nota
+                    </Button>
+                </>
             ) : (
                 <>
                     <ul className={styles.list}>
@@ -124,7 +124,7 @@ export default function ProductNotesSection({
                         leftIcon={<Plus size={14} />}
                         className={styles.addButton}
                     >
-                        Aggiungi nota
+                        Aggiungi una nota
                     </Button>
                 </>
             )}

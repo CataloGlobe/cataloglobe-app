@@ -424,7 +424,7 @@ export function describeStoryAppearance(appearance: StoryAppearance): { label: s
                 suspended: `${appearance.seatName ?? "la sede"} è sospesa`,
                 subscriptionInactive: "abbonamento non attivo",
                 missingSede: "la sede non c'è più",
-                noPublishedSede: "nessuna sede pubblicata"
+                noPublishedSede: "nessuna sede online"
             }[appearance.reason];
             return { label: `Da nessuna parte: ${why}`, muted: true };
         }

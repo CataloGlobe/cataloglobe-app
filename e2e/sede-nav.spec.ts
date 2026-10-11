@@ -129,7 +129,7 @@ test.describe("Contesto di sede", () => {
     test("i vecchi ?tab= sull'indirizzo della sede portano ancora alla sezione", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${paths[0]}?tab=hours`);
-        await expect(page).toHaveURL(/\/orari$/, { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/anagrafica\?parte=orari$/, { timeout: 15_000 });
         await page.goto(`${paths[0]}?tab=availability`);
         await expect(page).toHaveURL(/\/cosa-vedono$/, { timeout: 15_000 });
     });
@@ -204,14 +204,13 @@ test.describe("Atterraggio per ruolo", () => {
         }
     }
 
-    // Con Pro si atterra su Servizio. Con Base Servizio è tutto sotto
-    // lucchetto (Gestisci la sala è passata nella Scheda come Sala,
-    // correzioni UI T5): si atterra sulla Sala. Il modo lo prova servizio.spec.
+    // Si atterra su Servizio: con Pro nell'Elenco, con Base nella Sala (il
+    // modo senza lucchetto, Officina 3). Il modo lo prova servizio.spec.
     const CASI = [
         { role: "staff", plan: "pro", segment: "servizio" },
         { role: "viewer", plan: "pro", segment: "servizio" },
-        { role: "staff", plan: "base", segment: "sala" },
-        { role: "viewer", plan: "base", segment: "sala" }
+        { role: "staff", plan: "base", segment: "servizio" },
+        { role: "viewer", plan: "base", segment: "servizio" }
     ] as const;
 
     for (const { role, plan, segment } of CASI) {

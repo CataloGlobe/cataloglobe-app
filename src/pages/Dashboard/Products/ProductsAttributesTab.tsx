@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { IconTags } from "@tabler/icons-react";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import {
     listAttributeDefinitions,
     deleteAttributeDefinition,
@@ -171,8 +172,8 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger, searc
             cell: (_value: unknown, row: V2ProductAttributeDefinition) => (
                 <TableRowActions
                     actions={[
-                        { label: "Modifica", onClick: () => handleEdit(row) },
-                        { label: "Elimina", onClick: () => handleDelete(row), variant: "destructive" as const, separator: true }
+                        rowAction.edit(() => handleEdit(row)),
+                        rowAction.remove(() => handleDelete(row))
                     ]}
                 />
             )

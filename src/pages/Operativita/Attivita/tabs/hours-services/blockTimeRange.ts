@@ -87,7 +87,7 @@ function slotOf(r: Range): ClosureSlot {
 }
 
 /** Gli orari della tabella arrivano come "HH:MM:SS"; `slots` vuole "HH:MM". */
-function normalizeHours(hours: V2ActivityHours[]) {
+export function normalizeHours(hours: V2ActivityHours[]) {
     return hours.map(h => ({
         day_of_week: h.day_of_week,
         slot_index: h.slot_index,

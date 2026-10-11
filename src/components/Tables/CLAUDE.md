@@ -3,7 +3,7 @@
 Regole epic in root `CLAUDE.md` (`## Epic Ordinazioni dal tavolo`), spec `docs/orders-architecture.md`.
 
 UI shared CRUD tavoli in `src/components/Tables/`:
-- `TablesManagement/` — componente shared per CRUD tavoli + stato live. Usato dalla rotta Sala della sede (`ActivitySalaRoute`, unico call site). Header con bottoni "Gestisci zone" + "Nuovo tavolo" renderizzato inline, sempre. `TablesEmptyState` sub-componente per prerequisito `ordering_enabled=false`.
+- `TablesManagement/` — componente shared per CRUD tavoli + stato live. Usato dal modo Sala di Servizio (`ServizioSala`, `servizio?modo=sala`, unico call site). Header con bottoni "Gestisci zone" + "Nuovo tavolo" renderizzato inline, sempre. `TablesEmptyState` sub-componente per prerequisito `ordering_enabled=false`.
 - `ZoneSelectField/` — dropdown zone nel form Crea/Modifica tavolo con expand inline "+ Crea nuova zona" (mini-form). Niente modali nested.
 - `TableZonesAndGroupsDrawer/` — drawer dedicato per CRUD zone e gruppi (md=520px). Rename inline, delete con conferma + count tavoli orfanati, callback `onZonesChanged` notifica parent.
 - `TablesLiveView/` — vista operativa live tavoli (card per zona, read-only) è il modo Mappa della pagina Servizio (`servizio?modo=mappa`; `comande?tab=tavoli` reindirizza lì). Realtime via hook `useTablesLiveRealtime` (Step 4c): 1 canale con 3 binding `postgres_changes` su `orders + order_groups + customer_sessions` filter `activity_id=eq.<id>`, refetch debounced 250ms di `listTablesWithState`, reconnect-resilience via refetch su `SUBSCRIBED`. Niente polling. `CardGrid` per zona (3 · 2 · 1 colonne), tessere `CardGridItem` senza media. Filtri Tutti/Aperti/Liberi/Fuori servizio, raggruppamento per `zone_name` (no-zone fallback ultimo).

@@ -439,10 +439,3 @@
   min-height: 120px;
   resize: vertical;
 }
-
-// Tab chiusa dal piano: nome e lucchetto (O2), come i modi di Servizio.
-.lockedTab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-4);
-}

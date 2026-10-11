@@ -42,7 +42,7 @@ Passando da 1 a 2 sedi entrano nella sede Il locale, Operatività e la parte di 
 
 **Azienda (2+ sedi)**: — Panoramica · Sedi | Catalogo (Menù · Prodotti · Programmazione) | Pagina pubblica (Stili · In evidenza · Storie · Lingue) | Andamento (Analitiche · Recensioni · Clienti) | piede Impostazioni · Assistenza.
 
-**Sede (2+ sedi)**: ← Tutte le sedi | Il locale (Scheda · Cosa vedono i clienti) | Operatività (Servizio · Prenotazioni · Comande · Storico) | Andamento (Analitiche · Recensioni) | piede Assistenza (Impostazioni è dell'azienda, non sta nella sede).
+**Sede (2+ sedi)**: ← Tutte le sedi | Il locale (Scheda · Cosa vedono i clienti) | Operatività (Servizio · Prenotazioni · Comande · Storico) | Andamento (Analitiche · Recensioni) | piede: il menù dell'account, lo stesso dell'azienda (Impostazioni · Team · Abbonamento · Lingue · Assistenza). Impostazioni è dell'azienda ma si apre anche da dentro la sede (deciso il 2026-10-09).
 
 Ordine voluto: prima il locale, poi cosa offre, poi il lavoro in sala, poi i risultati. Operatività non sta in cima perché è del piano Pro.
 «Menù» è l'etichetta di verticale (`catalogLabel`), non una stringa fissa.
@@ -61,7 +61,7 @@ Ordine voluto: prima il locale, poi cosa offre, poi il lavoro in sala, poi i ris
 - **2+ sedi, contesto azienda**: «Tutte le sedi ▾». Menu: le sedi leggibili (con «Sospesa» dove serve); scegliere una sede ci entra. In fondo «+ Aggiungi una sede» e «Tutte le sedi» (= pagina Sedi).
 - **2+ sedi, dentro una sede**: il nome della sede ▾. Scegliere un'altra sede **resta sulla stessa pagina** (Comande di A → Comande di B; se la pagina non è usabile nella sede nuova, prima voce usabile).
 - Sostituisce `SedeScopeSelect` nella navbar: il selettore di scope di oggi (Analitiche, Recensioni, Programmazione) **sparisce** dall'header (vedi 51.10, 51.11).
-- Stato: accanto alla sede compare solo **«Sospesa»**; «Pubblicata» resta nella testata della Scheda.
+- Stato: accanto alla sede compare solo **«Sospesa»**; «Online» resta nella testata della Scheda (D147).
 - Un manager con una sede: menu con la sola sede, senza «Aggiungi».
 
 ### 51.8 L'header: percorso a cartelle

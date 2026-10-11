@@ -92,17 +92,13 @@ const SupportTicketPage = lazy(() => import("./pages/Dashboard/Support/SupportTi
 const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
 const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
-const ActivityAnagraficaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityAnagraficaRoute"));
-const ActivityOrariRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrariRoute"));
-const ActivityOrdiniPrenotazioniRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrdiniPrenotazioniRoute"));
+const ActivitySchedaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySchedaRoute"));
+const SchedaRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/SchedaRedirect"));
 const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySectionRedirect"));
-const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
-const OrdiniPrenotazioniRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/OrdiniPrenotazioniRedirect"));
 const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
 const BusinessHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/BusinessHomeRedirect"));
 const SedeHomeRedirect = lazy(() => import("./components/layout/LandingRedirect/SedeHomeRedirect"));
 const SingleSedeRoute = lazy(() => import("./components/layout/LandingRedirect/SingleSedeRoute"));
-const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivityCosaVedonoRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityCosaVedonoRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
@@ -308,20 +304,24 @@ export default function App() {
                     <Route path="programmazione/featured/:ruleId" element={<RuleDetailPage />} />
                     {/* Il vecchio nome (Disponibilità, §50.14): link e preferiti restano buoni. */}
                     <Route path="disponibilita" element={<ActivitySectionRedirect to="cosa-vedono" keepHash keepSearch />} />
-                    {/* La scheda della sede: quattro pagine (§31). */}
+                    {/* La scheda della sede (Officina 3, C+++): un cruscotto, e
+                        ogni parte a fuoco con `?parte=`. */}
                     <Route element={<ActivityDetailPage />}>
-                        <Route path="anagrafica" element={<ActivityAnagraficaRoute />} />
-                        <Route path="orari" element={<ActivityOrariRoute />} />
-                        {/* Correzioni UI T5: una cosa per tab (O1) e la Sala dalla
-                            Scheda (SV3, era il modo «Gestisci la sala» di Servizio). */}
-                        <Route path="ordini-al-tavolo" element={<ActivityOrdiniPrenotazioniRoute part="ordini" />} />
-                        <Route path="prenotazioni-online" element={<ActivityOrdiniPrenotazioniRoute part="prenotazioni" />} />
-                        <Route path="sala" element={<ActivitySalaRoute />} />
+                        <Route path="anagrafica" element={<ActivitySchedaRoute />} />
+                        {/* Le pagine e le sezioni di prima portano alla loro parte:
+                            link e preferiti restano buoni. */}
+                        <Route path="come-lavorate" element={<SchedaRedirect />} />
+                        <Route path="orari" element={<SchedaRedirect part="orari" />} />
+                        <Route path="pubblicazione" element={<SchedaRedirect part="link" />} />
+                        <Route path="ordini-al-tavolo" element={<SchedaRedirect part="ordini" />} />
+                        <Route path="prenotazioni-online" element={<SchedaRedirect part="prenotazioni" />} />
+                        {/* La Sala è un modo di Servizio (Officina 3): il vecchio
+                            indirizzo resta buono. */}
+                        <Route path="sala" element={<Navigate to={{ pathname: "../servizio", search: "?modo=sala" }} relative="path" replace />} />
                         {/* La vecchia tab unica: l'ancora dice quale delle due. */}
-                        <Route path="ordini-prenotazioni" element={<OrdiniPrenotazioniRedirect />} />
-                        <Route path="canali" element={<OrdiniPrenotazioniRedirect />} />
-                        <Route path="pubblicazione" element={<ActivityPubblicazioneRoute />} />
-                        {/* Un segmento sconosciuto sotto la sede apre l'Anagrafica:
+                        <Route path="ordini-prenotazioni" element={<SchedaRedirect part="ordini" />} />
+                        <Route path="canali" element={<SchedaRedirect part="ordini" />} />
+                        {/* Un segmento sconosciuto sotto la sede apre la Scheda:
                             un link vecchio o storto resta dentro la scheda invece di
                             finire sulla pagina "non trovata" di tutto il sito. */}
                         <Route path="*" element={<ActivitySectionRedirect to="anagrafica" />} />

@@ -590,7 +590,7 @@ $dash-margin: 14px;
   display: inline-block;
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--brand-primary);
   flex-shrink: 0;
 }

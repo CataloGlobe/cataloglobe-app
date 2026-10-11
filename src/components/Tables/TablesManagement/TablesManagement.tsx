@@ -5,6 +5,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -489,14 +490,11 @@ export function TablesManagement({
                     {canManage && (
                         <TableRowActions
                             actions={[
-                                { label: "Modifica", onClick: () => openEdit(row) },
+                                rowAction.edit(() => openEdit(row)),
                                 ...(orderingEnabled
                                     ? [
                                           {
-                                              label:
-                                                  generatingQrTableId === row.id
-                                                      ? "Generazione..."
-                                                      : "Genera QR",
+                                              label: generatingQrTableId === row.id ? "Generazione..." : "Genera QR",
                                               icon: QrCode,
                                               onClick: () => handleGenerateQrSingle(row)
                                           },
@@ -507,12 +505,7 @@ export function TablesManagement({
                                           }
                                       ]
                                     : []),
-                                {
-                                    label: "Elimina",
-                                    variant: "destructive" as const,
-                                    onClick: () => openDelete(row),
-                                    separator: true
-                                }
+                                rowAction.remove(() => openDelete(row))
                             ]}
                         />
                     )}

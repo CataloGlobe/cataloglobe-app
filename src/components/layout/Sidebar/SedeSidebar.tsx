@@ -47,19 +47,23 @@ export default function SedeSidebar({
     translationPendingCount = 0,
     importInProgress = false,
     supportUnread = false,
+    profile,
     brand,
     switcherSlot
 }: SedeSidebarProps) {
     const { businessId = "", activityId = "" } = useParams<{ businessId: string; activityId: string }>();
     const { t } = useTranslation("admin");
     const { catalogLabel } = useVerticalConfig();
-    const { permissions } = usePermissions();
+    const { permissions, loading: permissionsLoading } = usePermissions();
     const { hasFeature } = usePlanFeatures();
     const { groups, account } = navSidebarGroups(NAV_MODELS.sede, {
         businessId,
         activityId,
         catalogLabel
     });
+    // La stessa guardia della sidebar dell'azienda: finché i permessi non
+    // arrivano niente voci, così lo staff non vede per un attimo Team e Abbonamento.
+    const loading = permissionsLoading && !permissions;
     const options = {
         permissions,
         hasFeature,
@@ -94,10 +98,11 @@ export default function SedeSidebar({
 
     return (
         <AppSidebar
-            groups={buildSidebarGroups(groups, options)}
+            groups={loading ? [] : buildSidebarGroups(groups, options)}
             accountSlot={
                 <SidebarAccount
-                    items={buildSidebarGroups(account, options).flatMap(g => g.items)}
+                    items={loading ? [] : buildSidebarGroups(account, options).flatMap(g => g.items)}
+                    profile={profile}
                     collapsed={collapsedDesktop}
                     isMobile={isMobile}
                     onRequestClose={onRequestClose}

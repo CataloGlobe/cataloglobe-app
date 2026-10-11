@@ -7,10 +7,11 @@ import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Busine
 import styles from "./BusinessList.module.scss";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { ExternalLink, Link, FileText, Edit, Trash2, MapPin, AlertTriangle } from "lucide-react";
+import { ExternalLink, Link, Store, MapPin, AlertTriangle } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
 import {
     ACTIVE_CATALOG_ERROR_LABEL,
@@ -19,7 +20,7 @@ import {
 } from "@/utils/activeCatalogStatus";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { buildPublicUrl } from "@/utils/publicUrl";
-import { formatInactiveReason } from "@/utils/activityStatus";
+import { ACTIVE_LABEL, formatInactiveReason } from "@/utils/activityStatus";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -61,7 +62,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                 {business.status === "inactive" ? (
                                     <StatusBadge variant="neutral" label="Sospesa" />
                                 ) : (
-                                    <StatusBadge variant="success" label="Pubblicata" />
+                                    <StatusBadge variant="success" label={ACTIVE_LABEL} />
                                 )}
                             </span>
                             {/* Un link nella cella: la riga non lo intercetta. */}
@@ -91,7 +92,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             {
                 id: "status",
                 header: "Stato",
-                // S3: larga quanto la pillola «Pubblicata» più il padding (a 120 si
+                // S3: larga quanto la pillola «Online» più il padding (a 120 si
                 // troncava), il motivo della sospensione sotto.
                 width: "152px",
                 hideOnPhone: true,
@@ -106,7 +107,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                             )}
                         </div>
                     ) : (
-                        <StatusBadge variant="success" label="Pubblicata" />
+                        <StatusBadge variant="success" label={ACTIVE_LABEL} />
                     )
             },
             {
@@ -201,9 +202,10 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                     return (
                         <TableRowActions
                             actions={[
+                                rowAction.edit(() => onEdit(business)),
                                 {
                                     label: "Apri sede",
-                                    icon: FileText,
+                                    icon: Store,
                                     onClick: () =>
                                         navigate(`/business/${businessId}/locations/${business.id}`)
                                 },
@@ -221,18 +223,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                         showToast({ message: "Link copiato negli appunti.", type: "success" });
                                     }
                                 },
-                                {
-                                    label: "Modifica",
-                                    icon: Edit,
-                                    onClick: () => onEdit(business),
-                                    separator: true
-                                },
-                                ...(onDelete ? [{
-                                    label: "Elimina",
-                                    icon: Trash2,
-                                    onClick: () => onDelete!(business.id),
-                                    variant: "destructive" as const
-                                }] : [])
+                                rowAction.remove(() => onDelete?.(business.id), { hidden: !onDelete })
                             ]}
                         />
                     );

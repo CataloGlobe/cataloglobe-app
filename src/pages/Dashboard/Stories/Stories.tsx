@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { DataTableDragHandle, SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
-import { Pencil, Trash2, ScrollText } from "lucide-react";
+import { ScrollText } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { useToast } from "@/context/Toast/ToastContext";
 import { listStories, reorderStories, type StoryWithProduct } from "@/services/supabase/stories";
@@ -278,20 +279,13 @@ export default function Stories() {
                 <TableRowActions
                     ariaLabel={`Azioni storia ${item.title}`}
                     actions={[
-                        { label: canWrite ? "Modifica" : "Apri", icon: Pencil, onClick: () => navigate(storyUrl(item)) },
-                        ...(canWrite
-                            ? [
-                                  {
-                                      label: "Elimina",
-                                      icon: Trash2,
-                                      onClick: () => {
-                                          if (ensureActive()) setDeleteTarget(item);
-                                      },
-                                      variant: "destructive" as const,
-                                      separator: true
-                                  }
-                              ]
-                            : [])
+                        rowAction.edit(() => navigate(storyUrl(item)), { readOnly: !canWrite }),
+                        rowAction.remove(
+                            () => {
+                                if (ensureActive()) setDeleteTarget(item);
+                            },
+                            { hidden: !canWrite }
+                        )
                     ]}
                 />
             )

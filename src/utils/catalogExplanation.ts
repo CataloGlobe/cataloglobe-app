@@ -249,7 +249,7 @@ export type Outcome = {
 };
 
 export const MISSING_STEP_LABEL: Record<MissingStep, string> = {
-    seat: "Sede pubblicata",
+    seat: "Sede online",
     subscription: "Abbonamento attivo",
     rule: "Una regola menù che valga adesso",
     products: "Almeno un prodotto visibile"

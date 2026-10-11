@@ -41,12 +41,12 @@ L'Elenco apre le prenotazioni nello **stesso** dettaglio di Prenotazioni: dati, 
 
 ## Scheda
 
-Quattro rotte figlie del parent `ActivityDetailPage` (§31): **Anagrafica** · **Orari** · **Ordini e prenotazioni** · **Pubblicazione**, tab in testata (`ACTIVITY_PAGES` in `ActivityDetailContext.ts`).
+Una rotta sola sotto il parent `ActivityDetailPage` (§31): **`anagrafica`** (`ActivitySchedaRoute`, Officina 3, C+++ «Scorrono insieme»). È un cruscotto di tessere, una per parte (`SchedaPart`: il locale, quando siete aperti, come vi contattano, dove vi trovano, la vostra pagina e il QR, pagamenti e servizi, al conto, prenotazioni online, ordini dal tavolo; titoli in `scheda/schedaCopy.ts`), con accanto il telefono «Come la vede il cliente» che scorre insieme. Una parte si apre a fuoco con `?parte=<parte>`; niente tab in testata.
 
-- Il parent legge una volta la sede, gli orari (`loadHours`) e la ragione sociale (`getTenantFiscalProfile`: `get_user_tenants()` non espone i campi fiscali) e li passa alle rotte con `Outlet` (`useActivityDetail`).
-- **Draft unico** (`useActivityDraft`): le quattro pagine scrivono nella stessa bozza, un solo Salva nella `UnsavedChangesBar` del parent, guardia all'uscita `useUnsavedChangesGuard`. Le rotte registrano le loro validazioni con `registerValidator`.
-- **Ordini e prenotazioni** contiene anche **capienza e durata media** della sala (lotto B-a: card «Capienza della sala», ancora `#capienza`, `activity.manage`), con le loro validazioni (capienza > 0, durata 15–600, conferma automatica solo con capienza).
-- **Pubblicazione**: indirizzo pubblico, QR, menù in PDF, sospensione (`SuspendActivityDialog`) ed eliminazione.
+- Il parent legge una volta la sede, gli orari (`loadHours`) e la ragione sociale (`getTenantFiscalProfile`: `get_user_tenants()` non espone i campi fiscali) e li passa alla rotta con `Outlet` (`useActivityDetail`).
+- **Draft unico** (`useActivityDraft`): tutte le parti scrivono nella stessa bozza, un solo Salva nella testata (`HeaderSaveAction`), guardia all'uscita `useUnsavedChangesGuard`. Le parti registrano le loro validazioni con `registerValidator`.
+- La tessera si apre col clic ovunque; per tastiera e lettore di schermo il pulsante è il titolo («Titolo: apri»), e interruttori e «Riprova» restano controlli a sé.
+- **La vostra pagina e il QR**: indirizzo pubblico, QR, menù in PDF, sospensione (`SuspendActivityDialog`) ed eliminazione.
 
 ## Fuori dal parent
 
@@ -54,6 +54,6 @@ Quattro rotte figlie del parent `ActivityDetailPage` (§31): **Anagrafica** · *
 
 ## Indirizzi vecchi
 
-- `?tab=` sull'indice della sede → `legacyTabTarget` (`navLanding.ts`, che tiene solo questo): `profile`/`info`/`media` → Anagrafica, `hours` → Orari, `ordering`/`reservations` → Ordini e prenotazioni (`#ordini`/`#prenotazioni`), `settings`/`hours-services`/`access-control` → Pubblicazione, `sala`/`tables` → `servizio?modo=gestisci`, `service` → `servizio?modo=elenco`, `availability` → Cosa vedono. Sconosciuto → Anagrafica.
-- Rotte: `sala` → `servizio?modo=gestisci`; `canali` → `ordini-prenotazioni`; `disponibilita` → `cosa-vedono`.
+- `?tab=` sull'indice della sede → `legacyTabTarget` (`navLanding.ts`, che tiene solo questo): `profile`/`info`/`media` → Anagrafica, `hours` → Orari, `ordering`/`reservations` → Ordini e prenotazioni (`#ordini`/`#prenotazioni`), `settings`/`hours-services`/`access-control` → la parte «La vostra pagina e il QR», `sala`/`tables` → `servizio?modo=sala`, `service` → `servizio?modo=elenco`, `availability` → Cosa vedono. Sconosciuto → Anagrafica.
+- Rotte: `sala` → `servizio?modo=sala`; `come-lavorate` → la Scheda; `orari`, `pubblicazione`, `ordini-al-tavolo`, `prenotazioni-online`, `ordini-prenotazioni` e `canali` → la Scheda con la loro parte (`SchedaRedirect`, `?parte=`); `disponibilita` → `cosa-vedono`.
 - `comande?tab=tavoli` → `servizio?modo=mappa`; `comande?tab=storico` → `storico`; `prenotazioni?tab=service` → `servizio?modo=elenco`.

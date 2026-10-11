@@ -267,13 +267,13 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
     const orderingChecklist: ChecklistItem[] = [
         {
             id: "published",
-            title: "Sede pubblicata",
-            shortTitle: "Pubblicata",
+            title: "Sede online",
+            shortTitle: "Online",
             description:
                 "Finché la sede è sospesa la pagina pubblica non è raggiungibile e il QR del tavolo non porta da nessuna parte.",
             done: activity.status === "active",
-            actionLabel: "Vai a Pubblicazione",
-            onAction: () => goToSection("pubblicazione")
+            actionLabel: "Vai alla pagina e al QR",
+            onAction: () => goToSection("anagrafica", undefined, "link")
         }
     ];
     const reservationsChecklist: ChecklistItem[] = [
@@ -284,7 +284,7 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
             description: "Senza orari la pagina pubblica non offre nessuna data: le prenotazioni online non partono.",
             done: hasOpenHours,
             actionLabel: "Vai a Orari",
-            onAction: () => goToSection("orari")
+            onAction: () => goToSection("anagrafica", undefined, "orari")
         },
         {
             id: "capacity",
@@ -324,7 +324,7 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
             <div className={styles.page}>
                 <section id="ordini" aria-label="Ordini al tavolo" className={styles.section}>
                     {activity.status !== "active" && (
-                        <Checklist title="Prima degli ordini" items={orderingChecklist} doneTitle="La sede è pubblicata" />
+                        <Checklist title="Prima degli ordini" items={orderingChecklist} doneTitle="La sede è online" />
                     )}
                     <Card title="Ordini al tavolo" subtitle="Il cliente ordina inquadrando il QR del tavolo">
                         <div className={styles.stack}>
@@ -345,7 +345,7 @@ export default function ActivityOrdiniPrenotazioniRoute({ part }: ActivityOrdini
                                 <li>
                                     <Text as="span" variant="caption" colorVariant="muted">
                                         I tavoli e i loro QR stanno nella tab{" "}
-                                        <Link to="../sala" relative="path" className={styles.link}>
+                                        <Link to={{ pathname: "../servizio", search: "?modo=sala" }} relative="path" className={styles.link}>
                                             Sala
                                         </Link>
                                         .

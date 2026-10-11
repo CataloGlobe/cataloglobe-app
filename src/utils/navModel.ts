@@ -132,7 +132,7 @@ const SCHEDA: NavEntry = {
     level: "sede",
     segment: "anagrafica",
     gate: { on: "activity", permission: "activity.read" },
-    matchSegments: ["orari", "ordini-al-tavolo", "prenotazioni-online", "sala", "pubblicazione"]
+    matchSegments: ["come-lavorate", "orari", "ordini-al-tavolo", "prenotazioni-online", "pubblicazione"]
 };
 
 // «Cosa vedono i clienti» (§19, M7): legge chi legge la sede; scrive chi ha
@@ -225,8 +225,8 @@ const SERVIZIO: NavEntry = {
     level: "sede",
     segment: "servizio",
     gate: { on: "activityCheck", check: canSeeServizio },
-    // Col piano Base tutti i suoi modi hanno il lucchetto (la Sala è nella Scheda, SV3).
-    requiresFeature: ["table_reservation", "table_ordering"],
+    // Niente lucchetto sulla voce: la Sala c'è su ogni piano, Elenco e Mappa
+    // hanno il loro dentro la pagina.
     usable: (permissions, hasFeature, activityId) =>
         resolveServizioMode(null, permissions, hasFeature, activityId) !== null
 };
@@ -454,17 +454,15 @@ export function isConfigurator(permissions: UserPermissions): boolean {
 
 /**
  * Entrando in una sede. Chi la gestisce parte dalla Scheda; staff e viewer
- * dalla prima voce di Operatività che possono usare. Nessuna: la Sala se
- * leggono i tavoli (era il modo «Gestisci la sala» di Servizio, dove
- * atterravano col piano Base; correzioni UI SV3), altrimenti la Scheda.
+ * dalla prima voce di Operatività che possono usare (chi legge i tavoli ha
+ * almeno la Sala di Servizio, su ogni piano), altrimenti la Scheda.
  */
 export function sedeLandingSegment(permissions: UserPermissions, hasFeature: HasFeature, activityId: string): string {
     if (isOwnerOrAdmin(permissions) || canDoOnActivity(permissions, "activity.manage", activityId)) {
         return SEDE_FALLBACK_SEGMENT;
     }
     const first = IN_SALA.entries.find(e => isNavEntryUsable(e, permissions, hasFeature, activityId));
-    if (first) return first.segment;
-    return canDoOnActivity(permissions, "tables.read", activityId) ? "sala" : SEDE_FALLBACK_SEGMENT;
+    return first ? first.segment : SEDE_FALLBACK_SEGMENT;
 }
 
 /**

@@ -13,8 +13,9 @@ import type { PlanFeature } from "@/lib/planFeatures";
  * - `hidden` — senza permesso non si mostra.
  *
  * L'Elenco (le tavolate, lotto B-b) è il primo: col piano Pro si atterra lì.
+ * La Sala è l'ultimo e non ha lucchetto: col piano Base si atterra lì.
  */
-export type ServizioMode = "elenco" | "mappa";
+export type ServizioMode = "elenco" | "mappa" | "sala";
 
 export interface ServizioModeEntry {
     mode: ServizioMode;
@@ -36,16 +37,16 @@ export const SERVIZIO_MODES: readonly ServizioModeEntry[] = [
     },
     // La sala per zona, col pannello del conto: era Comande → Tavoli. Legge
     // tavoli e ordini; senza ordini al tavolo nel piano ha il lucchetto.
-    { mode: "mappa", label: "Mappa", permissions: ["tables.read", "orders.read"], requiresFeature: "table_ordering" }
-    // La configurazione della sala («Gestisci la sala») è la tab Sala della
-    // Scheda della sede (correzioni UI SV3): `?modo=gestisci` porta lì.
+    { mode: "mappa", label: "Mappa", permissions: ["tables.read", "orders.read"], requiresFeature: "table_ordering" },
+    // La configurazione della sala (tavoli, zone, QR): era la tab Sala della
+    // Scheda (SV3); con la Scheda C+++ torna qui (Officina 3, versione 5).
+    // I vecchi `?modo=gestisci` portano qui.
+    { mode: "sala", label: "Sala", permissions: ["tables.read"] }
 ];
 
 /**
  * Chi vede la voce Servizio: chi ha i permessi di almeno un modo, anche se il
- * piano lo chiude col lucchetto. Prima bastava leggere tavoli o tavolate (D1),
- * perché «Gestisci la sala» chiedeva solo `tables.read`; uscita la Sala
- * (SV3), chi legge solo i tavoli li trova nella tab Sala della Scheda.
+ * piano lo chiude col lucchetto. Con la Sala basta leggere i tavoli.
  */
 export function canSeeServizio(permissions: UserPermissions, activityId: string): boolean {
     return SERVIZIO_MODES.some(entry => entry.permissions.every(p => canDoOnActivity(permissions, p, activityId)));
@@ -66,6 +67,11 @@ export function modeAccess(
 
 export function isServizioMode(value: string | null | undefined): value is ServizioMode {
     return SERVIZIO_MODES.some(m => m.mode === value);
+}
+
+/** I vecchi nomi dei modi: «Gestisci la sala» è la Sala. */
+export function normalizeServizioMode(value: string | null): string | null {
+    return value === "gestisci" ? "sala" : value;
 }
 
 /**

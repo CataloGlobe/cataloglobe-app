@@ -18,9 +18,10 @@ interface ActivitySectionRedirectProps {
  */
 export default function ActivitySectionRedirect({ to, keepHash = false, keepSearch = false }: ActivitySectionRedirectProps) {
     const { hash, search } = useLocation();
+    const nextHash = keepHash && hash ? hash : "";
     return (
         <Navigate
-            to={{ pathname: `../${to}`, hash: keepHash ? hash : "", search: keepSearch ? search : "" }}
+            to={{ pathname: `../${to}`, hash: nextHash, search: keepSearch ? search : "" }}
             replace
             relative="path"
         />

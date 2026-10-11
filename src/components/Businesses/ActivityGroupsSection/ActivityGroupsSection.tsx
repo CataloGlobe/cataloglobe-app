@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { getActivityGroups, getGroupsForActivity, deleteActivityGroup } from "@/services/supabase/activity-groups";
@@ -152,18 +153,8 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 cell: (_, group) => (
                     <TableRowActions
                         actions={[
-                            {
-                                label: "Modifica",
-                                onClick: () => setDrawer({ open: true, mode: "edit", groupId: group.id }),
-                                hidden: !canWrite
-                            },
-                            {
-                                label: "Elimina",
-                                onClick: () => setDeleteTarget(group),
-                                variant: "destructive",
-                                separator: true,
-                                hidden: !canWrite || group.is_system
-                            }
+                            rowAction.edit(() => setDrawer({ open: true, mode: "edit", groupId: group.id }), { hidden: !canWrite }),
+                            rowAction.remove(() => setDeleteTarget(group), { hidden: !canWrite || group.is_system })
                         ]}
                     />
                 )

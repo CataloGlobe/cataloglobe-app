@@ -70,7 +70,8 @@ interface TranslationsTabProps {
     flush?: boolean;
     /**
      * Senza card esterna (bordo e sfondo): titolo e descrizione restano,
-     * per chi la mette già dentro una card (Menù, correzioni UI MD5).
+     * per chi la mette già dentro una card (Menù, correzioni UI MD5). Con
+     * `sectionLabel` vuoto sparisce anche la testata.
      */
     bare?: boolean;
     /** Etichetta del segmento primario (es. "Descrizione" / "Nome"). */
@@ -771,20 +772,25 @@ export function TranslationsTab({
     );
 }
 
-/** La sezione senza card (`bare`): stessa testata, niente bordo né sfondo. */
+/**
+ * La sezione senza card (`bare`): stessa testata, niente bordo né sfondo.
+ * Senza titolo niente testata (la mette chi la contiene, es. la scheda del prodotto).
+ */
 function BareSection({ title, subtitle, children }: { title?: string; subtitle?: string; children?: ReactNode }) {
     return (
         <section className={styles.bare}>
-            <div className={styles.bareHeader}>
-                <Text as="h3" variant="title-sm" weight={600}>
-                    {title}
-                </Text>
-                {subtitle && (
-                    <Text variant="caption" colorVariant="muted">
-                        {subtitle}
+            {title && (
+                <div className={styles.bareHeader}>
+                    <Text as="h3" variant="title-sm" weight={600}>
+                        {title}
                     </Text>
-                )}
-            </div>
+                    {subtitle && (
+                        <Text variant="caption" colorVariant="muted">
+                            {subtitle}
+                        </Text>
+                    )}
+                </div>
+            )}
             {children}
         </section>
     );

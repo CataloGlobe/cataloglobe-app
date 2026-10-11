@@ -17,16 +17,20 @@ const LEGGE = ["tables.read", "orders.read"];
 /** Staff e viewer della matrice (§6): leggono tavoli, ordini, prenotazioni e tavolate. */
 const TUTTO = ["tables.read", "orders.read", "reservations.read", "seatings.read"];
 
-// «Gestisci la sala» non è più un modo di Servizio: è la tab Sala della
-// Scheda (correzioni UI SV3).
+// La Sala (tavoli, zone, QR) è il terzo modo di Servizio, senza lucchetto
+// (Officina 3: con la Scheda C+++ esce dalla Scheda e torna qui).
 describe("canSeeServizio", () => {
     it("chi ha i permessi di un modo, anche col lucchetto del piano", () => {
         expect(canSeeServizio(perms("viewer", LEGGE), SEDE)).toBe(true);
         expect(canSeeServizio(perms("viewer", ["reservations.read", "seatings.read"]), SEDE)).toBe(true);
     });
 
-    it("chi legge solo i tavoli non vede Servizio: i tavoli stanno nella Sala", () => {
-        expect(canSeeServizio(perms("viewer", ["tables.read"]), SEDE)).toBe(false);
+    it("chi legge solo i tavoli vede Servizio: c'è la Sala", () => {
+        expect(canSeeServizio(perms("viewer", ["tables.read"]), SEDE)).toBe(true);
+    });
+
+    it("senza nessun permesso dei modi non lo vede", () => {
+        expect(canSeeServizio(perms("viewer", ["orders.read"]), SEDE)).toBe(false);
     });
 
     it("i permessi valgono su questa sede", () => {
@@ -62,7 +66,7 @@ describe("modeAccess — Elenco (lotto B-b)", () => {
     });
 
     it("è il primo modo", () => {
-        expect(SERVIZIO_MODES.map(m => m.mode)).toEqual(["elenco", "mappa"]);
+        expect(SERVIZIO_MODES.map(m => m.mode)).toEqual(["elenco", "mappa", "sala"]);
     });
 });
 
@@ -71,9 +75,13 @@ describe("resolveServizioMode", () => {
         expect(resolveServizioMode(null, perms("staff", TUTTO), pro, SEDE)).toBe("elenco");
     });
 
-    it("col piano base nessun modo si usa: la pagina dice che è del piano Pro", () => {
-        expect(resolveServizioMode(null, perms("staff", TUTTO), base, SEDE)).toBeNull();
-        expect(resolveServizioMode("elenco", perms("staff", TUTTO), base, SEDE)).toBeNull();
+    it("col piano base si atterra sulla Sala, anche chiedendo l'Elenco", () => {
+        expect(resolveServizioMode(null, perms("staff", TUTTO), base, SEDE)).toBe("sala");
+        expect(resolveServizioMode("elenco", perms("staff", TUTTO), base, SEDE)).toBe("sala");
+    });
+
+    it("col piano base e senza i tavoli nessun modo si usa: la pagina dice che è del piano Pro", () => {
+        expect(resolveServizioMode(null, perms("staff", ["reservations.read", "seatings.read"]), base, SEDE)).toBeNull();
     });
 
     it("senza ?modo= il primo usabile: la Mappa col piano Pro", () => {
@@ -88,7 +96,11 @@ describe("resolveServizioMode", () => {
         expect(resolveServizioMode("boh", perms("staff", TUTTO), pro, SEDE)).toBe("elenco");
     });
 
+    it("chi legge solo i tavoli arriva alla Sala", () => {
+        expect(resolveServizioMode(null, perms("staff", ["tables.read"]), pro, SEDE)).toBe("sala");
+    });
+
     it("nessun modo usabile: null, la pagina dice che non c'è accesso", () => {
-        expect(resolveServizioMode(null, perms("staff", ["tables.read"]), pro, SEDE)).toBeNull();
+        expect(resolveServizioMode(null, perms("staff", ["orders.read"]), pro, SEDE)).toBeNull();
     });
 });

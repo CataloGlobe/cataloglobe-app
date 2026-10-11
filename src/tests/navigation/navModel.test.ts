@@ -225,9 +225,9 @@ describe("sedeLandingSegment — entrando in una sede", () => {
         expect(sedeLandingSegment(viewer(), pro, SEDE)).toBe("servizio");
     });
 
-    it("col piano Base Servizio ha solo modi col lucchetto: la Sala della Scheda (SV3)", () => {
-        expect(sedeLandingSegment(staff(), base, SEDE)).toBe("sala");
-        expect(sedeLandingSegment(viewer(), base, SEDE)).toBe("sala");
+    it("col piano Base Servizio si usa lo stesso: c'è la Sala (Officina 3)", () => {
+        expect(sedeLandingSegment(staff(), base, SEDE)).toBe("servizio");
+        expect(sedeLandingSegment(viewer(), base, SEDE)).toBe("servizio");
     });
 
     it("senza tavoli Servizio non si usa: Prenotazioni, poi Comande", () => {
@@ -258,7 +258,7 @@ describe("businessHomePath — l'ingresso nell'azienda (§51.6)", () => {
 
     it("staff con una sede: la prima voce di Operatività", () => {
         expect(businessHomePath("b", staff(), pro, [SEDE])).toBe(`/business/b/locations/${SEDE}/servizio`);
-        expect(businessHomePath("b", viewer(), base, [SEDE])).toBe(`/business/b/locations/${SEDE}/sala`);
+        expect(businessHomePath("b", viewer(), base, [SEDE])).toBe(`/business/b/locations/${SEDE}/servizio`);
     });
 
     it("staff con più sedi: Sedi, per scegliere il locale", () => {
@@ -285,7 +285,7 @@ describe("switchSedePath — cambiare sede resta sulla stessa pagina (§51.7)", 
         const p = perms("manager", PERMESSI_DI_SEDE.manager, [SEDE, ALTRA]);
         expect(switchSedePath("comande", "b", ALTRA, p, base)).toBe(`/business/b/locations/${ALTRA}/anagrafica`);
         expect(switchSedePath("comande", "b", ALTRA, staff([SEDE, ALTRA]), base)).toBe(
-            `/business/b/locations/${ALTRA}/sala`
+            `/business/b/locations/${ALTRA}/servizio`
         );
     });
 
@@ -295,8 +295,8 @@ describe("switchSedePath — cambiare sede resta sulla stessa pagina (§51.7)", 
 });
 
 describe("navEntryForSedeSegment — la voce accesa per un segmento di sede", () => {
-    it("le sei pagine della Scheda accendono la Scheda", () => {
-        for (const s of ["anagrafica", "orari", "ordini-al-tavolo", "prenotazioni-online", "sala", "pubblicazione"]) {
+    it("le vecchie pagine della Scheda accendono la Scheda", () => {
+        for (const s of ["anagrafica", "come-lavorate", "orari", "ordini-al-tavolo", "prenotazioni-online", "pubblicazione"]) {
             expect(navEntryForSedeSegment(s)?.key).toBe("anagrafica");
         }
     });

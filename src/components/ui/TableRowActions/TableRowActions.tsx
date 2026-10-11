@@ -30,6 +30,9 @@ interface TableRowActionsProps {
  */
 export function TableRowActions({ actions, ariaLabel = "Azioni" }: TableRowActionsProps) {
     const visibleActions = actions.filter(a => !a.hidden);
+    // Se una voce ha l'icona, quelle senza tengono il posto: le etichette
+    // partono tutte dallo stesso filo.
+    const anyIcon = visibleActions.some(a => a.icon);
 
     return (
         <Menu
@@ -50,6 +53,7 @@ export function TableRowActions({ actions, ariaLabel = "Azioni" }: TableRowActio
                     {action.separator && index > 0 && <Menu.Separator />}
                     <Menu.Item
                         icon={action.icon}
+                        leading={anyIcon && !action.icon ? <span className={styles.iconSlot} aria-hidden /> : undefined}
                         variant={action.variant === "destructive" ? "destructive" : action.variant === "accent" ? "accent" : "default"}
                         onSelect={action.onClick}
                         disabled={action.disabled}

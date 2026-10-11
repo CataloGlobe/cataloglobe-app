@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { IconPalette } from "@tabler/icons-react";
 import { LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
+import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
@@ -207,18 +208,11 @@ export default function Styles() {
     const renderRowActions = useCallback(
         (style: V2Style) => {
             const actions: TableRowAction[] = [
-                { label: canWrite ? "Modifica" : "Apri", onClick: () => navigate(styleUrl(style)) }
+                rowAction.edit(() => navigate(styleUrl(style)), { readOnly: !canWrite })
             ];
             if (canWrite) {
-                actions.push({ label: "Duplica", onClick: () => handleDuplicateClick(style) });
-                if (!style.is_system) {
-                    actions.push({
-                        label: "Elimina",
-                        onClick: () => handleDeleteClick(style),
-                        variant: "destructive",
-                        separator: true
-                    });
-                }
+                actions.push(rowAction.duplicate(() => handleDuplicateClick(style)));
+                if (!style.is_system) actions.push(rowAction.remove(() => handleDeleteClick(style)));
             }
             return <TableRowActions actions={actions} ariaLabel={`Azioni stile ${style.name}`} />;
         },
