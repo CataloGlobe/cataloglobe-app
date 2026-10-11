@@ -22,7 +22,6 @@ import { autoName, blankDraft, draftParts, timeFields, type Draft, type DraftLoo
 import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { whenOfRule, whereOfRule, type CalKind, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { deriveTypeFields } from "@/pages/Dashboard/Highlights/featuredContentTypes";
-import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { EV, clonePer, cloneWhen, effWhen, thingName, type Tunnel } from "./creaModel";
 import { writeSections } from "./menuSave";
 import { styleConfig } from "./creaStyle";
@@ -38,7 +37,6 @@ export type SaveCtx = {
     /** Il compagno della regola: lo stile per un menù, il menù per uno stile. */
     pair: string | null;
     /** Lo stile da cui parte uno stile nuovo. */
-    baseTokens: StyleTokenModel;
     /** I file dei blocchi immagine della storia, per id del blocco. */
     blockFiles: Record<string, File>;
     /**
@@ -109,7 +107,7 @@ async function saveMenu(t: Tunnel, c: SaveCtx): Promise<Saved> {
 /* ---------- lo stile ---------- */
 async function saveStile(t: Tunnel, c: SaveCtx): Promise<Saved> {
     const name = thingName(t);
-    const config = styleConfig(t, c.baseTokens);
+    const config = styleConfig(t);
     const st = await once(c, "style:" + name + ":" + JSON.stringify(config), async () => ({ id: (await createStyle(c.tenantId, name, config)).id }));
     if (!c.live || !c.pair) return { id: st.id, name, live: false, ruleId: null };
     const L = withThing(c.L, "style", st.id, name);

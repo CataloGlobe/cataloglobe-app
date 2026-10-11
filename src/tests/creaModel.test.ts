@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, readFromAi, steps, tunnelTitle, whenProblem, withAside, type FromMenu } from "@/pages/Dashboard/Crea/creaModel";
-import { aspectOf, DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
+import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
+import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
 
 // I tunnel di creazione (D124): i passi, cosa ferma «Avanti», la bozza del
 // Calendario e lo stile fatto con le quattro scelte.
@@ -47,10 +48,9 @@ describe("tunnel di creazione: cosa ferma «Avanti»", () => {
         expect(firstBlock({ ...named, sections: [{ key: "s", name: "Pizze", dishes: [dish], subs: [] }] }, OWNER)).toBeNull();
     });
 
-    it("lo stile vuole un colore; copiato, lo stile di partenza", () => {
+    it("lo stile va già bene com'è; copiato, vuole lo stile di partenza", () => {
         const t = { ...newTunnel("stile", ALL), name: "Natale" };
-        expect(blocker(t, "aspetto", OWNER)).toBe("Scegli un colore");
-        expect(blocker({ ...t, color: "#be123c" }, "aspetto", OWNER)).toBe("");
+        expect(blocker(t, "aspetto", OWNER)).toBe("");
         expect(blocker({ ...t, base: "copy" }, "nome", OWNER)).toBe("Scegli lo stile da cui partire");
     });
 
@@ -131,26 +131,69 @@ describe("tunnel di creazione: il titolo e cosa si perde uscendo", () => {
     });
 });
 
-describe("tunnel di creazione: lo stile con le quattro scelte", () => {
-    it("colore, tema, carattere e card sopra lo stile di partenza; il resto resta com'era", () => {
-        const t = { ...newTunnel("stile", ALL), color: "#be123c", dark: true, font: "lora" as const, card: "compatti" as const };
-        const tk = styleTokens(t, DEFAULT_STYLE_TOKENS);
-        expect(tk.colors.primary).toBe("#be123c");
-        expect(tk.colors.pageBackground).toBe(DARK_BG);
-        expect(tk.typography.fontFamily).toBe("lora");
-        expect(tk.card.productStyle).toBe("compact");
-        expect(tk.header).toEqual(DEFAULT_STYLE_TOKENS.header);
-        expect(tk.navigation).toEqual(DEFAULT_STYLE_TOKENS.navigation);
+describe("tunnel dello stile: l'aspetto intero", () => {
+    it("si parte dai colori di CataloGlobe e si scrive quello che si è scelto", () => {
+        const t = newTunnel("stile", ALL);
+        expect(styleTokens(t)).toEqual(DEFAULT_STYLE_TOKENS);
+        t.look.colors.primary = "#be123c";
+        t.look.colors.pageBackground = DARK_BG;
+        t.look.navigation.style = "tabs";
+        expect(parseTokens(styleConfig(t))).toMatchObject({ colors: { primary: "#be123c", pageBackground: DARK_BG }, navigation: { style: "tabs" }, header: DEFAULT_STYLE_TOKENS.header });
         expect(DEFAULT_STYLE_TOKENS.colors.primary).not.toBe("#be123c");
-        expect(aspectOf(tk)).toEqual({ dark: true, font: "lora", card: "compatti" });
     });
 
-    it("il tema chiaro su una base scura torna bianco; la card senza foto nasconde le foto", () => {
-        const dark = styleTokens({ ...newTunnel("stile", ALL), dark: true }, DEFAULT_STYLE_TOKENS);
-        const back = styleTokens({ ...newTunnel("stile", ALL), dark: false, card: "lista" }, dark);
-        expect(back.colors.pageBackground).toBe(LIGHT_BG);
-        expect(back.card.image.mode).toBe("hide");
-        expect(aspectOf(back).card).toBe("lista");
+    it("titolo, descrizione e pulsante dei contenuti in evidenza non sono dello stile: salvando tornano visibili", () => {
+        const t = newTunnel("stile", ALL);
+        t.look.appearance.showFeaturedCta = false;
+        t.look.appearance.showFeaturedTitle = false;
+        expect(hidFeatured(t.look)).toBe(true);
+        const out = cleanLook(t.look);
+        expect(hidFeatured(out)).toBe(false);
+        expect(parseTokens(styleConfig(t)).appearance.showFeaturedCta).not.toBe(false);
+        expect(t.look.appearance.showFeaturedCta).toBe(false);
+    });
+
+    it("il secondo colore uguale al principale non si scrive", () => {
+        const t = newTunnel("stile", ALL);
+        t.look.colors.accent = t.look.colors.primary.toUpperCase();
+        expect(cleanLook(t.look).colors.accent).toBeUndefined();
+        t.look.colors.accent = "#b45309";
+        expect(cleanLook(t.look).colors.accent).toBe("#b45309");
+    });
+
+    it("ogni parte torna com'era senza toccare le altre", () => {
+        const was = structuredClone(DEFAULT_STYLE_TOKENS), l = structuredClone(was);
+        l.colors.primary = "#be123c";
+        l.appearance.borderRadius = "none";
+        l.appearance.cardTreatment = "glass";
+        l.card.productStyle = "compact";
+        l.header.showAddress = !was.header.showAddress;
+        expect(PART_IDS.filter(p => partKey(l, p) !== partKey(was, p))).toEqual(["cima", "piatti", "colori"]);
+        restore(l, was, "colori");
+        expect(l.colors.primary).toBe(was.colors.primary);
+        expect(l.appearance.borderRadius).toBe(was.appearance.borderRadius);
+        expect(l.appearance.cardTreatment).toBe("glass");
+        restore(l, was, "piatti");
+        restore(l, was, "cima");
+        expect(lookKey(l)).toBe(lookKey(was));
+    });
+
+    it("la tavolozza ha dieci tinte per cinque toni; per lo sfondo solo molto chiari o molto scuri", () => {
+        expect(palette("ink")).toHaveLength(50);
+        expect(new Set(palette("ink")).size).toBe(50);
+        expect(palette("bg").every(c => lum(c) > 0.55 || lum(c) < 0.06)).toBe(true);
+    });
+
+    it("un colore che non si legge sullo sfondo dà l'avviso, e «Rendilo leggibile» lo sistema restando nella tinta", () => {
+        const l = structuredClone(DEFAULT_STYLE_TOKENS);
+        l.colors.primary = "#0f172a";
+        l.colors.pageBackground = DARK_BG;
+        expect(hardToRead(l)).toBe(true);
+        l.colors.primary = readable(l.colors.primary, DARK_BG);
+        expect(hardToRead(l)).toBe(false);
+        expect(contrast(l.colors.primary, DARK_BG)).toBeGreaterThanOrEqual(4.5);
+        expect(readable("#be123c", LIGHT_BG)).toBe("#be123c");
+        expect(contrast(readable("#fde68a", LIGHT_BG), LIGHT_BG)).toBeGreaterThanOrEqual(4.5);
     });
 
     it("scuro o chiaro dal colore", () => {

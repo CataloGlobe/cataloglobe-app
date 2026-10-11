@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { asEdit, asInside, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { aspectOf, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
+import { styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 
 // Modificare una cosa già creata nel tunnel (D140): il passo 0, i passi viola e
 // grigi, «Avanti» solo fra quelli scelti, si salva solo quello che è cambiato.
@@ -135,13 +135,16 @@ describe("modifica nel tunnel: quello che il Salva non potrebbe scrivere (review
 });
 
 describe("modifica nel tunnel: lo stile", () => {
-    it("le scelte non toccate lasciano i token com'erano", () => {
+    it("le scelte non toccate lasciano i token com'erano; solo l'aspetto cambiato si salva", () => {
         const base = structuredClone(DEFAULT_STYLE_TOKENS);
         base.card.productStyle = "compact";
         base.card.image.mode = "hide";
-        const t = newTunnel("stile", ALL);
-        Object.assign(t, aspectOf(base), { color: base.colors.primary });
-        expect(styleTokens(t, base)).toEqual(base);
-        expect(styleTokens({ ...t, card: "foto" }, base).card.productStyle).toBe("card");
+        const t = asEdit({ ...newTunnel("stile", ALL), name: "Sera", look: structuredClone(base) }, "st1", { id: null, count: 0 });
+        expect(styleTokens(t)).toEqual(base);
+        expect(changed(t, "aspetto")).toBe(false);
+        t.look.appearance.borderRadius = base.appearance.borderRadius === "none" ? "soft" : "none";
+        expect(changed(t, "aspetto")).toBe(true);
+        expect(changed(t, "nome")).toBe(false);
     });
+
 });

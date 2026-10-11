@@ -5,42 +5,19 @@ import { DEFAULT_STYLE_TOKENS, parseTokens, serializeTokens, type FontFamily, ty
 import { buildSingleFamilyFontUrl } from "@/utils/publicFontUrl";
 import type { V2Style } from "@/services/supabase/styles";
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { FONTS, type CardKey, type Tunnel } from "./creaModel";
+import { FONTS, type Tunnel } from "./creaModel";
+import { DARK_BG, LIGHT_BG, cleanLook, lum } from "./stileLook";
 
 export const FONT_CSS: Record<string, string> = Object.fromEntries(Object.entries(FONTS).map(([k, f]) => [k, f.css]));
 
 export const tokensOf = (st: V2Style | null | undefined): StyleTokenModel => (st ? parseTokens(st.current_version?.config ?? {}) : DEFAULT_STYLE_TOKENS);
 
-export const DARK_BG = "#0F172A";
-export const LIGHT_BG = "#FFFFFF";
+export { DARK_BG, LIGHT_BG };
+export const isDarkHex = (hex: string) => /^#?[0-9a-f]{6}$/i.test(hex.trim()) && lum(hex) < 0.35;
 
-export function isDarkHex(hex: string): boolean {
-    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-    if (!m) return false;
-    const n = parseInt(m[1], 16);
-    return 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255) < 128;
-}
-
-const cardOf = (tk: StyleTokenModel): CardKey => (tk.card.productStyle === "compact" ? "compatti" : tk.card.image.mode === "hide" ? "lista" : "foto");
-
-/** Le quattro scelte com'erano nello stile di partenza: il colore no, quello si sceglie. */
-export const aspectOf = (tk: StyleTokenModel) => ({ dark: isDarkHex(tk.colors.pageBackground), font: tk.typography.fontFamily, card: cardOf(tk) });
-
-/** Lo stile che si sta facendo: quello di partenza con le quattro scelte sopra. */
-export function styleTokens(t: Tunnel, base: StyleTokenModel): StyleTokenModel {
-    const tk = structuredClone(base);
-    if (t.color) tk.colors.primary = t.color;
-    if (t.dark !== isDarkHex(base.colors.pageBackground)) tk.colors.pageBackground = t.dark ? DARK_BG : LIGHT_BG;
-    tk.typography.fontFamily = t.font;
-    // la forma delle card si tocca solo se è cambiata: lo stile di partenza può averla più fine di queste tre
-    if (t.card !== cardOf(base)) {
-        tk.card.productStyle = t.card === "compatti" ? "compact" : "card";
-        tk.card.image.mode = t.card === "lista" ? "hide" : "show";
-    }
-    return tk;
-}
-
-export const styleConfig = (t: Tunnel, base: StyleTokenModel) => serializeTokens(styleTokens(t, base));
+/** Lo stile che si sta facendo e quello che si scrive (D186: tutto l'aspetto sta nel tunnel). */
+export const styleTokens = (t: Tunnel): StyleTokenModel => t.look;
+export const styleConfig = (t: Tunnel) => serializeTokens(cleanLook(t.look));
 
 /** Qualche piatto vero per il telefono: le prime sezioni del listino, due piatti l'una. */
 export function sampleOf(pick: readonly PickProduct[], only?: ReadonlySet<string>, sections = 3) {

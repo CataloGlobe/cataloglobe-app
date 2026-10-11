@@ -538,7 +538,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         stub = await stubProgrammazione(page);
     });
 
-    test("stile: quattro scelte, la bozza ha i token giusti e si atterra sull'editor", async ({ page }) => {
+    test("stile: le sei parti dell'aspetto, la bozza ha i token giusti e si atterra sull'editor", async ({ page }) => {
         stub.onWrite("styles.POST", ({ body }) => ({ id: ID.style, ...first(body) }));
         stub.onWrite("style_versions.POST", ({ body }) => ({ id: ID.version, ...first(body) }));
         stub.onWrite("styles.PATCH", ({ body }) => ({ id: ID.style, name: "Natale", ...first(body) }));
@@ -546,11 +546,23 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await next(page);
         await main(page).getByLabel("Nome dello stile").fill("Natale");
         await next(page);
-        await expect(button(page, "Avanti")).toBeDisabled();
+        // l'aspetto va già bene com'è: si può andare avanti senza toccare niente
+        await expect(button(page, "Avanti")).toBeEnabled();
         await button(page, "Rosso").click();
         await button(page, "Scuro").click();
         await button(page, "Lora").click();
-        await button(page, "Compatti").click();
+        await button(page, "Una riga di un elenco").click();
+        // la scelta che compare solo quando serve
+        await button(page, "I puntini, come sulla carta").click();
+        await button(page, "Sottolineata").click();
+        // la tavolozza è un fumetto sul pulsante: si chiude scegliendo
+        const second = main(page).getByRole("group", { name: "Secondo colore" });
+        await second.getByRole("button", { name: "Un altro colore" }).click();
+        const pal = page.getByRole("dialog", { name: "Secondo colore" });
+        await expect(pal.getByRole("button")).toHaveCount(50 + 2 + 1);
+        await pal.getByRole("button").nth(12).click();
+        await expect(pal).toHaveCount(0);
+        await expect(second.getByRole("button", { name: "Un tuo colore" })).toBeVisible();
         await button(page, "Tieni come bozza").click();
         await expect(page).toHaveURL(new RegExp(`/styles/${ID.style}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "styles.POST")).toMatchObject({ name: "Natale", is_system: false });
@@ -559,6 +571,9 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         expect(config).toContain("#0F172A");
         expect(config).toContain("lora");
         expect(config).toContain("compact");
+        expect(config).toContain("editorial");
+        expect(config).toContain("tabs");
+        expect(config).toContain("accent");
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
     });
 

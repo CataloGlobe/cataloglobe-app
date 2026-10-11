@@ -18,17 +18,18 @@ import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/Setti
 import type { Draft, Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { NO_IMPATTO, dropAside, scontriWait, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { rebase, KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { rebase, FONTS, KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
 import { loadTunnel } from "./creaLoad";
 import { entriesOf, type Loaded } from "./creaLoad";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
+import { sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
+import { StileAspetto } from "./StileAspetto";
 import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
 import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
-import { Adesso, Controlla, DoveQuando, Modifica, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { Adesso, Controlla, DoveQuando, Modifica, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuTipo, Quando, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -49,6 +50,10 @@ function useObjectUrl(f: File | null) {
     }, [f]);
     return url;
 }
+
+import type { FontFamily } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+
+const FONT_ALL = Object.keys(FONTS) as FontFamily[];
 
 export type TunnelProps = {
     kind: CreaKind;
@@ -149,19 +154,16 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
     const styleById = useMemo(() => new Map(data.styles.map(x => [x.id, x])), [data.styles]);
     const liveStyle = styleById.get(data.base?.styleId ?? data.systemStyleId ?? "") ?? data.styles[0] ?? null;
     const baseStyle = t.edit ? edit?.style ?? null : t.kind === "stile" && t.base === "copy" && t.baseStyleId ? styleById.get(t.baseStyleId) ?? null : null;
-    const baseTokens = useMemo(() => (t.kind === "stile" ? tokensOf(baseStyle) : tokensOf(liveStyle)), [t.kind, baseStyle, liveStyle]);
-    const tk = useMemo(() => (t.kind === "stile" && (i > 0 || t.edit) ? styleTokens(t, baseTokens) : t.kind === "stile" ? tokensOf(liveStyle) : baseTokens), [t, i, baseTokens, liveStyle]);
-    useFonts(step === "aspetto" ? ["lora", "patrick-hand", tk.typography.fontFamily] : [tk.typography.fontFamily]);
+    const liveTokens = useMemo(() => tokensOf(liveStyle), [liveStyle]);
+    const tk = t.kind === "stile" && (i > 0 || t.edit) ? styleTokens(t) : liveTokens;
+    useFonts(step === "aspetto" ? FONT_ALL : [tk.typography.fontFamily]);
 
-    // scegliere lo stile di partenza riporta le quattro scelte a com'erano lì
+    // scegliere lo stile di partenza riporta tutto l'aspetto a com'è lì
     const onBase = (id: string | null) =>
         u(x => {
             x.base = id ? "copy" : "zero";
             x.baseStyleId = id;
-            const a = aspectOf(tokensOf(id ? styleById.get(id) : null));
-            x.dark = a.dark;
-            x.font = a.font;
-            x.card = a.card;
+            x.look = structuredClone(tokensOf(id ? styleById.get(id) : null));
         });
 
     /* ---------- il Calendario: la bozza, i nomi, le durate ---------- */
@@ -285,14 +287,14 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
         setSaving(true);
         try {
             if (t.edit) {
-                await saveEdit(t, { tenantId, L, names: data.names, baseTokens, blockFiles });
+                await saveEdit(t, { tenantId, L, names: data.names, blockFiles });
                 void reload();
                 setLeave(false);
                 showToast({ message: "Modifiche salvate.", type: "success" });
                 setGoing(origin.to);
                 return true;
             }
-            const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, baseTokens, blockFiles, done: progress.current });
+            const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, blockFiles, done: progress.current });
             progress.current = new Map();
             const n = saved.name;
             const pub = t.kind === "menu" || t.kind === "stile" ? "in onda" : t.kind === "storia" ? "pubblicata" : "pubblicato";
