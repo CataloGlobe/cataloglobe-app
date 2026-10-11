@@ -113,12 +113,18 @@ $scia: 54px; /* logo 44 + gap 10 */
   }
 }
 
+/* Ai tocchi solo i pulsanti: da compatta la riga (alta come i tre testi) sporge sotto
+   il guscio e coprirebbe la cima della barra delle categorie. Il vuoto dell'isola
+   estesa lo prende il guscio. */
 .riga {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   min-height: 44px;
-  pointer-events: auto;
+
+  > :not(.testi, .logo) {
+    pointer-events: auto;
+  }
 }
 
 .logo {
@@ -161,6 +167,7 @@ $scia: 54px; /* logo 44 + gap 10 */
 
 /* Riga dello stato del locale: sfuma con la compattazione, senza cambiare altezza. */
 .stato {
+  pointer-events: auto;
   transition: opacity $passaggio ease, visibility 0s;
 }
 
