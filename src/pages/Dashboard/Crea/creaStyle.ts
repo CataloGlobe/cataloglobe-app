@@ -3,6 +3,9 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { DEFAULT_STYLE_TOKENS, parseTokens, serializeTokens, type FontFamily, type StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { buildSingleFamilyFontUrl } from "@/utils/publicFontUrl";
+import { listAppearanceSources } from "@/services/supabase/layoutScheduling";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
+import { appearanceOf, buildAppearance, describeStyleSaveWarning } from "@/utils/ruleAppearance";
 import type { V2Style } from "@/services/supabase/styles";
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { FONTS, type Tunnel } from "./creaModel";
@@ -47,6 +50,25 @@ export function useFonts(tokens: readonly FontFamily[]) {
             document.head.appendChild(l);
         }
     }, [key]);
+}
+
+/**
+ * Chi vede quello che si salva di uno stile: le sedi dove è in onda adesso, per nome
+ * (la frase dell'editor di prima). Null finché non si sa, o se nessuna regola viva lo porta.
+ */
+export function useStyleSeen(styleId: string | null, tenantId: string): string | null {
+    const [got, setGot] = useState<{ id: string; text: string | null } | null>(null);
+    useEffect(() => {
+        if (!styleId) return;
+        let off = false;
+        listAppearanceSources(tenantId)
+            .then(src => !off && setGot({ id: styleId, text: describeStyleSaveWarning(appearanceOf(buildAppearance({ ...src, instant: toRomeDateTime(new Date()), subscriptionInactive: false }), { kind: "style", id: styleId })) }))
+            .catch(() => undefined);
+        return () => {
+            off = true;
+        };
+    }, [styleId, tenantId]);
+    return got && got.id === styleId ? got.text : null;
 }
 
 /** I colori del logo dell'azienda, per la tavolozza; nessuno se il logo non c'è o non si legge. */

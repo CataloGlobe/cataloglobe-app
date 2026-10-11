@@ -513,9 +513,12 @@ export function Controlla({
     L,
     effect,
     styleName,
+    seen,
     onGo,
     onInsieme
 }: {
+    /** Lo stile in modifica: le sedi che vedono subito quello che si salva. */
+    seen?: string | null;
     t: Tunnel;
     c: Ctx;
     L: DraftLookups;
@@ -562,7 +565,7 @@ export function Controlla({
                         })}
                     </dl>
                 </div>
-                {t.kind === "stile" && changed(t, "aspetto") && <p className={s.hint}>I clienti vedono l'aspetto nuovo appena salvi, ovunque questo stile è in onda. Quello di prima resta nelle versioni dello stile.</p>}
+                {t.kind === "stile" && changed(t, "aspetto") && <p className={s.hint}>{seen ?? "I clienti vedono l'aspetto nuovo appena salvi, ovunque questo stile è in onda. Quello di prima resta nelle versioni dello stile."}</p>}
                 {t.kind === "stile" && changed(t, "aspetto") && hidFeatured(t.look) && <p className={s.hint}>Questo stile nascondeva titolo, descrizione o pulsante dei contenuti in evidenza: salvando tornano visibili. Se un contenuto non deve averli, si tolgono dal contenuto.</p>}
                 {inCal && (
                     <div className={s.blk}>

@@ -24,7 +24,7 @@ import { saveEdit } from "./creaEdit";
 import { loadTunnel } from "./creaLoad";
 import { entriesOf, type Loaded } from "./creaLoad";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
+import { sampleOf, styleTokens, tokensOf, useFonts, useStyleSeen } from "./creaStyle";
 import { StileAspetto } from "./StileAspetto";
 import { StilePhone } from "./StilePhone";
 import { lookKey } from "./stileLook";
@@ -171,6 +171,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     // nel passo dell'aspetto il telefono è la pagina vera; «com'era prima» vale finché non si tocca altro
     const realPhone = t.kind === "stile" && step === "aspetto" && !showAfter;
     const was = t.edit?.orig.look ?? null;
+    const seen = useStyleSeen(t.kind === "stile" && t.edit ? t.edit.id : null, tenantId);
     const [peek, setPeek] = useState<{ key: string; look: StyleTokenModel; label: string } | null>(null);
     const peeking = peek && peek.key === lookKey(t.look) ? peek : null;
     const onPeek = (look: StyleTokenModel | null, label = "") => setPeek(look ? { key: lookKey(t.look), look, label } : null);
@@ -421,7 +422,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 body = <StileNome t={t} u={u} styles={data.styles} onBase={onBase} />;
                 break;
             case "aspetto":
-                body = <StileAspetto t={t} u={u} tenantId={tenantId} rules={t.edit ? styleById.get(t.edit.id)?.usage_count ?? 0 : 0} onPeek={onPeek} />;
+                body = <StileAspetto t={t} u={u} tenantId={tenantId} rules={t.edit ? styleById.get(t.edit.id)?.usage_count ?? 0 : 0} onPeek={onPeek} seen={seen} />;
                 break;
             case "cosa":
                 body = <EvidCosa t={t} u={u} />;
@@ -464,7 +465,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 break;
             }
             default:
-                body = <Controlla t={t} c={c} L={L} effect={effect} styleName={styleName} onGo={n => go(n)} onInsieme={v => u(x => void (x.insieme = v))} />;
+                body = <Controlla t={t} c={c} L={L} seen={seen} effect={effect} styleName={styleName} onGo={n => go(n)} onInsieme={v => u(x => void (x.insieme = v))} />;
         }
 
     /* ---------- a destra ---------- */

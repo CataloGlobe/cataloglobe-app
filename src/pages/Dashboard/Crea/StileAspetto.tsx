@@ -1,13 +1,10 @@
 // «L'aspetto» nel tunnel dello stile (D186): le sei parti della pagina del cliente,
 // dall'alto in basso, con tutte le scelte dell'editor. Le forme sono quelle
 // dell'artifact «Lo stile nel tunnel», quarta versione.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { History, TriangleAlert, Undo2 } from "lucide-react";
 import { listStyleVersions } from "@/services/supabase/styles";
-import { listAppearanceSources } from "@/services/supabase/layoutScheduling";
-import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
-import { appearanceOf, buildAppearance, describeStyleSaveWarning } from "@/utils/ruleAppearance";
 import { useTenant } from "@/context/useTenant";
 import { useLogoColors } from "./creaStyle";
 import { parseTokens, type FontFamily, type StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
@@ -55,22 +52,10 @@ const LOOKS: readonly { name: string; primary: string; bg: string; font: FontFam
 const PART_NAME: Record<PartId, string> = { cima: "in cima alla pagina", categorie: "la riga delle categorie", evidenza: "in evidenza", piatti: "i piatti", colori: "colori e forme", carattere: "il carattere" };
 const day = (iso: string) => new Date(iso).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 
-export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly }: { t: Tunnel; u: U; tenantId: string; rules: number; onPeek: (look: Look | null, label?: string) => void; readOnly?: boolean }) {
+export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = null }: { t: Tunnel; u: U; tenantId: string; rules: number; seen?: string | null; onPeek: (look: Look | null, label?: string) => void; readOnly?: boolean }) {
     const editId = t.edit?.id ?? null;
     const { selectedTenant } = useTenant();
     const logo = useLogoColors(selectedTenant?.logo_url ? getTenantLogoPublicUrl(selectedTenant.logo_url) : null);
-    // chi vede subito quello che si salva: le sedi dove lo stile è in onda adesso
-    const [seen, setSeen] = useState<string | null>(null);
-    useEffect(() => {
-        if (!editId) return;
-        let off = false;
-        listAppearanceSources(tenantId)
-            .then(src => !off && setSeen(describeStyleSaveWarning(appearanceOf(buildAppearance({ ...src, instant: toRomeDateTime(new Date()), subscriptionInactive: false }), { kind: "style", id: editId }))))
-            .catch(() => undefined);
-        return () => {
-            off = true;
-        };
-    }, [editId, tenantId]);
     // le versioni di prima si leggono la prima volta che si aprono
     const [open, setOpen] = useState(false);
     const [vers, setVers] = useState<{ id: string; when: string; look: Look }[] | "failed" | null>(null);
