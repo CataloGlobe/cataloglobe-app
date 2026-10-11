@@ -165,7 +165,7 @@ export default function Island({
                         />
                     )}
                     <div className={styles.testi}>
-                        <h1 className={styles.nome}>{activityName}</h1>
+                        <span className={styles.nome}>{activityName}</span>
                         {menuName && <span className={styles.menu}>{menuName}</span>}
                     </div>
                     <LanguageSelector />
