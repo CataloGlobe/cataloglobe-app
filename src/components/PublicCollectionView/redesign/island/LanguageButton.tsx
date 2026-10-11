@@ -4,8 +4,8 @@ import { openVenueSheet } from "../sheets/venueSheetPages";
 import styles from "./LanguageButton.module.scss";
 
 /**
- * Lingua nell'isola: la bandiera apre la pagina «Lingua» del foglio unico (al
- * posto del `PublicSheet` di `LanguageSelector`). Niente con una lingua sola.
+ * Lingua nell'isola, «🇮🇹 IT» (spec §2): apre la pagina «Lingua» del foglio unico
+ * (al posto del `PublicSheet` di `LanguageSelector`). Niente con una lingua sola.
  */
 export default function LanguageButton({ className, id }: { className: string; id?: string }) {
     const { t } = useTranslation("public");
@@ -25,9 +25,10 @@ export default function LanguageButton({ className, id }: { className: string; i
                 <span className={styles.flag} aria-hidden>
                     {active.flag_emoji}
                 </span>
-            ) : (
-                <span className={styles.code}>{currentLang.toUpperCase()}</span>
-            )}
+            ) : null}
+            <span className={styles.code} aria-hidden>
+                {currentLang.toUpperCase()}
+            </span>
         </button>
     );
 }

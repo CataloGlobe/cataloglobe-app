@@ -74,7 +74,10 @@
         "share_label": "Share",
         "share_subtitle": "Send this page's link",
         "share_copied": "Link copied",
-        "share_error": "Couldn't copy the link"
+        "share_error": "Couldn't copy the link",
+        "story_label": "Our story",
+        "story_subtitle": "Who we are, where our dishes come from",
+        "menu_label": "Back to the menu"
     },
     "search": {
         "placeholder": "Search product…",

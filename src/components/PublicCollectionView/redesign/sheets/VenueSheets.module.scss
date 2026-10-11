@@ -6,6 +6,14 @@
   flex-direction: column;
 }
 
+/* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts). */
+/* `.row.soloDesktop`: deve battere il `display: flex` di `.row`, che viene dopo. */
+@media (max-width: 640px) {
+  .row.soloDesktop {
+    display: none;
+  }
+}
+
 .row {
   display: flex;
   align-items: center;

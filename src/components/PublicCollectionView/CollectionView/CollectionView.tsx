@@ -2958,9 +2958,10 @@ export default function CollectionView({
                       openingHours: openingHours ?? [],
                       upcomingClosures: upcomingClosures ?? [],
                       onOpenHours: () => (sheets ? sheets.open("hours") : setIsInfoSheetOpen(true)),
-                      sections: activeTab === "menu" && !emptyState && !allFiltered ? navItems : [],
+                      categoryGroups: activeTab === "menu" && !emptyState && !allFiltered ? displaySectionGroups : [],
                       activeSectionId,
                       onSelectSection: scrollToSection,
+                      onSelectSubSection: scrollToSubSection,
                       onOpenCategories: () => (sheets ? sheets.open("categories") : setIsCategoriesSheetOpen(true)),
                       onOpenFilters: handleOpenFilters
                   })
@@ -3184,9 +3185,9 @@ export default function CollectionView({
                                 }}
                             />
                         );
-                        // Redesign: su desktop le categorie stanno nell'isola. Il contenitore
-                        // `display: contents` non tocca lo sticky della barra sul telefono.
-                        // Senza isola (stile con testata spenta) la barra resta anche su desktop.
+                        // Redesign: le categorie stanno nell'isola (spec §2, §13), la barra
+                        // vecchia resta montata ma nascosta (offsetHeight 0 nell'offset di scroll).
+                        // Senza isola (stile con testata spenta) la barra resta.
                         return mode === "public" && headerSlot && hasHeader ? (
                             <div className={styles.redesignNav}>{sectionNav}</div>
                         ) : (
@@ -3673,6 +3674,9 @@ export default function CollectionView({
                 shareUrl,
                 shareTitle: businessName,
                 featured: { ...featuredLook, contents: featuredContents },
+                story: showStoryTab
+                    ? { active: activeTab === "storia", onToggle: () => handleHubTabTap(activeTab === "storia" ? "menu" : "storia") }
+                    : undefined,
                 categories: {
                     groups: displaySectionGroups,
                     activeSectionId,

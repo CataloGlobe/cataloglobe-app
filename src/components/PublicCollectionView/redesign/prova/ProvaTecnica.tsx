@@ -259,6 +259,12 @@ export default function ProvaTecnica() {
                 openingHours={orari}
                 upcomingClosures={[]}
                 onOpenHours={() => openSheet({ key: "info", title: "Informazioni", size: "medium" })}
+                categoryGroups={tab === "menu" ? SEZIONI.map(root => ({ root, children: [] })) : []}
+                activeSectionId={sezione}
+                onSelectSection={vaiA}
+                onSelectSubSection={vaiA}
+                onOpenCategories={() => undefined}
+                onOpenFilters={() => undefined}
             />
 
             <div ref={fondo} className={styles.contenuto}>

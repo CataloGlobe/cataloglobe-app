@@ -1,6 +1,8 @@
-/* Categorie nell'isola desktop: pill sul vetro scuro, fila che scorre di lato. */
+/* Pill delle categorie nell'isola (spec §2, §4, §13). Le pill non prendono il
+   colore del locale, solo la forma: accesa bianca, le altre sul fondo tenue. */
 
 .root {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -13,24 +15,24 @@
   min-width: 0;
 }
 
-/* Sotto le frecce le pill sfumano: il testo non finisce tagliato dietro il cerchio. */
+/* Sfumatura di 28 px solo dalla parte dove c'è altro da scorrere (spec §2). */
 .track[data-start] .list {
-  mask-image: linear-gradient(to right, transparent 0, #000 48px);
+  mask-image: linear-gradient(to right, transparent 0, #000 28px);
 }
 
 .track[data-end] .list {
-  mask-image: linear-gradient(to left, transparent 0, #000 48px);
+  mask-image: linear-gradient(to left, transparent 0, #000 28px);
 }
 
 .track[data-start][data-end] .list {
-  mask-image: linear-gradient(to right, transparent 0, #000 48px, #000 calc(100% - 48px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
 }
 
 .list {
-  position: relative;
   display: flex;
-  gap: 4px;
+  gap: 6px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
@@ -40,65 +42,195 @@
 
 .pill {
   flex-shrink: 0;
-  min-height: 36px;
-  padding: 0 14px;
-  border: 0;
+  display: flex;
+  align-items: center;
+  height: 34px;
   border-radius: 999px;
-  background: transparent;
+  background: rgb(255 255 255 / 12%);
+  color: inherit;
+
+  &[data-current] {
+    background: #fff;
+    color: #111;
+  }
+}
+
+.pillName,
+.pillMore {
+  height: 100%;
+  border: 0;
+  background: none;
   color: inherit;
   font: inherit;
-  font-size: 14px;
-  white-space: nowrap;
   cursor: pointer;
-  opacity: 0.82;
+  -webkit-tap-highlight-color: transparent;
+}
 
-  &:hover {
-    opacity: 1;
+.pillName {
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* La ⌄ dentro la pill, dopo il nome: apre le sole sottocategorie di quella. */
+.pillMore {
+  display: grid;
+  place-items: center;
+  margin-left: -8px;
+  padding: 0 10px 0 2px;
+  border-radius: 0 999px 999px 0;
+  opacity: 0.72;
+}
+
+/* Frecce e «Tutte le categorie»: solo desktop. */
+.arrow,
+.all {
+  display: none;
+}
+
+/* Menu delle sottocategorie: sotto la sua pill, chiaro sul vetro scuro. */
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 2;
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 32px));
+  padding: 8px 0;
+  border-radius: 18px;
+  background: #faf8f4;
+  color: #1c1c1c;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 24%), 0 0 0 1px rgb(0 0 0 / 6%);
+  animation: entra 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top left;
+}
+
+@keyframes entra {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+.menuTitle {
+  padding: 6px 16px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.menuRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+
+  &[data-depth="2"] {
+    padding-left: 32px;
   }
 
   &[aria-current] {
-    background: #fff;
-    color: #111;
+    background: rgb(0 0 0 / 6%);
     font-weight: 600;
-    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
   }
 }
 
-/* Frecce sopra i bordi della fila, solo quando c'è altro da quella parte. */
-.arrow {
-  position: absolute;
-  top: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgb(255 255 255 / 20%);
-  border-radius: 999px;
-  background: rgb(36 36 36);
-  color: inherit;
-  cursor: pointer;
-  transform: translateY(-50%);
-
-  &[data-side="start"] {
-    left: 0;
-  }
-
-  &[data-side="end"] {
-    right: 0;
-  }
-}
-
-.all {
-  flex-shrink: 0;
-  min-height: 36px;
-  padding: 0 14px;
-  border: 1px solid rgb(255 255 255 / 20%);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 8%);
-  color: inherit;
-  font: inherit;
-  font-size: 14px;
+.menuName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
+}
+
+.menuCount {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation-duration: 1ms;
+  }
+}
+
+/* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts). */
+@media (min-width: 641px) {
+  .pill {
+    height: 36px;
+  }
+
+  .pillName {
+    font-size: 14px;
+  }
+
+  /* Su desktop la sfumatura sta sotto le frecce. */
+  .track[data-start] .list {
+    mask-image: linear-gradient(to right, transparent 0, #000 48px);
+  }
+
+  .track[data-end] .list {
+    mask-image: linear-gradient(to left, transparent 0, #000 48px);
+  }
+
+  .track[data-start][data-end] .list {
+    mask-image: linear-gradient(to right, transparent 0, #000 48px, #000 calc(100% - 48px), transparent 100%);
+  }
+
+  .arrow {
+    position: absolute;
+    top: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 999px;
+    background: rgb(36 36 36);
+    color: inherit;
+    cursor: pointer;
+    transform: translateY(-50%);
+
+    &[data-side="start"] {
+      left: 0;
+    }
+
+    &[data-side="end"] {
+      right: 0;
+    }
+  }
+
+  .all {
+    display: block;
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 8%);
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
 }

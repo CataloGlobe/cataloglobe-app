@@ -15,7 +15,9 @@ import {
     MapPin,
     MessageCircle,
     Phone,
-    Share2
+    ScrollText,
+    Share2,
+    Utensils
 } from "lucide-react";
 import { useLanguage } from "@context/Language/useLanguage";
 import PublicOpeningHours from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
@@ -310,12 +312,13 @@ type RowProps = {
     onClick?: () => void;
     disabled?: boolean;
     chevron?: boolean;
+    className?: string;
 };
 
 /** Riga toccabile del foglio: icona, testo su due righe, freccia se porta altrove. */
-function Row({ icon, label, subtitle, onClick, disabled = false, chevron = true }: RowProps) {
+function Row({ icon, label, subtitle, onClick, disabled = false, chevron = true, className }: RowProps) {
     return (
-        <button type="button" className={styles.row} onClick={onClick} disabled={disabled}>
+        <button type="button" className={className ? `${styles.row} ${className}` : styles.row} onClick={onClick} disabled={disabled}>
             <span className={styles.rowIcon} aria-hidden>
                 {icon}
             </span>
@@ -338,6 +341,7 @@ function MorePage({
     shareUrl,
     shareTitle,
     menuInfo,
+    story,
     bookingInSheet
 }: SheetsSlotContext & { bookingInSheet: boolean }) {
     const { t } = useTranslation("public");
@@ -378,6 +382,19 @@ function MorePage({
 
     return (
         <div className={styles.list}>
+            {/* Storia su desktop (deciso da Lorenzo il 2026-10-11): sul telefono sta nella barra in basso. */}
+            {story ? (
+                <Row
+                    className={styles.soloDesktop}
+                    icon={story.active ? <Utensils size={18} strokeWidth={2} /> : <ScrollText size={18} strokeWidth={2} />}
+                    label={story.active ? t("more.menu_label") : t("more.story_label")}
+                    subtitle={story.active ? null : t("more.story_subtitle")}
+                    onClick={() => {
+                        closeSheet();
+                        story.onToggle();
+                    }}
+                />
+            ) : null}
             {hasInfo ? (
                 <Row
                     icon={<Info size={18} strokeWidth={2} />}

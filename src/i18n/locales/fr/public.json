@@ -74,7 +74,10 @@
     "share_label": "Partager",
     "share_subtitle": "Envoyer le lien de cette page",
     "share_copied": "Lien copié",
-    "share_error": "Impossible de copier le lien"
+    "share_error": "Impossible de copier le lien",
+    "story_label": "Notre histoire",
+    "story_subtitle": "Qui nous sommes, d'où viennent nos plats",
+    "menu_label": "Retour au menu"
   },
   "search": {
     "placeholder": "Recherche de produits...",

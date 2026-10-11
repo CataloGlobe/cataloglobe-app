@@ -1618,11 +1618,7 @@
 }
 
 /* Redesign: barra delle categorie solo sul telefono; su desktop stanno nell'isola. */
+/* Redesign: le categorie sono le pill dell'isola, su telefono e desktop. */
 .redesignNav {
-  display: contents;
-
-  /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts). */
-  @media (min-width: 641px) {
-    display: none;
-  }
+  display: none;
 }

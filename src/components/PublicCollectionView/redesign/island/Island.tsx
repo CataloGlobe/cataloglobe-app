@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MoreHorizontal, Search } from "lucide-react";
-import type { HubTab } from "@/types/collectionStyle";
 import { SEARCH_TRIGGER_ID } from "@components/PublicCollectionView/PublicCollectionHeader/PublicCollectionHeader";
+import { useLanguage } from "@context/Language/useLanguage";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import lensStyles from "./LensDot.module.scss";
 import type { HeaderSlotContext } from "../slots";
@@ -16,17 +16,14 @@ import styles from "./Island.module.scss";
 // Isteresi: compatta oltre 40 px, torna estesa sotto 8 px. Validata su iPhone e Android (PR 1).
 const SOGLIA_ALTA = 40;
 const SOGLIA_BASSA = 8;
-/** Altezza dell'isola compatta + distanza dal bordo: da qui parte la barra delle categorie sticky. */
-const ALTEZZA_COMPATTA_PX = 68;
-/** Desktop: le categorie stanno nell'isola, gli scroll verso le sezioni partono sotto la riga unica. */
-const ALTEZZA_COMPATTA_DESKTOP_PX = 82;
+/** Telefono: isola compatta (52) + distanza dal bordo (10). Da qui partono gli scroll verso le sezioni. */
+const ALTEZZA_COMPATTA_PX = 62;
+/** Desktop: riga unica (58 + bordi) + distanza dal bordo (14). */
+const ALTEZZA_COMPATTA_DESKTOP_PX = 74;
+/** Telefono, da compatta: la fila delle pill sale fin qui dal bordo dell'isola ((52 − 34) / 2). */
+const CIMA_FILA_COMPATTA_PX = 9;
 /** ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts) e con Island.module.scss. */
 const DESKTOP_QUERY = "(min-width: 641px)";
-
-const HUB_TABS: { id: HubTab; labelKey: string }[] = [
-    { id: "menu", labelKey: "hub.menu" },
-    { id: "storia", labelKey: "hub.storia" }
-];
 
 /**
  * Due sentinelle assolute in cima alla pagina: nessun lavoro a ogni scroll,
@@ -57,6 +54,16 @@ function useCompatta() {
     return { compatta, alta, bassa };
 }
 
+/**
+ * Isola della pagina pubblica (spec §2, §13; mockup v38).
+ *
+ * Telefono, in cima: riga 1 logo, nome, «menu · stato», lingua; riga 2 le pill
+ * delle categorie e la capsula «cerca · ⋯». Compatta: resta solo la riga 2.
+ * In Storia la riga 2 non c'è e il ⋯ sale accanto alla lingua.
+ * Desktop: riga 1 logo, nome e stato, campo di ricerca, lingua, ⋯; riga 2 solo
+ * le categorie; compatta su una riga sola. Menu e Storia non stanno qui: sul
+ * telefono nella barra in basso, su desktop nel ⋯.
+ */
 export default function Island({
     logoUrl,
     coverImageUrl,
@@ -67,14 +74,13 @@ export default function Island({
     allergensCount,
     onOpenMore,
     activeTab,
-    onTabChange,
-    showStoryTab,
     openingHours,
     upcomingClosures,
     onOpenHours,
-    sections,
+    categoryGroups,
     activeSectionId,
     onSelectSection,
+    onSelectSubSection,
     onOpenCategories,
     onOpenFilters
 }: HeaderSlotContext) {
@@ -82,10 +88,13 @@ export default function Island({
     const { compatta, alta, bassa } = useCompatta();
     const slotRef = useRef<HTMLDivElement>(null);
     const rootRef = useRef<HTMLElement>(null);
+    const filaRef = useRef<HTMLDivElement>(null);
     const compattaRef = useRef(false);
     const primerRef = useRef<HTMLInputElement>(null);
     const campoRef = useRef<HTMLButtonElement>(null);
     const lenteRef = useRef<HTMLButtonElement>(null);
+    const storia = activeTab === "storia";
+    const piuLingue = useLanguage().availableLanguages.length > 1;
 
     // Desktop: da estesa a compatta il campo lascia il posto alla lente (e viceversa).
     // Se il fuoco era sul pezzo che sparisce, passa all'altro: non cade sul body.
@@ -101,22 +110,27 @@ export default function Island({
     }, [compatta]);
 
     // Il contenitore sticky tiene l'altezza dell'isola estesa: quando l'isola si compatta
-    // la pagina sotto non si muove. Si misura solo da estesa.
+    // la pagina sotto non si muove. Da estesa si misura anche quanto deve salire la riga
+    // delle pill per stare al centro dell'isola compatta (solo transform, niente reflow).
     compattaRef.current = compatta;
     useEffect(() => {
         const slot = slotRef.current;
         const isola = rootRef.current;
         if (!slot || !isola) return;
         const misura = () => {
+            // `offsetTop` ignora il transform: la salita si misura anche da compatta
+            // (pagina ricaricata già scorsa, ritorno da Storia, rotazione).
+            const fila = filaRef.current;
+            if (fila) isola.style.setProperty("--sali", `${fila.offsetTop - CIMA_FILA_COMPATTA_PX}px`);
             if (!compattaRef.current) slot.style.height = `${isola.offsetHeight}px`;
         };
         misura();
         const ro = new ResizeObserver(misura);
         ro.observe(isola);
         return () => ro.disconnect();
-    }, []);
+    }, [storia]);
 
-    // La barra delle categorie e gli scroll verso le sezioni leggono questa variabile su <main>.
+    // Gli scroll verso le sezioni leggono questa variabile su <main>: si fermano sotto l'isola compatta.
     useEffect(() => {
         const main = rootRef.current?.closest("main") as HTMLElement | null;
         if (!main) return;
@@ -142,7 +156,38 @@ export default function Island({
         primerRef.current?.focus();
         onSearchOpen();
     };
-    const tabs = showStoryTab ? HUB_TABS : [];
+
+    const piu = (
+        <button
+            id={MORE_BUTTON_ID}
+            type="button"
+            className={`${styles.tasto} ${styles.piu}`}
+            onClick={onOpenMore}
+            aria-label={t("header.more_aria")}
+        >
+            <MoreHorizontal size={18} strokeWidth={2} />
+        </button>
+    );
+
+    const lente = (
+        <button
+            ref={lenteRef}
+            type="button"
+            id={SEARCH_TRIGGER_ID}
+            className={`${styles.tasto} ${styles.lente}`}
+            onClick={event => openSearch(event.currentTarget)}
+            onPointerDown={onSearchPointerDown}
+            aria-label={
+                allergensCount > 0
+                    ? t("header.search_filters_aria", { count: allergensCount })
+                    : t("header.search_aria")
+            }
+        >
+            <Search size={17} strokeWidth={2} />
+            {/* Filtro attivo: un pallino, non un numero (spec §4, v32). */}
+            {allergensCount > 0 && <span className={lensStyles.dot} aria-hidden />}
+        </button>
+    );
 
     return (
         <>
@@ -178,134 +223,87 @@ export default function Island({
             )}
 
             <div ref={slotRef} className={styles.slot} data-cover={!!coverImageUrl || undefined}>
-            <header
-                ref={rootRef}
-                id={ISLAND_ID}
-                className={styles.isola}
-                data-compact={compatta}
-                data-cover={!!coverImageUrl || undefined}
-                data-logo={!!logoUrl || undefined}
-            >
-                <div className={styles.guscio} aria-hidden />
-                <div className={styles.riga}>
-                    {logoUrl && (
-                        <img
-                            src={logoUrl}
-                            alt={t("header.logo_alt", { name: activityName })}
-                            className={styles.logo}
-                            decoding="async"
-                            width={44}
-                            height={44}
-                        />
-                    )}
-                    <div className={styles.testi}>
-                        <span className={styles.nome}>{activityName}</span>
-                        {menuName && <span className={styles.menu}>{menuName}</span>}
-                        <div className={styles.stato}>
-                            <div>
+                <header
+                    ref={rootRef}
+                    id={ISLAND_ID}
+                    className={styles.isola}
+                    data-compact={compatta}
+                    data-tab={activeTab}
+                    data-cover={!!coverImageUrl || undefined}
+                    data-logo={!!logoUrl || undefined}
+                >
+                    <div className={styles.guscio} aria-hidden />
+                    <div className={styles.riga}>
+                        {logoUrl && (
+                            <img
+                                src={logoUrl}
+                                alt={t("header.logo_alt", { name: activityName })}
+                                className={styles.logo}
+                                decoding="async"
+                                width={40}
+                                height={40}
+                            />
+                        )}
+                        <div className={styles.testi}>
+                            <span className={styles.nome}>{activityName}</span>
+                            {/* «Menu pranzo  ● Aperto» su una riga; in Storia il menu non c'è. */}
+                            <div className={styles.linea}>
+                                {menuName && !storia && <i className={styles.menu}>{menuName}</i>}
                                 <VenuePill hours={openingHours} closures={upcomingClosures} onOpenHours={onOpenHours} />
                             </div>
                         </div>
-                    </div>
-                    {/* Desktop, isola estesa: il campo di ricerca prende lo spazio libero (spec §13). */}
-                    <div id={SEARCH_FIELD_ID} className={styles.campo}>
-                        <button
-                            ref={campoRef}
-                            type="button"
-                            className={styles.campoTesto}
-                            onClick={event => openSearch(event.currentTarget)}
-                            onPointerDown={onSearchPointerDown}
-                        >
-                            <Search size={16} strokeWidth={2} aria-hidden />
-                            <span>{t("header.search_field")}</span>
-                        </button>
-                        <button
-                            type="button"
-                            className={styles.campoFiltri}
-                            data-active={allergensCount > 0 || undefined}
-                            onClick={onOpenFilters}
-                        >
-                            {allergensCount > 0
-                                ? t("header.filters_count", { count: allergensCount })
-                                : t("more.filters_label")}
-                        </button>
-                    </div>
-                    <LanguageButton id={LANGUAGE_BUTTON_ID} className={`${styles.icona} ${styles.lingua}`} />
-                    <button
-                        ref={lenteRef}
-                        type="button"
-                        id={SEARCH_TRIGGER_ID}
-                        className={`${styles.icona} ${styles.lente}`}
-                        onClick={event => openSearch(event.currentTarget)}
-                        onPointerDown={onSearchPointerDown}
-                        aria-label={
-                            allergensCount > 0
-                                ? t("header.search_filters_aria", { count: allergensCount })
-                                : t("header.search_aria")
-                        }
-                    >
-                        <Search size={16} strokeWidth={2} />
-                        {/* Filtro attivo: un pallino, non un numero (spec §4, v32). */}
-                        {allergensCount > 0 && <span className={lensStyles.dot} aria-hidden />}
-                    </button>
-                    <button
-                        id={MORE_BUTTON_ID}
-                        type="button"
-                        className={`${styles.icona} ${styles.piu}`}
-                        onClick={onOpenMore}
-                        aria-label={t("header.more_aria")}
-                    >
-                        <MoreHorizontal size={16} strokeWidth={2} />
-                    </button>
-                </div>
-
-                {tabs.length > 0 && (
-                    <div className={styles.secondaRiga}>
-                        <div className={styles.capsula} role="tablist">
-                            {tabs.map(tab => (
-                                <button
-                                    key={tab.id}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={activeTab === tab.id}
-                                    className={styles.voce}
-                                    data-active={activeTab === tab.id || undefined}
-                                    onClick={() => onTabChange(tab.id)}
-                                >
-                                    {t(tab.labelKey)}
-                                </button>
-                            ))}
+                        {/* Desktop, isola estesa: il campo di ricerca prende lo spazio libero (spec §13). */}
+                        <div id={SEARCH_FIELD_ID} className={styles.campo}>
+                            <button
+                                ref={campoRef}
+                                type="button"
+                                className={styles.campoTesto}
+                                onClick={event => openSearch(event.currentTarget)}
+                                onPointerDown={onSearchPointerDown}
+                            >
+                                <Search size={16} strokeWidth={2} aria-hidden />
+                                <span>{t("header.search_field")}</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.campoFiltri}
+                                data-active={allergensCount > 0 || undefined}
+                                onClick={onOpenFilters}
+                            >
+                                {allergensCount > 0
+                                    ? t("header.filters_count", { count: allergensCount })
+                                    : t("more.filters_label")}
+                            </button>
                         </div>
+                        {/* In Storia la capsula è «lingua · ⋯» (la lente solo su desktop compatta). */}
+                        {(piuLingue || storia) && (
+                            <div className={styles.capsula} data-alta>
+                                <LanguageButton id={LANGUAGE_BUTTON_ID} className={`${styles.tasto} ${styles.lingua}`} />
+                                {storia && piuLingue && <span className={styles.divisore} aria-hidden />}
+                                {storia && lente}
+                                {storia && piu}
+                            </div>
+                        )}
                     </div>
-                )}
 
-                {/* Desktop: seconda riga (pagine e categorie); da compatta le categorie salgono nella riga unica. */}
-                <div className={styles.fila}>
-                    {tabs.length > 0 && (
-                        <div className={`${styles.capsula} ${styles.capsulaFila}`} role="tablist">
-                            {tabs.map(tab => (
-                                <button
-                                    key={tab.id}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={activeTab === tab.id}
-                                    className={styles.voce}
-                                    data-active={activeTab === tab.id || undefined}
-                                    onClick={() => onTabChange(tab.id)}
-                                >
-                                    {t(tab.labelKey)}
-                                </button>
-                            ))}
+                    {!storia && (
+                        <div ref={filaRef} className={styles.fila}>
+                            <IslandCategories
+                                className={styles.categorie}
+                                groups={categoryGroups}
+                                activeId={activeSectionId}
+                                onSelect={onSelectSection}
+                                onSelectSub={onSelectSubSection}
+                                onOpenAll={onOpenCategories}
+                            />
+                            <div className={styles.capsula}>
+                                {lente}
+                                <span className={styles.divisore} aria-hidden />
+                                {piu}
+                            </div>
                         </div>
                     )}
-                    <IslandCategories
-                        sections={sections}
-                        activeId={activeSectionId}
-                        onSelect={onSelectSection}
-                        onOpenAll={onOpenCategories}
-                    />
-                </div>
-            </header>
+                </header>
             </div>
         </>
     );

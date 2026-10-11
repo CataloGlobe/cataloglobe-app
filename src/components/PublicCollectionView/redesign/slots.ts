@@ -45,10 +45,12 @@ export type HeaderSlotContext = {
     upcomingClosures: UpcomingClosure[];
     /** Il tocco sullo stato del locale: apre le Informazioni (dove stanno gli orari). */
     onOpenHours: () => void;
-    /** Categorie del menu per l'isola desktop (vuote fuori dal Menu o senza piatti). */
-    sections: { id: string; name: string }[];
+    /** Categorie del menu per le pill dell'isola (vuote fuori dal Menu o senza piatti), già filtrate. */
+    categoryGroups: CollectionViewSectionGroup[];
     activeSectionId: string | null;
     onSelectSection: (sectionId: string) => void;
+    /** La ⌄ di una pill: sottocategorie di quella categoria (spec §4). */
+    onSelectSubSection: (sectionId: string) => void;
     /** «Tutte le categorie» dell'isola desktop. */
     onOpenCategories: () => void;
     /** «Filtri» nel campo di ricerca desktop. */
@@ -145,6 +147,8 @@ export type SheetsSlotContext = {
     shareTitle: string;
     /** Contenuti in evidenza di oggi (elenco e dettaglio nel foglio). */
     featured: FeaturedLook & { contents: V2FeaturedContent[] };
+    /** Storia su desktop: voce del ⋯ (sul telefono sta nella barra in basso). Assente senza Storia. */
+    story?: { active: boolean; onToggle: () => void };
     /** Foglio «Categorie» (Menu toccato di nuovo): albero già filtrato e sezione in vista. */
     categories: {
         groups: CollectionViewSectionGroup[];

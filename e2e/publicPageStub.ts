@@ -254,18 +254,49 @@ function payload(
     };
 }
 
+/** Con `subcategories`: «Primi» ha due sottocategorie, «Pasta fresca» e «Risotti», con tre piatti ciascuna. */
+function withSubcategories(list: ResolvedCategory[]): ResolvedCategory[] {
+    const subs: ResolvedCategory[] = ["Pasta fresca", "Risotti"].map((name, s) => ({
+        id: `cat-1-${s}`,
+        name,
+        level: 2,
+        sort_order: s,
+        parent_category_id: "cat-1",
+        products: Array.from({ length: 3 }, (_, p) => ({
+            id: `prod-1-${s}-${p}`,
+            name: `${name} ${p + 1}`,
+            description: "Descrizione del piatto.",
+            price: 12 + p,
+            is_visible: true,
+            parentSelected: true,
+        })),
+    }));
+    const index = list.findIndex(category => category.id === "cat-1");
+    return [...list.slice(0, index + 1), ...subs, ...list.slice(index + 1)];
+}
+
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string; reservations?: boolean; preferences?: boolean }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string; reservations?: boolean; preferences?: boolean; subcategories?: boolean }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
+    const body = payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null, opts.reservations, opts.preferences);
+    if (opts.subcategories && body.resolved.catalog?.categories) {
+        body.resolved.catalog.categories = withSubcategories(body.resolved.catalog.categories);
+    }
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null, opts.reservations, opts.preferences)) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
-    await page.route("**/functions/v1/resolve-public-story**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ story: STORY_DETAIL }) })
-    );
+    // Con `story_id` il dettaglio, senza l'elenco della scheda Storia.
+    await page.route("**/functions/v1/resolve-public-story**", route => {
+        const detail = Boolean((route.request().postDataJSON() as { story_id?: string } | null)?.story_id);
+        const list = {
+            cappello: null,
+            stories: [{ id: STORY_ID, eyebrow: null, title: STORY_DETAIL.title, cover_media: null, excerpt: null, product: STORY_DETAIL.product }],
+        };
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(detail ? { story: STORY_DETAIL } : list) });
+    });
     await page.route("**/functions/v1/get-orders-for-session**", route =>
         route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ orders: [] }) })
     );

@@ -9,9 +9,9 @@ const box = async (locator: Locator) => {
 };
 
 /**
- * Isola desktop del redesign (spec §13): estesa su due righe, col campo di
- * ricerca e «Filtri» dentro, pagine e categorie sotto; scorrendo una riga
- * sola con la lente. La barra delle categorie del telefono non c'è.
+ * Isola desktop del redesign (spec §13, mockup v38): estesa su due righe, col
+ * campo di ricerca e «Filtri» nella prima e le sole categorie nella seconda;
+ * scorrendo una riga sola con la lente. La Storia si apre dal ⋯.
  *
  * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
  * e2e/desktop-redesign.spec.ts`; senza il flag la spec si salta da sola.
@@ -32,7 +32,8 @@ test("isola estesa: campo di ricerca, «Filtri», pagine e categorie in seconda 
     await expect(field).toBeVisible();
     // Da estesa il campo prende il posto della lente.
     await expect(page.getByRole("button", { name: /^Cerca nel catalogo/ })).toBeHidden();
-    await expect(page.getByRole("tab", { name: "Storia" })).toBeVisible();
+    // Menu e Storia non stanno nell'isola: su desktop la Storia si apre dal ⋯.
+    await expect(page.locator("#pub-island").getByRole("tab")).toHaveCount(0);
     const categories = page.getByRole("navigation", { name: "Categorie" });
     await expect(categories.getByRole("button", { name: "Antipasti" })).toHaveAttribute("aria-current", "true");
 
@@ -85,6 +86,21 @@ test("una categoria porta alla sua sezione e l'isola resta su una riga, con la l
 
     await categories.getByRole("button", { name: "Tutte le categorie" }).click();
     await expect(page.getByRole("dialog").getByRole("heading", { name: "Categorie" })).toBeVisible();
+});
+
+test("la Storia si apre dal ⋯, e dal ⋯ si torna al menu", async ({ page }) => {
+    const more = page.getByRole("button", { name: "Altre opzioni" });
+    const dialog = page.getByRole("dialog");
+    await more.click();
+    await dialog.getByRole("button", { name: /La nostra storia/ }).click();
+    await expect(dialog).toHaveCount(0);
+    // In Storia la seconda riga non c'è.
+    await expect(page.getByRole("navigation", { name: "Categorie" })).toHaveCount(0);
+
+    await more.click();
+    await dialog.getByRole("button", { name: /Torna al menu/ }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Categorie" }).getByRole("button", { name: "Antipasti" })).toBeVisible();
 });
 
 test("⋯ e lingua si aprono come popover sotto il loro pulsante", async ({ page }) => {
