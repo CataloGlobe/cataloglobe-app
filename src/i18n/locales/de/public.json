@@ -675,5 +675,14 @@
         "new_window": "(öffnet in einem neuen Fenster)",
         "privacy": "Datenschutz",
         "terms": "AGB"
+    },
+    "booking": {
+        "title_who": "Deine Daten",
+        "title_recap": "Zusammenfassung",
+        "title_done": "Reservierung gesendet",
+        "continue": "Weiter",
+        "pick_time": "Uhrzeit wählen",
+        "unavailable": "Das Lokal nimmt gerade keine Online-Reservierungen an.",
+        "err_timeout": "Das Lokal hat nicht rechtzeitig geantwortet. Bevor du es erneut versuchst, prüfe deine E-Mails: Die Anfrage ist vielleicht angekommen."
     }
 }

@@ -1,0 +1,161 @@
+/* Prenota a passi nel foglio unico. Le sezioni (Quando, Chi, Note, Riepilogo)
+   portano i loro stili dalla pagina /prenota; qui solo il contenitore del passo,
+   la conferma e il piede. */
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 8px 16px 20px;
+}
+
+.notice,
+.error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.875em;
+  line-height: 1.45;
+}
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+
+  p {
+    margin: 0;
+  }
+}
+
+.error {
+  background: color-mix(in srgb, var(--pub-error, #d33d3d) 10%, var(--pub-surface));
+  color: var(--pub-error, #d33d3d);
+  border: 1px solid color-mix(in srgb, var(--pub-error, #d33d3d) 28%, transparent);
+}
+
+.call {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  background: var(--pub-primary);
+  color: var(--pub-primary-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.privacy {
+  margin: 0;
+  font-size: 0.75em;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--pub-text-muted);
+
+  a {
+    color: inherit;
+  }
+}
+
+/* ── Conferma ─────────────────────────────────────────────────────────── */
+
+.done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 16px 20px;
+  text-align: center;
+}
+
+.doneIcon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pub-accent) 16%, transparent);
+  color: var(--pub-accent);
+
+  .done[data-status="confirmed"] & {
+    background: var(--pub-primary);
+    color: var(--pub-primary-text);
+  }
+}
+
+.doneTitle {
+  margin: 4px 0 0;
+  font-size: 1.375em;
+  line-height: 1.25;
+}
+
+.doneLead {
+  margin: 0 0 8px;
+  max-width: 32ch;
+  font-size: 0.9375em;
+  line-height: 1.45;
+  color: var(--pub-text-secondary, var(--pub-text-muted));
+}
+
+.doneRecap {
+  align-self: stretch;
+  text-align: left;
+}
+
+.doneStatus {
+  font-size: 0.8125em;
+  font-weight: 600;
+  color: var(--pub-text-muted);
+}
+
+/* ── Piede ────────────────────────────────────────────────────────────── */
+
+.footer {
+  display: flex;
+  padding: 10px 16px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, transparent);
+}
+
+.cta {
+  flex: 1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 4px 18px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--pub-primary);
+  color: var(--pub-primary-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+
+  /* Manca l'ora: il pulsante porta lì, non è un errore. */
+  &[data-missing] {
+    background: color-mix(in srgb, var(--pub-text) 8%, transparent);
+    color: inherit;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.ctaLabel {
+  line-height: 1.2;
+}
+
+.ctaSummary {
+  font-size: 0.8125em;
+  font-weight: 500;
+  line-height: 1.3;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}

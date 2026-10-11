@@ -675,5 +675,14 @@
         "new_window": "(opens in a new window)",
         "privacy": "Privacy",
         "terms": "Terms"
+    },
+    "booking": {
+        "title_who": "Your details",
+        "title_recap": "Summary",
+        "title_done": "Booking sent",
+        "continue": "Continue",
+        "pick_time": "Choose a time",
+        "unavailable": "The venue is not taking online bookings right now.",
+        "err_timeout": "The venue didn't answer in time. Before trying again, check your email: the request may have gone through."
     }
 }

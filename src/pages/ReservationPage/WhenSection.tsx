@@ -282,6 +282,7 @@ export default function WhenSection({
                     disabledMessage={t("reservation.choose_date_first")}
                     loading={isChecking}
                     loadingLabel={t("reservation.checking_availability")}
+                    day={values.reservation_date}
                     invalid={timeInvalid}
                     errorId={timeInvalid ? "err-reservation_time" : undefined}
                 />

@@ -675,5 +675,14 @@
         "new_window": "(se abre en una ventana nueva)",
         "privacy": "Privacidad",
         "terms": "Términos"
+    },
+    "booking": {
+        "title_who": "Tus datos",
+        "title_recap": "Resumen",
+        "title_done": "Reserva enviada",
+        "continue": "Continuar",
+        "pick_time": "Elige la hora",
+        "unavailable": "En este momento el local no acepta reservas en línea.",
+        "err_timeout": "El local no respondió a tiempo. Antes de volver a intentarlo, revisa tu correo: puede que la solicitud haya llegado."
     }
 }

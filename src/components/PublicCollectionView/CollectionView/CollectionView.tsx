@@ -2888,13 +2888,15 @@ export default function CollectionView({
     }
 
     // "Prenota un tavolo": solo con le prenotazioni accese e lo slug (⋯ di oggi e foglio unico).
+    // Redesign: i passi nel foglio quando lo slot li offre, altrimenti la pagina /prenota.
+    const openBooking = mode === "public" ? sheetsSlot?.openBooking : undefined;
     const openReservation =
         enableReservations && slug
-            ? () => {
+            ? (openBooking ?? (() => {
                   const lang = langCtx?.currentLang;
                   const base = langCtx?.baseLanguage;
                   navigate(lang && lang !== base ? `/${slug}/${lang}/prenota` : `/${slug}/prenota`);
-              }
+              }))
             : undefined;
     // SSR-safe: window assente nel render server (entry-server); shareUrl si
     // popola al primo render client — il bottone condividi è dietro

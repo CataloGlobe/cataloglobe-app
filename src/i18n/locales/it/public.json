@@ -674,5 +674,14 @@
         "new_window": "(si apre in una nuova finestra)",
         "privacy": "Privacy",
         "terms": "Termini"
+    },
+    "booking": {
+        "title_who": "I tuoi dati",
+        "title_recap": "Riepilogo",
+        "title_done": "Prenotazione inviata",
+        "continue": "Continua",
+        "pick_time": "Scegli l'orario",
+        "unavailable": "In questo momento il locale non accetta prenotazioni online.",
+        "err_timeout": "Il locale non ha risposto in tempo. Prima di riprovare controlla la tua email: la richiesta potrebbe essere arrivata."
     }
 }

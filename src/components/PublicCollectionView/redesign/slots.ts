@@ -231,6 +231,8 @@ export type SheetsSlot = {
     notifyAdded?: (name: string, undo: () => void) => void;
     /** Il modulo del voto nel foglio, col voto già scelto se c'è (spec §11). */
     openRate?: (rating?: number) => void;
+    /** Prenota a passi nel foglio; assente = la pagina `/:slug/prenota` di oggi. */
+    openBooking?: () => void;
 };
 
 /** Dati del fondo pagina (spec §10): Oggi, Informazioni utili, Contatti, Prenota, voto. */

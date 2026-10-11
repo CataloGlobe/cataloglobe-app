@@ -650,8 +650,8 @@
     "unavailable": "Ce plat n'est plus disponible."
   },
   "vote": {
-      "button": "Noter",
-      "dismiss_aria": "Non merci"
+    "button": "Noter",
+    "dismiss_aria": "Non merci"
   },
   "page_end": {
     "end_of_menu": "Fin du menu",
@@ -675,5 +675,14 @@
     "new_window": "(s'ouvre dans une nouvelle fenêtre)",
     "privacy": "Confidentialité",
     "terms": "Conditions"
+  },
+  "booking": {
+    "title_who": "Vos coordonnées",
+    "title_recap": "Récapitulatif",
+    "title_done": "Réservation envoyée",
+    "continue": "Continuer",
+    "pick_time": "Choisissez l'heure",
+    "unavailable": "L'établissement n'accepte pas de réservations en ligne pour le moment.",
+    "err_timeout": "L'établissement n'a pas répondu à temps. Avant de réessayer, vérifiez vos e-mails : la demande est peut-être arrivée."
   }
 }

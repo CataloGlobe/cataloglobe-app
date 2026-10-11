@@ -186,10 +186,14 @@ function payload(
     story = false,
     allergens = false,
     details = false,
-    cover: string | null = null
+    cover: string | null = null,
+    reservations = false
 ): ResolvedPayloadShape {
+    // Con `reservations` la sede prenota online: orari e passo della griglia come la pagina /prenota.
+    const base = business(venueInfo, cover);
     return {
-        business: business(venueInfo, cover),
+        business: reservations ? { ...base, enable_reservations: true, reservation_pacing_slot_minutes: 30 } : base,
+        ...(reservations && !venueInfo ? { opening_hours: OPENING_HOURS, upcoming_closures: [] } : {}),
         ...(story ? { has_story: true } : {}),
         ...(venueInfo
             ? {
@@ -217,11 +221,11 @@ function payload(
 
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string; reservations?: boolean }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null)) })
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null, opts.reservations)) })
     );
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     await page.route("**/functions/v1/get-orders-for-session**", route =>

@@ -15,7 +15,7 @@
  * query cross-tenant in fase di sviluppo / con bug RLS.
  */
 
-import { FunctionsHttpError } from "@supabase/supabase-js";
+import { FunctionsFetchError, FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
 import {
@@ -440,15 +440,20 @@ export interface SubmitReservationResult {
  *   SERVER_ERROR             → 500 / network / fallback
  */
 export async function submitReservation(
-    input: SubmitReservationInput
+    input: SubmitReservationInput,
+    options: { timeoutMs?: number } = {}
 ): Promise<SubmitReservationResult> {
     const { data, error } = await supabase.functions.invoke<SubmitReservationResult>(
         "submit-reservation",
-        { body: input }
+        { body: input, ...(options.timeoutMs ? { timeout: options.timeoutMs } : {}) }
     );
 
     if (error) {
-        let code = "SERVER_ERROR";
+        // Scaduto il tempo (`options.timeoutMs`, la richiesta interrotta): l'esito non si sa, la UI lo dice.
+        let code =
+            error instanceof FunctionsFetchError && (error.context as { name?: unknown } | undefined)?.name === "AbortError"
+                ? "TIMEOUT"
+                : "SERVER_ERROR";
         let message: string | undefined;
         let details: unknown;
         if (error instanceof FunctionsHttpError) {
@@ -480,6 +485,9 @@ export async function submitReservation(
 }
 
 // ─── CUSTOMER-SIDE (edge `reservation-availability`, pubblica) ─────────────
+
+/** Scaduto, la risposta vale «non lo so»: griglia ottimista, mai un caricamento infinito. */
+const RESERVATION_AVAILABILITY_TIMEOUT_MS = 8_000;
 
 export interface ReservationAvailabilityInput {
     slug: string;
@@ -520,7 +528,7 @@ export async function getReservationAvailability(
 ): Promise<ReservationAvailabilitySlot[]> {
     const { data, error } = await supabase.functions.invoke<{
         slots: ReservationAvailabilitySlot[];
-    }>("reservation-availability", { body: input });
+    }>("reservation-availability", { body: input, timeout: RESERVATION_AVAILABILITY_TIMEOUT_MS });
 
     if (error) {
         let code = "SERVER_ERROR";

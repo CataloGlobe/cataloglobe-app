@@ -47,10 +47,18 @@ import SearchPage from "../search/SearchPage";
 import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
 import { AllergensFooter, AllergensPage, CharacteristicsPage } from "./MenuInfoPages";
 import { rateOf } from "../vote/rateSheet";
+import { useBooking, type BookingBinding } from "../booking/useBooking";
+import { isBookingPage, pushBookingSheet } from "../booking/bookingSheet";
+import { isOwnBookingUrl, type BookingConfig } from "../booking/bookingForm";
 import styles from "./VenueSheets.module.scss";
 
 // Lo stesso modulo del voto di oggi, nel suo chunk (lo stesso di CollectionView).
 const ReviewsView = lazy(() => import("@components/PublicCollectionView/ReviewsView/ReviewsView"));
+// I passi della prenotazione (calendario, orari, campi della pagina /prenota) in un chunk loro.
+const loadBooking = () => import("../booking/BookingPages");
+const BookingPage = lazy(loadBooking);
+const BookingFooter = lazy(() => loadBooking().then(module => ({ default: module.BookingFooter })));
+const BookingCtaFooter = lazy(() => loadBooking().then(module => ({ default: module.BookingCtaFooter })));
 
 /**
  * Il foglio unico del locale nel redesign: ⋯ (Altre opzioni), Informazioni,
@@ -58,7 +66,7 @@ const ReviewsView = lazy(() => import("@components/PublicCollectionView/ReviewsV
  * di oggi (niente più chiudi-e-riapri dopo 300 ms). Montato una volta da
  * `CollectionView` tramite `sheetsSlot`.
  */
-export default function VenueSheets(props: SheetsSlotContext) {
+export default function VenueSheets({ booking: bookingConfig, ...props }: SheetsSlotContext & { booking: BookingConfig | null }) {
     // Il testo della ricerca vive qui: testata (campo) e pagina (risultati) lo
     // condividono, e sopravvive al giro nei Filtri. Si svuota quando «Cerca» rientra
     // nella pila, non quando esce: durante la discesa il foglio tiene i risultati.
@@ -67,6 +75,7 @@ export default function VenueSheets(props: SheetsSlotContext) {
     const [searchWasInStack, setSearchWasInStack] = useState(searchInStack);
     const orderFor = useOrderDrafts(props.product.order);
     const sendState = useOrderSend(props.ordering);
+    const booking = useBooking(bookingConfig ?? undefined);
     if (searchInStack !== searchWasInStack) {
         setSearchWasInStack(searchInStack);
         if (searchInStack) setQuery("");
@@ -78,12 +87,25 @@ export default function VenueSheets(props: SheetsSlotContext) {
             renderPage={page =>
                 page.key === "search" ? (
                     <SearchPage query={query} onQueryChange={setQuery} search={props.search} categories={props.categories} />
+                ) : isBookingPage(page) ? (
+                    booking ? (
+                        <Suspense fallback={null}>
+                            <BookingPage page={page} booking={booking} />
+                        </Suspense>
+                    ) : null
                 ) : (
-                    <VenuePage page={page} {...props} orderFor={orderFor} sendState={sendState} />
+                    <VenuePage page={page} {...props} orderFor={orderFor} sendState={sendState} booking={booking} />
                 )
             }
             renderHeader={page => (page.key === "search" ? <SearchHeader query={query} onQueryChange={setQuery} /> : null)}
             renderFooter={page => {
+                if (isBookingPage(page)) {
+                    return booking ? (
+                        <Suspense fallback={null}>
+                            <BookingFooter page={page} booking={booking} />
+                        </Suspense>
+                    ) : null;
+                }
                 if (page.key === "filters") return <FiltersFooter {...props.search} />;
                 if (page.key === "allergens") return <AllergensFooter hasAllergensInCatalog={props.hasAllergensInCatalog} />;
                 if (page.key === "order") {
@@ -131,7 +153,16 @@ export default function VenueSheets(props: SheetsSlotContext) {
                     );
                 }
                 const block = featuredOf(page, props.featured.contents);
-                return block && hasFeaturedCta(block) ? <FeaturedCtaFooter block={block} /> : null;
+                if (!block || !hasFeaturedCta(block)) return null;
+                // Il pulsante porta alla prenotazione di questa sede: i passi nel foglio, senza lasciare il menu.
+                if (booking && block.cta_text && isOwnBookingUrl(block.cta_url, booking.config.slug)) {
+                    return (
+                        <Suspense fallback={null}>
+                            <BookingCtaFooter label={block.cta_text} />
+                        </Suspense>
+                    );
+                }
+                return <FeaturedCtaFooter block={block} />;
             }}
         />
     );
@@ -162,11 +193,13 @@ function VenuePage({
     page,
     orderFor,
     sendState,
+    booking,
     ...props
 }: SheetsSlotContext & {
     page: SheetPage;
     orderFor: (pageKey: string, item: CollectionViewSectionItem, initial?: OrderDraft) => OrderBinding | undefined;
     sendState: OrderSendState;
+    booking: BookingBinding | undefined;
 }) {
     const rating = rateOf(page);
     if (rating !== undefined) {
@@ -191,7 +224,7 @@ function VenuePage({
                 />
             );
         case "more":
-            return <MorePage {...props} />;
+            return <MorePage {...props} bookingInSheet={booking != null} />;
         case "info":
             return <InfoPage {...props} />;
         case "hours":
@@ -282,8 +315,9 @@ function MorePage({
     hasAllergensInCatalog,
     onOpenReservation,
     shareUrl,
-    shareTitle
-}: SheetsSlotContext) {
+    shareTitle,
+    bookingInSheet
+}: SheetsSlotContext & { bookingInSheet: boolean }) {
     const { t } = useTranslation("public");
     // Feedback sulla riga Condividi (copia del link): due secondi, niente toast.
     const [shareFeedback, setShareFeedback] = useState<null | "copied" | "error">(null);
@@ -345,6 +379,11 @@ function MorePage({
                     label={t("more.reservation_label")}
                     subtitle={t("more.reservation_subtitle")}
                     onClick={() => {
+                        // Nel foglio i passi entrano a spinta («‹ Opzioni»); senza, la pagina /prenota.
+                        if (bookingInSheet) {
+                            pushBookingSheet();
+                            return;
+                        }
                         closeSheet();
                         onOpenReservation();
                     }}

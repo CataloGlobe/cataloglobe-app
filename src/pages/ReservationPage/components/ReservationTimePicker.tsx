@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -40,6 +40,8 @@ type Props = {
     loading?: boolean;
     /** Testo per gli screen reader durante il caricamento. */
     loadingLabel?: string;
+    /** Il giorno mostrato: la fascia scelta a mano vale solo per quel giorno. */
+    day?: string;
 };
 
 function slotIsInteractive(slot: ReservationSlot): boolean {
@@ -61,7 +63,8 @@ export default function ReservationTimePicker({
     errorId,
     invalid,
     loading = false,
-    loadingLabel
+    loadingLabel,
+    day = ""
 }: Props) {
     const { t } = useTranslation("public");
     // Recompute `now` (and the default period) only when `periods` change —
@@ -73,6 +76,14 @@ export default function ReservationTimePicker({
         [periods]
     );
     const [activeIdx, setActiveIdx] = useState<number>(defaultIdx);
+    // Giorno, fasce e orari, senza lo stato «esaurito»: la disponibilità che
+    // arriva dopo cambia `periods` ma non la forma della giornata.
+    const shape = `${day}#` + periods
+        .map(p => `${p.key}:${p.slots.map(s => (s.state === "past" ? `${s.time}p` : s.time)).join(",")}`)
+        .join("|");
+    // Fascia scelta a mano su questa forma: la risposta della disponibilità
+    // non la riporta al default (prima tornava a «Pranzo» sotto il dito).
+    const pickedRef = useRef<{ shape: string; idx: number } | null>(null);
 
     // When the parent swaps `periods` (date change), realign to the natural
     // default. Also re-pin if the currently-selected `value` lives in a
@@ -85,8 +96,14 @@ export default function ReservationTimePicker({
                 return;
             }
         }
+        const picked = pickedRef.current;
+        if (picked && picked.shape === shape) {
+            setActiveIdx(picked.idx);
+            return;
+        }
+        pickedRef.current = null;
         setActiveIdx(defaultIdx);
-    }, [periods, defaultIdx, value]);
+    }, [periods, defaultIdx, value, shape]);
 
     const handlePick = useCallback(
         (time: string) => {
@@ -163,7 +180,10 @@ export default function ReservationTimePicker({
                                 type="button"
                                 role="radio"
                                 aria-checked={isActive}
-                                onClick={() => setActiveIdx(i)}
+                                onClick={() => {
+                                    pickedRef.current = { shape, idx: i };
+                                    setActiveIdx(i);
+                                }}
                                 className={styles.segment}
                                 data-active={isActive ? "true" : undefined}
                             >

@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { Component, lazy, Suspense, useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import Island from "./island/Island";
 import BottomBar from "./bar/BottomBar";
@@ -8,6 +8,8 @@ import { closeSheet, getSheetState, useSheetState } from "./sheets/sheetStack";
 import { openVenueSheet } from "./sheets/venueSheetPages";
 import { openProductSheet } from "./product/productSheet";
 import { openRateSheet } from "./vote/rateSheet";
+import { openBookingSheet } from "./booking/bookingSheet";
+import type { BookingConfig } from "./booking/bookingForm";
 import AddedNotice from "./order/AddedNotice";
 import { showAdded } from "./order/addedNoticeStore";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
@@ -48,7 +50,7 @@ class SheetsBoundary extends Component<{ children: ReactNode; onError: () => voi
     }
 }
 
-function LazyVenueSheets(context: SheetsSlotContext) {
+function LazyVenueSheets({ booking, ...context }: SheetsSlotContext & { booking: BookingConfig | null }) {
     const isOpen = useSheetState().pages.length > 0;
     const [needed, setNeeded] = useState(false);
     // Dopo un errore un `lazy` nuovo: quello vecchio tiene la promessa fallita.
@@ -79,7 +81,7 @@ function LazyVenueSheets(context: SheetsSlotContext) {
                     }}
                 >
                     <Suspense fallback={null}>
-                        <Sheets {...context} />
+                        <Sheets {...context} booking={booking} />
                     </Suspense>
                 </SheetsBoundary>
             ) : null}
@@ -91,8 +93,7 @@ const renderIsland: HeaderSlot = context => <Island {...context} />;
 const renderBottomBar: BottomBarSlot = context => <BottomBar {...context} />;
 const renderFeatured: FeaturedSlot = context => <FeaturedStrip {...context} />;
 const renderFooter: FooterSlot = context => <VenueFooter {...context} />;
-const sheetsSlot: SheetsSlot = {
-    render: context => <LazyVenueSheets {...context} />,
+const baseSheetsSlot: Omit<SheetsSlot, "render"> = {
     open: openVenueSheet,
     openProduct: openProductSheet,
     isOpen: () => getSheetState().pages.length > 0,
@@ -100,7 +101,19 @@ const sheetsSlot: SheetsSlot = {
     openRate: openRateSheet
 };
 
-export default function RedesignCollectionView(props: ComponentProps<typeof CollectionView>) {
+export default function RedesignCollectionView({
+    booking = null,
+    ...props
+}: ComponentProps<typeof CollectionView> & { booking?: BookingConfig | null }) {
+    // Con la sede che prenota, «Prenota» apre i passi nel foglio invece della pagina /prenota.
+    const sheetsSlot = useMemo<SheetsSlot>(
+        () => ({
+            ...baseSheetsSlot,
+            render: context => <LazyVenueSheets {...context} booking={booking} />,
+            openBooking: booking ? openBookingSheet : undefined
+        }),
+        [booking]
+    );
     // Pagina di prova della PR 1: `?prova-tecnica=1` su una sede, solo con il flag.
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("prova-tecnica")) {
         return (
