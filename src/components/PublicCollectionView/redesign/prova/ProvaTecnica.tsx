@@ -91,7 +91,9 @@ const NOMI_EFFETTI: Record<keyof Effetti, string> = {
 
 /** Fotogrammi: media al secondo, quanti oltre 25 ms negli ultimi 10 s, il peggiore. */
 function useFotogrammi() {
-    const [dati, setDati] = useState({ fps: 0, lenti: 0, peggiore: 0 });
+    // Scritto nel DOM, non nello stato: un render del banco ogni 500 ms
+    // sporcherebbe proprio i tempi che misura.
+    const testoRef = useRef<HTMLElement>(null);
     const reset = useRef(0);
     useEffect(() => {
         let raf = 0;
@@ -106,18 +108,18 @@ function useFotogrammi() {
             if (ts >= prossimo) {
                 prossimo = ts + 500;
                 const ultimoSecondo = finestra.filter(f => ts - f.t < 1000);
-                setDati({
-                    fps: Math.round(ultimoSecondo.length),
-                    lenti: finestra.filter(f => f.dt > 25).length,
-                    peggiore: Math.round(Math.max(0, ...finestra.map(f => f.dt)))
-                });
+                const lenti = finestra.filter(f => f.dt > 25).length;
+                const peggiore = Math.round(Math.max(0, ...finestra.map(f => f.dt)));
+                if (testoRef.current) {
+                    testoRef.current.textContent = `${ultimoSecondo.length} fps · lenti ${lenti} · peggiore ${peggiore} ms`;
+                }
             }
             raf = requestAnimationFrame(giro);
         };
         raf = requestAnimationFrame(giro);
         return () => cancelAnimationFrame(raf);
     }, []);
-    return { ...dati, azzera: () => (reset.current = performance.now()) };
+    return { testoRef, azzera: () => (reset.current = performance.now()) };
 }
 
 /** Categoria in vista: la prima sezione che attraversa la riga sotto isola e categorie. */
@@ -317,7 +319,7 @@ export default function ProvaTecnica() {
 
             <aside className={styles.pannello} aria-label="Strumenti di prova">
                 <div className={styles.numeri}>
-                    <strong>{fps.fps} fps</strong> · lenti {fps.lenti} · peggiore {fps.peggiore} ms
+                    <strong ref={fps.testoRef}>0 fps</strong>
                     <button type="button" className={styles.mini} onClick={fps.azzera}>
                         azzera
                     </button>

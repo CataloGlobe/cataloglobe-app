@@ -140,6 +140,7 @@ export default function Island({
                 className={styles.isola}
                 data-compact={compatta}
                 data-cover={!!coverImageUrl || undefined}
+                data-logo={!!logoUrl || undefined}
             >
                 <div className={styles.guscio} aria-hidden />
                 <div className={styles.riga}>

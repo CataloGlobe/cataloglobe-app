@@ -92,7 +92,10 @@ $scia: 54px; /* logo 44 + gap 10 */
   }
 }
 
-/* Il vetro: l'unico pezzo che cambia altezza (leaf fuori flusso, nessun testo dentro). */
+/* Il vetro: l'unico pezzo che cambia altezza (leaf fuori flusso, nessun testo dentro).
+   Eccezione voluta alla regola «solo transform/opacity»: con scaleY gli angoli
+   arrotondati si deformerebbero; il layout costa poco (nessun figlio), resta il
+   ridisegno del solo vetro per 220 ms. */
 .guscio {
   position: absolute;
   inset: 0 0 auto;
@@ -256,6 +259,11 @@ $scia: 54px; /* logo 44 + gap 10 */
   .testi {
     transform: translate(-$scia, 12px);
   }
+}
+
+/* Senza logo il nome parte già dal bordo: niente scia a sinistra, solo la discesa. */
+.isola[data-compact="true"]:not([data-logo]) .testi {
+  transform: translateY(12px);
 }
 
 @media (prefers-reduced-motion: reduce) {
