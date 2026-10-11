@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useState, type ComponentProps } from "react";
+import { Component, lazy, Suspense, useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import Island from "./island/Island";
 import BottomBar from "./bar/BottomBar";
-import { useSheetState } from "./sheets/sheetStack";
+import { closeSheet, useSheetState } from "./sheets/sheetStack";
 import { openVenueSheet } from "./sheets/venueSheetPages";
 import type { BottomBarSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
 
@@ -23,12 +23,35 @@ const ProvaTecnica = /*#__PURE__*/ lazy(() => import("./prova/ProvaTecnica"));
 const loadVenueSheets = () => import("./sheets/VenueSheets");
 const VenueSheets = /*#__PURE__*/ lazy(loadVenueSheets);
 
+/**
+ * Il chunk del foglio che non arriva (rete giù, file vecchi dopo un deploy) non
+ * deve far cadere la pagina intera su `PublicErrorBoundary`: il foglio si chiude
+ * e al tocco dopo si riprova.
+ */
+class SheetsBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
+    state = { failed: false };
+    static getDerivedStateFromError() {
+        return { failed: true };
+    }
+    componentDidCatch() {
+        closeSheet();
+        this.props.onError();
+    }
+    render() {
+        return this.state.failed ? null : this.props.children;
+    }
+}
+
 function LazyVenueSheets(context: SheetsSlotContext) {
     const isOpen = useSheetState().pages.length > 0;
     const [needed, setNeeded] = useState(false);
+    // Dopo un errore un `lazy` nuovo: quello vecchio tiene la promessa fallita.
+    const [Sheets, setSheets] = useState(() => VenueSheets);
+    const [attempt, setAttempt] = useState(0);
     if (isOpen && !needed) setNeeded(true);
     useEffect(() => {
-        const warm = () => void loadVenueSheets();
+        // Senza rete il preriscaldamento fallisce in silenzio: ci pensa il tocco.
+        const warm = () => void loadVenueSheets().catch(() => undefined);
         if (typeof window.requestIdleCallback === "function") {
             const id = window.requestIdleCallback(warm, { timeout: 3000 });
             return () => window.cancelIdleCallback(id);
@@ -38,9 +61,18 @@ function LazyVenueSheets(context: SheetsSlotContext) {
     }, []);
     if (!needed) return null;
     return (
-        <Suspense fallback={null}>
-            <VenueSheets {...context} />
-        </Suspense>
+        <SheetsBoundary
+            key={attempt}
+            onError={() => {
+                setNeeded(false);
+                setSheets(() => lazy(loadVenueSheets));
+                setAttempt(value => value + 1);
+            }}
+        >
+            <Suspense fallback={null}>
+                <Sheets {...context} />
+            </Suspense>
+        </SheetsBoundary>
     );
 }
 

@@ -173,6 +173,8 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
                 if (mountedHosts > 0) return;
                 closeSheet();
                 takeSheetOpener();
+                // Pagina nuova, visita nuova: il cenno torna a valere.
+                nudgedPages.clear();
             });
         };
     }, []);
@@ -238,7 +240,13 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
             setPresent(false);
             setShown([]);
             setLeaving([]);
-            takeSheetOpener()?.focus({ preventScroll: true });
+            // Il fuoco torna a chi ha aperto il foglio solo se nessun altro l'ha preso:
+            // «Filtri» chiude il foglio e apre la ricerca, che ha già il suo fuoco.
+            const opener = takeSheetOpener();
+            const active = document.activeElement;
+            if (!active || active === document.body || panel?.contains(active)) {
+                opener?.focus({ preventScroll: true });
+            }
         };
         cancelAnimations();
         const target = env.current.isMobile ? "translateY(110%)" : "scale(0.97)";
@@ -280,7 +288,9 @@ export default function SheetHost({ renderPage, backgroundRef }: Props) {
     }, [isOpen, present, cancelAnimations, play]);
 
     // ── Pagina sotto inerte + Esc ────────────────────────────────────────────
-    useEffect(() => {
+    // Layout effect: alla chiusura `inert` va via prima che i layout effect di
+    // chi si apre al suo posto (la ricerca dai Filtri) mettano il fuoco.
+    useLayoutEffect(() => {
         if (!isOpen) return;
         const background = backgroundRef?.current ?? null;
         if (background) background.inert = true;
