@@ -96,7 +96,13 @@
         "read_only_role": "Lecture seule : l'activation et la gestion des langues reviennent aux propriétaires et administrateurs.",
         "read_only_subscription": "Lecture seule : l'abonnement n'est pas actif.",
         "load_error_desc": "Vérifiez la connexion et réessayez.",
-        "confirm_ai_credit": "Les traductions utilisent le crédit IA inclus dans votre offre."
+        "confirm_ai_credit": "Les traductions utilisent le crédit IA inclus dans votre offre.",
+        "confirm_counting": "Comptage des textes à traduire…",
+        "confirm_count_one": "Nous traduirons {{count}} texte (produits, catégories et autres contenus) en {{lang}}. Il sera prêt dans quelques minutes.",
+        "confirm_count_other": "Nous traduirons {{count}} textes (produits, catégories et autres contenus) en {{lang}}. Ils seront prêts dans quelques minutes.",
+        "confirm_count_zero": "Aucun texte à traduire : {{lang}} sera prête tout de suite.",
+        "confirm_ai_used": "Les traductions utilisent le crédit IA de votre offre : vous en avez utilisé {{percent}} % ce cycle.",
+        "confirm_ai_blocked": "Le crédit IA de ce cycle est épuisé : la langue s'active, mais les textes restent en italien. Après le renouvellement, désactivez-la puis réactivez-la pour les traduire."
     },
     "errors": {
         "load_failed": "Erreur de chargement des langues",

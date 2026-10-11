@@ -133,3 +133,21 @@ describe("copertura con l'attesa", () => {
         expect(earliestNextRunAt({})).toBeNull();
     });
 });
+
+describe("countLanguageBackfill", () => {
+    it("chiede il conteggio per la lingua, anche spenta", async () => {
+        rpc.mockResolvedValue({ data: 42, error: null });
+        const { countLanguageBackfill } = await import("@/services/supabase/tenantLanguages");
+        await expect(countLanguageBackfill("t1", "de")).resolves.toBe(42);
+        expect(rpc).toHaveBeenCalledWith("count_tenant_language_backfill", {
+            p_tenant_id: "t1",
+            p_target_lang: "de"
+        });
+    });
+
+    it("propaga l'errore (la pagina torna alla frase generica)", async () => {
+        rpc.mockResolvedValue({ data: null, error: { code: "42501" } });
+        const { countLanguageBackfill } = await import("@/services/supabase/tenantLanguages");
+        await expect(countLanguageBackfill("t1", "de")).rejects.toEqual({ code: "42501" });
+    });
+});

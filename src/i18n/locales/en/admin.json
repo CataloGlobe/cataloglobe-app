@@ -95,7 +95,13 @@
         "read_only_role": "Read only: activating and managing languages is up to owners and administrators.",
         "read_only_subscription": "Read only: the subscription is not active.",
         "load_error_desc": "Check your connection and try again.",
-        "confirm_ai_credit": "Translations use the AI credit included in your plan."
+        "confirm_ai_credit": "Translations use the AI credit included in your plan.",
+        "confirm_counting": "Counting the texts to translate…",
+        "confirm_count_one": "We will translate {{count}} text (products, categories and other content) into {{lang}}. It will be ready in a few minutes.",
+        "confirm_count_other": "We will translate {{count}} texts (products, categories and other content) into {{lang}}. They will be ready in a few minutes.",
+        "confirm_count_zero": "There are no texts to translate: {{lang}} will be ready right away.",
+        "confirm_ai_used": "Translations use the AI credit included in your plan: you have used {{percent}}% this cycle.",
+        "confirm_ai_blocked": "The AI credit for this cycle is used up: the language turns on, but texts stay in Italian. After the renewal, turn it off and on again to translate them."
     },
     "errors": {
         "load_failed": "Error loading languages",

@@ -19,6 +19,7 @@ import {
     activateTenantLanguage,
     deactivateTenantLanguage,
     retryAllFailedTranslations,
+    countLanguageBackfill,
     earliestNextRunAt,
     sumWaiting,
     type SupportedLanguage,
@@ -70,6 +71,29 @@ export default function SettingsLanguages() {
     const outletCtx = useBusinessOutletContext();
     const coverage = outletCtx?.translationCoverage ?? null;
     const wakeTranslations = outletCtx?.wakeTranslations;
+    const aiUsage = outletCtx?.aiUsage ?? null;
+
+    // Conferma all'accensione: quanti testi accoderà il recupero. null =
+    // conteggio in corso; se fallisce resta la frase generica.
+    const [activationCount, setActivationCount] = useState<number | null>(null);
+    const [activationCountFailed, setActivationCountFailed] = useState(false);
+    useEffect(() => {
+        if (!pendingLang || !tenantId) return;
+        let cancelled = false;
+        setActivationCount(null);
+        setActivationCountFailed(false);
+        countLanguageBackfill(tenantId, pendingLang.code)
+            .then(count => {
+                if (!cancelled) setActivationCount(count);
+            })
+            .catch(err => {
+                console.error("Conteggio testi da tradurre:", err);
+                if (!cancelled) setActivationCountFailed(true);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [pendingLang, tenantId]);
 
     usePageHeader({
         title: t("languages.title"),
@@ -216,6 +240,25 @@ export default function SettingsLanguages() {
         }
     };
 
+    function confirmMessage(lang: SupportedLanguage | null): string {
+        if (!lang) return "";
+        const what = activationCountFailed
+            ? t("languages.confirm_description")
+            : activationCount === null
+              ? t("languages.confirm_counting")
+              : activationCount === 0
+                ? t("languages.confirm_count_zero", { lang: lang.name_it })
+                : t("languages.confirm_count", { count: activationCount, lang: lang.name_it });
+        // Il credito AI solo se già letto (MainLayout): percentuale, mai costi.
+        const credit =
+            aiUsage && (aiUsage.status === "blocked" || aiUsage.status === "not_eligible")
+                ? t("languages.confirm_ai_blocked")
+                : aiUsage?.percent != null
+                  ? t("languages.confirm_ai_used", { percent: Math.round(aiUsage.percent) })
+                  : t("languages.confirm_ai_credit");
+        return activationCount === 0 && !activationCountFailed ? what : `${what} ${credit}`;
+    }
+
     return (
         <PageGate readPermission="catalogs.read">
         {() => (
@@ -332,7 +375,7 @@ export default function SettingsLanguages() {
                         ? t("languages.confirm_title", { lang: pendingLang.name_it })
                         : ""
                 }
-                message={`${t("languages.confirm_description")} ${t("languages.confirm_ai_credit")}`}
+                message={confirmMessage(pendingLang)}
                 confirmLabel={t("languages.confirm_button")}
                 confirmVariant="primary"
             />
