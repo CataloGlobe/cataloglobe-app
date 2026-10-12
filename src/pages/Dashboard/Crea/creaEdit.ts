@@ -18,7 +18,7 @@ import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarD
 import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { deriveTypeFields, parsePrice } from "@/pages/Dashboard/Highlights/featuredContentTypes";
 import { EV, changed, cloneWhen, effWhen, hasDishes, thingName, type Tunnel } from "./creaModel";
-import { saveSezioni, type Once } from "./menuSave";
+import { saveSezioni } from "./menuSave";
 import { entriesOf } from "./creaLoad";
 import { styleConfig } from "./creaStyle";
 import type { SaveCtx, Saved } from "./creaSave";
@@ -117,22 +117,12 @@ async function saveQuando(t: Tunnel, c: EditCtx) {
     await saveDraft(D, c.L, c.tenantId);
 }
 
-/** I passi già riusciti al tentativo prima (`SaveCtx.done`): al «Riprova» non si rifanno. */
-function doneOnce(c: EditCtx): Once {
-    return async (key, run) => {
-        if (c.done?.has(key)) return c.done.get(key) as Awaited<ReturnType<typeof run>>;
-        const v = await run();
-        c.done?.set(key, v);
-        return v;
-    };
-}
-
 export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {
     const e = t.edit!, orig = e.orig, id = e.id, name = thingName(t);
     const dove = changed(t, "dove") || changed(t, "quando");
     if (t.kind === "menu") {
         if (changed(t, "parti")) await updateCatalog(id, c.tenantId, { name });
-        if (changed(t, "sezioni")) await saveSezioni(t.sections, orig.sections, id, c.tenantId, doneOnce(c));
+        if (changed(t, "sezioni")) await saveSezioni(t.sections, orig.sections, id, c.tenantId, c.done);
     } else if (t.kind === "stile") {
         // i colori e i caratteri fanno una versione nuova dello stile; il solo nome no
         if (changed(t, "nome") || changed(t, "aspetto")) await updateStyle(id, changed(t, "nome") ? name : undefined, changed(t, "aspetto") ? styleConfig(t) : undefined, c.tenantId);

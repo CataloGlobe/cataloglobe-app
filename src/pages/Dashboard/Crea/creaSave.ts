@@ -1,8 +1,8 @@
 // Salvare quello che esce dal tunnel, con le funzioni che usano già le pagine
 // (Menù, Stili, In evidenza, Storie) e, per la messa in onda, quelle del
 // Calendario (`saveDraft`): la regola nasce come se la si aggiungesse da lì.
-import { createCatalog } from "@/services/supabase/catalogs";
-import { createStyle } from "@/services/supabase/styles";
+import { createCatalog, updateCatalog } from "@/services/supabase/catalogs";
+import { createStyle, updateStyle } from "@/services/supabase/styles";
 import {
     createFeaturedContent,
     listFeaturedContentProducts,
@@ -91,8 +91,16 @@ type Written = { catalogId: string; productIds: string[] };
 
 /** Il menù: categorie, sottocategorie e piatti uno alla volta; ogni passo riuscito non si rifà al «Riprova». */
 async function writeMenu(t: Tunnel, c: SaveCtx, name: string): Promise<Written> {
-    const catalogId = await once(c, "catalog:" + name, async () => (await createCatalog(c.tenantId, name)).id);
-    return { catalogId, productIds: await writeSections(t.sections, catalogId, c.tenantId, (key, run) => once(c, key, run)) };
+    const m = c.done ?? new Map<string, unknown>();
+    const w = m.get("catalog") as { id: string; name: string } | undefined;
+    // rinominato prima del «Riprova»: lo stesso menù, col nome di adesso
+    if (!w) m.set("catalog", { id: (await createCatalog(c.tenantId, name)).id, name });
+    else if (w.name !== name) {
+        await updateCatalog(w.id, c.tenantId, { name });
+        m.set("catalog", { ...w, name });
+    }
+    const catalogId = (m.get("catalog") as { id: string }).id;
+    return { catalogId, productIds: await writeSections(t.sections, catalogId, c.tenantId, m) };
 }
 
 async function saveMenu(t: Tunnel, c: SaveCtx): Promise<Saved> {
@@ -105,10 +113,24 @@ async function saveMenu(t: Tunnel, c: SaveCtx): Promise<Saved> {
 }
 
 /* ---------- lo stile ---------- */
+/** Lo stile nasce una volta: cambiati nome o aspetto prima del «Riprova», si aggiorna quello già nato. */
+async function styleOnce(c: SaveCtx, name: string, config: Record<string, unknown>): Promise<{ id: string }> {
+    const m = c.done ?? new Map<string, unknown>();
+    const look = JSON.stringify(config);
+    const w = m.get("style") as { id: string; name: string; look: string } | undefined;
+    if (!w) m.set("style", { id: (await createStyle(c.tenantId, name, config)).id, name, look });
+    else if (w.name !== name || w.look !== look) {
+        // i colori e i caratteri fanno una versione nuova dello stile; il solo nome no
+        await updateStyle(w.id, w.name !== name ? name : undefined, w.look !== look ? config : undefined, c.tenantId);
+        m.set("style", { ...w, name, look });
+    }
+    return { id: (m.get("style") as { id: string }).id };
+}
+
 async function saveStile(t: Tunnel, c: SaveCtx): Promise<Saved> {
     const name = thingName(t);
     const config = styleConfig(t);
-    const st = await once(c, "style:" + name + ":" + JSON.stringify(config), async () => ({ id: (await createStyle(c.tenantId, name, config)).id }));
+    const st = await styleOnce(c, name, config);
     if (!c.live || !c.pair) return { id: st.id, name, live: false, ruleId: null };
     const L = withThing(c.L, "style", st.id, name);
     const from = t.from;
