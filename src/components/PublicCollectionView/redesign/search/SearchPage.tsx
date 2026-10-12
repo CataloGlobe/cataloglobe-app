@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, Clock, SlidersHorizontal } from "lucide-react";
+import { ChevronRight, History, SlidersHorizontal } from "lucide-react";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { SheetsSlotContext } from "../slots";
@@ -28,9 +28,10 @@ type Props = {
 };
 
 /**
- * Corpo della pagina «Cerca» (spec §4). A campo vuoto: recenti, la riga
- * «Filtri», poi «Categorie» con l'elenco intero. Con una ricerca: risultati per
- * sezione con miniatura e testo trovato evidenziato; il tocco chiude e porta al piatto.
+ * Corpo della pagina «Cerca» (spec §4, mockup v38). A campo vuoto: recenti a
+ * chip, la riga «Filtri», poi «Categorie» a riquadri. Con una ricerca: risultati
+ * per sezione con miniatura e testo trovato evidenziato, «Filtri» in fondo; il
+ * tocco chiude e porta al piatto.
  */
 export default function SearchPage({ query, onQueryChange, search, categories, menuGroups }: Props) {
     const { t } = useTranslation("public");
@@ -62,6 +63,24 @@ export default function SearchPage({ query, onQueryChange, search, categories, m
         () => search.allergens.length > 0 || menuPreferences(menuGroups).length > 0,
         [search.allergens, menuGroups]
     );
+    const filtersRow = hasFilters ? (
+        <button type="button" className={styles.filtersRow} onClick={() => pushVenueSheet("filters")}>
+            <span className={styles.filtersIcon} aria-hidden>
+                <SlidersHorizontal size={18} strokeWidth={2} />
+            </span>
+            <span className={styles.filtersText}>
+                <span className={styles.filtersLabel}>
+                    {filterCount > 0
+                        ? t("search.filters_title_active", { count: filterCount })
+                        : t("search.filters_label")}
+                </span>
+                <span className={styles.filtersHint}>
+                    {filterCount > 0 ? t("search.filters_hidden") : t("search.filters_hint")}
+                </span>
+            </span>
+            <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.muted} />
+        </button>
+    ) : null;
     const select = (item: CollectionViewSectionItem) => {
         saveRecentSearch(activityId, query);
         closeSheet();
@@ -75,13 +94,13 @@ export default function SearchPage({ query, onQueryChange, search, categories, m
                 {recent.length > 0 ? (
                     <section aria-labelledby="pub-search-recent">
                         <h3 id="pub-search-recent" className={styles.sectionTitle}>
-                            {t("search.recent_title")}
+                            {t("search.recent_heading")}
                         </h3>
-                        <ul className={styles.list}>
+                        <ul className={styles.chips}>
                             {recent.map(text => (
                                 <li key={text}>
                                     <button type="button" className={styles.recent} onClick={() => onQueryChange(text)}>
-                                        <Clock size={16} strokeWidth={2} aria-hidden className={styles.muted} />
+                                        <History size={14} strokeWidth={2} aria-hidden className={styles.muted} />
                                         <span className={styles.recentText}>{text}</span>
                                     </button>
                                 </li>
@@ -89,20 +108,7 @@ export default function SearchPage({ query, onQueryChange, search, categories, m
                         </ul>
                     </section>
                 ) : null}
-                {hasFilters ? (
-                    <button type="button" className={styles.filtersRow} onClick={() => pushVenueSheet("filters")}>
-                        <SlidersHorizontal size={18} strokeWidth={2} aria-hidden />
-                        <span className={styles.filtersText}>
-                            <span className={styles.filtersLabel}>{t("search.filters_label")}</span>
-                            <span className={styles.muted}>
-                                {filterCount > 0
-                                    ? t("more.filters_subtitle_active", { count: filterCount })
-                                    : t("more.filters_subtitle_inactive")}
-                            </span>
-                        </span>
-                        <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.muted} />
-                    </button>
-                ) : null}
+                {filtersRow}
                 {categories.groups.length > 0 ? (
                     <nav aria-labelledby="pub-search-categories">
                         <h3 id="pub-search-categories" className={styles.sectionTitle}>
@@ -195,6 +201,7 @@ export default function SearchPage({ query, onQueryChange, search, categories, m
                     </section>
                 ))
             )}
+            {total > 0 ? filtersRow : null}
         </div>
     );
 }

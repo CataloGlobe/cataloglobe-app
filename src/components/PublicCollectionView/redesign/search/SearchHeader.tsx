@@ -11,6 +11,8 @@ type Props = {
 
 /**
  * Testata della pagina «Cerca» (spec §4): il campo, già attivo, e «Annulla».
+ * Su desktop, a tendina sotto l'isola, è il campo dell'isola (mockup v38):
+ * SheetHost lo posa lì sopra e «Annulla» non c'è (chiude Esc o il velo).
  * Il fuoco passa dal campo fantasma dell'isola (preso nel gesto della lente)
  * a questo prima del paint: su iOS la tastiera resta su.
  */
@@ -20,6 +22,12 @@ export default function SearchHeader({ query, onQueryChange }: Props) {
 
     useLayoutEffect(() => {
         inputRef.current?.focus({ preventScroll: true });
+        // Su desktop questo campo si posa su quello dell'isola, che si nasconde (Island.module.scss).
+        const root = document.documentElement;
+        root.dataset.searchHeader = "";
+        return () => {
+            delete root.dataset.searchHeader;
+        };
     }, []);
 
     return (
@@ -32,7 +40,7 @@ export default function SearchHeader({ query, onQueryChange }: Props) {
                     className={styles.input}
                     value={query}
                     onChange={event => onQueryChange(event.target.value)}
-                    placeholder={t("search.placeholder")}
+                    placeholder={t("header.search_field")}
                     aria-label={t("search.dialog_aria")}
                     enterKeyHint="search"
                     autoComplete="off"

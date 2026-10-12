@@ -113,7 +113,12 @@
             "vegan": "Vegan",
             "gluten_free": "Glutenfrei",
             "spicy": "Scharf"
-        }
+        },
+        "recent_heading": "Letzte Suchen",
+        "filters_hint": "Allergene und Vorlieben",
+        "filters_hidden": "Einige Gerichte sind ausgeblendet",
+        "filters_title_active_one": "Filter · {{count}} aktiv",
+        "filters_title_active_other": "Filter · {{count}} aktiv"
     },
     "filters": {
         "hidden_count_one": "{{count}} Gericht durch Filter ausgeblendet",
@@ -347,7 +352,13 @@
         "close_aria": "Schließen",
         "close_label": "Schließen",
         "back_to_top": "Nach oben",
-        "toggle_aria": "Kategorie ein-/ausklappen"
+        "toggle_aria": "Kategorie ein-/ausklappen",
+        "summary_categories_one": "{{count}} Kategorie",
+        "summary_categories_other": "{{count}} Kategorien",
+        "summary_dishes_one": "{{count}} Gericht",
+        "summary_dishes_other": "{{count}} Gerichte",
+        "summary_filters_one": "mit {{count}} Filter",
+        "summary_filters_other": "mit {{count}} Filtern"
     },
     "brand": {
         "logo_alt_default": "Logo",

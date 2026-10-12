@@ -152,6 +152,8 @@ export type SheetsSlotContext = {
     /** Foglio «Categorie» (Menu toccato di nuovo): albero già filtrato e sezione in vista. */
     categories: {
         groups: CollectionViewSectionGroup[];
+        /** Nome del menu nel sottotitolo («Menu pranzo · 5 categorie · 42 piatti»), come nell'isola. */
+        menuName: string | null;
         activeSectionId: string | null;
         /** Scorrono come le pill; si chiamano a foglio chiuso (pagina sbloccata). */
         onSelectSection: (sectionId: string) => void;

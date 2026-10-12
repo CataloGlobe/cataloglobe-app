@@ -236,6 +236,14 @@
 }
 
 
+/* Foglio «Categorie»: menu, quante categorie e quanti piatti, sopra i riquadri. */
+.summary {
+  margin: 0 0 12px;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
 /* Allergeni e Caratteristiche dal fondo: righe da leggere, non da toccare. */
 .intro {
   margin: 0 0 4px;

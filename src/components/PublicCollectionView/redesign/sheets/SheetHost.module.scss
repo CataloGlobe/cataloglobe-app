@@ -279,6 +279,53 @@
   .root[data-anchored="end"] .panel[data-size] {
     transform-origin: top right;
   }
+
+  /* La ricerca sotto il campo dell'isola (mockup v38). La testata col campo si
+     posa sul campo dell'isola (posizione da SheetHost): il pannello non taglia
+     più, taglia la viewport. Il velo ha un buco sull'isola, che resta nitida. */
+  .root[data-anchored="field"] {
+    .backdrop {
+      background: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+
+      &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: color-mix(in srgb, black 18%, transparent);
+        -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: blur(3px);
+        clip-path: var(--sheet-veil-clip, none);
+      }
+    }
+
+    .panel[data-custom] {
+      overflow: visible;
+
+      > .dragZone {
+        position: absolute;
+        top: var(--sheet-field-top);
+        right: 0;
+        left: 0;
+        height: var(--sheet-field-height);
+      }
+
+      > .dragZone > .header {
+        height: 100%;
+        min-height: 0;
+        padding: 0;
+      }
+
+      .viewport {
+        border-radius: 20px;
+      }
+
+      .pageContent {
+        padding-top: 14px;
+      }
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

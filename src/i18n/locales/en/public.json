@@ -113,7 +113,12 @@
             "vegan": "Vegan",
             "gluten_free": "Gluten-free",
             "spicy": "Spicy"
-        }
+        },
+        "recent_heading": "Recent searches",
+        "filters_hint": "Allergens and preferences",
+        "filters_hidden": "Some dishes are hidden",
+        "filters_title_active_one": "Filters · {{count}} active",
+        "filters_title_active_other": "Filters · {{count}} active"
     },
     "filters": {
         "hidden_count_one": "{{count}} dish hidden by filters",
@@ -347,7 +352,13 @@
         "close_aria": "Close",
         "close_label": "Close",
         "back_to_top": "Back to top",
-        "toggle_aria": "Expand/collapse category"
+        "toggle_aria": "Expand/collapse category",
+        "summary_categories_one": "{{count}} category",
+        "summary_categories_other": "{{count}} categories",
+        "summary_dishes_one": "{{count}} dish",
+        "summary_dishes_other": "{{count}} dishes",
+        "summary_filters_one": "with {{count}} filter",
+        "summary_filters_other": "with {{count}} filters"
     },
     "brand": {
         "logo_alt_default": "Logo",

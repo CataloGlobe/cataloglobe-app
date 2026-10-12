@@ -3679,6 +3679,7 @@ export default function CollectionView({
                     : undefined,
                 categories: {
                     groups: displaySectionGroups,
+                    menuName: style.showCatalogName ? collectionTitle || null : null,
                     activeSectionId,
                     onSelectSection: scrollToSection,
                     onSelectSubSection: scrollToSubSection

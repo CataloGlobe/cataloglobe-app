@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryBoxes } from "@/components/PublicCollectionView/redesign/categories/categoryBoxes";
+import { categoryBoxes, categoryTotals } from "@/components/PublicCollectionView/redesign/categories/categoryBoxes";
 import type { CollectionViewSection, CollectionViewSectionGroup } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 
 const section = (id: string, items: number, level = 1, parent: string | null = null) =>
@@ -34,5 +34,14 @@ describe("categoryBoxes (spec §4, D36)", () => {
         const boxes = categoryBoxes(groups);
         expect(boxes.map(box => box.id)).toEqual(["primi"]);
         expect(boxes[0].rows.map(row => row.id)).toEqual(["primi", "risotti"]);
+    });
+
+    it("totali del sottotitolo: categorie principali con piatti e piatti visibili", () => {
+        const groups: CollectionViewSectionGroup[] = [
+            { root: section("dolci", 0), children: [] },
+            { root: section("antipasti", 3), children: [] },
+            { root: section("primi", 1), children: [section("pasta", 2, 2, "primi"), section("risotti", 4, 2, "primi")] }
+        ];
+        expect(categoryTotals(groups)).toEqual({ categories: 2, dishes: 10 });
     });
 });

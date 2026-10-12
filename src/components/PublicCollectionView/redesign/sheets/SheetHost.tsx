@@ -232,7 +232,14 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
         if (!root || !panel) return;
         const clear = () => {
             delete root.dataset.anchored;
-            for (const name of ["--sheet-anchor-top", "--sheet-anchor-left", "--sheet-anchor-width"]) {
+            root.style.removeProperty("--sheet-veil-clip");
+            for (const name of [
+                "--sheet-anchor-top",
+                "--sheet-anchor-left",
+                "--sheet-anchor-width",
+                "--sheet-field-top",
+                "--sheet-field-height"
+            ]) {
                 panel.style.removeProperty(name);
             }
         };
@@ -259,9 +266,24 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
                   );
             // «field»: a tendina sotto il campo; «end»: popover dal bordo destro del pulsante.
             root.dataset.anchored = aligned ? "field" : "end";
-            panel.style.setProperty("--sheet-anchor-top", `${Math.round(below.bottom + ANCHOR_GAP_PX)}px`);
+            const top = Math.round(below.bottom + ANCHOR_GAP_PX);
+            panel.style.setProperty("--sheet-anchor-top", `${top}px`);
             panel.style.setProperty("--sheet-anchor-left", `${Math.round(left)}px`);
             panel.style.setProperty("--sheet-anchor-width", `${Math.round(width)}px`);
+            if (!aligned || !align) {
+                root.style.removeProperty("--sheet-veil-clip");
+                return;
+            }
+            // Mockup v38: il campo è quello dell'isola. La testata della pagina (il campo
+            // vero) si posa sopra il campo dell'isola, che si nasconde (SearchHeader); il
+            // velo lascia un buco sull'isola, che resta nitida. Il tocco sul buco chiude.
+            panel.style.setProperty("--sheet-field-top", `${Math.round(align.top) - top}px`);
+            panel.style.setProperty("--sheet-field-height", `${Math.round(align.height)}px`);
+            const island = document.getElementById(anchor.below);
+            // Il raggio è quello del vetro dell'isola, il suo primo figlio.
+            const shell = island?.firstElementChild;
+            const radius = shell ? Number.parseFloat(getComputedStyle(shell).borderTopLeftRadius) || 0 : 0;
+            root.style.setProperty("--sheet-veil-clip", veilWithHole(below, radius));
         };
         place();
         window.addEventListener("resize", place);
@@ -551,6 +573,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
                 aria-labelledby="pub-sheet-title"
                 tabIndex={-1}
                 data-size={activePage.size ?? "medium"}
+                data-custom={customHeader ? "" : undefined}
             >
                 <div
                     className={styles.dragZone}
@@ -621,6 +644,22 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
     );
 
     return portalTarget ? createPortal(tree, portalTarget) : tree;
+}
+
+/** Velo a tutto schermo con un buco a rettangolo arrotondato (evenodd) dove sta `hole`. */
+function veilWithHole(hole: DOMRect, radius: number): string {
+    const W = Math.ceil(window.innerWidth);
+    const H = Math.ceil(window.innerHeight);
+    const x = Math.round(hole.left);
+    const y = Math.round(hole.top);
+    const w = Math.round(hole.width);
+    const h = Math.round(hole.height);
+    const r = Math.min(Math.round(radius), w / 2, h / 2);
+    const arc = (dx: number, dy: number) => `A${r} ${r} 0 0 1 ${dx} ${dy}`;
+    const box =
+        `M${x + r} ${y}H${x + w - r}${arc(x + w, y + r)}V${y + h - r}${arc(x + w - r, y + h)}` +
+        `H${x + r}${arc(x, y + h - r)}V${y + r}${arc(x + r, y)}Z`;
+    return `path(evenodd, "M0 0H${W}V${H}H0Z ${box}")`;
 }
 
 function backdropOpacity(backdrop: HTMLElement | null): number {

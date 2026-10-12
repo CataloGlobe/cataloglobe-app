@@ -45,3 +45,16 @@ export function categoryBoxes(groups: readonly CollectionViewSectionGroup[]): Ca
         return [{ id: root.id, rows }];
     });
 }
+
+/** Per il sottotitolo del foglio: categorie principali con piatti e piatti visibili (filtri compresi). */
+export function categoryTotals(groups: readonly CollectionViewSectionGroup[]): { categories: number; dishes: number } {
+    let categories = 0;
+    let dishes = 0;
+    for (const { root, children } of groups) {
+        const count = children.reduce((sum, child) => sum + child.items.length, root.items.length);
+        if (count === 0) continue;
+        categories += 1;
+        dishes += count;
+    }
+    return { categories, dishes };
+}

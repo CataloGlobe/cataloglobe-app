@@ -37,6 +37,7 @@ import SheetHost from "./SheetHost";
 import { closeSheet, getSheetState, popSheetPage, useSheetState, type SheetPage } from "./sheetStack";
 import { FEATURED_DETAIL_PREFIX, pushFeaturedDetail, pushVenueSheet } from "./venueSheetPages";
 import CategoryList from "../categories/CategoryList";
+import { categoryTotals } from "../categories/categoryBoxes";
 import SearchHeader from "../search/SearchHeader";
 import ProductPage, { ProductUnavailable } from "../product/ProductPage";
 import { productIdOf } from "../product/productSheet";
@@ -240,7 +241,7 @@ function VenuePage({
         case "language":
             return <LanguagePage />;
         case "categories":
-            return <CategoriesPage {...props.categories} />;
+            return <CategoriesPage {...props.categories} filterCount={props.activeFilterCount} />;
         case "filters":
             return <FiltersPage {...props.search} groups={props.menuInfo.groups} />;
         case "allergens":
@@ -727,10 +728,28 @@ function InfoPage({
  * sezione come le pill, al frame dopo: il blocco della pagina si toglie nel
  * commit della chiusura.
  */
-function CategoriesPage({ groups, activeSectionId, onSelectSection, onSelectSubSection }: SheetsSlotContext["categories"]) {
+function CategoriesPage({
+    groups,
+    menuName,
+    activeSectionId,
+    onSelectSection,
+    onSelectSubSection,
+    filterCount
+}: SheetsSlotContext["categories"] & { filterCount: number }) {
     const { t } = useTranslation("public");
+    const totals = categoryTotals(groups);
+    // «Menu pranzo · 5 categorie · 42 piatti · con 1 filtro», come nel mockup v38.
+    const summary = [
+        menuName,
+        t("categories.summary_categories", { count: totals.categories }),
+        t("categories.summary_dishes", { count: totals.dishes }),
+        filterCount > 0 ? t("categories.summary_filters", { count: filterCount }) : null
+    ]
+        .filter(Boolean)
+        .join(" · ");
     return (
         <nav aria-label={t("categories.sheet_title")}>
+            <p className={styles.summary}>{summary}</p>
             <CategoryList
                 groups={groups}
                 activeSectionId={activeSectionId}

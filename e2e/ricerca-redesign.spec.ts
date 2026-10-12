@@ -44,7 +44,7 @@ test("la lente apre «Cerca», un risultato porta al piatto e resta fra le recen
         .toBeLessThan(400);
 
     await lens.click();
-    await expect(dialog.getByRole("heading", { name: "Recenti" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Ricerche recenti" })).toBeVisible();
     await dialog.getByRole("button", { name: "dolci 7" }).click();
     await expect(input).toHaveValue("dolci 7");
     await dialog.getByRole("button", { name: "Annulla" }).click();
@@ -68,7 +68,7 @@ test("«Filtri» dalla ricerca filtra dal vivo e accende il pallino della lente"
 
     await show.click();
     await expect(dialog.getByRole("searchbox")).toBeVisible();
-    await expect(dialog.getByRole("button", { name: /^Filtri/ })).toContainText("1 filtro attivo");
+    await expect(dialog.getByRole("button", { name: /^Filtri/ })).toContainText("Filtri · 1 attivo");
 
     await dialog.getByRole("button", { name: "Annulla" }).click();
     await expect(dialog).toHaveCount(0);

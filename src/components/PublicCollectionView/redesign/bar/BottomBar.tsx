@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ReceiptText, ScrollText, Utensils } from "lucide-react";
+import { ChevronUp, ReceiptText, ScrollText, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import type { BottomBarSlotContext } from "../slots";
 import { useVoteInvite } from "../vote/useVoteInvite";
@@ -137,6 +137,10 @@ export default function BottomBar({
                                     >
                                         {voce.icon}
                                         {attiva && <span className={styles.nome}>{t(voce.labelKey)}</span>}
+                                        {/* Il piccolo ⌃ dice che il Menu attivo apre «Categorie» (mockup v32). */}
+                                        {attiva && voce.id === "menu" && (
+                                            <ChevronUp size={14} strokeWidth={2.25} className={styles.categorie} aria-hidden />
+                                        )}
                                     </button>
                                 );
                             })}

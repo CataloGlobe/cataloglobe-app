@@ -481,6 +481,12 @@ $scia: 50px; /* logo 40 + gap 10 */
     pointer-events: auto;
   }
 
+  /* Ricerca aperta a tendina: il campo vero della pagina «Cerca» si posa qui sopra (SearchHeader).
+     Opacity, non visibility: alla chiusura il fuoco torna qui prima che il flag vada via. */
+  :global(html[data-search-header]) .campo {
+    opacity: 0;
+  }
+
   .campoTesto {
     flex: 1 1 auto;
     display: flex;

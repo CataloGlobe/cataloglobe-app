@@ -115,6 +115,12 @@ $uscita: 220ms ease-in;
   white-space: nowrap;
 }
 
+.categorie {
+  flex: none;
+  margin-left: -3px;
+  opacity: 0.6;
+}
+
 .ordine {
   position: relative;
   display: flex;

@@ -46,7 +46,15 @@ test("isola estesa: campo di ricerca, «Filtri», pagine e categorie in seconda 
     await expect.poll(async () => Math.round((await box(dialog)).y - (island.y + island.height))).toBe(8);
     await expect.poll(async () => Math.abs(Math.round((await box(dialog)).x - fieldBox.x))).toBe(0);
     await expect.poll(async () => Math.abs(Math.round((await box(dialog)).width - fieldBox.width))).toBe(0);
-    await dialog.getByRole("button", { name: "Annulla" }).click();
+    // Il campo vero si posa su quello dell'isola (mockup v38): niente «Annulla», chiude Esc.
+    await expect
+        .poll(async () => {
+            const input = await box(dialog.getByRole("searchbox"));
+            return input.y > fieldBox.y && input.y + input.height < fieldBox.y + fieldBox.height;
+        })
+        .toBe(true);
+    await expect(dialog.getByRole("button", { name: "Annulla" })).toBeHidden();
+    await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(field).toBeFocused();
 

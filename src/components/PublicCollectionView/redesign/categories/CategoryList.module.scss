@@ -1,6 +1,12 @@
-/* ── Categorie (spec §4, D36) ─────────────────────────────────────────────
-   Un riquadro per categoria principale; righe 48 px, sottocategorie 42 px
-   rientrate; niente filo verticale; la corrente col fondo acceso. */
+/* ── Categorie (spec §4, D36, mockup v32b) ───────────────────────────────
+   Un riquadro per categoria principale: la principale è la testata (52 px),
+   le sottocategorie dentro (46 px), non rientrate, divise da un filo; la
+   corrente col fondo acceso. Dove c'è posto (ricerca su desktop) i riquadri
+   vanno in colonne. */
+.wrap {
+  container-type: inline-size;
+}
+
 .boxes,
 .boxRows {
   margin: 0;
@@ -14,9 +20,17 @@
   gap: 10px;
 }
 
+@container (min-width: 600px) {
+  .boxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    align-items: start;
+  }
+}
+
 .box {
-  overflow: hidden;
-  border-radius: 16px;
+  padding: 0 6px;
+  border-radius: 18px;
   background: color-mix(in srgb, var(--pub-text) 5%, transparent);
 }
 
@@ -25,27 +39,45 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 42px;
-  padding: 0 14px 0 28px;
+  min-height: 46px;
+  padding: 0 10px;
   border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 9%, transparent);
   background: transparent;
   color: inherit;
   font: inherit;
+  font-size: 15px;
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
 
   &[data-depth="0"] {
-    min-height: 48px;
-    padding-left: 14px;
-    font-weight: 600;
+    min-height: 52px;
+    font-size: 16px;
+    font-weight: 700;
   }
 
   &[data-depth="2"] {
-    padding-left: 42px;
+    padding-left: 22px;
   }
 
   &[aria-current="location"] {
-    background: color-mix(in srgb, var(--pub-accent, var(--pub-primary)) 14%, transparent);
+    width: calc(100% + 4px);
+    margin: 0 -2px;
+    border-bottom-color: transparent;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--pub-accent, var(--pub-primary)) 16%, transparent);
+    font-weight: 700;
+  }
+}
+
+.boxRows > li:last-child .row {
+  border-bottom-color: transparent;
+}
+
+@media (hover: hover) {
+  .row:not([aria-current]):hover {
+    background: color-mix(in srgb, var(--pub-text) 6%, transparent);
   }
 }
 
@@ -60,5 +92,6 @@
 .count {
   flex-shrink: 0;
   color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
