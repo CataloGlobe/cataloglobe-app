@@ -53,7 +53,8 @@
         "closed_opens_day": "Closed · opens {{day}} at {{time}}",
         "closed_opens_today_short": "Closed · today {{time}}",
         "closed_opens_tomorrow_short": "Closed · tomorrow {{time}}",
-        "closed_opens_day_short": "Closed · {{day}} {{time}}"
+        "closed_opens_day_short": "Closed · {{day}} {{time}}",
+        "open_until": "Open · closes at {{time}}"
     },
     "nav": {
         "bottom_aria": "Navigation",
@@ -77,7 +78,9 @@
         "share_error": "Couldn't copy the link",
         "story_label": "Our story",
         "story_subtitle": "Who we are, where our dishes come from",
-        "menu_label": "Back to the menu"
+        "menu_label": "Back to the menu",
+        "sheet_title": "More",
+        "info_hours_label": "Info and hours"
     },
     "search": {
         "placeholder": "Search product…",
@@ -356,7 +359,14 @@
         "payment_methods": "Payment methods",
         "services": "Services",
         "contacts": "Contacts",
-        "address": "Address"
+        "address": "Address",
+        "hours_today": "Today {{hours}}",
+        "hours_today_closed": "Closed today",
+        "open_maps": "Open in maps",
+        "call": "Call the venue",
+        "website": "Venue website",
+        "email": "Email the venue",
+        "sheet_title": "Info and hours"
     },
     "opening_hours": {
         "title": "Opening hours",
@@ -385,7 +395,9 @@
             "10": "Oct",
             "11": "Nov",
             "12": "Dec"
-        }
+        },
+        "week_title": "Opening hours",
+        "today": "today"
     },
     "fees": {
         "labels": {
@@ -617,7 +629,8 @@
     },
     "sheet": {
         "back_to": "Back to {{title}}",
-        "close": "Close"
+        "close": "Close",
+        "back": "Back"
     },
     "order_sheet": {
         "add": "Add · {{price}}",

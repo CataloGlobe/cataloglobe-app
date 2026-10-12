@@ -1,26 +1,27 @@
 import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    CalendarCheck,
+    CalendarDays,
     Check,
     ChevronRight,
     Clock,
     Facebook,
-    Filter,
     Globe,
     Info,
     Instagram,
-    Languages,
+    ListFilter,
     Mail,
     MapPin,
     MessageCircle,
     Phone,
     ScrollText,
-    Share2,
+    Share,
     Utensils
 } from "lucide-react";
 import { useLanguage } from "@context/Language/useLanguage";
-import PublicOpeningHours from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
+import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
+import { visibleClosures } from "@components/PublicCollectionView/PublicOpeningHours/visibleClosures";
+import { todayIsoDate } from "@/utils/dateLocal";
 import { PublicFeeRows } from "@components/PublicCollectionView/PublicFooter/PublicFees";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
@@ -30,7 +31,8 @@ import { FeaturedContentDetail, FeaturedCtaFooter } from "@components/PublicColl
 import { hasFeaturedCta } from "@components/PublicCollectionView/FeaturedBlock/featuredCta";
 import type { SheetsSlotContext } from "../slots";
 import { useVenueStatus } from "../venue/useVenueStatus";
-import { venueStatusLabel } from "../venue/venueLabel";
+import { venueStatusSheetLabel } from "../venue/venueLabel";
+import { romeWeekday, todayOpeningRanges } from "../venue/venueStatus";
 import SheetHost from "./SheetHost";
 import { closeSheet, getSheetState, popSheetPage, useSheetState, type SheetPage } from "./sheetStack";
 import { FEATURED_DETAIL_PREFIX, pushFeaturedDetail, pushVenueSheet } from "./venueSheetPages";
@@ -234,14 +236,7 @@ function VenuePage({
         case "info":
             return <InfoPage {...props} />;
         case "hours":
-            return (
-                <PublicOpeningHours
-                    openingHours={props.openingHours}
-                    upcomingClosures={props.upcomingClosures}
-                    showHeading={false}
-                    surface="surface"
-                />
-            );
+            return <HoursPage openingHours={props.openingHours} upcomingClosures={props.upcomingClosures} />;
         case "language":
             return <LanguagePage />;
         case "categories":
@@ -306,7 +301,7 @@ function VenuePage({
 }
 
 type RowProps = {
-    icon: ReactNode;
+    icon?: ReactNode;
     label: string;
     subtitle?: string | null;
     onClick?: () => void;
@@ -315,19 +310,49 @@ type RowProps = {
     className?: string;
 };
 
-/** Riga toccabile del foglio: icona, testo su due righe, freccia se porta altrove. */
+/** Riga toccabile del foglio: icona nel quadrato, testo su due righe, freccia se porta altrove. */
 function Row({ icon, label, subtitle, onClick, disabled = false, chevron = true, className }: RowProps) {
     return (
         <button type="button" className={className ? `${styles.row} ${className}` : styles.row} onClick={onClick} disabled={disabled}>
-            <span className={styles.rowIcon} aria-hidden>
-                {icon}
-            </span>
+            {icon ? (
+                <span className={styles.rowIcon} aria-hidden>
+                    {icon}
+                </span>
+            ) : null}
             <span className={styles.rowText}>
                 <span className={styles.rowLabel}>{label}</span>
                 {subtitle ? <span className={styles.rowSubtitle}>{subtitle}</span> : null}
             </span>
             {chevron && !disabled ? <ChevronRight size={16} strokeWidth={2} className={styles.chevron} aria-hidden /> : null}
         </button>
+    );
+}
+
+/** Riga che porta fuori (telefono, mappe, sito): stessa forma di `Row`, ma è un link. */
+function LinkRow({ icon, label, subtitle, href, external }: { icon: ReactNode; label: string; subtitle?: string; href: string; external: boolean }) {
+    return (
+        <a href={href} className={styles.row} {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+            <span className={styles.rowIcon} aria-hidden>
+                {icon}
+            </span>
+            <span className={styles.rowText}>
+                <span className={`${styles.rowLabel} ${styles.rowLabelWrap}`}>{label}</span>
+                {subtitle ? <span className={styles.rowSubtitle}>{subtitle}</span> : null}
+            </span>
+        </a>
+    );
+}
+
+/** Stato del locale con il pallino (verde, ambra, grigio), in cima a Info e a Orari. */
+function StatusLine({ openingHours, upcomingClosures }: Pick<SheetsSlotContext, "openingHours" | "upcomingClosures">) {
+    const { t, i18n } = useTranslation("public");
+    const status = useVenueStatus(openingHours, upcomingClosures);
+    const label = venueStatusSheetLabel(status, t as (key: string, o?: Record<string, unknown>) => string, i18n.language);
+    if (!label) return null;
+    return (
+        <p className={styles.status} data-kind={status.kind}>
+            {label}
+        </p>
     );
 }
 
@@ -344,9 +369,11 @@ function MorePage({
     story,
     bookingInSheet
 }: SheetsSlotContext & { bookingInSheet: boolean }) {
-    const { t } = useTranslation("public");
+    const { t, i18n } = useTranslation("public");
     // Feedback sulla riga Condividi (copia del link): due secondi, niente toast.
     const [shareFeedback, setShareFeedback] = useState<null | "copied" | "error">(null);
+    const status = useVenueStatus(openingHours, upcomingClosures);
+    const statusLabel = venueStatusSheetLabel(status, t as (key: string, o?: Record<string, unknown>) => string, i18n.language);
 
     const handleShare = async () => {
         if (!shareUrl) return;
@@ -380,78 +407,81 @@ function MorePage({
           ? t("more.filters_subtitle_active", { count: activeFilterCount })
           : t("more.filters_subtitle_inactive");
 
+    // Due gruppi come nel mockup v38: impostazioni del menu e del locale, poi le azioni.
+    // Gli orari stanno dentro «Info e orari» (una riga sola, lo stato come sottotitolo).
     return (
         <div className={styles.list}>
-            {/* Storia su desktop (deciso da Lorenzo il 2026-10-11): sul telefono sta nella barra in basso. */}
-            {story ? (
+            <div className={styles.group}>
+                {availableLanguages.length > 1 ? (
+                    <Row
+                        icon={<Globe size={18} strokeWidth={2} />}
+                        label={t("language_selector.sheet_title")}
+                        subtitle={activeLanguage?.name_native ?? currentLang.toUpperCase()}
+                        onClick={() => pushVenueSheet("language")}
+                    />
+                ) : null}
                 <Row
-                    className={styles.soloDesktop}
-                    icon={story.active ? <Utensils size={18} strokeWidth={2} /> : <ScrollText size={18} strokeWidth={2} />}
-                    label={story.active ? t("more.menu_label") : t("more.story_label")}
-                    subtitle={story.active ? null : t("more.story_subtitle")}
-                    onClick={() => {
-                        closeSheet();
-                        story.onToggle();
-                    }}
+                    icon={<ListFilter size={18} strokeWidth={2} />}
+                    label={t("more.filters_label")}
+                    subtitle={filtersSubtitle}
+                    disabled={filtersDisabled}
+                    onClick={() => pushVenueSheet("filters")}
                 />
-            ) : null}
-            {hasInfo ? (
-                <Row
-                    icon={<Info size={18} strokeWidth={2} />}
-                    label={t("more.info_label")}
-                    subtitle={t("more.info_subtitle")}
-                    onClick={() => pushVenueSheet("info")}
-                />
-            ) : null}
-            {openingHours.length > 0 ? (
-                <HoursRow openingHours={openingHours} upcomingClosures={upcomingClosures} onClick={() => pushVenueSheet("hours")} />
-            ) : null}
-            {availableLanguages.length > 1 ? (
-                <Row
-                    icon={<Languages size={18} strokeWidth={2} />}
-                    label={t("language_selector.sheet_title")}
-                    subtitle={activeLanguage?.name_native ?? currentLang.toUpperCase()}
-                    onClick={() => pushVenueSheet("language")}
-                />
-            ) : null}
-            {onOpenReservation ? (
-                <Row
-                    icon={<CalendarCheck size={18} strokeWidth={2} />}
-                    label={t("more.reservation_label")}
-                    subtitle={t("more.reservation_subtitle")}
-                    onClick={() => {
-                        // Nel foglio i passi entrano a spinta («‹ Opzioni»); senza, la pagina /prenota.
-                        if (bookingInSheet) {
-                            pushBookingSheet();
-                            return;
+                {hasInfo || openingHours.length > 0 ? (
+                    <Row
+                        icon={<Info size={18} strokeWidth={2} />}
+                        label={t("more.info_hours_label")}
+                        subtitle={statusLabel ?? t("more.info_subtitle")}
+                        onClick={() => pushVenueSheet("info")}
+                    />
+                ) : null}
+            </div>
+            <div className={styles.group}>
+                {onOpenReservation ? (
+                    <Row
+                        icon={<CalendarDays size={18} strokeWidth={2} />}
+                        label={t("more.reservation_label")}
+                        subtitle={t("more.reservation_subtitle")}
+                        onClick={() => {
+                            // Nel foglio i passi entrano a spinta; senza, la pagina /prenota.
+                            if (bookingInSheet) {
+                                pushBookingSheet();
+                                return;
+                            }
+                            closeSheet();
+                            onOpenReservation();
+                        }}
+                    />
+                ) : null}
+                {/* Storia su desktop (deciso da Lorenzo il 2026-10-11): sul telefono sta nella barra in basso. */}
+                {story ? (
+                    <Row
+                        className={styles.soloDesktop}
+                        icon={story.active ? <Utensils size={18} strokeWidth={2} /> : <ScrollText size={18} strokeWidth={2} />}
+                        label={story.active ? t("more.menu_label") : t("more.story_label")}
+                        subtitle={story.active ? null : t("more.story_subtitle")}
+                        onClick={() => {
+                            closeSheet();
+                            story.onToggle();
+                        }}
+                    />
+                ) : null}
+                {shareUrl ? (
+                    <Row
+                        icon={<Share size={18} strokeWidth={2} />}
+                        label={
+                            shareFeedback === "copied"
+                                ? t("more.share_copied")
+                                : shareFeedback === "error"
+                                  ? t("more.share_error")
+                                  : t("more.share_label")
                         }
-                        closeSheet();
-                        onOpenReservation();
-                    }}
-                />
-            ) : null}
-            <Row
-                icon={<Filter size={18} strokeWidth={2} />}
-                label={t("more.filters_label")}
-                subtitle={filtersSubtitle}
-                disabled={filtersDisabled}
-                onClick={() => pushVenueSheet("filters")}
-            />
-            {shareUrl ? (
-                <Row
-                    icon={<Share2 size={18} strokeWidth={2} />}
-                    label={
-                        shareFeedback === "copied"
-                            ? t("more.share_copied")
-                            : shareFeedback === "error"
-                              ? t("more.share_error")
-                              : t("more.share_label")
-                    }
-                    subtitle={t("more.share_subtitle")}
-                    chevron={false}
-                    onClick={handleShare}
-                />
-            ) : null}
+                        subtitle={t("more.share_subtitle")}
+                        chevron={false}
+                        onClick={handleShare}
+                    />
+                ) : null}
+            </div>
             <span className={styles.liveRegion} role="status" aria-live="polite">
                 {shareFeedback === "copied" ? t("more.share_copied") : shareFeedback === "error" ? t("more.share_error") : ""}
             </span>
@@ -479,7 +509,7 @@ function LanguagePage() {
                             if (!active) setLang(lang.code);
                         }}
                     >
-                        <span className={styles.rowIcon} aria-hidden>
+                        <span className={styles.flag} aria-hidden>
                             {lang.flag_emoji ?? lang.code.toUpperCase()}
                         </span>
                         <span className={styles.rowText}>
@@ -493,16 +523,71 @@ function LanguagePage() {
     );
 }
 
-/** Riga Orari: lo stato di adesso (lo stesso dell'isola) e la spinta verso tutti gli orari. */
-function HoursRow({
-    openingHours,
-    upcomingClosures,
-    onClick
-}: Pick<SheetsSlotContext, "openingHours" | "upcomingClosures"> & { onClick: () => void }) {
-    const { t, i18n } = useTranslation("public");
-    const status = useVenueStatus(openingHours, upcomingClosures);
-    const label = venueStatusLabel(status, t as (key: string, o?: Record<string, unknown>) => string, i18n.language);
-    return <Row icon={<Clock size={18} strokeWidth={2} />} label={t("opening_hours.title")} subtitle={label} onClick={onClick} />;
+const DAY_KEYS = [
+    "opening_hours.days.monday",
+    "opening_hours.days.tuesday",
+    "opening_hours.days.wednesday",
+    "opening_hours.days.thursday",
+    "opening_hours.days.friday",
+    "opening_hours.days.saturday",
+    "opening_hours.days.sunday"
+];
+
+/** Fasce di un giorno della settimana: «12:00–14:30 · 19:00–23:30», «Chiuso» o «—». */
+function daySlots(entries: OpeningHoursEntry[], t: (key: string) => string): string {
+    if (entries.length === 0) return "—";
+    if (entries[0].is_closed) return t("opening_hours.closed");
+    const open = entries
+        .filter(e => !e.is_closed && e.opens_at && e.closes_at)
+        .sort((a, b) => a.slot_index - b.slot_index)
+        .map(e => `${e.opens_at!.slice(0, 5)}–${e.closes_at!.slice(0, 5)}`);
+    return open.length > 0 ? open.join(" · ") : "—";
+}
+
+/** Data corta di una chiusura: «4 ago», «4 ago – 18 ago». */
+function closureDates(closure: UpcomingClosure, t: (key: string) => string): string {
+    const short = (iso: string) => {
+        const d = new Date(`${iso}T12:00:00`);
+        return `${d.getDate()} ${t(`opening_hours.months_short.${d.getMonth() + 1}`)}`;
+    };
+    return closure.end_date ? `${short(closure.closure_date)} – ${short(closure.end_date)}` : short(closure.closure_date);
+}
+
+/** Orari della settimana (mockup v38): stato in cima, oggi in grassetto, poi le chiusure in arrivo. */
+function HoursPage({ openingHours, upcomingClosures }: Pick<SheetsSlotContext, "openingHours" | "upcomingClosures">) {
+    const { t } = useTranslation("public");
+    const today = romeWeekday(new Date());
+    const closures = visibleClosures(upcomingClosures ?? [], todayIsoDate());
+    return (
+        <div>
+            <StatusLine openingHours={openingHours} upcomingClosures={upcomingClosures} />
+            <dl className={styles.hours}>
+                {DAY_KEYS.map((key, dow) => (
+                    <div key={key} className={styles.hoursRow} data-today={dow === today || undefined}>
+                        <dt>{dow === today ? `${t(key)} · ${t("opening_hours.today")}` : t(key)}</dt>
+                        <dd>{daySlots(openingHours.filter(e => e.day_of_week === dow), t)}</dd>
+                    </div>
+                ))}
+            </dl>
+            {closures.length > 0 ? (
+                <>
+                    <h3 className={styles.sectionLabel}>{t("opening_hours.closures_title")}</h3>
+                    <dl className={styles.hours}>
+                        {closures.map(closure => (
+                            <div key={closure.closure_date} className={styles.hoursRow}>
+                                <dt>{closure.label ? `${closureDates(closure, t)} · ${closure.label}` : closureDates(closure, t)}</dt>
+                                <dd>
+                                    {closure.is_closed
+                                        ? t("opening_hours.closures_status_closed")
+                                        : (closure.slots ?? []).map(slot => `${slot.opens_at.slice(0, 5)}–${slot.closes_at.slice(0, 5)}`).join(" · ")}
+                                </dd>
+                            </div>
+                        ))}
+                    </dl>
+                </>
+            ) : null}
+        </div>
+    );
 }
 
 function InfoPage({
@@ -515,53 +600,108 @@ function InfoPage({
     address
 }: SheetsSlotContext) {
     const { t } = useTranslation("public");
+    const todayRanges = todayOpeningRanges(new Date(), openingHours, upcomingClosures);
     const website = links?.website_public && links.website ? safeHttpHref(links.website) : undefined;
     const facebook = links?.facebook_public && links.facebook ? safeHttpHref(links.facebook) : undefined;
     const contacts = [
-        links?.phone_public && links.phone
-            ? { key: "phone", href: `tel:${links.phone}`, icon: <Phone size={16} strokeWidth={2} />, label: links.phone, external: false }
+        address
+            ? {
+                  key: "map",
+                  href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+                  icon: <MapPin size={18} strokeWidth={2} />,
+                  label: address,
+                  subtitle: t("info.open_maps"),
+                  external: true
+              }
             : null,
-        links?.email_public_visible && links.email_public
-            ? { key: "email", href: `mailto:${links.email_public}`, icon: <Mail size={16} strokeWidth={2} />, label: links.email_public, external: false }
+        links?.phone_public && links.phone
+            ? { key: "phone", href: `tel:${links.phone}`, icon: <Phone size={18} strokeWidth={2} />, label: links.phone, subtitle: t("info.call"), external: false }
             : null,
         website
-            ? { key: "web", href: website, icon: <Globe size={16} strokeWidth={2} />, label: links!.website!.replace(/^https?:\/\//, ""), external: true }
+            ? {
+                  key: "web",
+                  href: website,
+                  icon: <Globe size={18} strokeWidth={2} />,
+                  label: links!.website!.replace(/^https?:\/\//, "").replace(/\/$/, ""),
+                  subtitle: t("info.website"),
+                  external: true
+              }
+            : null,
+        links?.email_public_visible && links.email_public
+            ? {
+                  key: "email",
+                  href: `mailto:${links.email_public}`,
+                  icon: <Mail size={18} strokeWidth={2} />,
+                  label: links.email_public,
+                  subtitle: t("info.email"),
+                  external: false
+              }
             : null,
         links?.instagram_public && links.instagram
-            ? { key: "ig", href: `https://instagram.com/${links.instagram}`, icon: <Instagram size={16} strokeWidth={2} />, label: `@${links.instagram}`, external: true }
+            ? {
+                  key: "ig",
+                  href: `https://instagram.com/${links.instagram}`,
+                  icon: <Instagram size={18} strokeWidth={2} />,
+                  label: `@${links.instagram}`,
+                  subtitle: "Instagram",
+                  external: true
+              }
             : null,
-        facebook ? { key: "fb", href: facebook, icon: <Facebook size={16} strokeWidth={2} />, label: "Facebook", external: true } : null,
+        facebook ? { key: "fb", href: facebook, icon: <Facebook size={18} strokeWidth={2} />, label: "Facebook", subtitle: undefined, external: true } : null,
         links?.whatsapp_public && links.whatsapp
             ? {
                   key: "wa",
                   href: `https://wa.me/${links.whatsapp.replace(/\D/g, "")}`,
-                  icon: <MessageCircle size={16} strokeWidth={2} />,
+                  icon: <MessageCircle size={18} strokeWidth={2} />,
                   label: "WhatsApp",
+                  subtitle: undefined,
                   external: true
               }
             : null
     ].filter(contact => contact !== null);
 
+    // Mockup v38: stato in cima, poi un riquadro con orari, indirizzo e contatti; sotto, le sezioni.
     return (
-        <div className={styles.list}>
-            {openingHours.length > 0 ? (
-                <HoursRow
-                    openingHours={openingHours}
-                    upcomingClosures={upcomingClosures}
-                    onClick={() => pushVenueSheet("hours")}
-                />
+        <div>
+            <StatusLine openingHours={openingHours} upcomingClosures={upcomingClosures} />
+            {openingHours.length > 0 || contacts.length > 0 ? (
+                <div className={styles.group}>
+                    {openingHours.length > 0 ? (
+                        <Row
+                            icon={<Clock size={18} strokeWidth={2} />}
+                            label={t("opening_hours.week_title")}
+                            subtitle={
+                                todayRanges === null
+                                    ? null
+                                    : todayRanges.length > 0
+                                      ? t("info.hours_today", { hours: todayRanges.join(" · ") })
+                                      : t("info.hours_today_closed")
+                            }
+                            onClick={() => pushVenueSheet("hours")}
+                        />
+                    ) : null}
+                    {contacts.map(({ key, ...contact }) => (
+                        <LinkRow key={key} {...contact} />
+                    ))}
+                </div>
             ) : null}
 
-            {fees.length > 0 ? (
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>{t("info.fees")}</h3>
-                    <PublicFeeRows fees={fees} surface="surface" />
+            {activityServices.length > 0 ? (
+                <section>
+                    <h3 className={styles.sectionLabel}>{t("info.services")}</h3>
+                    <ul className={`${styles.group} ${styles.plainList}`}>
+                        {activityServices.map(service => (
+                            <li key={service} className={styles.row}>
+                                <span className={styles.rowLabel}>{service}</span>
+                            </li>
+                        ))}
+                    </ul>
                 </section>
             ) : null}
 
             {paymentMethods.length > 0 ? (
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>{t("info.payment_methods")}</h3>
+                <section>
+                    <h3 className={styles.sectionLabel}>{t("info.payment_methods")}</h3>
                     <ul className={styles.tags}>
                         {paymentMethods.map(method => (
                             <li key={method} className={styles.tag}>
@@ -572,46 +712,10 @@ function InfoPage({
                 </section>
             ) : null}
 
-            {activityServices.length > 0 ? (
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>{t("info.services")}</h3>
-                    <ul className={styles.tags}>
-                        {activityServices.map(service => (
-                            <li key={service} className={styles.tag}>
-                                {service}
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            ) : null}
-
-            {contacts.length > 0 ? (
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>{t("info.contacts")}</h3>
-                    <ul className={styles.contacts}>
-                        {contacts.map(contact => (
-                            <li key={contact.key}>
-                                <a
-                                    href={contact.href}
-                                    className={styles.contact}
-                                    {...(contact.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                                >
-                                    <span aria-hidden>{contact.icon}</span>
-                                    <span className={styles.contactLabel}>{contact.label}</span>
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            ) : null}
-
-            {address ? (
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>{t("info.address")}</h3>
-                    <p className={styles.address}>
-                        <MapPin size={16} strokeWidth={2} aria-hidden />
-                        <span>{address}</span>
-                    </p>
+            {fees.length > 0 ? (
+                <section>
+                    <h3 className={styles.sectionLabel}>{t("info.fees")}</h3>
+                    <PublicFeeRows fees={fees} surface="surface" />
                 </section>
             ) : null}
         </div>

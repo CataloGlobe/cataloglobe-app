@@ -53,7 +53,8 @@
     "closed_opens_day": "Fermé · ouvre {{day}} à {{time}}",
     "closed_opens_today_short": "Fermé · aujourd'hui {{time}}",
     "closed_opens_tomorrow_short": "Fermé · demain {{time}}",
-    "closed_opens_day_short": "Fermé · {{day}} {{time}}"
+    "closed_opens_day_short": "Fermé · {{day}} {{time}}",
+    "open_until": "Ouvert · ferme à {{time}}"
   },
   "nav": {
     "bottom_aria": "Navigation",
@@ -77,7 +78,9 @@
     "share_error": "Impossible de copier le lien",
     "story_label": "Notre histoire",
     "story_subtitle": "Qui nous sommes, d'où viennent nos plats",
-    "menu_label": "Retour au menu"
+    "menu_label": "Retour au menu",
+    "sheet_title": "Plus",
+    "info_hours_label": "Infos et horaires"
   },
   "search": {
     "placeholder": "Recherche de produits...",
@@ -106,10 +109,10 @@
     "preferences_title": "Préférences",
     "preferences_intro": "Afficher seulement les plats indiqués ainsi par l'établissement.",
     "preference": {
-        "vegetarian": "Végétarien",
-        "vegan": "Végan",
-        "gluten_free": "Sans gluten",
-        "spicy": "Épicé"
+      "vegetarian": "Végétarien",
+      "vegan": "Végan",
+      "gluten_free": "Sans gluten",
+      "spicy": "Épicé"
     }
   },
   "filters": {
@@ -356,7 +359,14 @@
     "payment_methods": "Modes de paiement",
     "services": "Services",
     "contacts": "Contact",
-    "address": "Adresse"
+    "address": "Adresse",
+    "hours_today": "Aujourd'hui {{hours}}",
+    "hours_today_closed": "Fermé aujourd'hui",
+    "open_maps": "Ouvrir dans Plans",
+    "call": "Appeler le restaurant",
+    "website": "Site du restaurant",
+    "email": "Écrire au restaurant",
+    "sheet_title": "Infos et horaires"
   },
   "opening_hours": {
     "title": "Heures d'ouverture",
@@ -385,7 +395,9 @@
       "10": "Oct",
       "11": "Nov",
       "12": "Déc"
-    }
+    },
+    "week_title": "Horaires de la semaine",
+    "today": "aujourd'hui"
   },
   "fees": {
     "labels": {
@@ -617,7 +629,8 @@
   },
   "sheet": {
     "back_to": "Retour à {{title}}",
-    "close": "Fermer"
+    "close": "Fermer",
+    "back": "Retour"
   },
   "order_sheet": {
     "add": "Ajouter · {{price}}",

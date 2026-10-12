@@ -10,7 +10,7 @@ import { openSheet, openSheetAt, pushSheetPage, type SheetPage } from "./sheetSt
  * titolo si legge nella lingua della pagina al momento dell'apertura.
  */
 /** Su desktop ⋯, lingua e «Tutte le categorie» si aprono sotto il loro pulsante (spec §13). */
-const POPOVER_WIDTH_PX = 360;
+const POPOVER_WIDTH_PX = 320;
 
 export function venueSheetPage(name: PublicSheetName): SheetPage {
     const t = (key: string) => i18next.t(key, { ns: "public" });
@@ -18,14 +18,14 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
         case "more":
             return {
                 key: "more",
-                title: t("more.title"),
+                title: t("more.sheet_title"),
                 size: "medium",
                 anchor: { below: MORE_BUTTON_ID, width: POPOVER_WIDTH_PX }
             };
         case "info":
-            return { key: "info", title: t("info.title"), size: "large" };
+            return { key: "info", title: t("info.sheet_title"), size: "large" };
         case "hours":
-            return { key: "hours", title: t("opening_hours.title"), size: "large" };
+            return { key: "hours", title: t("opening_hours.week_title"), size: "large" };
         case "language":
             return {
                 key: "language",
@@ -34,7 +34,7 @@ export function venueSheetPage(name: PublicSheetName): SheetPage {
                 anchor: { below: LANGUAGE_BUTTON_ID, width: POPOVER_WIDTH_PX }
             };
         case "featured":
-            return { key: "featured", title: t("hub.events"), size: "large" };
+            return { key: "featured", title: t("hub.events"), size: "large", named: true };
         case "categories":
             return {
                 key: "categories",
@@ -88,7 +88,8 @@ export function pushFeaturedDetail(block: V2FeaturedContent): void {
  */
 export function openVenueSheet(name: PublicSheetName): void {
     if (name === "hours") {
-        openSheetAt([venueSheetPage("info"), venueSheetPage("hours")]);
+        // Link diretto: la madre si nomina, «‹ Info e orari» (mockup v38).
+        openSheetAt([{ ...venueSheetPage("info"), named: true }, venueSheetPage("hours")]);
         return;
     }
     openSheet(venueSheetPage(name));

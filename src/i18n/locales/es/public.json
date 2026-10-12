@@ -53,7 +53,8 @@
         "closed_opens_day": "Cerrado · abre el {{day}} a las {{time}}",
         "closed_opens_today_short": "Cerrado · hoy {{time}}",
         "closed_opens_tomorrow_short": "Cerrado · mañana {{time}}",
-        "closed_opens_day_short": "Cerrado · {{day}} {{time}}"
+        "closed_opens_day_short": "Cerrado · {{day}} {{time}}",
+        "open_until": "Abierto · cierra a las {{time}}"
     },
     "nav": {
         "bottom_aria": "Navegación",
@@ -77,7 +78,9 @@
         "share_error": "No se pudo copiar el enlace",
         "story_label": "Nuestra historia",
         "story_subtitle": "Quiénes somos, de dónde vienen nuestros platos",
-        "menu_label": "Volver al menú"
+        "menu_label": "Volver al menú",
+        "sheet_title": "Más",
+        "info_hours_label": "Info y horarios"
     },
     "search": {
         "placeholder": "Búsqueda de productos...",
@@ -356,7 +359,14 @@
         "payment_methods": "Formas de pago",
         "services": "Servicios",
         "contacts": "Póngase en contacto con",
-        "address": "Dirección"
+        "address": "Dirección",
+        "hours_today": "Hoy {{hours}}",
+        "hours_today_closed": "Hoy cerrado",
+        "open_maps": "Abrir en mapas",
+        "call": "Llamar al local",
+        "website": "Web del local",
+        "email": "Escribir al local",
+        "sheet_title": "Info y horarios"
     },
     "opening_hours": {
         "title": "Horario de apertura",
@@ -385,7 +395,9 @@
             "10": "Octubre",
             "11": "Nov",
             "12": "Diciembre"
-        }
+        },
+        "week_title": "Horario de la semana",
+        "today": "hoy"
     },
     "fees": {
         "labels": {
@@ -617,7 +629,8 @@
     },
     "sheet": {
         "back_to": "Volver a {{title}}",
-        "close": "Cerrar"
+        "close": "Cerrar",
+        "back": "Atrás"
     },
     "order_sheet": {
         "add": "Añadir · {{price}}",

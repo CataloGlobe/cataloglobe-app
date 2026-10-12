@@ -21,6 +21,12 @@ export type SheetPage = {
     /** Titolo invisibile in testata (resta per i lettori di schermo e per «‹ Titolo» nelle figlie): il corpo lo mostra da sé. */
     titleHidden?: boolean;
     /**
+     * Chi sta sopra torna qui col nome: «‹ Info e orari» invece della sola freccia.
+     * Solo dove il ritorno non è ovvio: link diretto a una figlia (Orari dalla
+     * pillola), elenco «In evidenza», un piatto sotto l'altro (mockup v38).
+     */
+    named?: boolean;
+    /**
      * Solo desktop, sulla prima pagina della pila: la finestra si apre 8 px sotto
      * l'elemento `below` invece che al centro, larga e allineata come `align` se
      * si vede (il campo di ricerca), altrimenti larga `width` (560) col bordo

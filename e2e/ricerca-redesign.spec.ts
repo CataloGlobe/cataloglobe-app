@@ -59,7 +59,7 @@ test("«Filtri» dalla ricerca filtra dal vivo e accende il pallino della lente"
     await dialog.getByRole("button", { name: /^Filtri/ }).click();
 
     await expect(dialog.getByRole("heading", { name: "Filtri" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Torna a Cerca" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Indietro" })).toBeVisible();
     const show = dialog.getByRole("button", { name: /^Mostra/ });
     await expect(show).toHaveText("Mostra 32 piatti");
 
@@ -75,13 +75,13 @@ test("«Filtri» dalla ricerca filtra dal vivo e accende il pallino della lente"
     await expect(page.getByRole("button", { name: "Cerca nel catalogo, 1 filtro attivo" })).toBeVisible();
 });
 
-test("«Filtri» dal ⋯ si spinge con «‹ Opzioni» e «Azzera» toglie i filtri", async ({ page }) => {
+test("«Filtri» dal ⋯ si spinge con «‹» e «Azzera» toglie i filtri", async ({ page }) => {
     await page.getByRole("button", { name: "Altre opzioni" }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: /Filtri/ }).click();
 
     await expect(dialog.getByRole("heading", { name: "Filtri" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Torna a Opzioni" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Indietro" })).toBeVisible();
     const reset = dialog.getByRole("button", { name: "Azzera" });
     await expect(reset).toBeDisabled();
 

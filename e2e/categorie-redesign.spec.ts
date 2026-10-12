@@ -92,7 +92,7 @@ test("in Storia niente pill, e il ⋯ resta nell'isola", async ({ page }) => {
     // Sul telefono la Storia sta nella barra in basso: nel ⋯ non c'è.
     await page.getByRole("button", { name: "Altre opzioni" }).click();
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByRole("heading", { name: "Opzioni" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Altro" })).toBeVisible();
     await expect(dialog.getByRole("button", { name: /La nostra storia/ })).toBeHidden();
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);

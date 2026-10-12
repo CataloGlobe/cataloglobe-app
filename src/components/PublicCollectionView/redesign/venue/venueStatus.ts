@@ -19,7 +19,8 @@ const MINUTES_PER_DAY = 1440;
 
 export type VenueStatus =
     | { kind: "unknown" }
-    | { kind: "open" }
+    /** `closesAt`: ora della prossima chiusura («Aperto · chiude alle 23:30» nel foglio). */
+    | { kind: "open"; closesAt?: string }
     | { kind: "closing-soon"; minutes: number }
     | { kind: "closed"; opensAt: { dayOffset: number; time: string; dow: number } | null };
 
@@ -127,6 +128,11 @@ export function todayOpeningRanges(
     );
 }
 
+/** Giorno della settimana di oggi a Roma, lunedì = 0 (la riga «oggi» degli orari). */
+export function romeWeekday(now: Date): number {
+    return romeNow(now).dow;
+}
+
 export function computeVenueStatus(
     now: Date,
     hours: OpeningHoursEntry[] | undefined,
@@ -155,7 +161,8 @@ export function computeVenueStatus(
     const current = merged.find(i => i.start <= n && n < i.end);
     if (current) {
         const remaining = current.end - n;
-        return remaining <= CLOSING_SOON_MINUTES ? { kind: "closing-soon", minutes: remaining } : { kind: "open" };
+        return remaining <= CLOSING_SOON_MINUTES ? { kind: "closing-soon", minutes: remaining }
+            : { kind: "open", closesAt: formatTime(current.end) };
     }
 
     const next = merged.find(i => i.start > n);

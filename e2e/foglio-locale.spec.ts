@@ -25,44 +25,53 @@ test.beforeEach(async ({ page }) => {
     test.skip((await island.count()) === 0, "pagina senza redesign (server riusato senza il flag)");
 });
 
-test("⋯ spinge Informazioni e Orari, Esc torna indietro e il fuoco torna al ⋯", async ({ page }) => {
+test("⋯ spinge Info e orari e poi gli Orari, Esc torna indietro e il fuoco torna al ⋯", async ({ page }) => {
     const more = page.getByRole("button", { name: "Altre opzioni" }).first();
     const dialog = page.getByRole("dialog");
 
     // Da tastiera, così il fuoco parte dal ⋯ anche su WebKit.
     await more.focus();
     await page.keyboard.press("Enter");
-    await expect(dialog.getByRole("heading", { name: "Opzioni" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Altro" })).toBeVisible();
 
-    await dialog.getByRole("button", { name: /Informazioni/ }).click();
-    await expect(dialog.getByRole("heading", { name: "Informazioni" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Torna a Opzioni" })).toBeVisible();
+    await dialog.getByRole("button", { name: /Info e orari/ }).click();
+    await expect(dialog.getByRole("heading", { name: "Info e orari" })).toBeVisible();
+    // Spinta normale: solo «‹», senza il nome della madre (mockup v38).
+    await expect(dialog.getByRole("button", { name: "Indietro" })).toBeVisible();
     await expect(dialog.getByRole("link", { name: /02 1234567/ })).toBeVisible();
 
-    await dialog.getByRole("button", { name: /Orari di apertura/ }).click();
-    await expect(dialog.getByRole("heading", { name: "Orari di apertura" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Torna a Informazioni" })).toBeVisible();
+    await dialog.getByRole("button", { name: /Orari della settimana/ }).click();
+    await expect(dialog.getByRole("heading", { name: "Orari della settimana" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Indietro" })).toBeVisible();
 
     await page.keyboard.press("Escape");
-    await expect(dialog.getByRole("heading", { name: "Informazioni" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Info e orari" })).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(dialog.getByRole("heading", { name: "Opzioni" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Altro" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(more).toBeFocused();
 });
 
-test("la pillola dello stato apre Orari con Informazioni sotto", async ({ page }) => {
+test("la pillola dello stato apre Orari con «‹ Info e orari» sotto", async ({ page }) => {
     const dialog = page.getByRole("dialog");
     await page.getByRole("button", { name: "Aperto", exact: true }).click();
-    await expect(dialog.getByRole("heading", { name: "Orari di apertura" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Orari della settimana" })).toBeVisible();
 
-    await dialog.getByRole("button", { name: "Torna a Informazioni" }).click();
-    await expect(dialog.getByRole("heading", { name: "Informazioni" })).toBeVisible();
+    // Link diretto a una figlia: la madre si nomina.
+    await dialog.getByRole("button", { name: "Torna a Info e orari" }).click();
+    await expect(dialog.getByRole("heading", { name: "Info e orari" })).toBeVisible();
     await expect(dialog.getByRole("button", { name: /^Torna a/ })).toHaveCount(0);
 
     await dialog.getByRole("button", { name: "Chiudi" }).click();
     await expect(dialog).toHaveCount(0);
+});
+
+test("il nome del locale nell'isola apre Info e orari", async ({ page }) => {
+    const dialog = page.getByRole("dialog");
+    await page.getByRole("button", { name: /Informazioni sede/ }).first().click();
+    await expect(dialog.getByRole("heading", { name: "Info e orari" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Indietro" })).toHaveCount(0);
 });
 
 test("la lingua si sceglie dalla bandiera o dal ⋯", async ({ page }) => {
@@ -75,7 +84,7 @@ test("la lingua si sceglie dalla bandiera o dal ⋯", async ({ page }) => {
 
     await page.getByRole("button", { name: "Altre opzioni" }).first().click();
     await dialog.getByRole("button", { name: /Lingua/ }).click();
-    await expect(dialog.getByRole("button", { name: "Torna a Opzioni" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Indietro" })).toBeVisible();
     await dialog.getByRole("option", { name: /English/ }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`/${SLUG}/en$`));
@@ -85,7 +94,7 @@ test("su uno schermo basso la sfumatura dice che c'è altro sotto", async ({ pag
     await page.setViewportSize({ width: 390, height: 500 });
     const dialog = page.getByRole("dialog");
     await page.getByRole("button", { name: "Altre opzioni" }).first().click();
-    await expect(dialog.getByRole("heading", { name: "Opzioni" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Altro" })).toBeVisible();
 
     const scroller = dialog.locator("[data-more]").first();
     await expect(scroller).toHaveAttribute("data-more", "true");

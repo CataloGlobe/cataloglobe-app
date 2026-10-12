@@ -130,6 +130,11 @@ $scia: 50px; /* logo 40 + gap 10 */
   > .testi {
     pointer-events: none;
   }
+
+  /* Il nome sì (largo quanto il testo): da compatta la riga è nascosta e non lo prende. */
+  .nomeTasto {
+    pointer-events: auto;
+  }
 }
 
 .logo {
@@ -150,6 +155,21 @@ $scia: 50px; /* logo 40 + gap 10 */
 }
 
 /* Nome lungo: completo fino a due righe, poi puntini (spec §2). */
+/* Il nome è un pulsante (apre «Info e orari»): nessun aspetto da pulsante. */
+.nomeTasto {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .nome {
   display: -webkit-box;
   overflow: hidden;

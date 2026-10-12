@@ -11,6 +11,7 @@ import VenuePill from "../venue/VenuePill";
 import { ISLAND_ID, LANGUAGE_BUTTON_ID, MORE_BUTTON_ID, SEARCH_FIELD_ID } from "./anchors";
 import IslandCategories from "./IslandCategories";
 import LanguageButton from "./LanguageButton";
+import { openVenueSheet } from "../sheets/venueSheetPages";
 import styles from "./Island.module.scss";
 
 // Isteresi: compatta oltre 40 px, torna estesa sotto 8 px. Validata su iPhone e Android (PR 1).
@@ -245,7 +246,20 @@ export default function Island({
                             />
                         )}
                         <div className={styles.testi}>
-                            <span className={styles.nome}>{activityName}</span>
+                            {/* Il nome apre «Info e orari», come nel mockup v38. */}
+                            <button
+                                type="button"
+                                className={styles.nomeTasto}
+                                onClick={e => {
+                                    // Safari non dà il fuoco al bottone toccato: alla chiusura torna qui.
+                                    rememberSheetOpener(e.currentTarget);
+                                    openVenueSheet("info");
+                                }}
+                                aria-label={`${activityName}: ${t("header.info_aria")}`}
+                                aria-haspopup="dialog"
+                            >
+                                <span className={styles.nome}>{activityName}</span>
+                            </button>
                             {/* «Menu pranzo  ● Aperto» su una riga; in Storia il menu non c'è. */}
                             <div className={styles.linea}>
                                 {menuName && !storia && <i className={styles.menu}>{menuName}</i>}

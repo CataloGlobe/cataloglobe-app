@@ -80,7 +80,7 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
     await sheet.getByRole("button", { name: /^Continua/ }).click();
 
     await expect(sheet.getByRole("heading", { name: "I tuoi dati" })).toBeVisible();
-    await expect(sheet.getByRole("button", { name: "Torna a Prenota un tavolo" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Indietro" })).toBeVisible();
     await sheet.getByRole("button", { name: "Continua", exact: true }).click();
     await expect(sheet.getByText("Il nome è obbligatorio.")).toBeVisible();
     await expect(sheet.getByRole("textbox", { name: /Nome e cognome/ })).toBeFocused();
@@ -127,14 +127,14 @@ test("orario pieno all'invio: si torna a Quando col messaggio sotto l'orario", a
     await expect(sheet.getByText("Non ci sono più posti per l'orario scelto. Prova un altro orario.")).toBeVisible();
 });
 
-test("dal ⋯ il primo passo entra a spinta, con «‹ Opzioni»", async ({ page }) => {
+test("dal ⋯ il primo passo entra a spinta, con «‹»", async ({ page }) => {
     await open(page);
     await page.getByRole("button", { name: "Altre opzioni" }).click();
     const sheet = dialog(page);
     await sheet.getByRole("button", { name: /Prenota un tavolo/ }).click();
     await expect(sheet.getByRole("heading", { name: "Prenota un tavolo" })).toBeVisible();
-    await sheet.getByRole("button", { name: "Torna a Opzioni" }).click();
-    await expect(sheet.getByRole("heading", { name: "Opzioni" })).toBeVisible();
+    await sheet.getByRole("button", { name: "Indietro" }).click();
+    await expect(sheet.getByRole("heading", { name: "Altro" })).toBeVisible();
 });
 
 test("In evidenza col pulsante verso la prenotazione della sede apre i passi nel foglio", async ({ page }) => {
@@ -143,6 +143,6 @@ test("In evidenza col pulsante verso la prenotazione della sede apre i passi nel
     const sheet = dialog(page);
     await sheet.getByRole("button", { name: "Prenota", exact: true }).click();
     await expect(sheet.getByRole("heading", { name: "Prenota un tavolo" })).toBeVisible();
-    await expect(sheet.getByRole("button", { name: "Torna a Evento" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Indietro" })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/${SLUG}$`));
 });

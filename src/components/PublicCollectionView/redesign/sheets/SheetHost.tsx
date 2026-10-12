@@ -570,15 +570,17 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
                     ) : (
                         <div className={styles.header}>
                             {parentPage ? (
-                                // «‹ Madre»: si sa dove si torna (spec §5, v25).
+                                // Spinta normale: solo «‹». Il nome della madre solo dove il
+                                // ritorno non è ovvio (`named`, mockup v38); senza nome si legge «Indietro».
                                 <button
                                     type="button"
                                     className={styles.backButton}
+                                    data-named={parentPage.named || undefined}
                                     onClick={popSheetPage}
-                                    aria-label={t("sheet.back_to", { title: parentPage.title })}
+                                    aria-label={parentPage.named ? t("sheet.back_to", { title: parentPage.title }) : t("sheet.back")}
                                 >
-                                    <ChevronLeft size={20} aria-hidden="true" />
-                                    <span className={styles.backLabel}>{parentPage.title}</span>
+                                    <ChevronLeft size={22} aria-hidden="true" />
+                                    {parentPage.named ? <span className={styles.backLabel}>{parentPage.title}</span> : null}
                                 </button>
                             ) : null}
                             <h2
@@ -588,8 +590,8 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
                             >
                                 {activePage.title}
                             </h2>
-                            <button type="button" className={styles.iconButton} onClick={closeSheet} aria-label={t("sheet.close")}>
-                                <X size={18} aria-hidden="true" />
+                            <button type="button" className={styles.closeButton} onClick={closeSheet} aria-label={t("sheet.close")}>
+                                <X size={18} strokeWidth={2.25} aria-hidden="true" />
                             </button>
                         </div>
                     )}

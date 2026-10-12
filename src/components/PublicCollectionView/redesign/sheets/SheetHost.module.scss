@@ -12,11 +12,14 @@
   justify-content: center;
 }
 
-/* Velo unico per tutti i fogli: scuro al 34%, fermo (solo opacity), un tocco chiude. */
+/* Velo unico per tutti i fogli: scuro al 34% e sfocato di 3 px come nel mockup v38.
+   Fermo (si anima solo l'opacity), quindi il blur qui è ammesso: non trasla. */
 .backdrop {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, black 34%, transparent);
+  background: rgb(8 8 10 / 34%);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
   touch-action: none;
 }
 
@@ -31,6 +34,7 @@
   background: var(--pub-surface);
   color: var(--pub-text);
   border-radius: 26px 26px 0 0;
+  box-shadow: 0 -14px 40px -18px rgb(0 0 0 / 50%);
   /* la superficie arriva al bordo e tiene dentro la safe area: le barre di
      Safari e Chrome non aprono spazi sotto il foglio */
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -54,17 +58,19 @@
 .handle {
   display: block;
   width: 36px;
-  height: 4px;
-  margin: 10px auto 4px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--pub-text) 22%, transparent);
+  height: 5px;
+  margin: 8px auto 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--pub-text) 24%, transparent);
 }
 
+/* Testata del mockup v38: titolo a sinistra, × in un cerchio pieno a destra. */
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 16px 8px;
+  gap: 6px;
+  min-height: 46px;
+  padding: 2px 12px 8px 20px;
 }
 
 .title {
@@ -74,7 +80,10 @@
   /* il colore dei titoli dell'app non vale qui: quello del locale */
   color: inherit;
   font: inherit;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -95,38 +104,60 @@
   white-space: nowrap;
 }
 
-.iconButton {
+/* × : cerchio pieno da 32 px dentro un bersaglio di tocco da 44 px. */
+.closeButton {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  /* bersaglio di tocco da 44px */
   width: 44px;
   height: 44px;
+  margin: -6px -6px -6px 0;
   padding: 0;
   border: 0;
-  border-radius: 50%;
   background: transparent;
   color: inherit;
   cursor: pointer;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--pub-text) 9%, transparent);
+  }
+
+  svg {
+    position: relative;
+  }
 }
 
-/* «‹ Madre»: freccia e nome della pagina sotto, mai più largo di metà testata. */
+/* «‹» (o «‹ Madre» se la madre è `named`): mai più largo di metà testata. */
 .backButton {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  flex-shrink: 1;
-  max-width: 45%;
+  justify-content: center;
+  gap: 0;
+  flex-shrink: 0;
+  min-width: 44px;
   min-height: 44px;
-  margin-left: -8px;
-  padding: 0 8px 0 0;
+  margin-left: -12px;
+  padding: 0;
   border: 0;
   border-radius: 22px;
   background: transparent;
-  color: color-mix(in srgb, var(--pub-text) 70%, transparent);
+  color: inherit;
   font: inherit;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
+
+  &[data-named] {
+    flex-shrink: 1;
+    max-width: 45%;
+    padding-right: 8px;
+  }
 
   svg {
     flex-shrink: 0;
@@ -181,7 +212,7 @@
 }
 
 .pageContent {
-  padding: 0 16px 16px;
+  padding: 4px 20px 18px;
 }
 
 /* Piede della pagina in cima (pulsante d'azione): fuori dall'area che scorre.
@@ -206,6 +237,9 @@
     /* Finestra al centro fino a 440 px (spec §13); le tendine e i popover hanno la loro misura. */
     width: min(440px, calc(100% - 48px));
     border-radius: 26px;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--pub-text) 10%, transparent),
+      0 30px 60px -24px rgb(0 0 0 / 60%);
 
     &[data-size="medium"],
     &[data-size="large"] {
@@ -215,6 +249,10 @@
 
   .handle {
     display: none;
+  }
+
+  .header {
+    padding: 14px 14px 8px 22px;
   }
 
   /* A tendina sotto l'isola (la ricerca): posizione e larghezza misurate da SheetHost. */
@@ -233,7 +271,7 @@
       top: var(--sheet-anchor-top);
       left: var(--sheet-anchor-left);
       width: var(--sheet-anchor-width);
-      border-radius: 22px;
+      border-radius: 20px;
       transform-origin: top center;
     }
   }

@@ -34,8 +34,8 @@ test("Oggi apre gli Orari, il voto apre il foglio col voto già scelto", async (
 
     const dialog = page.getByRole("dialog");
     await end.getByRole("button", { name: /Oggi 12:00–23:00/ }).click();
-    await expect(dialog.getByRole("heading", { name: "Orari di apertura" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Torna a Informazioni" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Orari della settimana" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Torna a Info e orari" })).toBeVisible();
     await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
@@ -57,7 +57,7 @@ test("Allergeni e Caratteristiche nel foglio, coi piatti che li contengono", asy
 
     await dialog.getByRole("button", { name: "Filtra per allergeni" }).click();
     await expect(dialog.getByRole("heading", { name: "Filtri" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Torna a Allergeni" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Indietro" })).toBeVisible();
     await dialog.getByRole("button", { name: "Chiudi" }).click();
     await expect(dialog).toHaveCount(0);
 

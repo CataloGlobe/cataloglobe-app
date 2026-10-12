@@ -53,7 +53,8 @@
         "closed_opens_day": "Geschlossen · öffnet {{day}} um {{time}} Uhr",
         "closed_opens_today_short": "Geschlossen · heute {{time}}",
         "closed_opens_tomorrow_short": "Geschlossen · morgen {{time}}",
-        "closed_opens_day_short": "Geschlossen · {{day}} {{time}}"
+        "closed_opens_day_short": "Geschlossen · {{day}} {{time}}",
+        "open_until": "Geöffnet · schließt um {{time}}"
     },
     "nav": {
         "bottom_aria": "Navigation",
@@ -77,7 +78,9 @@
         "share_error": "Link konnte nicht kopiert werden",
         "story_label": "Unsere Geschichte",
         "story_subtitle": "Wer wir sind, woher unsere Gerichte kommen",
-        "menu_label": "Zurück zur Speisekarte"
+        "menu_label": "Zurück zur Speisekarte",
+        "sheet_title": "Mehr",
+        "info_hours_label": "Info und Öffnungszeiten"
     },
     "search": {
         "placeholder": "Produkt suchen...",
@@ -356,7 +359,14 @@
         "payment_methods": "Zahlungsarten",
         "services": "Dienstleistungen",
         "contacts": "Kontakt",
-        "address": "Adresse"
+        "address": "Adresse",
+        "hours_today": "Heute {{hours}}",
+        "hours_today_closed": "Heute geschlossen",
+        "open_maps": "In Karten öffnen",
+        "call": "Lokal anrufen",
+        "website": "Website des Lokals",
+        "email": "Dem Lokal schreiben",
+        "sheet_title": "Info und Öffnungszeiten"
     },
     "opening_hours": {
         "title": "Die Öffnungszeiten",
@@ -385,7 +395,9 @@
             "10": "Okt.",
             "11": "Nov.",
             "12": "Dez."
-        }
+        },
+        "week_title": "Öffnungszeiten der Woche",
+        "today": "heute"
     },
     "fees": {
         "labels": {
@@ -617,7 +629,8 @@
     },
     "sheet": {
         "back_to": "Zurück zu {{title}}",
-        "close": "Schließen"
+        "close": "Schließen",
+        "back": "Zurück"
     },
     "order_sheet": {
         "add": "Hinzufügen · {{price}}",

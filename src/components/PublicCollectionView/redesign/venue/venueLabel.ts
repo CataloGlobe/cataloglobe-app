@@ -36,3 +36,16 @@ export function venueStatusLabel(
         }
     }
 }
+
+/**
+ * Lo stato nei fogli (⋯, Informazioni, Orari), dove c'è spazio: aperto dice anche
+ * quando chiude, «Aperto · chiude alle 23:30» (mockup v38); il resto come sopra.
+ */
+export function venueStatusSheetLabel(
+    status: VenueStatus,
+    t: (key: string, o?: Record<string, unknown>) => string,
+    lang: string
+): string | null {
+    if (status.kind === "open" && status.closesAt) return t("venue.open_until", { time: status.closesAt });
+    return venueStatusLabel(status, t, lang);
+}

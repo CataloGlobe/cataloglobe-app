@@ -52,7 +52,8 @@
         "closed_opens_day": "Chiuso · apre {{day}} alle {{time}}",
         "closed_opens_today_short": "Chiuso · oggi {{time}}",
         "closed_opens_tomorrow_short": "Chiuso · domani {{time}}",
-        "closed_opens_day_short": "Chiuso · {{day}} {{time}}"
+        "closed_opens_day_short": "Chiuso · {{day}} {{time}}",
+        "open_until": "Aperto · chiude alle {{time}}"
     },
     "nav": {
         "bottom_aria": "Navigazione",
@@ -76,7 +77,9 @@
         "share_error": "Impossibile copiare il link",
         "story_label": "La nostra storia",
         "story_subtitle": "Chi siamo, da dove vengono i piatti",
-        "menu_label": "Torna al menu"
+        "menu_label": "Torna al menu",
+        "sheet_title": "Altro",
+        "info_hours_label": "Info e orari"
     },
     "search": {
         "placeholder": "Cerca prodotto…",
@@ -355,7 +358,14 @@
         "payment_methods": "Metodi di pagamento",
         "services": "Servizi",
         "contacts": "Contatti",
-        "address": "Indirizzo"
+        "address": "Indirizzo",
+        "hours_today": "Oggi {{hours}}",
+        "hours_today_closed": "Oggi chiuso",
+        "open_maps": "Apri nelle mappe",
+        "call": "Chiama il locale",
+        "website": "Il sito del locale",
+        "email": "Scrivi al locale",
+        "sheet_title": "Info e orari"
     },
     "opening_hours": {
         "title": "Orari di apertura",
@@ -384,7 +394,9 @@
             "10": "ott",
             "11": "nov",
             "12": "dic"
-        }
+        },
+        "week_title": "Orari della settimana",
+        "today": "oggi"
     },
     "fees": {
         "labels": {
@@ -616,7 +628,8 @@
     },
     "sheet": {
         "back_to": "Torna a {{title}}",
-        "close": "Chiudi"
+        "close": "Chiudi",
+        "back": "Indietro"
     },
     "order_sheet": {
         "add": "Aggiungi · {{price}}",

@@ -97,9 +97,9 @@ test("«La storia» apre il lettore nel foglio con «‹ Nome», e tornando la s
     await expect(storyRow).toBeInViewport();
     expect(await dialog.locator("[class*='page']").first().evaluate(el => el.scrollTop)).toBe(scrolledTo);
 
-    // Dal racconto a un altro piatto, a spinta: «‹ La pasta della nonna».
+    // Dal racconto a un altro piatto, a spinta: solo «‹» (la madre non è un piatto, mockup v38).
     await storyRow.click();
     await dialog.getByRole("button", { name: /Dolci 2/ }).click();
     await expect(page.getByRole("dialog", { name: "Dolci 2" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Torna a La pasta della nonna" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Indietro" })).toBeVisible();
 });

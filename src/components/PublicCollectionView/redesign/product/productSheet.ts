@@ -29,7 +29,8 @@ export function groupRule(group: Pick<OptionGroup, "isRequired" | "maxSelectable
 
 /** Pagina del prodotto: il nome sta nel corpo su due righe, in testata solo per «‹ Nome» e i lettori di schermo. */
 export function productSheetPage(item: Pick<CollectionViewSectionItem, "id" | "name">): SheetPage {
-    return { key: `${PRODUCT_PAGE_PREFIX}${item.id}`, title: item.name, size: "large", titleHidden: true };
+    // «‹ Nome del piatto» per l'abbinamento o la storia aperti da qui (mockup v27-v38).
+    return { key: `${PRODUCT_PAGE_PREFIX}${item.id}`, title: item.name, size: "large", titleHidden: true, named: true };
 }
 
 export function productIdOf(page: SheetPage): string | null {
