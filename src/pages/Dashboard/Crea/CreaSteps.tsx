@@ -2,7 +2,7 @@
 // e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { CalendarClock, CalendarHeart, Check, Copy, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Package, Palette, Plus, ScanText, ScrollText, Tag, TriangleAlert, UtensilsCrossed } from "lucide-react";
+import { CalendarClock, Check, Copy, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Palette, Plus, ScanText, ScrollText, TriangleAlert, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import type { StoryBlock } from "@/services/supabase/stories";
 import { MAX_STORY_IMAGES } from "@/services/supabase/stories";
@@ -15,7 +15,7 @@ import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, type PassoGruppo, type Pas
 import { DB_LATER, invalid, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { EV, KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, priceText, sentence, stepLabel, stepSummary, steps, strays, type Ctx, type EvType, type StepId, type Tunnel } from "./creaModel";
+import { KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, priceText, sentence, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel } from "./creaModel";
 import { hidFeatured } from "./stileLook";
 import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Sh, Toggle, Warnish } from "./CreaUi";
@@ -146,90 +146,6 @@ export function StileNome({ t, u, styles, onBase }: { t: Tunnel; u: U; styles: r
 }
 
 /* ---------- in evidenza ---------- */
-const EV_ICON: Record<EvType, ReactNode> = { annuncio: <Megaphone size={16} />, evento: <CalendarHeart size={16} />, promo: <Tag size={16} />, bundle: <Package size={16} /> };
-
-export function EvidCosa({ t, u }: { t: Tunnel; u: U }) {
-    return (
-        <>
-            <Sh title="Metti qualcosa in evidenza">Compare in cima al menù o in fondo. Scegli cosa: ognuno ha il suo esempio a destra.</Sh>
-            <div className={s.opts}>
-                {(Object.keys(EV) as EvType[]).map(k => (
-                    <Opt key={k} on={t.evType === k} icon={EV_ICON[k]} title={EV[k].name} text={EV[k].desc} onClick={() => u(x => void (x.evType = k))} />
-                ))}
-            </div>
-        </>
-    );
-}
-
-export function EvidContenuto({ t, u, owner, imageUrl }: { t: Tunnel; u: U; owner: boolean; imageUrl: string | null }) {
-    const ids = { title: useId(), sub: useId(), text: useId(), inner: useId(), cta: useId(), link: useId(), img: useId() };
-    const ex = EV[t.evType ?? "evento"].ex;
-    return (
-        <>
-            <Sh title="Il contenuto">Quello che legge il cliente. Il nome interno lo vedete solo voi.</Sh>
-            <Field label="Titolo" id={ids.title}>
-                <input className={s.in} id={ids.title} value={t.title} placeholder={ex[0]} autoComplete="off" onChange={e => u(x => void (x.title = e.target.value))} />
-            </Field>
-            <Field label="Sottotitolo" id={ids.sub}>
-                <input className={s.in} id={ids.sub} value={t.sub} placeholder="Facoltativo" autoComplete="off" onChange={e => u(x => void (x.sub = e.target.value))} />
-            </Field>
-            <Field label="Descrizione" id={ids.text}>
-                <textarea className={s.in} id={ids.text} value={t.text} placeholder={ex[1]} onChange={e => u(x => void (x.text = e.target.value))} />
-            </Field>
-            <div className={s.row2}>
-                <div className={s.f}>
-                    <label htmlFor={ids.inner}>Nome interno</label>
-                    <input className={s.in} id={ids.inner} value={t.inner} placeholder="Se vuoto, il titolo" autoComplete="off" onChange={e => u(x => void (x.inner = e.target.value))} />
-                </div>
-                <div className={s.f}>
-                    <span className={s.lab}>Immagine</span>
-                    <ImagePick
-                        url={imageUrl}
-                        id={ids.img}
-                        onPick={f =>
-                            u(x => {
-                                x.image = f;
-                                if (!f) x.imageUrl = null;
-                            })
-                        }
-                    />
-                </div>
-            </div>
-            <div className={s.blk}>
-                <Toggle on={t.cta} onClick={() => u(x => void (x.cta = !x.cta))}>
-                    Un bottone sotto il testo
-                </Toggle>
-                {t.cta && (
-                    <div className={s.row2}>
-                        <div className={s.f}>
-                            <label htmlFor={ids.cta}>Testo del bottone</label>
-                            <input className={s.in} id={ids.cta} value={t.ctaText} autoComplete="off" onChange={e => u(x => void (x.ctaText = e.target.value))} />
-                        </div>
-                        <div className={s.f}>
-                            <label htmlFor={ids.link}>Link del bottone</label>
-                            <input className={s.in} id={ids.link} value={t.ctaLink} placeholder="https://" inputMode="url" autoComplete="off" onChange={e => u(x => void (x.ctaLink = e.target.value))} />
-                        </div>
-                    </div>
-                )}
-            </div>
-            {owner && !t.edit && (
-                <div className={s.blk}>
-                    <h4>Dove sulla pagina</h4>
-                    <div className={s.chips}>
-                        <Chip on={t.slot === "before"} onClick={() => u(x => void (x.slot = "before"))}>
-                            Sopra il menù
-                        </Chip>
-                        <Chip on={t.slot === "after"} onClick={() => u(x => void (x.slot = "after"))}>
-                            Sotto il menù
-                        </Chip>
-                    </div>
-                    <p className={s.hint}>Oggi si sceglie nella regola del Calendario; nel tunnel la chiediamo qui, insieme al contenuto.</p>
-                </div>
-            )}
-        </>
-    );
-}
-
 export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly PickProduct[]; L: DraftLookups }) {
     const promo = t.evType === "promo";
     const bid = useId();
@@ -247,9 +163,15 @@ export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly 
     const tot = bundleTotal(t, L);
     return (
         <>
-            <Sh title="Piatti">
-                {promo ? "Ogni piatto col suo prezzo, e una nota se serve: «-20% a pranzo», «solo il giovedì»." : "Più piatti insieme, a un prezzo unico."} Si prendono dai prodotti che avete.
-            </Sh>
+            <div className={s.chips}>
+                <Chip on={promo} onClick={() => u(x => void (x.evType = "promo"))}>
+                    Ognuno col suo prezzo
+                </Chip>
+                <Chip on={!promo} onClick={() => u(x => void (x.evType = "bundle"))}>
+                    Tutti insieme a un prezzo unico
+                </Chip>
+            </div>
+            <p className={s.hint}>{promo ? "Accanto a ogni piatto puoi scrivere una nota: «-20% a pranzo», «solo il giovedì»." : "Il cliente vede i piatti e un prezzo solo."} Si prendono dai prodotti che avete.</p>
             {t.from && only && <Inherited>I piatti del menù {q(t.from.name)}, a portata di mano.</Inherited>}
             <div className={s.list} style={{ maxHeight: 330, overflow: "auto" }}>
                 {cats.map(([c, ps]) => (
@@ -302,14 +224,14 @@ export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly 
             {!promo && (
                 <>
                     <div className={cx(s.f, s.blk)}>
-                        <label htmlFor={bid}>Prezzo del bundle</label>
+                        <label htmlFor={bid}>Prezzo unico</label>
                         <span className={s.rng}>
                             <input className={cx(s.in, s.num)} id={bid} value={t.bundle} placeholder="45" inputMode="decimal" onChange={e => u(x => void (x.bundle = e.target.value))} /> €
                         </span>
                     </div>
                     <div className={s.blk}>
                         <Toggle on={t.showOrig} onClick={() => u(x => void (x.showOrig = !x.showOrig))}>
-                            Mostra il totale originale barrato{t.dishes.length ? ` (${euro(tot)})` : ""}
+                            Mostra il totale di prima barrato{t.dishes.length ? ` (${euro(tot)})` : ""}
                         </Toggle>
                     </div>
                 </>

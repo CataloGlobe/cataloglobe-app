@@ -1,0 +1,126 @@
+// «Il contenuto» di un contenuto in evidenza (D187): le parti hanno la forma
+// di quelle dello stile (StileAspetto); qui solo le idee e le righe «aggiungi».
+@use "@styles/calendario-type" as cal;
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+}
+
+.start {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border: 1px dashed var(--k-brand-line);
+    border-radius: 12px;
+    background: var(--k-surface);
+
+    p {
+        margin: 2px 0 0;
+        color: var(--k-muted);
+        @include cal.fs(small);
+    }
+
+    b {
+        @include cal.fs(strong);
+    }
+}
+
+.line {
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    color: var(--k-muted);
+    @include cal.fs(small);
+
+    b {
+        color: var(--k-ink);
+    }
+}
+
+.jobs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.job {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+
+    > small {
+        color: var(--k-faint);
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        @include cal.fs(badge);
+    }
+}
+
+.idea,
+.addp {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--k-line);
+    border-radius: 11px;
+    background: var(--k-surface);
+    color: var(--k-ink) !important;
+    text-align: left;
+    cursor: pointer;
+
+    svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--k-brand-ink);
+    }
+
+    span {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+    }
+
+    b {
+        font-weight: 650;
+        @include cal.fs(text);
+    }
+
+    small {
+        color: var(--k-muted);
+        @include cal.fs(note);
+    }
+
+    &:hover {
+        border-color: var(--k-brand);
+    }
+}
+
+.adds {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+}
+
+.addp {
+    border-style: dashed;
+    border-color: var(--k-line2);
+    background: none;
+
+    &:hover {
+        background: var(--k-brand-soft);
+    }
+}
+
+.icon {
+    display: inline-flex;
+    color: var(--k-brand-ink);
+}

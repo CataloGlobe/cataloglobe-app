@@ -31,7 +31,8 @@ import { lookKey } from "./stileLook";
 import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
 import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
-import { Adesso, Controlla, DoveQuando, Modifica, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuTipo, Quando, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { EvidContenuto } from "./EvidContenuto";
+import { Adesso, Controlla, DoveQuando, Modifica, MenuParti, MenuTipo, Quando, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -424,14 +425,8 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             case "aspetto":
                 body = <StileAspetto t={t} u={u} tenantId={tenantId} rules={t.edit ? styleById.get(t.edit.id)?.usage_count ?? 0 : 0} onPeek={onPeek} seen={seen} />;
                 break;
-            case "cosa":
-                body = <EvidCosa t={t} u={u} />;
-                break;
             case "contenuto":
-                body = <EvidContenuto t={t} u={u} owner={owner} imageUrl={imageUrl} />;
-                break;
-            case "piatti":
-                body = <EvidPiatti t={t} u={u} pick={data.pickList} L={L} />;
+                body = <EvidContenuto t={t} u={u} owner={owner} imageUrl={imageUrl} pick={data.pickList} L={L} />;
                 break;
             case "racconto":
                 body = <StoriaRacconto t={t} u={u} pick={data.pickList} coverUrl={coverUrl} />;
