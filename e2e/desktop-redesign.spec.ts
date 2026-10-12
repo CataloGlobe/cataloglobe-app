@@ -135,7 +135,7 @@ test("⋯ e lingua si aprono come popover sotto il loro pulsante", async ({ page
     }
 });
 
-test("carosello in evidenza: tre card per vista, frecce solo dove c'è altro", async ({ page }) => {
+test("carosello in evidenza: tre card e un pezzo per vista, frecce solo dove c'è altro", async ({ page }) => {
     const blocks = Array.from({ length: 5 }, (_, i) => featured({ id: `f-${i}`, title: `Evento ${i + 1}` }));
     await page.unrouteAll({ behavior: "ignoreErrors" });
     await stubPublicPage(page, { ordering: false, featured: { before_catalog: blocks } });
@@ -148,7 +148,8 @@ test("carosello in evidenza: tre card per vista, frecce solo dove c'è altro", a
     await expect(next).toBeVisible();
     const track = await box(list);
     const first = await box(list.getByRole("listitem").first());
-    expect(Math.round((track.width - 24) / 3)).toBe(Math.round(first.width));
+    // Tre card e un quarto della successiva (mockup v38): tre spazi da 12 px.
+    expect(Math.round((track.width - 36) / 3.25)).toBe(Math.round(first.width));
     await next.click();
     await expect(prev).toBeVisible();
     await expect(next).toHaveCount(0);
