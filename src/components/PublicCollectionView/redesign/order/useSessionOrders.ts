@@ -6,11 +6,12 @@ import type { SessionOrderSummary } from "@/types/orders";
 const isExpired = (message: string) => message.toLowerCase().includes("scaduta");
 
 /**
- * Gli ordini già inviati dal tavolo, finché la pagina «Il tuo ordine» è aperta:
- * lettura all'apertura e dopo ogni invio, stato dal vivo (stessi servizi e
- * stessi casi della vecchia tab Ordini), «Annulla ordine».
+ * Gli ordini già inviati dal tavolo, finché «Il tuo ordine» o la sua conferma
+ * sono nel foglio (`active`): lettura all'apertura e dopo ogni invio, stato dal
+ * vivo (stessi servizi e stessi casi della vecchia tab Ordini), «Annulla ordine».
+ * Una sola lettura e un solo canale per le due pagine.
  */
-export function useSessionOrders(jwt: string | null, refreshKey: number, onSessionExpired: () => void) {
+export function useSessionOrders(jwt: string | null, refreshKey: number, onSessionExpired: () => void, active = true) {
     const { t } = useTranslation("public");
     const [orders, setOrders] = useState<SessionOrderSummary[] | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -28,6 +29,8 @@ export function useSessionOrders(jwt: string | null, refreshKey: number, onSessi
 
     const load = useCallback(async () => {
         const seq = ++loadSeq.current;
+        // Foglio chiuso: niente letture. Gli ordini restano (la pagina che esce non torna a «sto leggendo»), si rileggono alla riapertura.
+        if (!active) return;
         if (!jwt) {
             setOrders([]);
             return;
@@ -46,14 +49,14 @@ export function useSessionOrders(jwt: string | null, refreshKey: number, onSessi
             setError(t("ordering.error_loading"));
             setOrders(prev => prev ?? []);
         }
-    }, [jwt, t]);
+    }, [jwt, active, t]);
 
     useEffect(() => {
         void load();
     }, [load, refreshKey]);
 
     useEffect(() => {
-        if (!jwt) return;
+        if (!jwt || !active) return;
         const channel = subscribeToSessionOrders(jwt, {
             onUpdate: updated =>
                 setOrders(prev =>
@@ -81,7 +84,7 @@ export function useSessionOrders(jwt: string | null, refreshKey: number, onSessi
         return () => {
             channel?.unsubscribe();
         };
-    }, [jwt, load]);
+    }, [jwt, active, load]);
 
     const cancel = useCallback(
         async (orderId: string): Promise<boolean> => {
@@ -114,3 +117,5 @@ export function useSessionOrders(jwt: string | null, refreshKey: number, onSessi
 
     return { orders, error, cancellingId, cancel };
 }
+
+export type SessionOrdersState = ReturnType<typeof useSessionOrders>;

@@ -28,19 +28,13 @@
   font-weight: 600;
 }
 
-.srOnly,
-.sent:empty {
+.srOnly {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-.sent {
-  margin: 0;
-  font-weight: 600;
 }
 
 .alert {
@@ -415,4 +409,153 @@
     outline: 2px solid var(--pub-accent, var(--pub-primary));
     outline-offset: 2px;
   }
+}
+
+/* ── Note per la cucina (mockup v38, `.po-on`) ───────────── */
+
+.note {
+  margin-top: 14px;
+}
+
+.noteLabel {
+  margin: 0 0 6px;
+  color: color-mix(in srgb, var(--pub-text) 60%, transparent);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.noteAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, var(--pub-primary));
+    outline-offset: 2px;
+  }
+}
+
+.noteField {
+  position: relative;
+}
+
+.noteInput {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px 14px 24px;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pub-text) 10%, transparent);
+  color: inherit;
+  /* 16 px: sotto, iOS ingrandisce la pagina al fuoco */
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--pub-text) 50%, transparent);
+  }
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--pub-primary);
+  }
+}
+
+.noteCount {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Conferma dopo l'invio (mockup v38, `.po-ok`) ───────── */
+
+.ok {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0 4px;
+  text-align: center;
+}
+
+.okCheck {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #2e9d5b;
+  color: #fff;
+}
+
+.okTitle {
+  margin: 12px 0 0;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.okMeta {
+  margin: 4px 0 0;
+  color: color-mix(in srgb, var(--pub-text) 60%, transparent);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary {
+  margin: 0;
+  padding: 4px 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+  list-style: none;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+
+    &:last-child {
+      border-bottom: 0;
+    }
+  }
+}
+
+.tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trackerHint {
+  margin: 0;
+  color: color-mix(in srgb, var(--pub-text) 60%, transparent);
+  font-size: 13.5px;
+  line-height: 1.4;
 }

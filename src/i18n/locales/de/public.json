@@ -677,7 +677,18 @@
         "remove_aria": "{{name}} entfernen",
         "remove_unavailable": "Nicht mehr verfügbare Gerichte entfernen",
         "edit_aria": "{{name}} bearbeiten",
-        "qty_aria": "Menge von {{name}}"
+        "qty_aria": "Menge von {{name}}",
+        "order_note_add": "Notiz für die ganze Bestellung hinzufügen",
+        "order_note_placeholder": "Z. B. alles zusammen bringen, ohne Eile",
+        "order_note_aria": "Hinweise für die Küche, für die ganze Bestellung",
+        "order_title": "Bestellung {{number}}",
+        "sent_ok": "An die Küche gesendet",
+        "sent_summary_one": "{{count}} Gericht · {{total}}",
+        "sent_summary_other": "{{count}} Gerichte · {{total}}",
+        "add_more": "Mehr hinzufügen",
+        "in_kitchen": "Sie ist schon in der Küche: Für Änderungen bitte das Personal fragen.",
+        "enjoy": "Guten Appetit!",
+        "cancelled_note": "Bestellung storniert: Sie geht nicht an die Küche."
     },
     "product_sheet": {
         "details": "Details",

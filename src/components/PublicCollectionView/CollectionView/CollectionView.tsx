@@ -36,7 +36,7 @@ import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
 import { addLine, lineQty, replaceLine, undoLine } from "../redesign/order/orderDraft";
-import { orderRequest, sendFailure, type SendFailure } from "../redesign/order/orderSend";
+import { orderRequest, sendFailure, type SendResult } from "../redesign/order/orderSend";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -1832,17 +1832,17 @@ export default function CollectionView({
     }, [customerSession, selection, orderNote, clearSelection]);
 
     // Invio dal foglio del redesign: stesse righe e stessi casi di `handleSubmitOrder`,
-    // ma l'esito resta nel foglio (niente conferma a parte né avviso in pagina).
-    const sendFromRedesign = useCallback(async (): Promise<SendFailure | null> => {
+    // ma l'esito resta nel foglio (la conferma è una sua pagina, niente avviso in pagina).
+    const sendFromRedesign = useCallback(async (): Promise<SendResult> => {
         const jwt = customerSession?.session?.jwt;
         if (!jwt) return { kind: "session" };
         const { items, notes } = orderRequest(selection, orderNote);
         if (items.length === 0) return { kind: "empty" };
         try {
-            await submitOrder(jwt, items, notes);
+            const sent = await submitOrder(jwt, items, notes);
             clearSelection();
             setOrdersRefreshKey(k => k + 1);
-            return null;
+            return { kind: "sent", orderId: sent.order_id };
         } catch (err) {
             const failure = sendFailure(err);
             if (failure.kind === "maintenance") {
@@ -3722,6 +3722,8 @@ export default function CollectionView({
                         setQty: updateSelectionQty,
                         remove: removeFromSelection,
                         replaceLine: replaceSelectionLine,
+                        note: orderNote,
+                        setNote: setOrderNote,
                         send: sendFromRedesign,
                         onSessionExpired: () => customerSession?.clear(),
                         refreshKey: ordersRefreshKey,

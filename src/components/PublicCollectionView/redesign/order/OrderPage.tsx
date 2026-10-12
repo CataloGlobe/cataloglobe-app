@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import AssistanceActions from "@components/PublicCollectionView/AssistanceActions/AssistanceActions";
@@ -9,9 +9,17 @@ import type { OrderingContext } from "../slots";
 import { formatPublicPrice } from "../price";
 import { LINE_QTY_MAX } from "./orderDraft";
 import { pushOrderLineEdit } from "./orderSheet";
-import { canCancelOrder, isBareTableNumber, isLineUnavailable, ORDER_STEPS, orderStep, selectionTotal } from "./orderSend";
+import {
+    canCancelOrder,
+    isBareTableNumber,
+    isLineUnavailable,
+    ORDER_NOTE_MAX,
+    ORDER_STEPS,
+    orderStep,
+    selectionTotal
+} from "./orderSend";
 import type { OrderSendState } from "./useOrderSend";
-import { useSessionOrders } from "./useSessionOrders";
+import type { SessionOrdersState } from "./useSessionOrders";
 import styles from "./OrderPage.module.scss";
 
 type FindProduct = (productId: string) => CollectionViewSectionItem | null;
@@ -33,11 +41,13 @@ type Props = {
     /** «Modifica» c'è solo quando la scheda si apre in modo ordine. */
     canEdit: boolean;
     sendState: OrderSendState;
+    /** Gli ordini del tavolo, letti una volta per il foglio (anche la conferma li usa). */
+    sessionOrders: SessionOrdersState;
 };
 
 /**
  * «Il tuo ordine · Tavolo N» nel foglio unico (spec §7): le righe da inviare
- * (quantità, Modifica, Rimuovi), gli ordini già inviati con lo stato fino a
+ * (quantità, Modifica, Rimuovi), «Note per la cucina», gli ordini già inviati con lo stato fino a
  * Servito e «Annulla ordine» finché la cucina non l'ha preso, poi conto e
  * cameriere. Si paga al tavolo o in cassa.
  */
@@ -48,24 +58,11 @@ export default function OrderPage(props: Props) {
     return <OrderContent {...props} ordering={props.ordering} />;
 }
 
-function OrderContent({ ordering, findProduct, canEdit, sendState }: Props & { ordering: OrderingContext }) {
+function OrderContent({ ordering, findProduct, canEdit, sendState, sessionOrders }: Props & { ordering: OrderingContext }) {
     const { t } = useTranslation("public");
-    const { orders, error, cancellingId, cancel } = useSessionOrders(ordering.jwt, ordering.refreshKey, ordering.onSessionExpired);
+    const { orders, error, cancellingId, cancel } = sessionOrders;
     const titleRef = useRef<HTMLHeadingElement>(null);
     const { selection } = ordering;
-
-    // Dopo un invio riuscito il pulsante sparisce: il fuoco torna al titolo e l'esito si annuncia.
-    const [seenSent, setSeenSent] = useState(sendState.sentCount);
-    const [justSent, setJustSent] = useState(false);
-    if (sendState.sentCount !== seenSent) {
-        setSeenSent(sendState.sentCount);
-        setJustSent(true);
-    }
-    // Un piatto nuovo dopo l'invio: l'esito è vecchio e non va riannunciato a carrello vuoto.
-    if (justSent && selection.length > 0) setJustSent(false);
-    useEffect(() => {
-        if (justSent) titleRef.current?.focus();
-    }, [justSent, seenSent]);
 
     const remove = (index: number) => {
         ordering.remove(index);
@@ -84,9 +81,6 @@ function OrderContent({ ordering, findProduct, canEdit, sendState }: Props & { o
                 {t("ordering.title")}
                 {table ? <span className={styles.table}> · {table}</span> : null}
             </h2>
-            <p role="status" className={styles.sent}>
-                {justSent && selection.length === 0 ? t("order_sheet.sent") : ""}
-            </p>
             {message ? (
                 <p role="alert" className={styles.alert}>
                     {message}
@@ -111,6 +105,7 @@ function OrderContent({ ordering, findProduct, canEdit, sendState }: Props & { o
                             />
                         ))}
                     </ul>
+                    <OrderNote note={ordering.note} onChange={ordering.setNote} />
                     <div className={styles.totalRow}>
                         <span>{t("ordering.total")}</span>
                         <span>{formatPublicPrice(selectionTotal(selection))}</span>
@@ -266,19 +261,6 @@ function SentOrder({
     onCancel: () => Promise<boolean>;
 }) {
     const { t, i18n } = useTranslation("public");
-    const [confirming, setConfirming] = useState(false);
-    // Il pulsante toccato sparisce: il fuoco va su «No» all'apertura e torna su «Annulla ordine» alla chiusura.
-    const noRef = useRef<HTMLButtonElement>(null);
-    const askRef = useRef<HTMLButtonElement>(null);
-    const [toggled, setToggled] = useState(false);
-    useEffect(() => {
-        if (!toggled) return;
-        (confirming ? noRef : askRef).current?.focus();
-    }, [confirming, toggled]);
-    const confirm = (open: boolean) => {
-        setToggled(true);
-        setConfirming(open);
-    };
     const step = orderStep(order.status);
     const cancelled = step < 0;
     const time = new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(order.created_at));
@@ -291,21 +273,7 @@ function SentOrder({
                     {current}
                 </span>
             </div>
-            {cancelled ? null : (
-                <ol className={styles.steps} aria-label={t("order_sheet.status_aria")}>
-                    {ORDER_STEPS.map((status, i) => (
-                        <li
-                            key={status}
-                            className={styles.stepItem}
-                            data-state={i < step ? "done" : i === step ? "current" : "todo"}
-                            aria-current={i === step ? "step" : undefined}
-                        >
-                            <span className={styles.stepDot} aria-hidden="true" />
-                            {t(STEP_KEYS[status])}
-                        </li>
-                    ))}
-                </ol>
-            )}
+            {cancelled ? null : <OrderSteps step={step} />}
             <ul className={styles.orderItems}>
                 {order.items.map(item => {
                     const choices = [item.options_snapshot?.primary_option?.value_name, ...(item.options_snapshot?.addons ?? []).map(a => a.value_name)]
@@ -327,30 +295,111 @@ function SentOrder({
                 <span>{t("ordering.total")}</span>
                 <span>{formatPublicPrice(order.total_amount)}</span>
             </div>
-            {canCancelOrder(order.status) ? (
-                confirming ? (
-                    <div className={styles.confirm} role="group" aria-label={t("ordering.cancel_confirm")}>
-                        <span>{t("ordering.cancel_confirm")}</span>
-                        <button ref={noRef} type="button" className={styles.textButton} disabled={cancelling} onClick={() => confirm(false)}>
-                            {t("ordering.no")}
-                        </button>
-                        <button
-                            type="button"
-                            className={styles.danger}
-                            disabled={cancelling}
-                            aria-busy={cancelling}
-                            onClick={() => void onCancel().then(done => done || confirm(false))}
-                        >
-                            {cancelling ? t("ordering.cancelling") : t("ordering.cancel_yes")}
-                        </button>
-                    </div>
-                ) : (
-                    <button ref={askRef} type="button" className={styles.textButton} onClick={() => confirm(true)}>
-                        {t("ordering.cancel_order")}
-                    </button>
-                )
-            ) : null}
+            {canCancelOrder(order.status) ? <CancelOrder cancelling={cancelling} onCancel={onCancel} /> : null}
         </li>
+    );
+}
+
+/** I quattro passi dello stato, quello attuale segnato (anche nella conferma). */
+export function OrderSteps({ step }: { step: number }) {
+    const { t } = useTranslation("public");
+    return (
+        <ol className={styles.steps} aria-label={t("order_sheet.status_aria")}>
+            {ORDER_STEPS.map((status, i) => (
+                <li
+                    key={status}
+                    className={styles.stepItem}
+                    data-state={i < step ? "done" : i === step ? "current" : "todo"}
+                    aria-current={i === step ? "step" : undefined}
+                >
+                    <span className={styles.stepDot} aria-hidden="true" />
+                    {t(STEP_KEYS[status])}
+                </li>
+            ))}
+        </ol>
+    );
+}
+
+/** «Annulla ordine» con la domanda di conferma, finché la cucina non l'ha preso. */
+export function CancelOrder({ cancelling, onCancel }: { cancelling: boolean; onCancel: () => Promise<boolean> }) {
+    const { t } = useTranslation("public");
+    const [confirming, setConfirming] = useState(false);
+    // Il pulsante toccato sparisce: il fuoco va su «No» all'apertura e torna su «Annulla ordine» alla chiusura.
+    const noRef = useRef<HTMLButtonElement>(null);
+    const askRef = useRef<HTMLButtonElement>(null);
+    const [toggled, setToggled] = useState(false);
+    useEffect(() => {
+        if (!toggled) return;
+        (confirming ? noRef : askRef).current?.focus();
+    }, [confirming, toggled]);
+    const confirm = (open: boolean) => {
+        setToggled(true);
+        setConfirming(open);
+    };
+    return confirming ? (
+        <div className={styles.confirm} role="group" aria-label={t("ordering.cancel_confirm")}>
+            <span>{t("ordering.cancel_confirm")}</span>
+            <button ref={noRef} type="button" className={styles.textButton} disabled={cancelling} onClick={() => confirm(false)}>
+                {t("ordering.no")}
+            </button>
+            <button
+                type="button"
+                className={styles.danger}
+                disabled={cancelling}
+                aria-busy={cancelling}
+                onClick={() => void onCancel().then(done => done || confirm(false))}
+            >
+                {cancelling ? t("ordering.cancelling") : t("ordering.cancel_yes")}
+            </button>
+        </div>
+    ) : (
+        <button ref={askRef} type="button" className={styles.textButton} onClick={() => confirm(true)}>
+            {t("ordering.cancel_order")}
+        </button>
+    );
+}
+
+/**
+ * «Note per la cucina» per tutto l'ordine (mockup v38): un invito finché è
+ * vuota, poi il campo con il conto dei caratteri.
+ */
+function OrderNote({ note, onChange }: { note: string | null; onChange: (note: string | null) => void }) {
+    const { t } = useTranslation("public");
+    const id = useId();
+    const [open, setOpen] = useState(false);
+    const fieldRef = useRef<HTMLTextAreaElement>(null);
+    useEffect(() => {
+        if (open) fieldRef.current?.focus({ preventScroll: true });
+    }, [open]);
+    const value = note ?? "";
+    return (
+        <div className={styles.note}>
+            <p className={styles.noteLabel} id={`${id}-label`}>
+                {t("ordering.order_note_label")}
+            </p>
+            {open || value ? (
+                <div className={styles.noteField}>
+                    <textarea
+                        ref={fieldRef}
+                        className={styles.noteInput}
+                        value={value}
+                        maxLength={ORDER_NOTE_MAX}
+                        rows={3}
+                        placeholder={t("order_sheet.order_note_placeholder")}
+                        aria-label={t("order_sheet.order_note_aria")}
+                        onChange={event => onChange(event.target.value.slice(0, ORDER_NOTE_MAX) || null)}
+                    />
+                    <span className={styles.noteCount} aria-hidden="true">
+                        {value.length}/{ORDER_NOTE_MAX}
+                    </span>
+                </div>
+            ) : (
+                <button type="button" className={styles.noteAdd} aria-describedby={`${id}-label`} onClick={() => setOpen(true)}>
+                    <Plus size={16} aria-hidden="true" />
+                    {t("order_sheet.order_note_add")}
+                </button>
+            )}
+        </div>
     );
 }
 

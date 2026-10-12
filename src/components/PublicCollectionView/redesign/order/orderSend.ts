@@ -7,8 +7,8 @@ import type { OrderItemRequest, OrderStatus, OrderingStateReason } from "@/types
  * in `src/tests/publicRedesign/orderSend.test.ts`.
  */
 
-/** Stesso tetto di `OrderNoteEditor` e del server. */
-export const ORDER_NOTE_MAX = 300;
+/** «Note per la cucina» (mockup v38): 140 caratteri; il server ne accetta 300. */
+export const ORDER_NOTE_MAX = 140;
 
 /** Spazi ridotti come l'invio di oggi: «  ben   cotto » → «ben cotto». */
 export function cleanNote(note: string | null | undefined): string | null {
@@ -62,6 +62,15 @@ export type SendFailure =
     | { kind: "items" }
     | { kind: "empty" }
     | { kind: "other"; message: string | null };
+
+/** Esito di `OrderingContext.send`: l'ordine creato, o cosa è andato storto. */
+export type SendResult = { kind: "sent"; orderId: string } | SendFailure;
+
+/** Pagina di conferma dopo l'invio (mockup v38, «Ordine N · Tavolo»): `order-sent:<id ordine>`. */
+export const ORDER_SENT_PREFIX = "order-sent:";
+
+export const orderSentIdOf = (key: string): string | null =>
+    key.startsWith(ORDER_SENT_PREFIX) ? key.slice(ORDER_SENT_PREFIX.length) || null : null;
 
 export function sendFailure(error: unknown): SendFailure {
     if (!(error instanceof Error)) return { kind: "other", message: null };

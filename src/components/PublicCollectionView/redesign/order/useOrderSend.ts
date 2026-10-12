@@ -1,20 +1,28 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { SelectionItem } from "@components/PublicCollectionView/OrderingSheet/OrderingSheet";
 import type { OrderingContext } from "../slots";
-import { useSheetState } from "../sheets/sheetStack";
-import type { SendFailure } from "./orderSend";
+import { getSheetState, pushSheetPage, useSheetState } from "../sheets/sheetStack";
+import { isBareTableNumber, ORDER_SENT_PREFIX, selectionTotal, type SendFailure } from "./orderSend";
+
+/** Ciò che la conferma mostra dell'ordine appena inviato: le righe com'erano al tocco. */
+export type SentReceipt = {
+    orderId: string;
+    lines: SelectionItem[];
+    total: number;
+};
 
 /**
  * L'invio alla cucina, condiviso fra la pagina «Il tuo ordine» (avviso, esito)
  * e il suo piede (pulsante). Vive nel foglio: l'errore si spegne quando la
- * pagina rientra nella pila.
+ * pagina rientra nella pila. Riuscito, spinge la conferma «Ordine N · Tavolo»
+ * (mockup v38); `knownOrders` è quanti ordini il tavolo aveva già, per N.
  */
-export function useOrderSend(ordering: OrderingContext | undefined) {
+export function useOrderSend(ordering: OrderingContext | undefined, knownOrders: () => number | null) {
     const { t } = useTranslation("public");
     const [sending, setSending] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
-    /** Sale a ogni invio riuscito: la pagina lo annuncia e porta il fuoco in cima. */
-    const [sentCount, setSentCount] = useState(0);
+    const [receipts, setReceipts] = useState<Record<string, SentReceipt>>({});
     // Due tocchi nello stesso frame vedono ancora `sending` falso: il ref no.
     const inFlight = useRef(false);
     const inStack = useSheetState().pages.some(page => page.key === "order");
@@ -40,22 +48,43 @@ export function useOrderSend(ordering: OrderingContext | undefined) {
         }
     };
 
+    const titleOf = (number: number | null): string => {
+        const label = ordering?.tableLabel?.trim();
+        const table = label ? (isBareTableNumber(label) ? t("order_sheet.table", { label }) : label) : null;
+        if (number == null) return t("order_sheet.sent");
+        return [t("order_sheet.order_title", { number }), table].filter(Boolean).join(" · ");
+    };
+
     const send = async () => {
         if (!ordering || inFlight.current) return;
         inFlight.current = true;
         setSending(true);
         setFailure(null);
+        // Le righe e il numero di prima: dopo l'invio la selezione è vuota.
+        const lines = ordering.selection;
+        const before = knownOrders();
         try {
             const result = await ordering.send();
-            if (result) setFailure(messageOf(result));
-            else setSentCount(count => count + 1);
+            if (result.kind !== "sent") {
+                setFailure(messageOf(result));
+                return;
+            }
+            setReceipts(prev => ({ ...prev, [result.orderId]: { orderId: result.orderId, lines, total: selectionTotal(lines) } }));
+            // Solo se si è ancora su «Il tuo ordine»: chiuso il foglio nel frattempo, niente.
+            if (getSheetState().pages.at(-1)?.key === "order") {
+                pushSheetPage({
+                    key: `${ORDER_SENT_PREFIX}${result.orderId}`,
+                    title: titleOf(before == null ? null : before + 1),
+                    size: "large"
+                });
+            }
         } finally {
             inFlight.current = false;
             setSending(false);
         }
     };
 
-    return { sending, failure, sentCount, send };
+    return { sending, failure, receipts, send };
 }
 
 export type OrderSendState = ReturnType<typeof useOrderSend>;

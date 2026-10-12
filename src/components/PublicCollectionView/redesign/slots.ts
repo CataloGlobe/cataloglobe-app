@@ -12,7 +12,7 @@ import type { ResolvedAllergen, ResolvedCharacteristic, V2FeaturedContent } from
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import type { SelectionItem } from "@components/PublicCollectionView/OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "@components/PublicCollectionView/ReviewsView/ReviewsView";
-import type { SendFailure } from "./order/orderSend";
+import type { SendResult } from "./order/orderSend";
 
 /**
  * Agganci con cui il redesign sostituisce un pezzo di `CollectionView` senza
@@ -213,8 +213,11 @@ export type OrderingContext = {
     setQty: (index: number, qty: number) => void;
     remove: (index: number) => void;
     replaceLine: (index: number, line: SelectionItem) => void;
-    /** Manda la selezione alla cucina; null = inviato (selezione svuotata), altrimenti cosa è andato storto. */
-    send: () => Promise<SendFailure | null>;
+    /** «Note per la cucina» per tutto l'ordine (mockup v38); null = nessuna. Si svuota con l'invio. */
+    note: string | null;
+    setNote: (note: string | null) => void;
+    /** Manda la selezione alla cucina: l'ordine creato (selezione svuotata), o cosa è andato storto. */
+    send: () => Promise<SendResult>;
     /** Sessione scaduta mentre si leggevano o annullavano gli ordini. */
     onSessionExpired: () => void;
     /** Sale a ogni invio riuscito: gli ordini si rileggono. */

@@ -677,7 +677,18 @@
     "remove_aria": "Retirer {{name}}",
     "remove_unavailable": "Retirer les plats plus disponibles",
     "edit_aria": "Modifier {{name}}",
-    "qty_aria": "Quantité de {{name}}"
+    "qty_aria": "Quantité de {{name}}",
+    "order_note_add": "Ajouter une note pour toute la commande",
+    "order_note_placeholder": "Ex. tout servir ensemble, sans se presser",
+    "order_note_aria": "Notes pour la cuisine, pour toute la commande",
+    "order_title": "Commande {{number}}",
+    "sent_ok": "Envoyée en cuisine",
+    "sent_summary_one": "{{count}} plat · {{total}}",
+    "sent_summary_other": "{{count}} plats · {{total}}",
+    "add_more": "Ajouter autre chose",
+    "in_kitchen": "Elle est déjà en cuisine : pour changer quelque chose, demandez au serveur.",
+    "enjoy": "Bon appétit !",
+    "cancelled_note": "Commande annulée : elle n'arrivera pas en cuisine."
   },
   "product_sheet": {
     "details": "Détails",

@@ -676,7 +676,18 @@
         "remove_aria": "Rimuovi {{name}}",
         "remove_unavailable": "Togli i piatti non più disponibili",
         "edit_aria": "Modifica {{name}}",
-        "qty_aria": "Quantità di {{name}}"
+        "qty_aria": "Quantità di {{name}}",
+        "order_note_add": "Aggiungi una nota per tutto l'ordine",
+        "order_note_placeholder": "Es. portate tutto insieme, senza fretta",
+        "order_note_aria": "Note per la cucina, per tutto l'ordine",
+        "order_title": "Ordine {{number}}",
+        "sent_ok": "Inviato alla cucina",
+        "sent_summary_one": "{{count}} piatto · {{total}}",
+        "sent_summary_other": "{{count}} piatti · {{total}}",
+        "add_more": "Aggiungi altro",
+        "in_kitchen": "È già in cucina: per cambiare qualcosa chiedi al cameriere.",
+        "enjoy": "Buon appetito!",
+        "cancelled_note": "Ordine annullato: non arriva in cucina."
     },
     "product_sheet": {
         "details": "Dettagli",

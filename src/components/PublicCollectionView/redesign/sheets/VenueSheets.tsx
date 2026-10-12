@@ -47,6 +47,9 @@ import { draftFromLine, draftToLine, type OrderDraft } from "../order/orderDraft
 import { showAdded } from "../order/addedNoticeStore";
 import { useOrderDrafts } from "../order/useOrderDrafts";
 import OrderPage, { OrderFooter } from "../order/OrderPage";
+import OrderSentPage, { OrderSentFooter } from "../order/OrderSentPage";
+import { orderSentIdOf } from "../order/orderSend";
+import { useSessionOrders, type SessionOrdersState } from "../order/useSessionOrders";
 import { editTargetKey } from "../order/orderSheet";
 import { useOrderSend, type OrderSendState } from "../order/useOrderSend";
 import SearchPage from "../search/SearchPage";
@@ -84,7 +87,15 @@ export default function VenueSheets({ booking: bookingConfig, ...props }: Sheets
     const searchInStack = useSheetState().pages.some(page => page.key === "search");
     const [searchWasInStack, setSearchWasInStack] = useState(searchInStack);
     const orderFor = useOrderDrafts(props.product.order);
-    const sendState = useOrderSend(props.ordering);
+    // Gli ordini del tavolo: una lettura per «Il tuo ordine» e la sua conferma, solo finché ci sono.
+    const orderInStack = useSheetState().pages.some(page => page.key === "order" || orderSentIdOf(page.key) != null);
+    const sessionOrders = useSessionOrders(
+        props.ordering?.jwt ?? null,
+        props.ordering?.refreshKey ?? 0,
+        () => props.ordering?.onSessionExpired(),
+        orderInStack
+    );
+    const sendState = useOrderSend(props.ordering, () => sessionOrders.orders?.length ?? null);
     const booking = useBooking(bookingConfig ?? undefined);
     if (searchInStack !== searchWasInStack) {
         setSearchWasInStack(searchInStack);
@@ -104,7 +115,14 @@ export default function VenueSheets({ booking: bookingConfig, ...props }: Sheets
                         </Suspense>
                     ) : null
                 ) : (
-                    <VenuePage page={page} {...props} orderFor={orderFor} sendState={sendState} booking={booking} />
+                    <VenuePage
+                        page={page}
+                        {...props}
+                        orderFor={orderFor}
+                        sendState={sendState}
+                        sessionOrders={sessionOrders}
+                        booking={booking}
+                    />
                 )
             }
             renderHeader={page => (page.key === "search" ? <SearchHeader query={query} onQueryChange={setQuery} /> : null)}
@@ -126,6 +144,8 @@ export default function VenueSheets({ booking: bookingConfig, ...props }: Sheets
                 if (page.key === "order") {
                     return <OrderFooter ordering={props.ordering} findProduct={props.product.findProduct} sendState={sendState} />;
                 }
+                const sentId = orderSentIdOf(page.key);
+                if (sentId) return sendState.receipts[sentId] ? <OrderSentFooter /> : null;
                 const edit = editTargetOf(page, props);
                 const editOrder = edit
                     ? orderFor(page.key, edit.item, edit.line ? draftFromLine(edit.item, edit.line) : undefined)
@@ -234,12 +254,14 @@ function VenuePage({
     page,
     orderFor,
     sendState,
+    sessionOrders,
     booking,
     ...props
 }: SheetsSlotContext & {
     page: SheetPage;
     orderFor: (pageKey: string, item: CollectionViewSectionItem, initial?: OrderDraft) => OrderBinding | undefined;
     sendState: OrderSendState;
+    sessionOrders: SessionOrdersState;
     booking: BookingBinding | undefined;
 }) {
     const rating = rateOf(page);
@@ -265,6 +287,7 @@ function VenuePage({
                     findProduct={props.product.findProduct}
                     canEdit={props.product.order != null}
                     sendState={sendState}
+                    sessionOrders={sessionOrders}
                 />
             );
         case "more":
@@ -286,6 +309,11 @@ function VenuePage({
         case "featured":
             return <FeaturedPage featured={props.featured} onOpen={pushFeaturedDetail} />;
         default: {
+            const sentId = orderSentIdOf(page.key);
+            if (sentId) {
+                const receipt = sendState.receipts[sentId];
+                return receipt ? <OrderSentPage receipt={receipt} sessionOrders={sessionOrders} /> : null;
+            }
             if (editTargetKey(page)) {
                 const edit = editTargetOf(page, props);
                 return edit ? (

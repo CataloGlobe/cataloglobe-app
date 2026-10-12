@@ -111,10 +111,27 @@ test("dal carrello alla cucina: quantità, totale, invio, stato e Annulla ordine
     await expect(page.getByText("Paghi al tavolo o in cassa")).toBeVisible();
     await expect(page.getByText(/^18,00/)).toHaveCount(2);
 
+    // Note per la cucina: un invito, poi il campo col conto dei caratteri.
+    await dialog.getByRole("button", { name: "Aggiungi una nota per tutto l'ordine" }).click();
+    const note = dialog.getByRole("textbox", { name: "Note per la cucina, per tutto l'ordine" });
+    await expect(note).toBeFocused();
+    await note.fill("  tutto   insieme ");
+    await expect(dialog.getByText("18/140")).toBeVisible();
+
     await page.getByRole("button", { name: "Invia alla cucina" }).click();
-    await expect(dialog.getByRole("status").filter({ hasText: "Ordine inviato alla cucina" })).toBeVisible();
+    // La conferma entra a spinta (mockup v38): «Ordine 1 · Tavolo 4», righe, stato, «Aggiungi altro».
+    const confirm = page.getByRole("dialog", { name: "Ordine 1 · Tavolo 4" });
+    await expect(confirm.getByRole("status").filter({ hasText: "Inviato alla cucina" })).toBeVisible();
+    await expect(confirm.getByText("2 piatti · 18,00")).toBeVisible();
+    await expect(confirm.getByText("2 × Antipasti 1")).toBeVisible();
+    await expect(confirm.getByRole("heading", { name: "Ordine 1 · Tavolo 4" })).toBeVisible();
+    await expect(confirm.getByRole("list", { name: "Stato dell'ordine" }).locator("[aria-current=step]")).toHaveText("Inviato");
+    await expect(page.getByRole("button", { name: "Aggiungi altro" })).toBeVisible();
     expect(submitted).toHaveLength(1);
-    expect(submitted[0]).toMatchObject({ items: [{ product_id: "prod-0-0", quantity: 2 }] });
+    expect(submitted[0]).toMatchObject({ items: [{ product_id: "prod-0-0", quantity: 2 }], notes: "tutto insieme" });
+
+    // «‹» torna a «Il tuo ordine», con l'ordine fra gli inviati.
+    await confirm.getByRole("button", { name: "Indietro" }).click();
     await expect(dialog.getByRole("heading", { name: "Inviati · Tavolo 4 · 1 ordine" })).toBeVisible();
     await expect(dialog.getByRole("heading", { name: "Da inviare" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Invia alla cucina" })).toHaveCount(0);
@@ -125,6 +142,16 @@ test("dal carrello alla cucina: quantità, totale, invio, stato e Annulla ordine
     await dialog.getByRole("button", { name: "Sì, annulla" }).click();
     await expect(dialog.getByText("Annullato")).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Annulla ordine" })).toHaveCount(0);
+});
+
+test("dopo l'invio «Aggiungi altro» chiude il foglio e torna al menu", async ({ page }) => {
+    await openPage(page);
+    await page.getByRole("button", { name: "Aggiungi alla selezione" }).first().click();
+    await cart(page).click();
+    await page.getByRole("button", { name: "Invia alla cucina" }).click();
+    await page.getByRole("dialog", { name: "Ordine 1 · Tavolo 4" }).getByRole("button", { name: "Aggiungi altro" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Aggiungi alla selezione" }).first()).toBeVisible();
 });
 
 test("Modifica una riga dalla scheda e torna all'ordine con Aggiorna", async ({ page }) => {
