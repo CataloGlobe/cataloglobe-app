@@ -116,7 +116,7 @@ export function DescriptionTranslationRow({
     return (
         <div className={styles.row}>
             <Text as="p" variant="body-sm" colorVariant="muted" className={styles.summary}>
-                {done.length > 0 ? `Descrizione tradotta in ${joinNames(done)}` : "Descrizione non ancora tradotta"}
+                {done.length > 0 ? `Descrizione tradotta in ${joinNames(done)}` : "Traduzioni della descrizione"}
                 {open.map(l => (
                     <Fragment key={l.code}>
                         {" · "}
