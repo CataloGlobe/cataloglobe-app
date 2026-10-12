@@ -36,6 +36,8 @@ import type { V2Reservation } from "@/types/reservation";
 import type { V2Activity } from "@/types/activity";
 import AdminReservationDatePicker from "./components/AdminReservationDatePicker";
 import AdminReservationTimePicker from "./components/AdminReservationTimePicker";
+import { useServerCapacityCheck } from "./hooks/useServerCapacityCheck";
+import { overCapacityMessage, pacingMessage } from "./capacityWarnings";
 import styles from "./Reservations.module.scss";
 
 interface FormActivity {
@@ -277,21 +279,40 @@ export function ReservationForm({
 
     const onlyOneActivity = manageableActivities.length === 1;
 
-    // Non-blocking over-capacity warning. The admin can always save (operator
-    // invariant). The warning only renders when capacity is configured AND
-    // the candidate would push the peak above it. Skips computation when
-    // any required field is missing/malformed.
-    const overCapacityWarning = useMemo<string | null>(() => {
+    // I campi del form che servono agli avvisi, già validati; null se manca
+    // qualcosa o è scritto male (gli avvisi tacciono).
+    const capacityInput = useMemo(() => {
         if (!activeActivity) return null;
-        const cap = activeActivity.reservation_capacity;
-        if (cap === null) return null;
-        const dur = activeActivity.reservation_duration_minutes ?? 120;
         const partyNum = parseInt(partySize, 10);
         if (!Number.isFinite(partyNum) || partyNum <= 0) return null;
         const trimmedDate = reservationDate.trim();
         const trimmedTime = reservationTime.trim();
         if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
         if (!/^\d{2}:\d{2}/.test(trimmedTime)) return null;
+        return {
+            activityId: activeActivity.id,
+            date: trimmedDate,
+            time: trimmedTime.slice(0, 5),
+            partySize: partyNum,
+            excludeReservationId: entityData?.id
+        };
+    }, [activeActivity, partySize, reservationDate, reservationTime, entityData?.id]);
+
+    // I numeri dal server (picco e fascia sul database, non sulle righe in
+    // memoria). Finché non arrivano, o se la RPC fallisce, gli avvisi usano il
+    // calcolo in memoria qui sotto: per le prenotazioni manuali sono l'unico
+    // controllo di capienza, non devono sparire per una rete lenta.
+    const serverCheck = useServerCapacityCheck(capacityInput, allReservations);
+
+    // Non-blocking over-capacity warning. The admin can always save (operator
+    // invariant). The warning only renders when capacity is configured AND
+    // the candidate would push the peak above it.
+    const overCapacityWarning = useMemo<string | null>(() => {
+        if (!activeActivity || !capacityInput) return null;
+        if (serverCheck) return overCapacityMessage(serverCheck.peakWithCandidate, serverCheck.capacity);
+        const cap = activeActivity.reservation_capacity;
+        if (cap === null) return null;
+        const dur = activeActivity.reservation_duration_minutes ?? 120;
         // Quali stati occupano capienza lo dice il motore (`occupiesCapacity`),
         // non questo file: stessa terna delle funzioni SQL.
         const rows: CapacityReservation[] = allReservations
@@ -308,62 +329,56 @@ export function ReservationForm({
             { capacity: cap, durationMin: dur },
             rows,
             {
-                id: entityData?.id,
+                id: capacityInput.excludeReservationId,
                 activity_id: activeActivity.id,
-                reservation_date: trimmedDate,
-                reservation_time:
-                    trimmedTime.length === 5 ? `${trimmedTime}:00` : trimmedTime,
-                party_size: partyNum
+                reservation_date: capacityInput.date,
+                reservation_time: `${capacityInput.time}:00`,
+                party_size: capacityInput.partySize
             }
         );
-        if (result.ok) return null;
-        return `Questa prenotazione porta a ${result.peakWithCandidate} coperti su ${cap} di capienza. Puoi salvarla lo stesso.`;
-    }, [
-        activeActivity,
-        allReservations,
-        entityData?.id,
-        reservationDate,
-        reservationTime,
-        partySize
-    ]);
+        return overCapacityMessage(result.peakWithCandidate, cap);
+    }, [activeActivity, allReservations, capacityInput, serverCheck]);
 
     // Avviso di pacing, non bloccante come quello di capienza. Il ristoratore
     // conosce la sua sala meglio del software: online il limite chiude lo slot,
-    // qui informa e basta. Deve dire DI QUANTO si sfora e QUALE tetto, altrimenti
-    // l'host non sa se sta aggiungendo un tavolo di troppo o cinque.
+    // qui informa e basta.
     //
     // Stessa aggregazione della RPC (`place_online_reservation`): solo gli
-    // ARRIVI nella fascia, stessa data, stati attivi. Nessuna fetch aggiuntiva —
-    // `allReservations` è già in memoria.
+    // ARRIVI nella fascia, stessa data, stati attivi.
     const pacingWarning = useMemo<string | null>(() => {
-        if (!activeActivity) return null;
+        if (!activeActivity || !capacityInput) return null;
+        const toMinutes = (t: string): number =>
+            parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10);
+        const timeMinutes = toMinutes(capacityInput.time);
+
+        if (serverCheck) {
+            return pacingMessage({
+                timeMinutes,
+                slotMinutes: serverCheck.pacingSlotMinutes,
+                maxCovers: serverCheck.pacingMaxCovers,
+                maxBookings: serverCheck.pacingMaxBookings,
+                bucketCovers: serverCheck.pacingBucketCovers,
+                bucketBookings: serverCheck.pacingBucketBookings,
+                partySize: capacityInput.partySize
+            });
+        }
+
         const maxCovers = activeActivity.reservation_pacing_max_covers;
         const maxBookings = activeActivity.reservation_pacing_max_bookings;
         if (maxCovers === null && maxBookings === null) return null;
-
         const step = activeActivity.reservation_pacing_slot_minutes ?? 15;
         if (!Number.isFinite(step) || step <= 0) return null;
-
-        const partyNum = parseInt(partySize, 10);
-        if (!Number.isFinite(partyNum) || partyNum <= 0) return null;
-        const trimmedDate = reservationDate.trim();
-        const trimmedTime = reservationTime.trim();
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
-        if (!/^\d{2}:\d{2}/.test(trimmedTime)) return null;
-
-        const toMinutes = (t: string): number =>
-            parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10);
-        const candidateBucket = Math.floor(toMinutes(trimmedTime) / step);
+        const candidateBucket = Math.floor(timeMinutes / step);
 
         let bucketCovers = 0;
         let bucketBookings = 0;
         for (const r of allReservations) {
             if (r.activity_id !== activeActivity.id) continue;
             if (!occupiesCapacity(r.status)) continue;
-            if (r.reservation_date !== trimmedDate) continue;
+            if (r.reservation_date !== capacityInput.date) continue;
             if (r.party_size <= 0) continue;
             // In modifica la riga stessa non va contata due volte.
-            if (entityData?.id && r.id === entityData.id) continue;
+            if (capacityInput.excludeReservationId && r.id === capacityInput.excludeReservationId) continue;
             if (Math.floor(toMinutes(r.reservation_time) / step) !== candidateBucket) {
                 continue;
             }
@@ -371,33 +386,16 @@ export function ReservationForm({
             bucketBookings += 1;
         }
 
-        const slotStart = candidateBucket * step;
-        const fmt = (min: number): string =>
-            `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
-        const slotLabel = `${fmt(slotStart)}–${fmt(slotStart + step)}`;
-
-        const messages: string[] = [];
-        if (maxCovers !== null && bucketCovers + partyNum > maxCovers) {
-            messages.push(
-                `${bucketCovers + partyNum} persone contro un limite di ${maxCovers} (${bucketCovers + partyNum - maxCovers} in più)`
-            );
-        }
-        if (maxBookings !== null && bucketBookings + 1 > maxBookings) {
-            messages.push(
-                `${bucketBookings + 1} prenotazioni contro un limite di ${maxBookings} (${bucketBookings + 1 - maxBookings} in più)`
-            );
-        }
-        if (messages.length === 0) return null;
-
-        return `Nella fascia ${slotLabel} questa prenotazione porta a ${messages.join(" e ")}. Puoi salvarla lo stesso: il limite vale solo per le prenotazioni online.`;
-    }, [
-        activeActivity,
-        allReservations,
-        entityData?.id,
-        reservationDate,
-        reservationTime,
-        partySize
-    ]);
+        return pacingMessage({
+            timeMinutes,
+            slotMinutes: step,
+            maxCovers,
+            maxBookings,
+            bucketCovers,
+            bucketBookings,
+            partySize: capacityInput.partySize
+        });
+    }, [activeActivity, allReservations, capacityInput, serverCheck]);
 
     const validate = (): boolean => {
         let ok = true;
