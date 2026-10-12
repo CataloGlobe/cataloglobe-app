@@ -5,6 +5,7 @@ import {
 } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type { ResolvedStyle } from "@/types/resolvedCollections";
 import { mapStyleTokensToCssVars } from "@/features/public/utils/mapStyleTokensToCssVars";
+import { useRasterizedPattern } from "@/features/public/utils/rasterizePattern";
 import { PublicPortalContext } from "@/features/public/components/PublicPortalContext";
 
 type Props = {
@@ -36,6 +37,7 @@ type Props = {
 export default function PublicThemeScope({ tokens: tokensProp, style, className, children }: Props) {
     const tokens = tokensProp ?? parseTokens(style?.config ?? null);
     const cssVars = mapStyleTokensToCssVars(tokens);
+    const pattern = useRasterizedPattern(cssVars["--pub-bg-pattern"], cssVars["--pub-bg-pattern-size"]);
     // Callback ref: il set triggera un re-render quando il nodo monta → il
     // context si aggiorna e PublicSheet riceve il target del portal.
     const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
@@ -43,7 +45,13 @@ export default function PublicThemeScope({ tokens: tokensProp, style, className,
     return (
         <div
             className={className}
-            style={{ ...cssVars, fontFamily: cssVars["--pub-font-family"] } as React.CSSProperties}
+            style={
+                {
+                    ...cssVars,
+                    "--pub-bg-pattern": pattern,
+                    fontFamily: cssVars["--pub-font-family"]
+                } as React.CSSProperties
+            }
             data-card-treatment={tokens.appearance.cardTreatment}
             data-font-family={tokens.typography.fontFamily}
         >

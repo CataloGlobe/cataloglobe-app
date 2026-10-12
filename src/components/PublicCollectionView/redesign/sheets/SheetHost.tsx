@@ -177,7 +177,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
     const animateHeight = useRef(false);
     const heightAnimation = useRef<Animation | null>(null);
     const env = useRef({ isMobile, reducedMotion });
-    const drag = useRef({ active: false, startY: 0, lastY: 0, lastT: 0, velocity: 0, offset: 0 });
+    const drag = useRef({ active: false, startY: 0, lastY: 0, lastT: 0, velocity: 0, offset: 0, height: 1 });
     const exitFrom = useRef({ offset: 0, velocity: 0 });
 
     useEffect(() => {
@@ -317,21 +317,29 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
         // In percentuale: segue l'altezza vera anche se il contenuto arriva dopo.
         const grow = growFrom.current;
         const from = grow ? `translateY(calc(100% - ${Math.round(grow)}px))` : "translateY(100%)";
-        play(
-            panel,
-            env.current.isMobile
-                ? [{ transform: from }, { transform: "translateY(0)" }]
-                : [
-                      { opacity: 0, transform: "scale(0.97)" },
-                      { opacity: 1, transform: "scale(1)" }
-                  ],
-            ENTER_DURATION_MS
-        );
-        play(backdropRef.current, [{ opacity: 0 }, { opacity: 1 }], ENTER_DURATION_MS);
-        notifySheetShown();
+        const entering = [
+            play(
+                panel,
+                env.current.isMobile
+                    ? [{ transform: from }, { transform: "translateY(0)" }]
+                    : [
+                          { opacity: 0, transform: "scale(0.97)" },
+                          { opacity: 1, transform: "scale(1)" }
+                      ],
+                ENTER_DURATION_MS
+            ),
+            play(backdropRef.current, [{ opacity: 0 }, { opacity: 1 }], ENTER_DURATION_MS)
+        ].filter((animation): animation is Animation => !!animation);
+        let stopWaiting: (() => void) | undefined;
+        if (entering.length) {
+            stopWaiting = startAfterHeavyFrame(entering, notifySheetShown);
+        } else {
+            notifySheetShown();
+        }
         // Un campo della pagina può aver già preso il fuoco (la ricerca, nel gesto
         // della lente): rubarlo chiuderebbe la tastiera su iOS.
         if (!panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
+        return () => stopWaiting?.();
     }, [isOpen, cancelAnimations, play]);
 
     // ── Uscita ───────────────────────────────────────────────────────────────
@@ -372,7 +380,14 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
                   ],
             duration
         );
-        play(backdrop, [{ opacity: backdropOpacity(backdrop) }, { opacity: 0 }], duration);
+        const fading = play(backdrop, [{ opacity: backdropOpacity(backdrop) }, { opacity: 0 }], duration);
+        // Chiusura da ×, Esc o velo: la pagina sotto si sblocca nello stesso frame
+        // (vedi startAfterHeavyFrame). Dopo un trascinamento no: il foglio deve
+        // seguire il dito senza fermarsi.
+        const stopWaiting =
+            exiting && offset === 0 && velocity === 0
+                ? startAfterHeavyFrame([exiting, fading].filter((a): a is Animation => !!a))
+                : undefined;
         if (!exiting) {
             finish();
         } else {
@@ -390,6 +405,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
         }
         return () => {
             cancelled = true;
+            stopWaiting?.();
             if (panel) panel.style.visibility = "";
             if (backdrop) backdrop.style.visibility = "";
         };
@@ -535,7 +551,9 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
             lastY: event.clientY,
             lastT: event.timeStamp,
             velocity: 0,
-            offset: 0
+            offset: 0,
+            // Misurata una volta: durante il gesto niente letture di layout (WebKit).
+            height: panelRef.current?.offsetHeight || 1
         };
     };
     const onDragMove = (event: ReactPointerEvent<HTMLElement>) => {
@@ -552,7 +570,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
         }
         panel.style.transform = `translateY(${d.offset}px)`;
         if (backdropRef.current) {
-            backdropRef.current.style.opacity = String(Math.max(0, 1 - d.offset / (panel.offsetHeight || 1)));
+            backdropRef.current.style.opacity = String(Math.max(0, 1 - d.offset / d.height));
         }
     };
     const onDragEnd = (event: ReactPointerEvent<HTMLElement>) => {
@@ -704,6 +722,25 @@ function veilWithHole(hole: DOMRect, radius: number): string {
         `M${x + r} ${y}H${x + w - r}${arc(x + w, y + r)}V${y + h - r}${arc(x + w - r, y + h)}` +
         `H${x + r}${arc(x, y + h - r)}V${y + r}${arc(x + r, y)}Z`;
     return `path(evenodd, "M0 0H${W}V${H}H0Z ${box}")`;
+}
+
+/**
+ * Su iPhone il frame in cui il foglio si monta, o la pagina sotto si blocca e si
+ * sblocca (ridisegno di tutta la pagina), può durare 40-60 ms: con la corsa già
+ * partita Safari ne salta l'inizio e il foglio compare o sparisce quasi di colpo.
+ * La corsa resta ferma al primo fotogramma e parte due frame dopo, a lavoro fatto.
+ * Restituisce l'annullamento dell'attesa.
+ */
+function startAfterHeavyFrame(animations: Animation[], onStart?: () => void): () => void {
+    for (const animation of animations) animation.pause();
+    let frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
+            // Un trascinamento nel frattempo l'ha già annullata: non riparte.
+            for (const animation of animations) if (animation.playState === "paused") animation.play();
+            onStart?.();
+        });
+    });
+    return () => cancelAnimationFrame(frame);
 }
 
 function backdropOpacity(backdrop: HTMLElement | null): number {
