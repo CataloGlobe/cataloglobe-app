@@ -1,0 +1,181 @@
+/* Barra in basso del redesign. Solo telefono. z-index 150: sopra contenuto e FAB,
+   sotto toast, ricerca (200) e fogli (900). Ingombro in fondo: l'altezza la misura
+   BottomBar.tsx in `--pub-bottombar-h`; distanza dal fondo e clearance stanno su `.page`
+   (CollectionView.module.scss). Mai backdrop-filter su un elemento che trasla:
+   il blur c'è solo a riposo, durante il passaggio il materiale è pieno (`data-moving`). */
+
+$entrata: 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+$uscita: 220ms ease-in;
+
+.wrap {
+  position: fixed;
+  right: 0;
+  bottom: var(--pub-bottombar-bottom, 34px);
+  left: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: calc(100vw - 24px);
+  margin: 0 auto;
+  visibility: visible;
+  transition: transform $entrata, opacity $entrata, visibility 0s linear 0s;
+  animation: entra 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+
+  /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts): solo telefono, ≤640 px. */
+  @media (min-width: 641px) {
+    display: none;
+  }
+
+  &[data-hidden] {
+    visibility: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(calc(100% + var(--pub-bottombar-bottom, 34px)));
+    transition: transform $uscita, opacity $uscita, visibility 0s linear 220ms;
+  }
+}
+
+/* Un solo materiale per capsula e cerchio: ibrido. */
+.capsula,
+.ordine {
+  --materiale: color-mix(in srgb, var(--pub-surface, #fff) 66%, transparent);
+  --materiale-pieno: color-mix(in srgb, var(--pub-surface, #fff) 94%, transparent);
+  --testo: var(--pub-surface-text, #171717);
+
+  border: 1px solid var(--pub-surface-border, rgb(0 0 0 / 7%));
+  background: var(--materiale);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+}
+
+.wrap[data-moving] {
+  .capsula,
+  .ordine {
+    background: var(--materiale-pieno);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.capsula {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 56px;
+  padding: 5px;
+  border-radius: 999px;
+}
+
+.gruppo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+/* Il fondo morbido che scorre tra le voci. */
+.fondo {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pub-surface-text, #171717) 10%, transparent);
+  transition: left 0.4s cubic-bezier(0.32, 0.72, 0, 1), width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
+}
+
+.voce {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  min-width: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--testo) 62%, transparent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.25s ease, transform 0.15s ease;
+
+  &[data-active] {
+    color: var(--testo);
+  }
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.94));
+  }
+}
+
+.nome {
+  white-space: nowrap;
+}
+
+.ordine {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-width: 56px;
+  height: 56px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: var(--testo);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.94));
+  }
+}
+
+/* Il numero dell'ordine accanto all'icona, senza badge. */
+.conto {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes entra {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fondo {
+    transition: none;
+  }
+
+  .wrap {
+    animation: none;
+    transition: opacity 150ms ease, visibility 0s linear 0s;
+
+    &[data-hidden] {
+      transform: none;
+      transition: opacity 150ms ease, visibility 0s linear 150ms;
+    }
+  }
+}

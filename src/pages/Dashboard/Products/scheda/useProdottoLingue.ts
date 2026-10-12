@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { getFieldTranslationStatus } from "@/services/supabase/translationStatus";
 import { listAvailableLanguages } from "@/services/supabase/tenantLanguages";
 import type { ProdottoLingua } from "./prodottoModel";
+import { waitingRefetchDelayMs } from "@/services/translation/waiting";
 
 const POLLING_INTERVAL_MS = 5000;
 
@@ -55,6 +56,19 @@ export function useProdottoLingue(
         const interval = setInterval(() => void fetchStatus(), POLLING_INTERVAL_MS);
         return () => clearInterval(interval);
     }, [hasPending, fetchStatus]);
+
+    // Lingue in attesa dei 10 minuti: una ricarica quando parte la prima.
+    // Calcolato solo quando cambiano gli stati: con Date.now() a ogni render il
+    // timer si riarmerebbe e slitterebbe.
+    const waitingDelay = useMemo(
+        () => (hasPending ? null : waitingRefetchDelayMs(states)),
+        [hasPending, states]
+    );
+    useEffect(() => {
+        if (waitingDelay === null) return;
+        const timer = setTimeout(() => void fetchStatus(), waitingDelay);
+        return () => clearTimeout(timer);
+    }, [waitingDelay, fetchStatus]);
 
     if (!enabled) return [];
     if (states === null) return null;

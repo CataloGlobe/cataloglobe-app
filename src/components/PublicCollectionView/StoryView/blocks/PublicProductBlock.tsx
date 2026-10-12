@@ -4,14 +4,15 @@ import { FRAMING_DEFAULTS } from "@components/ui/ImageReframeEditor/types";
 import type { StoryProductBlock } from "@/services/supabase/stories";
 import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import styles from "./PublicProductBlock.module.scss";
+import { formatDecimal } from "@/utils/formatCurrency";
 
 // Stesso pattern di formatPrice in SearchOverlay.tsx: CollectionViewSectionItem
 // espone price/effective_price/from_price (non base_price/option_groups come
 // V2Product) — getDisplayPrice (priceDisplay.ts) non è lo strumento giusto qui.
 function formatPrice(item: CollectionViewSectionItem): string | null {
-    if (item.from_price != null) return `da €${item.from_price.toFixed(2)}`;
+    if (item.from_price != null) return `da €${formatDecimal(item.from_price)}`;
     const p = item.effective_price ?? item.price;
-    return p != null ? `€${p.toFixed(2)}` : null;
+    return p != null ? `€${formatDecimal(p)}` : null;
 }
 
 type PublicProductBlockProps = {

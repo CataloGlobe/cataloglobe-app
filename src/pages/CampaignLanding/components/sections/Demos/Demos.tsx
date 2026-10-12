@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type SyntheticEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import Section from "@pages/CampaignLanding/components/Section/Section";
 import { HandNote, UnderlinedText } from "@pages/CampaignLanding/components/kit/Kit";
 import Reveal from "@pages/CampaignLanding/components/kit/Reveal";
+import { Phone, PhoneStatusBar } from "@pages/CampaignLanding/components/kit/Phone";
 import { useInView } from "@pages/CampaignLanding/hooks/useInView";
 import { DEMOS, type DemoKey, type DemoVenue } from "@pages/CampaignLanding/content/landing";
 import molo280 from "@pages/CampaignLanding/assets/demos/il-molo-34-280.webp";
@@ -57,15 +58,28 @@ function VenueIcon({ venue }: { venue: DemoVenue }) {
     );
 }
 
+/** Pillola sul telefono al centro: il telefono si tocca. Batte all'ingresso e a ogni cambio (rimontata da `key`). */
+function TapPill({ pulse }: { pulse: boolean }) {
+    return (
+        <span className={cx(styles.tap, pulse && styles.tapPulse)} aria-hidden="true">
+            <svg viewBox="0 0 20 20" focusable="false">
+                <path d="M8 11V4.5a1.5 1.5 0 0 1 3 0V10l3.2.6a2 2 0 0 1 1.6 2.3l-.6 3.1a2 2 0 0 1-2 1.6H9.6a2 2 0 0 1-1.6-.8L5 13a1.4 1.4 0 0 1 2-2l1 1" />
+            </svg>
+            {DEMOS.tapToOpen}
+        </span>
+    );
+}
+
 /**
  * Il telefono con lo screenshot del locale scelto. Lazy: la sezione è sotto
  * l'hero. Gli altri due locali si montano (e si scaricano) solo quando la
- * sezione entra nello schermo, così il cambio è una dissolvenza e non un buco.
+ * sezione entra nello schermo. Al cambio il vecchio esce a dissolvenza e il
+ * nuovo entra (`seq`: numero del cambio, fa ribattere la pillola).
  */
-function PhonePreview({ selected, preload }: { selected: number; preload: boolean }) {
+function PhonePreview({ selected, preload, seq, onOpen }: { selected: number; preload: boolean; seq: number; onOpen: () => void }) {
     return (
-        <div className={styles.phone}>
-            <div className={styles.screen}>
+        <button type="button" className={styles.phoneButton} aria-haspopup="dialog" onClick={onOpen}>
+            <Phone className={styles.phone}>
                 {/* Sfondo della pagina del locale finché lo screenshot non è arrivato. */}
                 <svg className={styles.screenBg} aria-hidden="true" focusable="false">
                     <rect width="100%" height="100%" fill={themeOf(DEMOS.venues[selected]).bg} />
@@ -79,7 +93,7 @@ function PhonePreview({ selected, preload }: { selected: number; preload: boolea
                             className={cx(styles.shot, on && styles.shotOn)}
                             src={SCREEN_FALLBACK[v.key]}
                             srcSet={SCREENS[v.key]}
-                            sizes="(min-width: 1024px) 280px, 230px"
+                            sizes="(min-width: 1024px) 264px, 206px"
                             width={280}
                             height={580}
                             loading="lazy"
@@ -89,11 +103,143 @@ function PhonePreview({ selected, preload }: { selected: number; preload: boolea
                         />
                     );
                 })}
-                <span className={styles.notch} aria-hidden="true" />
+                <TapPill key={`tap-${seq}`} pulse={preload} />
+                <PhoneStatusBar time={DEMOS.phoneTime} shade />
+            </Phone>
+            <span className={styles.srOnly}>{`${DEMOS.open}: ${DEMOS.venues[selected].name}`}</span>
+        </button>
+    );
+}
+
+/** Posto del locale `i` nella giostra con `selected` al centro: -1 sinistra, 0 centro, 1 destra. */
+const slotOf = (i: number, selected: number, n: number) => ((i - selected + n + 1) % n) - 1;
+
+/** Spostamento minimo del dito, in px, perché la giostra giri. */
+const SWIPE_MIN = 40;
+/** Quanto la fila segue il dito mentre trascina (frenata). */
+const DRAG_FOLLOW = 0.45;
+
+/**
+ * Mobile: i tre telefoni in giostra, il locale scelto al centro e gli altri
+ * due ai lati, più piccoli. Gira col dito, toccando un telefono di lato o
+ * dalla lista; il telefono al centro apre il menù. Con tre locali ognuno è
+ * sempre al centro, a sinistra o a destra: il giro è infinito senza copie, e
+ * quello che passa da un lato all'altro ricompare a dissolvenza.
+ */
+function PhoneCarousel({
+    selected,
+    preload,
+    seq,
+    onSelect,
+    onOpen
+}: {
+    selected: number;
+    preload: boolean;
+    seq: number;
+    onSelect: (i: number) => void;
+    onOpen: () => void;
+}) {
+    const n = DEMOS.venues.length;
+    const prev = useRef(selected);
+    const trackRef = useRef<HTMLDivElement>(null);
+    const start = useRef<{ x: number; y: number } | null>(null);
+    // Dopo uno strisciamento il clic che segue non deve scegliere né aprire.
+    const swiped = useRef(false);
+    const before = prev.current;
+
+    useEffect(() => {
+        prev.current = selected;
+    }, [selected]);
+
+    /** La fila torna al suo posto, con la transizione del CSS. */
+    const release = () => {
+        const track = trackRef.current;
+        if (!track) return;
+        track.style.transition = "";
+        track.style.transform = "";
+    };
+    const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+        start.current = { x: e.clientX, y: e.clientY };
+        swiped.current = false;
+    };
+    // La fila segue il dito, frenata: si capisce che gira prima di lasciare.
+    const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+        const from = start.current;
+        const track = trackRef.current;
+        if (!from || !track) return;
+        const dx = e.clientX - from.x;
+        if (Math.abs(dx) < 6 || Math.abs(dx) < Math.abs(e.clientY - from.y)) return;
+        track.style.transition = "none";
+        track.style.transform = `translateX(${dx * DRAG_FOLLOW}px)`;
+    };
+    const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+        const from = start.current;
+        start.current = null;
+        release();
+        if (!from) return;
+        const dx = e.clientX - from.x;
+        if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(e.clientY - from.y)) return;
+        swiped.current = true;
+        onSelect((selected + (dx < 0 ? 1 : -1) + n) % n);
+    };
+
+    return (
+        <div
+            className={styles.carousel}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={() => {
+                start.current = null;
+                release();
+            }}
+        >
+            <div ref={trackRef} className={cx(styles.track, preload && styles.trackNudge)}>
+            {DEMOS.venues.map((v, i) => {
+                const slot = slotOf(i, selected, n);
+                const jump = Math.abs(slot - slotOf(i, before, n)) > 1;
+                const center = slot === 0;
+                return (
+                    <div
+                        key={v.key}
+                        className={cx(styles.slide, SLIDE_CLASS[slot + 1], jump && styles.slideJump)}
+                        aria-hidden={center ? undefined : true}
+                        onClick={() => {
+                            if (swiped.current) return;
+                            if (center) onOpen();
+                            else onSelect(i);
+                        }}
+                    >
+                        <Phone className={styles.phone}>
+                            <svg className={styles.screenBg} aria-hidden="true" focusable="false">
+                                <rect width="100%" height="100%" fill={themeOf(v).bg} />
+                            </svg>
+                            {(center || preload) && (
+                                <img
+                                    className={cx(styles.shot, styles.shotOn)}
+                                    src={SCREEN_FALLBACK[v.key]}
+                                    srcSet={SCREENS[v.key]}
+                                    sizes="206px"
+                                    width={280}
+                                    height={580}
+                                    loading="lazy"
+                                    decoding="async"
+                                    alt={center ? DEMOS.screenAlt(v.name) : ""}
+                                    draggable={false}
+                                />
+                            )}
+                            {center && <TapPill key={`tap-${seq}`} pulse={preload} />}
+                            <PhoneStatusBar time={DEMOS.phoneTime} shade />
+                        </Phone>
+                    </div>
+                );
+            })}
             </div>
         </div>
     );
 }
+
+const SLIDE_CLASS = [styles.slideLeft, styles.slideCenter, styles.slideRight];
 
 // Lo sheet porta con sé framer-motion: si scarica quando la griglia delle demo
 // entra in vista (o al primo clic), non con la pagina.
@@ -199,16 +345,24 @@ function DemoSheet({ venue, open, ready, onClose }: { venue: DemoVenue; open: bo
 /** 7 · «Prova tu»: tre locali di esempio, il telefono e il QR. */
 export default function Demos() {
     const [selected, setSelected] = useState(0);
+    const [seq, setSeq] = useState(0);
     const [open, setOpen] = useState(false);
     const venue = DEMOS.venues[selected];
     const gridRef = useRef<HTMLDivElement>(null);
     const preload = useInView(gridRef, 0);
 
+    const select = (i: number) => {
+        if (i === selected) return;
+        setSeq((n) => n + 1);
+        setSelected(i);
+    };
+    const venueStyle = { "--venue": themeOf(venue).primary } as CSSProperties;
+
     return (
         <Section id="esempi" tone="white" className={styles.section} labelledBy="landing-demos-title">
-            <div ref={gridRef} className={styles.grid}>
+            <div ref={gridRef} className={styles.grid} style={venueStyle}>
                 <Reveal className={styles.phoneCol}>
-                    <PhonePreview selected={selected} preload={preload} />
+                    <PhonePreview selected={selected} preload={preload} seq={seq} onOpen={() => setOpen(true)} />
                 </Reveal>
                 <Reveal className={styles.textCol}>
                     <HandNote size="lg" className={styles.handNote}>{DEMOS.note}</HandNote>
@@ -217,7 +371,28 @@ export default function Demos() {
                     </h2>
                     <p className={styles.lede}>{DEMOS.lede}</p>
                     <div className={styles.mobilePhone}>
-                        <PhonePreview selected={selected} preload={preload} />
+                        <PhoneCarousel selected={selected} preload={preload} seq={seq} onSelect={select} onOpen={() => setOpen(true)} />
+                        <div className={styles.dots} role="group" aria-label={DEMOS.dotsLabel}>
+                            {DEMOS.venues.map((v, i) => (
+                                <button
+                                    key={v.key}
+                                    type="button"
+                                    className={cx(styles.dot, i === selected && styles.dotOn)}
+                                    aria-label={v.name}
+                                    aria-pressed={i === selected}
+                                    onClick={() => select(i)}
+                                />
+                            ))}
+                        </div>
+                        <p className={styles.venueNow} aria-live="polite">
+                            <span key={venue.key} className={styles.venueNowIn}>
+                                <span className={styles.venueNowName}>{venue.name}</span>
+                                <span className={styles.venueNowKind}>{venue.kind}</span>
+                            </span>
+                        </p>
+                        <button type="button" className={styles.cta} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+                            {DEMOS.open}
+                        </button>
                     </div>
                     <div className={styles.list}>
                         {DEMOS.venues.map((v, i) => {
@@ -229,7 +404,7 @@ export default function Demos() {
                                     className={cx(styles.venue, on && styles.venueOn)}
                                     aria-pressed={on}
                                     aria-haspopup={on ? "dialog" : undefined}
-                                    onClick={() => (on ? setOpen(true) : setSelected(i))}
+                                    onClick={() => (on ? setOpen(true) : select(i))}
                                 >
                                     <VenueIcon venue={v} />
                                     <span className={styles.venueText}>
@@ -252,6 +427,7 @@ export default function Demos() {
                             />
                         </span>
                         <span>
+                            <span className={styles.qrNote}>{DEMOS.qrNote}</span>
                             <span className={styles.qrName}>{venue.name}</span>
                             <span className={styles.qrCaption}>{DEMOS.qrCaption}</span>
                         </span>

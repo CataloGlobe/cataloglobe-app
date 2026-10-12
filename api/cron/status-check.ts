@@ -23,7 +23,7 @@ const DB_TIMEOUT_MS = 5_000;
 import { timingSafeCompare } from "../_lib/timingSafeCompare.js";
 
 /**
- * Health-check dei 4 servizi della status page, ogni 2 minuti.
+ * Health-check dei 4 servizi della status page, ogni 5 minuti.
  *
  * Chi lo avvia: uno scheduler ESTERNO (non c'è un blocco `crons` in
  * vercel.json, tolto per il piano Hobby in e3248935), con

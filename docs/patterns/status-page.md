@@ -3,7 +3,7 @@
 **Fonte dei dati**: Redis è la fonte primaria, il DB è solo storico. La pagina deve poter dire che il database è giù, e gli avvisi devono partire anche quando lo è.
 
 ```
-scheduler esterno (ogni 2 min, Bearer CRON_SECRET)
+scheduler esterno (cron-job.org, ogni 5 min, Bearer CRON_SECRET)
   → api/cron/status-check.ts
       → runAllChecks (4 servizi, 10 s per controllo)
       → Redis: status:v1:current + status:v1:uptime:{servizio}:{giorno}
@@ -12,7 +12,8 @@ scheduler esterno (ogni 2 min, Bearer CRON_SECRET)
 /status → src/services/status/statusPage.ts → GET /api/status (Redis + incidenti dal DB)
 ```
 
-- **Chiavi Redis** (`api/_lib/statusRedis.ts`, namespace `cataloglobe:{env}:status:v1`): `current` (ultimo controllo, TTL 7 giorni) · `uptime:{servizio}:{YYYY-MM-DD}` (hash `up|degraded|down`, giorni UTC, TTL 91 giorni) · `alert:{servizio}` (`lastObserved`, `lastNotified`, TTL 7 giorni).
+- **Chiavi Redis** (`api/_lib/statusRedis.ts`, namespace `cataloglobe:{env}:status:v1`): `current` (ultimo controllo, TTL 7 giorni) · `uptime:{servizio}:{YYYY-MM-DD}` (hash `up|degraded|down`, giorni UTC, TTL 91 giorni) · `alert:{servizio}` (`lastObserved`, `lastNotified`, TTL 7 giorni) · `history` (riepilogo dei giorni chiusi, TTL 2 giorni).
+- **Lettura dell'uptime a pochi comandi**: `readUptime` legge `history` + i 4 contatori di oggi (5 comandi). I giorni chiusi (4 × 89 HGETALL) si ricalcolano solo alla prima lettura del giorno UTC. Prima si rileggevano a ogni richiesta: a ottobre 2026 una pagina `/status` lasciata aperta ha esaurito la quota mensile del piano gratuito di Upstash. Mai tornare a leggere la finestra intera a ogni richiesta, e le pagine che si aggiornano da sole non leggono a scheda nascosta (`document.hidden`).
 - **Uptime a 90 giorni solo da Redis**: in produzione `purge-status-checks` cancella `status_checks` oltre 7 giorni. Lo storico precedente al passaggio a Redis non è stato ricopiato.
 - **Servizi**:
   - `public-menu`: `/api/public-catalog?slug=<canary>`. Una risposta con `X-Cataloglobe-Source: stale` (snapshot Redis, edge o DB non raggiungibili) vale `degraded`.

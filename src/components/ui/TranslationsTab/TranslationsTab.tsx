@@ -25,12 +25,14 @@ import {
 } from "@/services/supabase/translations";
 import { updateProduct } from "@/services/supabase/products";
 import { updateCategory } from "@/services/supabase/catalogs";
-import { getPendingJobLanguages } from "@/services/supabase/translationJobs";
+import { getJobLanguageStates, translateNow } from "@/services/supabase/translationJobs";
 import {
     listAvailableLanguages,
     type SupportedLanguage
 } from "@/services/supabase/tenantLanguages";
 import { computeFieldHash } from "@/services/translation/hashUtils";
+import { minutesUntil } from "@/services/translation/waiting";
+import { useNow } from "@/hooks/useNow";
 import type {
     Translation,
     TranslationEntityType,
@@ -158,6 +160,9 @@ export function TranslationsTab({
     // source_hash corrente — fonte autoritativa dal DB, guida il badge
     // "In traduzione" e il polling. Assorbe il vecchio tracking manuale.
     const [pendingLangs, setPendingLangs] = useState<Set<string>>(new Set());
+    // Lingue con un job in attesa (run_after futuro) → istante di partenza.
+    const [waitingLangs, setWaitingLangs] = useState<Map<string, string>>(new Map());
+    const [isTranslatingNow, setIsTranslatingNow] = useState(false);
 
     // Override locale del sorgente IT dopo edit inline, finché il parent non
     // sincronizza la prop sourceText. Reset quando la prop cambia.
@@ -190,7 +195,7 @@ export function TranslationsTab({
             if (!silent) setIsLoading(true);
             // Hash calcolato prima: serve come filtro per i job pending.
             const sourceHash = await computeFieldHash(effectiveSource);
-            const [supported, active, base, allTranslations, secondaryAll, pending] =
+            const [supported, active, base, allTranslations, secondaryAll, jobStates] =
                 await Promise.all([
                     listAvailableLanguages(),
                     getActiveTenantLanguages(tenantId),
@@ -200,14 +205,17 @@ export function TranslationsTab({
                         ? listTranslationsForEntity(tenantId, secondaryEntityType, entityId)
                         : Promise.resolve<Translation[]>([]),
                     sourceHash
-                        ? getPendingJobLanguages(
+                        ? getJobLanguageStates(
                               tenantId,
                               entityType,
                               entityId,
                               fieldKey,
                               sourceHash
                           )
-                        : Promise.resolve(new Set<string>())
+                        : Promise.resolve({
+                              pending: new Set<string>(),
+                              waiting: new Map<string, string>()
+                          })
                 ]);
 
             setSupportedOrdered(supported);
@@ -228,7 +236,8 @@ export function TranslationsTab({
                     : []
             );
             setCurrentSourceHash(sourceHash);
-            setPendingLangs(pending);
+            setPendingLangs(jobStates.pending);
+            setWaitingLangs(jobStates.waiting);
             if (!silent) setDraftValues({});
         } catch {
             if (!silent) {
@@ -263,6 +272,43 @@ export function TranslationsTab({
         }, 5000);
         return () => clearInterval(id);
     }, [pendingLangs, loadData]);
+
+    // Con soli job in attesa: un refetch poco dopo la prima partenza (il cron
+    // li prende entro 30 s), poi ci pensa il poll dei pending qui sopra.
+    const nextRunAt = useMemo(() => {
+        let earliest: string | null = null;
+        for (const at of waitingLangs.values()) {
+            if (earliest === null || Date.parse(at) < Date.parse(earliest)) earliest = at;
+        }
+        return earliest;
+    }, [waitingLangs]);
+
+    useEffect(() => {
+        if (pendingLangs.size > 0 || !nextRunAt) return;
+        const delay = Math.max(Date.parse(nextRunAt) - Date.now() + 5000, 5000);
+        const id = setTimeout(() => {
+            void loadData(true);
+        }, delay);
+        return () => clearTimeout(id);
+    }, [pendingLangs, nextRunAt, loadData]);
+
+    // «tra X min» scorre da solo mentre la tab è aperta.
+    const now = useNow(30_000, waitingLangs.size > 0);
+
+    // «Traduci ora» solo per questo testo (tutti i campi dell'entità).
+    const handleTranslateNow = useCallback(async () => {
+        setIsTranslatingNow(true);
+        try {
+            await translateNow(tenantId, { entityType, entityId });
+            showToast({ message: t("translations_tab.translate_now_done"), type: "success" });
+            wakeTranslations?.();
+            await loadData(true);
+        } catch {
+            showToast({ message: t("translations_tab.translate_now_error"), type: "error" });
+        } finally {
+            setIsTranslatingNow(false);
+        }
+    }, [tenantId, entityType, entityId, showToast, t, wakeTranslations, loadData]);
 
     const targetLanguages = useMemo<SupportedLanguage[]>(() => {
         const activeSet = new Set(activeCodes);
@@ -529,6 +575,29 @@ export function TranslationsTab({
                             )}
                         </div>
 
+                        {hasSource && nextRunAt && (
+                            <InlineBanner
+                                variant="info"
+                                action={
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={handleTranslateNow}
+                                        loading={isTranslatingNow}
+                                        disabled={isTranslatingNow}
+                                    >
+                                        {t("translations_tab.translate_now")}
+                                    </Button>
+                                }
+                            >
+                                {t("translations_tab.waiting_banner", {
+                                    count: waitingLangs.size,
+                                    minutes: minutesUntil(nextRunAt, now)
+                                })}
+                            </InlineBanner>
+                        )}
+
                         {/* ── Righe lingue ────────────────────────────────── */}
                         {hasSource ? (
                             <div className={styles.rowsWrap}>
@@ -537,6 +606,7 @@ export function TranslationsTab({
                                     const translation = translationsByCode[code];
                                     const kind = getStatusKind(translation);
                                     const isPending = pendingLangs.has(code);
+                                    const waitingAt = waitingLangs.get(code);
                                     const isStale =
                                         currentSourceHash !== null &&
                                         !!translation &&
@@ -548,11 +618,18 @@ export function TranslationsTab({
                                     const isDirty = currentValue !== baseline;
                                     const isSaving = savingLang === code;
 
-                                    // Priorità: pending > fresh (manual/auto) > stale.
+                                    // Priorità: pending > in attesa > fresh (manual/auto) > stale.
                                     const badge = isPending ? (
                                         <StatusBadge
                                             variant="pending"
                                             label={t("translations_tab.badge_translating")}
+                                        />
+                                    ) : waitingAt ? (
+                                        <StatusBadge
+                                            variant="neutral"
+                                            label={t("translations_tab.badge_waiting", {
+                                                count: minutesUntil(waitingAt, now)
+                                            })}
                                         />
                                     ) : kind === "manual" && !isStale ? (
                                         <StatusBadge
@@ -603,7 +680,7 @@ export function TranslationsTab({
                                                 />
                                             ) : (
                                                 <>
-                                                    {isStale && (
+                                                    {isStale && !waitingAt && (
                                                         <InlineBanner variant="warning">
                                                             {t("translations_tab.stale_hint")}
                                                         </InlineBanner>
