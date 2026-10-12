@@ -285,7 +285,8 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
         setSaving(true);
         try {
             if (t.edit) {
-                await saveEdit(t, { tenantId, L, names: data.names, baseTokens, blockFiles });
+                await saveEdit(t, { tenantId, L, names: data.names, baseTokens, blockFiles, done: progress.current });
+                progress.current = new Map();
                 void reload();
                 setLeave(false);
                 showToast({ message: "Modifiche salvate.", type: "success" });
