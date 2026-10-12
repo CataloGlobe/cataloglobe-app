@@ -31,7 +31,7 @@
       "destination": "/api/ssr-render?slug=:slug"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!\\.well-known/).*)",
       "destination": "/app.html"
     }
   ],

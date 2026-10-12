@@ -19,6 +19,9 @@ import {
     activateTenantLanguage,
     deactivateTenantLanguage,
     retryAllFailedTranslations,
+    countLanguageBackfill,
+    earliestNextRunAt,
+    sumWaiting,
     type SupportedLanguage,
     type TenantLanguage
 } from "@/services/supabase/tenantLanguages";
@@ -27,11 +30,15 @@ import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { PageGate } from "@/components/PageGate/PageGate";
+import { useNow } from "@/hooks/useNow";
+import { translateNow } from "@/services/supabase/translationJobs";
+import { minutesUntil } from "@/services/translation/waiting";
 import styles from "./SettingsLanguages.module.scss";
 
 /** Il tono della striscia di stato, dallo stato d'insieme delle traduzioni. */
-const STRIP_TONE: Record<"queued" | "errors" | "done", StatusStripTone> = {
+const STRIP_TONE: Record<"queued" | "waiting" | "errors" | "done", StatusStripTone> = {
     queued: "info",
+    waiting: "info",
     errors: "warning",
     done: "success"
 };
@@ -64,6 +71,29 @@ export default function SettingsLanguages() {
     const outletCtx = useBusinessOutletContext();
     const coverage = outletCtx?.translationCoverage ?? null;
     const wakeTranslations = outletCtx?.wakeTranslations;
+    const aiUsage = outletCtx?.aiUsage ?? null;
+
+    // Conferma all'accensione: quanti testi accoderà il recupero. null =
+    // conteggio in corso; se fallisce resta la frase generica.
+    const [activationCount, setActivationCount] = useState<number | null>(null);
+    const [activationCountFailed, setActivationCountFailed] = useState(false);
+    useEffect(() => {
+        if (!pendingLang || !tenantId) return;
+        let cancelled = false;
+        setActivationCount(null);
+        setActivationCountFailed(false);
+        countLanguageBackfill(tenantId, pendingLang.code)
+            .then(count => {
+                if (!cancelled) setActivationCount(count);
+            })
+            .catch(err => {
+                console.error("Conteggio testi da tradurre:", err);
+                if (!cancelled) setActivationCountFailed(true);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [pendingLang, tenantId]);
 
     usePageHeader({
         title: t("languages.title"),
@@ -117,10 +147,18 @@ export default function SettingsLanguages() {
             a => a.is_active && a.language_code !== "it"
         ).length;
         const totalPending = values.reduce((s, c) => s + c.pending, 0);
+        const totalWaiting = coverage ? sumWaiting(coverage) : 0;
+        const nextRunAt = coverage ? earliestNextRunAt(coverage) : null;
         const totalFailed = values.reduce((s, c) => s + c.failed, 0);
-        const state: "queued" | "errors" | "done" =
-            totalPending > 0 ? "queued" : totalFailed > 0 ? "errors" : "done";
-        return { unitTotal, activeTargetCount, totalPending, state };
+        const state: "queued" | "waiting" | "errors" | "done" =
+            totalPending > 0
+                ? "queued"
+                : totalWaiting > 0
+                  ? "waiting"
+                  : totalFailed > 0
+                    ? "errors"
+                    : "done";
+        return { unitTotal, activeTargetCount, totalPending, totalWaiting, nextRunAt, state };
     }, [coverage, active]);
 
     const handleToggle = (lang: SupportedLanguage, checked: boolean) => {
@@ -166,6 +204,25 @@ export default function SettingsLanguages() {
         }
     };
 
+    // «Traduci ora»: anticipa tutte le traduzioni in attesa dell'azienda. La
+    // RPC chiede solo di essere membro (come chi accoda modificando un testo),
+    // quindi il pulsante non dipende da `translations.write`.
+    const [isTranslatingNow, setIsTranslatingNow] = useState(false);
+    const now = useNow(30_000, summary.totalWaiting > 0);
+    const handleTranslateNow = async (): Promise<void> => {
+        if (!tenantId || !ensureActive()) return;
+        setIsTranslatingNow(true);
+        try {
+            await translateNow(tenantId);
+            showToast({ message: t("languages.progress.translate_now_done"), type: "success" });
+            wakeTranslations?.();
+        } catch {
+            showToast({ message: t("languages.progress.translate_now_error"), type: "error" });
+        } finally {
+            setIsTranslatingNow(false);
+        }
+    };
+
     const handleRetryErrors = async (): Promise<void> => {
         if (!tenantId || !canWrite || !ensureActive()) return;
         try {
@@ -182,6 +239,25 @@ export default function SettingsLanguages() {
             });
         }
     };
+
+    function confirmMessage(lang: SupportedLanguage | null): string {
+        if (!lang) return "";
+        const what = activationCountFailed
+            ? t("languages.confirm_description")
+            : activationCount === null
+              ? t("languages.confirm_counting")
+              : activationCount === 0
+                ? t("languages.confirm_count_zero", { lang: lang.name_it })
+                : t("languages.confirm_count", { count: activationCount, lang: lang.name_it });
+        // Il credito AI solo se già letto (MainLayout): percentuale, mai costi.
+        const credit =
+            aiUsage && (aiUsage.status === "blocked" || aiUsage.status === "not_eligible")
+                ? t("languages.confirm_ai_blocked")
+                : aiUsage?.percent != null
+                  ? t("languages.confirm_ai_used", { percent: Math.round(aiUsage.percent) })
+                  : t("languages.confirm_ai_credit");
+        return activationCount === 0 && !activationCountFailed ? what : `${what} ${credit}`;
+    }
 
     return (
         <PageGate readPermission="catalogs.read">
@@ -228,11 +304,34 @@ export default function SettingsLanguages() {
                             description={`${
                                 summary.state === "queued"
                                     ? t("languages.summary.queued", { count: summary.totalPending })
-                                    : summary.state === "errors"
+                                    : summary.state === "waiting"
+                                      ? t("languages.summary.waiting", { count: summary.totalWaiting })
+                                      : summary.state === "errors"
                                       ? t("languages.summary.has_errors")
                                       : t("languages.summary.all_done")
                             } · ${t("languages.summary.auto_note")}`}
                         />
+                        {summary.totalWaiting > 0 && (
+                            <InlineBanner
+                                variant="info"
+                                action={
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => void handleTranslateNow()}
+                                        loading={isTranslatingNow}
+                                        disabled={isTranslatingNow}
+                                    >
+                                        {t("languages.progress.translate_now")}
+                                    </Button>
+                                }
+                            >
+                                {`${t("languages.progress.waiting", {
+                                    count: summary.totalWaiting,
+                                    minutes: summary.nextRunAt ? minutesUntil(summary.nextRunAt, now) : 10
+                                })}. ${t("languages.progress.waiting_hint")}`}
+                            </InlineBanner>
+                        )}
                         <Card flush>
                             {orderedLangs.map(lang => {
                                 const isBase = lang.code === "it";
@@ -276,7 +375,7 @@ export default function SettingsLanguages() {
                         ? t("languages.confirm_title", { lang: pendingLang.name_it })
                         : ""
                 }
-                message={`${t("languages.confirm_description")} ${t("languages.confirm_ai_credit")}`}
+                message={confirmMessage(pendingLang)}
                 confirmLabel={t("languages.confirm_button")}
                 confirmVariant="primary"
             />

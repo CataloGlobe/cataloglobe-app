@@ -4,7 +4,7 @@
     @include desktop {
         display: grid;
         grid-template-columns: 5fr 7fr;
-        gap: ld-fluid-desk(48, 80);
+        gap: ld-fluid-desk(40, 64);
         align-items: center;
     }
 }
@@ -51,36 +51,185 @@
     color: var(--ld-muted);
 }
 
+// ── Linea del tempo ─────────────────────────────────────────────────────────
+// Ogni passo: etichetta a mano, colonna del filo (pallino + tratto fino al
+// pallino dopo), testo. Accesa da `.on`: il pallino a `--t`, il tratto sotto
+// subito dopo; nel passo gratis prima si riempie la barretta, poi il tratto
+// (tempi in Start.tsx). Con il movimento ridotto è già tutta accesa.
+$step-gap: 26px;
+$step-gap-desk: 36px;
+$dot: 18px;
+$beat: 450ms;
+$day: 18ms;
+// Mobile: l'etichetta a mano sta sopra il titolo; il pallino scende sulla riga
+// del titolo (etichetta 22 px + 4 px, titolo alto 24 px).
+$dot-top: 29px;
+$dot-top-desk: 5px;
+
 .steps {
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: $step-gap;
     margin-top: 32px;
 
     @include desktop {
-        gap: 40px;
-        margin-top: 0;
+        gap: $step-gap-desk;
+        margin-top: 8px;
     }
 }
 
 .step {
+    display: grid;
+    grid-template-columns: $dot 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 16px;
+
     @include desktop {
-        display: grid;
-        grid-template-columns: 150px 1fr;
-        gap: 24px;
-        align-items: baseline;
+        grid-template-columns: 124px $dot 1fr;
+        grid-template-rows: auto;
+        column-gap: 20px;
+        align-items: start;
     }
 }
 
 .when {
+    grid-column: 2;
     font-family: var(--ld-font-hand);
-    font-size: 24px;
+    font-size: 22px;
     line-height: 1;
     color: var(--ld-hand);
 
     @include desktop {
-        font-size: 28px;
+        grid-column: 1;
+        padding-top: 2px;
+        font-size: 26px;
         text-align: right;
+    }
+}
+
+.track {
+    position: relative;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+
+    @include desktop {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: stretch;
+    }
+}
+
+.dot {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: $dot;
+    height: $dot;
+    margin-top: $dot-top;
+    border-radius: 50%;
+    border: 2px solid var(--ld-line);
+    background: var(--ld-white);
+    color: transparent;
+
+    @include desktop {
+        margin-top: $dot-top-desk;
+    }
+
+    @include motion-ok {
+        transition:
+            border-color 250ms ease,
+            background-color 250ms ease,
+            color 250ms ease,
+            transform 350ms cubic-bezier(0.3, 1.6, 0.5, 1);
+        transition-delay: var(--t);
+    }
+}
+
+// Tratto dal pallino a quello del passo dopo: fondo grigio, riempimento blu.
+.seg {
+    position: absolute;
+    top: $dot-top + $dot + 6px;
+    bottom: -($step-gap + $dot-top) + 6px;
+    left: calc(50% - 1px);
+    width: 2px;
+    border-radius: 2px;
+    background: var(--ld-line-2);
+    overflow: hidden;
+
+    @include desktop {
+        top: $dot-top-desk + $dot + 6px;
+        bottom: -($step-gap-desk + $dot-top-desk) + 6px;
+    }
+
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--ld-azione);
+        transform: scaleY(0);
+        transform-origin: top;
+
+        @include motion-ok {
+            transition: transform $beat - 50ms ease-in-out;
+            // Dopo il passo gratis il tratto parte a barretta piena (`--hold`).
+            transition-delay: calc(var(--t) + var(--hold) + 120ms);
+        }
+    }
+}
+
+@mixin lit {
+    .dot {
+        border-color: var(--ld-azione);
+        background: var(--ld-azione);
+        transform: scale(1.12);
+    }
+
+    .dotLast {
+        border-color: var(--ld-ok);
+        background: var(--ld-ok);
+        color: var(--ld-white);
+    }
+
+    .seg::after {
+        transform: none;
+    }
+
+    .day {
+        background: var(--ld-azione);
+    }
+}
+
+.on {
+    @include lit;
+}
+
+@include reduced-motion {
+    .timeline {
+        @include lit;
+    }
+}
+
+// Ultimo pallino un po' più grande: è la fine del percorso.
+.dotLast {
+    width: $dot + 4px;
+    height: $dot + 4px;
+    margin-left: -2px;
+    margin-top: $dot-top - 2px;
+
+    @include desktop {
+        margin-top: $dot-top-desk - 2px;
+    }
+}
+
+.content {
+    grid-column: 2;
+    min-width: 0;
+
+    @include desktop {
+        grid-column: 3;
     }
 }
 
@@ -104,10 +253,47 @@
 .stepBody {
     margin: 6px 0 0;
     font-size: 15px;
-    line-height: 1.55;
+    line-height: 1.5;
     color: var(--ld-body);
 
     @include desktop {
         font-size: 16px;
+    }
+}
+
+// 30 tacche, una per giorno di prova, che si riempiono quando il pallino del
+// passo si accende.
+.daysWrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 300px;
+    margin-top: 12px;
+}
+
+.days {
+    display: flex;
+    gap: 3px;
+}
+
+// «giorno 1» e «giorno 30» ai due capi: dicono cosa contano le tacche.
+.daysEnds {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--ld-font-hand);
+    font-size: 17px;
+    line-height: 1;
+    color: var(--ld-hand);
+}
+
+.day {
+    flex: 1;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--ld-line-2);
+
+    @include motion-ok {
+        transition: background-color 200ms ease;
+        transition-delay: calc(var(--t) + 150ms + var(--d) * #{$day});
     }
 }

@@ -29,7 +29,6 @@
 //   8. UPSERT product_availability_overrides ON CONFLICT (activity_id, product_id).
 //   9. Reply 200 with { override_id }.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { hasActivityPermission } from "../_shared/membershipCheck.ts";
@@ -250,7 +249,7 @@ function _computeAutoResetAt(scope: Scope | null): string | null {
 // HTTP handler
 // ============================================================
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

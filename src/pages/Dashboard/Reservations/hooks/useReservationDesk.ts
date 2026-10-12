@@ -297,17 +297,16 @@ export function useReservationDesk({
         ];
         // I giorni aperti nei drawer, con il giorno prima e il giorno dopo.
         //
-        // ATTENZIONE — accoppiamento al contrario, voluto per questa fase.
+        // ATTENZIONE — accoppiamento al contrario, ridotto a ripiego.
         // L'avviso di overbooking del form (`ReservationForm`) e il callout di
-        // capienza del drawer (`ReservationDetailDrawer`) calcolano il picco
-        // dai dati che questa pagina ha in memoria: è il caricamento che si
-        // piega a quello che serve a loro, non il contrario. Per le
-        // prenotazioni manuali quell'avviso è l'UNICO controllo di capienza:
-        // `createReservation` è un INSERT diretto, il server non verifica
-        // niente. Togliere questi giorni dalla finestra non rompe nessun
-        // test e nessuna vista: rende semplicemente cieco l'avviso, in
-        // silenzio. Va tolto SOLO quando form e drawer chiederanno i numeri
-        // al server (`get_reservation_day_availability` esiste già).
+        // capienza del drawer (`ReservationDetailDrawer`) chiedono i numeri al
+        // server (`get_reservation_capacity_check`, migration
+        // 20261012100000); il picco calcolato da questi giorni in memoria
+        // serve solo finché la risposta non arriva o se la RPC fallisce. Per
+        // le prenotazioni manuali quell'avviso è l'UNICO controllo di
+        // capienza (`createReservation` è un INSERT diretto): questi giorni si
+        // tolgono dalla finestra solo dopo aver visto la RPC funzionare in
+        // produzione, e accettando che senza rete l'avviso taccia.
         // `D-1 .. D+1` perché le finestre di durata scavalcano la mezzanotte:
         // è la stessa finestra di `reservation_peak_with_candidate`.
         if (selectedDate) ranges.push(dayContextRange(selectedDate));

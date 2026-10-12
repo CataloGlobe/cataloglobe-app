@@ -161,6 +161,8 @@
     border-radius: 999px;
     color: var(--ld-muted);
 
+    @include ld-hit-area;
+
     &:hover {
         background: var(--ld-paper);
         color: var(--ld-ink);

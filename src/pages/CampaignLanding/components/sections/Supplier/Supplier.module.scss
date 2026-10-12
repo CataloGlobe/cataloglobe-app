@@ -9,17 +9,17 @@
     border: 1px solid var(--ld-line);
     border-radius: 10px;
     font-weight: 700;
-    line-height: 32px;
+    line-height: 40px;
 }
 
 .stepBtn {
     @include ld-reset-button;
-    width: 30px;
-    height: 32px;
+    width: 36px;
+    height: 40px;
     background: var(--ld-paper);
     font-size: 16px;
     font-weight: 700;
-    line-height: 32px;
+    line-height: 40px;
     text-align: center;
     color: var(--ld-muted);
     transition:
@@ -45,15 +45,15 @@
 
 .stepValue {
     display: block;
-    min-width: 58px;
-    height: 32px;
+    min-width: 52px;
+    height: 40px;
     background: var(--ld-white);
     font-size: 15px;
     text-align: center;
     color: var(--ld-ink);
     transition:
-        color 250ms ease,
-        background-color 250ms ease;
+        color var(--ld-dur-swap) var(--ld-ease),
+        background-color var(--ld-dur-swap) var(--ld-ease);
 }
 
 .stepValueOn {
@@ -61,25 +61,9 @@
     color: var(--ld-azione);
 }
 
-// Riga aggiornata nel menù del cliente: lampo blu una volta.
-@include motion-ok {
-    .rowUp {
-        animation: ld-supplier-flash 1000ms ease;
-    }
-}
-
-@keyframes ld-supplier-flash {
-    from {
-        background: rgba(70, 72, 198, 0.1);
-    }
-    to {
-        background: rgba(70, 72, 198, 0);
-    }
-}
-
-// Frase guida, come in «Un piatto è finito».
+// Frase guida sopra la scheda: l'invito prima del gesto.
 .hint {
-    margin: 10px 0 0;
+    margin: 0 0 10px;
     font-size: 13px;
     color: var(--ld-muted);
     text-align: center;
@@ -89,7 +73,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-top: 12px;
+    margin-top: 20px;
     padding: 11px 14px;
     border-radius: 14px;
     background: var(--ld-peach);

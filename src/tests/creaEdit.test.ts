@@ -1,7 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Il «Riprova» in modifica (review #388, punto 2): i servizi che scrive saveSezioni, finti.
+// `fail`: la chiamata `on` fallisce una volta, dopo `skip` riuscite
+const { calls, fail, fake } = vi.hoisted(() => {
+    const calls: unknown[][] = [];
+    const fail = { on: "", skip: 0 };
+    const fake =
+        (name: string, out: () => unknown = () => undefined) =>
+        (...a: unknown[]) => {
+            calls.push([name, ...a]);
+            if (fail.on === name && fail.skip-- <= 0) {
+                fail.on = "";
+                return Promise.reject(new Error(name + " non riuscito"));
+            }
+            return Promise.resolve(out());
+        };
+    return { calls, fail, fake };
+});
+vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
+vi.mock("@/services/supabase/catalogs", async orig => ({ ...(await orig<object>()), addProductToCategory: fake("addProductToCategory"), updateCatalog: fake("updateCatalog") }));
+vi.mock("@/services/supabase/products", async orig => ({ ...(await orig<object>()), createProduct: fake("createProduct", () => ({ id: "p-new" })) }));
+vi.mock("@/services/supabase/productOptions", async orig => ({ ...(await orig<object>()), createPrimaryPriceFormat: fake("createPrimaryPriceFormat") }));
 import { asEdit, asInside, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
+import { saveEdit, type EditCtx } from "@/pages/Dashboard/Crea/creaEdit";
+import type { Dish } from "@/pages/Dashboard/Crea/creaModel";
 
 // Modificare una cosa già creata nel tunnel (D140): il passo 0, i passi viola e
 // grigi, «Avanti» solo fra quelli scelti, si salva solo quello che è cambiato.
@@ -175,5 +199,40 @@ describe("modifica nel tunnel: i piatti del contenuto in evidenza (D187)", () =>
         expect(firstBlock(upd(bundle(), x => void (x.bundle = "")), OWNER)).toEqual({ i: 1, why: "Manca il prezzo unico" });
         expect(firstBlock(upd(promo(), x => void (x.dishes = [])), OWNER)).toEqual({ i: 1, why: "Aggiungi almeno un piatto" });
         expect(firstBlock(upd(promo(), x => void (x.notes.p1 = "")), OWNER)).toBeNull();
+    });
+});
+
+describe("modifica nel tunnel: «Riprova» dopo un piatto nuovo fermo a metà (review #388.2)", () => {
+    beforeEach(() => {
+        calls.length = 0;
+        Object.assign(fail, { on: "", skip: 0 });
+    });
+    const withDish = (d: Dish) => upd(menu(), x => void x.sections[0].dishes.push(d));
+    const ctx = (done: Map<string, unknown>) => ({ tenantId: "T", L: {}, names: {}, blockFiles: {}, done }) as unknown as EditCtx;
+    const made = () => calls.filter(c => c[0] === "createProduct").length;
+
+    it("il collegamento non riesce: «Riprova» collega il prodotto già nato, non ne crea un secondo", async () => {
+        const t = withDish({ key: "n", productId: null, name: "Carbonara", price: 11 });
+        const done = new Map<string, unknown>();
+        fail.on = "addProductToCategory";
+        await expect(saveEdit(t, ctx(done))).rejects.toThrow();
+        await saveEdit(t, ctx(done));
+        expect(made()).toBe(1);
+        const links = calls.filter(c => c[0] === "addProductToCategory");
+        expect(links).toHaveLength(2);
+        expect(links[1][4]).toBe(links[0][4]);
+    });
+
+    it("un formato non riesce: «Riprova» rifà solo quel formato, sullo stesso prodotto", async () => {
+        const t = withDish({ key: "n", productId: null, name: "Pizza", price: null, formats: [{ name: "Piccola", price: 7 }, { name: "Grande", price: 10 }] });
+        const done = new Map<string, unknown>();
+        Object.assign(fail, { on: "createPrimaryPriceFormat", skip: 1 });
+        await expect(saveEdit(t, ctx(done))).rejects.toThrow();
+        await saveEdit(t, ctx(done));
+        expect(made()).toBe(1);
+        const formats = calls.filter(c => c[0] === "createPrimaryPriceFormat");
+        expect(formats.map(c => c[3])).toEqual(["Piccola", "Grande", "Grande"]);
+        expect(new Set(formats.map(c => c[1])).size).toBe(1);
+        expect(calls.filter(c => c[0] === "addProductToCategory")).toHaveLength(1);
     });
 });

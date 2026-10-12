@@ -57,6 +57,21 @@ export async function listTenantLanguages(tenantId: string): Promise<TenantLangu
  * Il backfill può essere ri-tentato manualmente (UI futura) o si attende che
  * gli utenti modifichino contenuti (trigger in-place via enqueueTranslationJobsIfChanged).
  */
+/**
+ * Quanti testi dell'azienda non hanno ancora una traduzione aggiornata in
+ * `languageCode` (attiva o no): il numero della conferma prima di accendere
+ * una lingua, cioè quanto accoderà il recupero. RPC
+ * `count_tenant_language_backfill` (membro con `translations.write`).
+ */
+export async function countLanguageBackfill(tenantId: string, languageCode: string): Promise<number> {
+    const { data, error } = await supabase.rpc("count_tenant_language_backfill", {
+        p_tenant_id: tenantId,
+        p_target_lang: languageCode
+    });
+    if (error) throw error;
+    return data ?? 0;
+}
+
 export async function activateTenantLanguage(
     tenantId: string,
     languageCode: string
@@ -149,13 +164,22 @@ export async function getTranslationProgress(
  * Copertura traduzioni entity-level, hash-aware, per UNA lingua attiva.
  * A differenza di LanguageProgress (job-level, cumulativo), classifica ogni unità
  * traducibile confrontando source_hash col contenuto sorgente attuale.
- * Invariante server-side: fresh + stale + pending + failed + missing = total.
+ * Invariante server-side: fresh + stale + pending + waiting + failed + missing = total.
  */
 export type LanguageCoverage = {
     total: number;
     fresh: number;
     stale: number;
+    /** Job in corso adesso (processing, o pending già partibile). */
     pending: number;
+    /**
+     * Job in attesa: accodati dal back office, partono dopo 10 minuti senza
+     * modifiche o con «Traduci ora». Opzionale: assente prima della migration
+     * 20261012010000.
+     */
+    waiting?: number;
+    /** Primo run_after fra i job in attesa della lingua. */
+    next_run_at?: string | null;
     failed: number;
     missing: number;
     last_updated: string | null;
@@ -163,6 +187,23 @@ export type LanguageCoverage = {
 
 /** Mappa per lingua attiva: { <language_code>: LanguageCoverage }. */
 export type TranslationCoverage = Record<string, LanguageCoverage>;
+
+/** Somma dei job in attesa su tutte le lingue. */
+export function sumWaiting(coverage: TranslationCoverage): number {
+    return Object.values(coverage).reduce((acc, c) => acc + (c.waiting ?? 0), 0);
+}
+
+/** Primo istante di partenza fra le lingue con job in attesa; null se nessuno. */
+export function earliestNextRunAt(coverage: TranslationCoverage): string | null {
+    let earliest: string | null = null;
+    for (const c of Object.values(coverage)) {
+        if (!c.next_run_at) continue;
+        if (earliest === null || Date.parse(c.next_run_at) < Date.parse(earliest)) {
+            earliest = c.next_run_at;
+        }
+    }
+    return earliest;
+}
 
 /**
  * Copertura onesta delle traduzioni per ogni lingua attiva del tenant.
