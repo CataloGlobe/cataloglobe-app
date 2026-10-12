@@ -669,6 +669,7 @@
         "cancelled": "Storniert",
         "status_aria": "Bestellstatus",
         "pay_hint": "Bezahlung am Tisch oder an der Kasse",
+        "at_table": "Am Tisch",
         "send": "An die Küche senden",
         "sent": "Bestellung an die Küche gesendet",
         "unavailable": "Nicht mehr verfügbar",

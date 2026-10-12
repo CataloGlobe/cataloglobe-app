@@ -111,6 +111,11 @@ function OrderContent({ ordering, findProduct, canEdit, sendState }: Props & { o
                             />
                         ))}
                     </ul>
+                    <div className={styles.totalRow}>
+                        <span>{t("ordering.total")}</span>
+                        <span>{formatPublicPrice(selectionTotal(selection))}</span>
+                    </div>
+                    <p className={styles.payHint}>{t("order_sheet.pay_hint")}</p>
                 </section>
             ) : null}
 
@@ -152,13 +157,19 @@ function OrderContent({ ordering, findProduct, canEdit, sendState }: Props & { o
             ) : null}
 
             {ordering.jwt ? (
-                <AssistanceActions
-                    billRequestedAt={ordering.billRequestedAt}
-                    onBillRequestedAtChange={ordering.onBillRequestedAtChange}
-                    waiterCalledAt={ordering.waiterCalledAt}
-                    onWaiterCalledAtChange={ordering.onWaiterCalledAtChange}
-                    ordersRefreshKey={ordering.refreshKey}
-                />
+                <section className={styles.section} aria-labelledby="order-sheet-assist">
+                    <h3 id="order-sheet-assist" className={styles.heading}>
+                        {t("order_sheet.at_table")}
+                    </h3>
+                    <AssistanceActions
+                        layout="tiles"
+                        billRequestedAt={ordering.billRequestedAt}
+                        onBillRequestedAtChange={ordering.onBillRequestedAtChange}
+                        waiterCalledAt={ordering.waiterCalledAt}
+                        onWaiterCalledAtChange={ordering.onWaiterCalledAtChange}
+                        ordersRefreshKey={ordering.refreshKey}
+                    />
+                </section>
             ) : null}
         </div>
     );
@@ -204,6 +215,18 @@ function SelectionLine({
                 </div>
             ) : (
                 <div className={styles.lineActions}>
+                    {canEdit ? (
+                        <button
+                            type="button"
+                            className={styles.textButton}
+                            aria-label={t("order_sheet.edit_aria", { name: line.name })}
+                            onClick={() => pushOrderLineEdit(index, line.id, line.name)}
+                        >
+                            {t("selection.edit")}
+                        </button>
+                    ) : (
+                        <span />
+                    )}
                     <div className={styles.stepper} role="group" aria-label={t("order_sheet.qty_aria", { name: line.name })}>
                         {/* A uno il meno toglie la riga: lo dice icona e nome. */}
                         <button
@@ -227,16 +250,6 @@ function SelectionLine({
                             <Plus size={16} aria-hidden="true" />
                         </button>
                     </div>
-                    {canEdit ? (
-                        <button
-                            type="button"
-                            className={styles.textButton}
-                            aria-label={t("order_sheet.edit_aria", { name: line.name })}
-                            onClick={() => pushOrderLineEdit(index, line.id, line.name)}
-                        >
-                            {t("selection.edit")}
-                        </button>
-                    ) : null}
                 </div>
             )}
         </li>
@@ -287,6 +300,7 @@ function SentOrder({
                             data-state={i < step ? "done" : i === step ? "current" : "todo"}
                             aria-current={i === step ? "step" : undefined}
                         >
+                            <span className={styles.stepDot} aria-hidden="true" />
                             {t(STEP_KEYS[status])}
                         </li>
                     ))}
@@ -340,7 +354,7 @@ function SentOrder({
     );
 }
 
-/** Piede della pagina (spec §7): totale, «Paghi al tavolo o in cassa», «Invia alla cucina». */
+/** Piede della pagina (mockup v38): solo «Invia alla cucina · totale»; il totale sta nel corpo. */
 export function OrderFooter({
     ordering,
     findProduct,
@@ -357,14 +371,9 @@ export function OrderFooter({
         ? t("ordering.submitting")
         : firstUnavailable >= 0
           ? t("order_sheet.remove_unavailable")
-          : t("order_sheet.send");
+          : `${t("order_sheet.send")} · ${formatPublicPrice(selectionTotal(ordering.selection))}`;
     return (
         <div className={styles.footer}>
-            <div className={styles.totalRow}>
-                <span>{t("ordering.total")}</span>
-                <span>{formatPublicPrice(selectionTotal(ordering.selection))}</span>
-            </div>
-            <p className={styles.payHint}>{t("order_sheet.pay_hint")}</p>
             <button
                 type="button"
                 className={styles.send}

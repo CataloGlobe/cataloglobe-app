@@ -669,6 +669,7 @@
         "cancelled": "Cancelled",
         "status_aria": "Order status",
         "pay_hint": "Pay at the table or at the till",
+        "at_table": "At the table",
         "send": "Send to the kitchen",
         "sent": "Order sent to the kitchen",
         "unavailable": "No longer available",

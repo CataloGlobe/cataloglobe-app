@@ -669,6 +669,7 @@
     "cancelled": "Annulée",
     "status_aria": "État de la commande",
     "pay_hint": "Paiement à table ou en caisse",
+    "at_table": "À table",
     "send": "Envoyer en cuisine",
     "sent": "Commande envoyée en cuisine",
     "unavailable": "Plus disponible",

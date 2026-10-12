@@ -668,6 +668,7 @@
         "cancelled": "Annullato",
         "status_aria": "Stato dell'ordine",
         "pay_hint": "Paghi al tavolo o in cassa",
+        "at_table": "Al tavolo",
         "send": "Invia alla cucina",
         "sent": "Ordine inviato alla cucina",
         "unavailable": "Non più disponibile",
