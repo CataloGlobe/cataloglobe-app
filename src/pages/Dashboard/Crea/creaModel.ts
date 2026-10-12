@@ -490,7 +490,8 @@ function partOf(t: Tunnel, s: StepId): unknown {
         case "aspetto":
             return lookKey(t.look);
         case "contenuto":
-            return [t.title.trim(), t.sub.trim(), t.inner.trim(), t.text.trim(), !!t.image, t.imageUrl, t.cta && [t.ctaText.trim(), t.ctaLink.trim()], t.slot];
+            // i piatti stanno nel passo del contenuto (D187): cambiarli è cambiare il contenuto
+            return [t.title.trim(), t.sub.trim(), t.inner.trim(), t.text.trim(), !!t.image, t.imageUrl, t.cta && [t.ctaText.trim(), t.ctaLink.trim()], t.slot, partOf(t, "piatti")];
         case "piatti":
             if (!hasDishes(t)) return null;
             return [t.evType, t.dishes, t.evType === "bundle" ? [t.bundle.trim(), t.showOrig] : t.dishes.map(d => t.notes[d]?.trim() ?? "")];

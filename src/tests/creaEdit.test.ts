@@ -148,3 +148,32 @@ describe("modifica nel tunnel: lo stile", () => {
     });
 
 });
+
+describe("modifica nel tunnel: i piatti del contenuto in evidenza (D187)", () => {
+    function evid(evType: Tunnel["evType"], fn: (x: Tunnel) => void = () => {}): Tunnel {
+        const t = { ...newTunnel("evid", ALL), title: "Pranzo veloce" };
+        t.evType = evType;
+        fn(t);
+        return asEdit(t, "e1", { id: "r1", count: 1 });
+    }
+    const promo = () => evid("promo", x => void ((x.dishes = ["p1", "p2"]), (x.notes = { p1: "-20%" })));
+    const bundle = () => evid("bundle", x => void ((x.dishes = ["p1", "p2"]), (x.bundle = "24,50")));
+
+    it("cambiare piatti, note o prezzo unico è cambiare «Il contenuto», e Controlla lo mostra", () => {
+        expect(changed(upd(promo(), x => void x.dishes.pop()), "contenuto")).toBe(true);
+        expect(changed(upd(promo(), x => void (x.notes.p1 = "-30%")), "contenuto")).toBe(true);
+        expect(changed(upd(bundle(), x => void (x.bundle = "22")), "contenuto")).toBe(true);
+        expect(changed(upd(bundle(), x => void (x.showOrig = false)), "contenuto")).toBe(true);
+        expect(changed(upd(evid("annuncio"), x => void ((x.evType = "promo"), (x.dishes = ["p1"]))), "contenuto")).toBe(true);
+        const t = upd(upd(promo(), x => void x.edit!.picked.push("dove")), x => void (x.notes.p2 = "nuovo"));
+        expect(changedSteps(t, OWNER)).toEqual(["contenuto"]);
+        expect(strays(t, OWNER)).toEqual(["contenuto"]);
+        expect(isDirty(t)).toBe(true);
+    });
+
+    it("toccati solo i piatti, scattano i controlli del contenuto", () => {
+        expect(firstBlock(upd(bundle(), x => void (x.bundle = "")), OWNER)).toEqual({ i: 1, why: "Manca il prezzo unico" });
+        expect(firstBlock(upd(promo(), x => void (x.dishes = [])), OWNER)).toEqual({ i: 1, why: "Aggiungi almeno un piatto" });
+        expect(firstBlock(upd(promo(), x => void (x.notes.p1 = "")), OWNER)).toBeNull();
+    });
+});
