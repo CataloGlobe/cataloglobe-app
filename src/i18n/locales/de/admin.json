@@ -19,7 +19,7 @@
             "badge_queued": "In Bearbeitung",
             "badge_errors": "Zu beheben",
             "badge_done": "Aktuell",
-            "auto_note": "bestehende Inhalte werden in wenigen Minuten übersetzt",
+            "auto_note": "neue Sprachen in wenigen Minuten, Änderungen 10 Minuten nach dem letzten Speichern",
             "badge_waiting": "Wartet",
             "waiting": "{{count}} wartend"
         },

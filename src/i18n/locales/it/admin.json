@@ -19,7 +19,7 @@
             "badge_queued": "In corso",
             "badge_errors": "Da risolvere",
             "badge_done": "Aggiornate",
-            "auto_note": "i contenuti esistenti vengono tradotti in pochi minuti",
+            "auto_note": "lingue nuove in pochi minuti, modifiche 10 minuti dopo l'ultimo salvataggio",
             "badge_waiting": "In attesa",
             "waiting": "{{count}} in attesa"
         },
@@ -97,10 +97,10 @@
         "load_error_desc": "Controlla la connessione e riprova.",
         "confirm_ai_credit": "Le traduzioni usano il credito AI incluso nel piano.",
         "confirm_counting": "Conto i testi da tradurre…",
-        "confirm_count_one": "Tradurremo {{count}} testo (prodotti, categorie e altri contenuti) in {{lang}}. Sarà pronto in pochi minuti.",
-        "confirm_count_other": "Tradurremo {{count}} testi (prodotti, categorie e altri contenuti) in {{lang}}. Saranno pronti in pochi minuti.",
+        "confirm_count_one": "{{lang}}: tradurremo {{count}} testo (prodotti, categorie e altri contenuti), pronto in pochi minuti.",
+        "confirm_count_other": "{{lang}}: tradurremo {{count}} testi (prodotti, categorie e altri contenuti), pronti in pochi minuti.",
         "confirm_count_zero": "Non ci sono testi da tradurre: {{lang}} sarà subito pronta.",
-        "confirm_ai_used": "Le traduzioni usano il credito AI del piano: in questo ciclo ne hai usato il {{percent}}%.",
+        "confirm_ai_used": "Le traduzioni usano il credito AI del piano (usato in questo ciclo: {{percent}}%).",
         "confirm_ai_blocked": "Il credito AI di questo ciclo è finito: la lingua si accende, ma i testi restano in italiano. Dopo il rinnovo spegnila e riaccendila per tradurli."
     },
     "errors": {
