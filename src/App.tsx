@@ -90,7 +90,7 @@ const StoryDetailPage = lazy(() => import("./pages/Dashboard/Stories/StoryDetail
 const Support = lazy(() => import("./pages/Dashboard/Support/Support"));
 const SupportTicketPage = lazy(() => import("./pages/Dashboard/Support/SupportTicketPage"));
 const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
-const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
+const StyleTunnelRedirect = lazy(() => import("./pages/Dashboard/Styles/StyleTunnelRedirect"));
 const CreaPage = lazy(() => import("./pages/Dashboard/Crea/CreaPage"));
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
 const ActivitySchedaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySchedaRoute"));
@@ -364,7 +364,7 @@ export default function App() {
 
                 <Route path="styles">
                     <Route index element={<Styles />} />
-                    <Route path=":styleId" element={<StyleEditorPage />} />
+                    <Route path=":styleId" element={<StyleTunnelRedirect />} />
                 </Route>
 
                 <Route path="crea/:kind" element={<CreaPage />} />
