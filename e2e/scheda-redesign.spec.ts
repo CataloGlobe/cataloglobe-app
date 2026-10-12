@@ -3,8 +3,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
 
 /**
  * Scheda prodotto nel foglio unico del redesign (spec §6), senza ordine al
- * tavolo: blocchi nell'ordine della spec, prezzi «12,00 €», regola nel titolo
- * del gruppo, «Mostra tutti» oltre cinque voci, «Perfetto con» a spinta con
+ * tavolo: nome e prezzo in testata, blocchi nell'ordine del mockup v38, prezzi
+ * «12,00 €», regola nel titolo del gruppo, «Mostra tutti» oltre cinque voci,
+ * ingredienti in testo (D70), «Perfetto con» a spinta con
  * «‹ Nome», link diretto `?prodotto=`. Stub senza login.
  *
  * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
@@ -28,24 +29,30 @@ test("il piatto apre la scheda: blocchi, prezzi, regola, «Mostra tutti» e «Pe
     await expect(dialog).toBeVisible();
 
     await expect(dialog.locator("h3")).toHaveText([
+        "Formato",
         "Aggiunte · fino a 3 · facoltativa",
         "Dettagli",
         "Ingredienti",
-        "Caratteristiche e allergeni",
+        "Caratteristiche",
+        "Allergeni",
         "Perfetto con"
     ]);
+    // Nome in testata, fermo mentre il corpo scorre; coi formati i prezzi stanno nel riquadro (mockup v38).
+    await expect(dialog.getByRole("heading", { level: 2, name: "Primi 1" })).toBeVisible();
     await expect(dialog.getByText("16,00\u00a0€")).toBeVisible();
+    // Ingredienti in testo con le virgole, tutti a vista (D70).
+    await expect(dialog.getByText("Ingrediente 1, Ingrediente 2, Ingrediente 3, Ingrediente 4, Ingrediente 5, Ingrediente 6, Ingrediente 7")).toBeVisible();
     // Cinque aggiunte a vista; la prima è senza sovrapprezzo e non dice «+0».
     await expect(dialog.getByText("+1,50\u00a0€")).toHaveCount(4);
     await expect(dialog.getByText("Per allergie o intolleranze chiedi al personale.")).toBeVisible();
 
     const showAll = dialog.getByRole("button", { name: "Mostra tutti (7)" });
-    await expect(showAll).toHaveCount(2);
-    await showAll.first().click();
+    await expect(showAll).toHaveCount(1);
+    await showAll.click();
     await expect(dialog.getByText("Aggiunta 7")).toBeVisible();
     // Il pulsante sparisce: il fuoco passa alla prima voce comparsa, non al body.
     await expect(dialog.getByRole("listitem").filter({ hasText: "Aggiunta 6" })).toBeFocused();
-    await expect(dialog.getByRole("button", { name: "Mostra tutti (7)" })).toHaveCount(1);
+    await expect(showAll).toHaveCount(0);
 
     await dialog.getByRole("button", { name: /Dolci 2/ }).click();
     const back = page.getByRole("button", { name: "Torna a Primi 1" });

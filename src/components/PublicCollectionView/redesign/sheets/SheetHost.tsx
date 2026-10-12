@@ -54,6 +54,8 @@ type Props = {
      * lettori di schermo. Null = testata normale.
      */
     renderHeader?: (page: SheetPage) => ReactNode;
+    /** Riga sotto il titolo di una pagina `stacked` (il prezzo del piatto). Null = niente. */
+    renderHeading?: (page: SheetPage) => ReactNode;
     /**
      * Radice della pagina sotto il foglio: riceve `inert` finché il foglio è
      * aperto (niente fuoco né tocchi fuori, senza focus trap). NON deve
@@ -139,7 +141,7 @@ function useMediaQuery(query: string, subscribe: (notify: () => void) => () => v
  *
  * Non è montato nella pagina di oggi: lo usano le PR del redesign.
  */
-export default function SheetHost({ renderPage, renderFooter, renderHeader, backgroundRef }: Props) {
+export default function SheetHost({ renderPage, renderFooter, renderHeader, renderHeading, backgroundRef }: Props) {
     const { t } = useTranslation("public");
     const state = useSheetState();
     const isOpen = state.pages.length > 0;
@@ -169,6 +171,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
     const trackAnimation = useRef<Animation | null>(null);
     const prevIndex = useRef(0);
     const animateHeight = useRef(false);
+    const heightAnimation = useRef<Animation | null>(null);
     const env = useRef({ isMobile, reducedMotion });
     const drag = useRef({ active: false, startY: 0, lastY: 0, lastT: 0, velocity: 0, offset: 0 });
     const exitFrom = useRef({ offset: 0, velocity: 0 });
@@ -452,6 +455,12 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
         const fill = shown[index]?.fill === true;
         const apply = () => {
             const previous = viewport.getBoundingClientRect().height;
+            // Il ResizeObserver scatta anche a metà spinta (la prima chiamata arriva
+            // sempre): l'altezza in corsa coprirebbe quella nuova e il taglio a metà
+            // riga misurerebbe la vecchia. Si ferma e si riparte da dove era.
+            const running = heightAnimation.current?.playState === "running" ? heightAnimation.current : null;
+            heightAnimation.current = null;
+            running?.cancel();
             let next: number;
             if (fill) {
                 // Più alta del tetto: il flex del pannello la riporta al massimo disponibile.
@@ -460,8 +469,8 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
             } else {
                 next = cutAtHalfRow(viewport, content as HTMLElement);
             }
-            if (animateHeight.current && previous > 0 && previous !== next) {
-                play(viewport, [{ height: `${previous}px` }, { height: `${next}px` }], PUSH_DURATION_MS);
+            if ((animateHeight.current || running) && previous > 0 && Math.abs(previous - next) > 0.5) {
+                heightAnimation.current = play(viewport, [{ height: `${previous}px` }, { height: `${next}px` }], PUSH_DURATION_MS);
             }
             animateHeight.current = false;
         };
@@ -561,6 +570,26 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
     if (!present || !activePage) return null;
     const footer = renderFooter?.(activePage) ?? null;
     const customHeader = renderHeader?.(activePage) ?? null;
+    const heading = activePage.stacked ? (renderHeading?.(activePage) ?? null) : null;
+    // Spinta normale: solo «‹». Il nome della madre solo dove il
+    // ritorno non è ovvio (`named`, mockup v38); senza nome si legge «Indietro».
+    const backButton = parentPage ? (
+        <button
+            type="button"
+            className={styles.backButton}
+            data-named={parentPage.named || undefined}
+            onClick={popSheetPage}
+            aria-label={parentPage.named ? t("sheet.back_to", { title: parentPage.title }) : t("sheet.back")}
+        >
+            <ChevronLeft size={22} aria-hidden="true" />
+            {parentPage.named ? <span className={styles.backLabel}>{parentPage.title}</span> : null}
+        </button>
+    ) : null;
+    const closeButton = (
+        <button type="button" className={styles.closeButton} onClick={closeSheet} aria-label={t("sheet.close")}>
+            <X size={18} strokeWidth={2.25} aria-hidden="true" />
+        </button>
+    );
 
     const tree = (
         <div ref={rootRef} className={styles.root}>
@@ -590,22 +619,23 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
                             </h2>
                             {customHeader}
                         </div>
+                    ) : activePage.stacked ? (
+                        // Scheda prodotto (mockup v38): «‹ Madre» sopra, nome che va a capo
+                        // e prezzo sotto; restano fermi mentre il corpo scorre.
+                        <div className={styles.header} data-stacked="">
+                            {parentPage?.named ? null : backButton}
+                            <div className={styles.headText}>
+                                {parentPage?.named ? backButton : null}
+                                <h2 id="pub-sheet-title" className={styles.title}>
+                                    {activePage.title}
+                                </h2>
+                                {heading}
+                            </div>
+                            {closeButton}
+                        </div>
                     ) : (
                         <div className={styles.header}>
-                            {parentPage ? (
-                                // Spinta normale: solo «‹». Il nome della madre solo dove il
-                                // ritorno non è ovvio (`named`, mockup v38); senza nome si legge «Indietro».
-                                <button
-                                    type="button"
-                                    className={styles.backButton}
-                                    data-named={parentPage.named || undefined}
-                                    onClick={popSheetPage}
-                                    aria-label={parentPage.named ? t("sheet.back_to", { title: parentPage.title }) : t("sheet.back")}
-                                >
-                                    <ChevronLeft size={22} aria-hidden="true" />
-                                    {parentPage.named ? <span className={styles.backLabel}>{parentPage.title}</span> : null}
-                                </button>
-                            ) : null}
+                            {backButton}
                             <h2
                                 id="pub-sheet-title"
                                 className={styles.title}
@@ -613,9 +643,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, back
                             >
                                 {activePage.title}
                             </h2>
-                            <button type="button" className={styles.closeButton} onClick={closeSheet} aria-label={t("sheet.close")}>
-                                <X size={18} strokeWidth={2.25} aria-hidden="true" />
-                            </button>
+                            {closeButton}
                         </div>
                     )}
                 </div>

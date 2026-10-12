@@ -9,7 +9,7 @@ export const ORDER_EDIT_PREFIX = "order-edit:";
 
 /** Da «Modifica»: la scheda del piatto entra a spinta, con «‹ Il tuo ordine». */
 export function pushOrderLineEdit(index: number, productId: string, name: string): void {
-    pushSheetPage({ key: `${ORDER_EDIT_PREFIX}${index}:${productId}`, title: name, size: "large", titleHidden: true });
+    pushSheetPage({ key: `${ORDER_EDIT_PREFIX}${index}:${productId}`, title: name, size: "large", stacked: true });
 }
 
 export function editTargetKey(page: SheetPage): { index: number; productId: string } | null {

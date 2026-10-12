@@ -39,7 +39,7 @@ import { FEATURED_DETAIL_PREFIX, pushFeaturedDetail, pushVenueSheet } from "./ve
 import CategoryList from "../categories/CategoryList";
 import { categoryTotals } from "../categories/categoryBoxes";
 import SearchHeader from "../search/SearchHeader";
-import ProductPage, { ProductUnavailable } from "../product/ProductPage";
+import ProductPage, { ProductHeadPrice, ProductUnavailable } from "../product/ProductPage";
 import { productIdOf } from "../product/productSheet";
 import { loadStoryPage, pageBelow, storyRefOf } from "../story/storySheet";
 import { ProductOrderFooter, type OrderBinding } from "../order/OrderChoices";
@@ -107,6 +107,11 @@ export default function VenueSheets({ booking: bookingConfig, ...props }: Sheets
                 )
             }
             renderHeader={page => (page.key === "search" ? <SearchHeader query={query} onQueryChange={setQuery} /> : null)}
+            renderHeading={page => {
+                const productId = productIdOf(page) ?? editTargetKey(page)?.productId;
+                const item = productId ? props.product.findProduct(productId) : null;
+                return item ? <ProductHeadPrice item={item} /> : null;
+            }}
             renderFooter={page => {
                 if (isBookingPage(page)) {
                     return booking ? (

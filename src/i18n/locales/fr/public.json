@@ -678,7 +678,9 @@
   },
   "product_sheet": {
     "details": "Détails",
-    "traits": "Caractéristiques et allergènes",
+    "characteristics": "Caractéristiques",
+    "allergens": "Allergènes",
+    "no_allergens": "Aucun allergène indiqué",
     "allergy_note": "Pour les allergies ou intolérances, demandez au personnel.",
     "story": "L'histoire",
     "show_all": "Tout afficher ({{count}})",

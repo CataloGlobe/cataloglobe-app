@@ -49,7 +49,7 @@ describe("regola di un gruppo di scelte (spec §6)", () => {
 describe("pagina del prodotto nel foglio", () => {
     it("chiave col prefisso, titolo nascosto, ritorno all'id", () => {
         const page = productSheetPage({ id: "p-1", name: "Amarone" });
-        expect(page).toMatchObject({ key: "product:p-1", title: "Amarone", titleHidden: true });
+        expect(page).toMatchObject({ key: "product:p-1", title: "Amarone", stacked: true, named: true });
         expect(productIdOf(page)).toBe("p-1");
         expect(productIdOf({ key: "info", title: "Informazioni" })).toBeNull();
     });

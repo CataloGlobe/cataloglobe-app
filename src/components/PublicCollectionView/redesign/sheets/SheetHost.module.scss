@@ -164,6 +164,41 @@
   }
 }
 
+/* Testata a più righe (scheda prodotto, mockup v38 .mx-hd2): nome che va a capo,
+   «‹ Madre» sopra il nome, prezzo sotto. */
+.header[data-stacked] {
+  align-items: flex-start;
+  padding-top: 4px;
+
+  .title {
+    font-size: 19px;
+    line-height: 1.22;
+    white-space: normal;
+    text-wrap: balance;
+  }
+
+  .closeButton {
+    margin-top: -4px;
+  }
+}
+
+.headText {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 0 2px;
+
+  .backButton[data-named] {
+    max-width: 100%;
+    min-height: 32px;
+    margin: -2px 0 4px -10px;
+    font-size: 14px;
+  }
+
+  .backLabel {
+    max-width: 220px;
+  }
+}
+
 .backLabel {
   min-width: 0;
   overflow: hidden;
@@ -251,7 +286,8 @@
     display: none;
   }
 
-  .header {
+  .header,
+  .header[data-stacked] {
     padding: 14px 14px 8px 22px;
   }
 

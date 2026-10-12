@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, ScrollText } from "lucide-react";
 import { fetchPublicStory } from "@/services/supabase/stories";
 import type { PublicStoryDetail, StoryBlock } from "@/services/supabase/stories";
 import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
@@ -13,6 +12,9 @@ import PublicListBlock from "@components/PublicCollectionView/StoryView/blocks/P
 import PublicProductBlock from "@components/PublicCollectionView/StoryView/blocks/PublicProductBlock";
 import StoryLoadError from "@components/PublicCollectionView/StoryView/StoryLoadError";
 import { pushProductSheet } from "../product/productSheet";
+import ProductRow from "../product/ProductRow";
+import rowStyles from "../product/ProductRow.module.scss";
+import { rowPrice } from "../price";
 import type { StoryRef } from "./storySheet";
 import styles from "./StoryPage.module.scss";
 
@@ -82,6 +84,7 @@ export default function StoryPage({ slug, story, findProduct, onTrackOpen, fromP
         pushProductSheet(item);
     };
     const linked = detail?.product && detail.product.id !== fromId && findProduct(detail.product.id) ? detail.product : null;
+    const linkedItem = linked ? findProduct(linked.id) : null;
 
     return (
         <article className={styles.root}>
@@ -112,19 +115,17 @@ export default function StoryPage({ slug, story, findProduct, onTrackOpen, fromP
             ) : null}
 
             {linked ? (
-                <button
-                    type="button"
-                    className={styles.product}
-                    onClick={() => openProduct(linked.id)}
-                    aria-label={t("story.pairs_with", { name: linked.name })}
-                >
-                    <ScrollText size={20} aria-hidden="true" className={styles.muted} />
-                    <span className={styles.productBody}>
-                        <span className={styles.productLabel}>{t("story.pairs_with_label")}</span>
-                        <span className={styles.productName}>{linked.name}</span>
-                    </span>
-                    <ChevronRight size={16} aria-hidden="true" className={styles.muted} />
-                </button>
+                // Una riga come «Perfetto con» nella scheda (spec §6, v27 ritoccata).
+                <div className={rowStyles.box}>
+                    <ProductRow
+                        image={linkedItem?.image}
+                        name={linked.name}
+                        label={t("story.pairs_with_label")}
+                        price={rowPrice(linkedItem, null, t)}
+                        onClick={() => openProduct(linked.id)}
+                        ariaLabel={t("story.pairs_with", { name: linked.name })}
+                    />
+                </div>
             ) : null}
         </article>
     );

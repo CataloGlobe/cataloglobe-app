@@ -21,6 +21,11 @@ export type SheetPage = {
     /** Titolo invisibile in testata (resta per i lettori di schermo e per «‹ Titolo» nelle figlie): il corpo lo mostra da sé. */
     titleHidden?: boolean;
     /**
+     * Testata a più righe (scheda prodotto, mockup v38): «‹ Madre» sopra, titolo
+     * che va a capo, sotto la riga di `SheetHost.renderHeading` (il prezzo).
+     */
+    stacked?: boolean;
+    /**
      * Chi sta sopra torna qui col nome: «‹ Info e orari» invece della sola freccia.
      * Solo dove il ritorno non è ovvio: link diretto a una figlia (Orari dalla
      * pillola), elenco «In evidenza», un piatto sotto l'altro (mockup v38).

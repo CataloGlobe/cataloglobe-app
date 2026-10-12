@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, ScrollText } from "lucide-react";
+import { ChevronDown, ChevronRight, ScrollText } from "lucide-react";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import { FramedMedia } from "@components/ui/FramedMedia";
@@ -8,7 +8,9 @@ import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/compone
 import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { SheetsSlotContext } from "../slots";
 import { loadStoryPage, pushStorySheet } from "../story/storySheet";
-import { formatPublicPrice, formatSurcharge } from "../price";
+import { formatPublicPrice, formatSurcharge, rowPrice } from "../price";
+import ProductRow from "./ProductRow";
+import rowStyles from "./ProductRow.module.scss";
 import { groupRule, pushProductSheet, VISIBLE_ROWS } from "./productSheet";
 import { OrderAddonGroup, OrderFormats, OrderQtyNote, type OrderBinding } from "../order/OrderChoices";
 import styles from "./ProductPage.module.scss";
@@ -22,11 +24,11 @@ type Props = Omit<SheetsSlotContext["product"], "order"> & {
 };
 
 /**
- * Scheda prodotto nel foglio unico (spec §6), in lettura: nome su due righe,
- * prezzo o formati, descrizione; scelte con la regola nel titolo; Dettagli;
- * Ingredienti; Caratteristiche e allergeni con la riga fissa; Perfetto con a
- * spinta; La storia, a spinta col lettore nel foglio. In modo ordine il
- * pulsante sta in fondo al foglio.
+ * Scheda prodotto nel foglio unico (spec §6, mockup v38). Nome e prezzo stanno
+ * in testata (`ProductHeadPrice`); qui: descrizione, formati, scelte con la
+ * regola nel titolo, Dettagli, Ingredienti in testo, Caratteristiche e
+ * Allergeni con la riga fissa, Perfetto con a spinta, La storia a spinta col
+ * lettore nel foglio. In modo ordine il pulsante sta in fondo al foglio.
  */
 export default function ProductPage({ item, findProduct, showImage, slug, onTrackOpen, order }: Props) {
     const { t } = useTranslation("public");
@@ -38,10 +40,12 @@ export default function ProductPage({ item, findProduct, showImage, slug, onTrac
     useEffect(() => {
         if (hasStory) void loadStoryPage();
     }, [hasStory]);
-    const traits = [
-        ...(item.characteristics ?? []).map(c => ({ key: `c-${c.id}`, icon: <CharacteristicIcon icon={c.icon} size={16} variant="bare" />, label: c.label })),
-        ...(item.allergens ?? []).map(a => ({ key: `a-${a.id}`, icon: <AllergenIcon code={a.code} size={16} variant="bare" />, label: a.label }))
-    ];
+    const characteristics = (item.characteristics ?? []).map(c => ({
+        key: c.id,
+        icon: <CharacteristicIcon icon={c.icon} size={16} variant="bare" />,
+        label: c.label
+    }));
+    const allergens = (item.allergens ?? []).map(a => ({ key: a.id, icon: <AllergenIcon code={a.code} size={16} variant="bare" />, label: a.label }));
 
     return (
         <article className={styles.root}>
@@ -58,17 +62,9 @@ export default function ProductPage({ item, findProduct, showImage, slug, onTrac
                 </div>
             ) : null}
 
-            <header className={styles.head}>
-                {/* Il titolo accessibile è in testata (h2 invisibile): qui solo a vista. */}
-                <p className={styles.name} aria-hidden="true">
-                    {item.name}
-                </p>
-                {formats ? null : <PriceLine item={item} />}
-                {formats && !order ? <Formats group={formats} /> : null}
-                {item.description ? <p className={styles.description}>{item.description}</p> : null}
-            </header>
+            {item.description ? <p className={styles.description}>{item.description}</p> : null}
 
-            {formats && order ? <OrderFormats item={item} group={formats} order={order} /> : null}
+            {formats ? order ? <OrderFormats item={item} group={formats} order={order} /> : <Formats group={formats} /> : null}
             {addons.map(group =>
                 order ? (
                     <OrderAddonGroup key={group.id} item={item} group={group} order={order} />
@@ -80,7 +76,7 @@ export default function ProductPage({ item, findProduct, showImage, slug, onTrac
 
             {details.length > 0 ? (
                 <Block title={t("product_sheet.details")}>
-                    <dl className={styles.details}>
+                    <dl className={styles.box} data-details="">
                         {details.map((row, i) => (
                             <div key={`${row.label}-${i}`} className={styles.detailRow}>
                                 <dt>{row.label}</dt>
@@ -92,74 +88,54 @@ export default function ProductPage({ item, findProduct, showImage, slug, onTrac
             ) : null}
 
             {item.ingredients && item.ingredients.length > 0 ? (
+                // In testo con le virgole, come il mockup v38 (D70). Il grassetto degli
+                // allergeni aspetta il dato per ingrediente: oggi stanno sul piatto.
                 <Block title={t("product.ingredients")}>
-                    <Expandable
-                        rows={item.ingredients.map(ingredient => (
-                            <li key={ingredient.id} className={styles.line}>
-                                {ingredient.name}
-                            </li>
-                        ))}
-                    />
+                    <p className={styles.ingredients}>{item.ingredients.map(ingredient => ingredient.name).join(", ")}</p>
                 </Block>
             ) : null}
 
-            {traits.length > 0 ? (
-                <Block title={t("product_sheet.traits")}>
-                    <ul className={styles.traits}>
-                        {traits.map(trait => (
-                            <li key={trait.key} className={styles.trait}>
-                                {trait.icon}
-                                {trait.label}
-                            </li>
-                        ))}
-                    </ul>
+            {/* Caratteristiche se ci sono; Allergeni sempre, con la riga di sicurezza (spec §6, v25). */}
+            <div className={styles.meta}>
+                {characteristics.length > 0 ? (
+                    <div>
+                        <Chips label={t("product_sheet.characteristics")} chips={characteristics} />
+                    </div>
+                ) : null}
+                <div>
+                    {allergens.length > 0 ? (
+                        <Chips label={t("product_sheet.allergens")} chips={allergens} />
+                    ) : (
+                        <>
+                            <h3 className={styles.metaLabel}>{t("product_sheet.allergens")}</h3>
+                            <p className={styles.none}>{t("product_sheet.no_allergens")}</p>
+                        </>
+                    )}
                     <p className={styles.note}>{t("product_sheet.allergy_note")}</p>
-                </Block>
-            ) : null}
+                </div>
+            </div>
 
             {item.pairings && item.pairings.length > 0 ? (
                 <Block title={t("product.pairing_prefix")}>
-                    <ul className={styles.list}>
+                    <ul className={rowStyles.box}>
                         {item.pairings.map(pairing => {
                             const target = findProduct(pairing.id);
-                            const content = (
-                                <>
-                                    {pairing.imageUrl ? (
-                                        <img
-                                            className={styles.thumb}
-                                            src={pairing.imageUrl}
-                                            alt=""
-                                            width={48}
-                                            height={48}
-                                            loading="lazy"
-                                            decoding="async"
-                                        />
-                                    ) : (
-                                        <span className={styles.thumb} aria-hidden="true" />
-                                    )}
-                                    <span className={styles.pairingText}>
-                                        <span className={styles.pairingName}>{pairing.name}</span>
-                                        {pairing.note ? <span className={styles.muted}>{pairing.note}</span> : null}
-                                    </span>
-                                    {pairing.price != null ? (
-                                        <span className={styles.price}>{formatPublicPrice(pairing.price)}</span>
-                                    ) : null}
-                                </>
-                            );
                             return (
                                 <li key={pairing.id}>
-                                    {target ? (
-                                        <button type="button" className={styles.pairing} onClick={() => {
-                                                pushProductSheet(target);
-                                                onTrackOpen(target);
-                                            }}
-                                        >
-                                            {content}
-                                            <ChevronRight size={16} aria-hidden="true" className={styles.muted} />
-                                        </button>
-                                    ) : (
-                                        <div className={styles.pairing}>{content}</div>
-                                    )}
+                                    <ProductRow
+                                        image={pairing.imageUrl}
+                                        name={pairing.name}
+                                        note={pairing.note}
+                                        price={rowPrice(target, pairing.price, t)}
+                                        onClick={
+                                            target
+                                                ? () => {
+                                                      pushProductSheet(target);
+                                                      onTrackOpen(target);
+                                                  }
+                                                : undefined
+                                        }
+                                    />
                                 </li>
                             );
                         })}
@@ -168,28 +144,33 @@ export default function ProductPage({ item, findProduct, showImage, slug, onTrac
             ) : null}
 
             {item.story_ref && hasStory ? (
-                <Block title={t("product_sheet.story")}>
-                    <button
-                        type="button"
-                        className={styles.story}
-                        onClick={() => pushStorySheet(item.story_ref!)}
-                    >
-                        {item.story_ref.cover ? (
-                            <img className={styles.storyCover} src={item.story_ref.cover} alt="" width={56} height={56} loading="lazy" decoding="async" />
-                        ) : (
-                            <ScrollText size={20} aria-hidden="true" className={styles.muted} />
-                        )}
+                // Card quieta senza titolo di sezione: «La storia» sta sopra il titolo (mockup v38).
+                <button type="button" className={styles.story} onClick={() => pushStorySheet(item.story_ref!)}>
+                    {item.story_ref.cover ? (
+                        <img className={styles.storyCover} src={item.story_ref.cover} alt="" width={56} height={56} loading="lazy" decoding="async" />
+                    ) : (
+                        <span className={styles.storyCover} aria-hidden="true">
+                            <ScrollText size={20} />
+                        </span>
+                    )}
+                    <span className={styles.storyText}>
+                        <span className={styles.eyebrow}>{t("product_sheet.story")}</span>
                         <span className={styles.storyTitle}>{item.story_ref.title}</span>
-                        <ChevronRight size={16} aria-hidden="true" className={styles.muted} />
-                    </button>
-                </Block>
+                    </span>
+                    <ChevronRight size={16} aria-hidden="true" className={styles.muted} />
+                </button>
             ) : null}
         </article>
     );
 }
 
-function PriceLine({ item }: { item: CollectionViewSectionItem }) {
+/**
+ * Il prezzo sotto il nome, in testata (mockup v38 .mx-hs). Coi formati niente:
+ * i prezzi stanno nel riquadro «Formato» del corpo.
+ */
+export function ProductHeadPrice({ item }: { item: CollectionViewSectionItem }) {
     const { t } = useTranslation("public");
+    if (item.optionGroups?.some(group => group.group_kind === "PRIMARY_PRICE")) return null;
     if (item.from_price != null) {
         return <p className={styles.priceLine}>{t("product.price_from", { price: formatPublicPrice(item.from_price) })}</p>;
     }
@@ -204,12 +185,13 @@ function PriceLine({ item }: { item: CollectionViewSectionItem }) {
     );
 }
 
-/** Formati al posto del prezzo: una riga per formato, prezzo a destra. */
+/** Formati al posto del prezzo: riquadro col nome del gruppo, una riga per formato, prezzo a destra. */
 function Formats({ group }: { group: OptionGroup }) {
     return (
-        <ul className={styles.list}>
-            {group.values.map(value => (
-                <li key={value.id} className={styles.optionRow}>
+        <Block title={group.name}>
+            <ul className={styles.box}>
+                {group.values.map(value => (
+                    <li key={value.id} className={styles.optionRow}>
                     <span>{value.name}</span>
                     {value.absolutePrice != null ? (
                         <span className={styles.price}>
@@ -219,9 +201,10 @@ function Formats({ group }: { group: OptionGroup }) {
                             {formatPublicPrice(value.absolutePrice)}
                         </span>
                     ) : null}
-                </li>
-            ))}
-        </ul>
+                    </li>
+                ))}
+            </ul>
+        </Block>
     );
 }
 
@@ -236,7 +219,7 @@ function AddonGroup({ group }: { group: OptionGroup }) {
                     return (
                         <li key={value.id} className={styles.optionRow}>
                             <span>{value.name}</span>
-                            {surcharge ? <span className={styles.price}>{surcharge}</span> : null}
+                            {surcharge ? <span className={styles.surcharge}>{surcharge}</span> : null}
                         </li>
                     );
                 })}
@@ -274,12 +257,32 @@ function Expandable({ rows }: { rows: ReactNode[] }) {
     }, [open]);
     return (
         <>
-            <ul ref={listRef} className={styles.list}>{collapsed ? rows.slice(0, VISIBLE_ROWS) : rows}</ul>
+            <ul ref={listRef} className={styles.box}>
+                {collapsed ? rows.slice(0, VISIBLE_ROWS) : rows}
+            </ul>
             {collapsed ? (
                 <button type="button" className={styles.showAll} onClick={() => setOpen(true)}>
                     {t("product_sheet.show_all", { count: rows.length })}
+                    <ChevronDown size={16} aria-hidden="true" />
                 </button>
             ) : null}
+        </>
+    );
+}
+
+/** Etichetta in maiuscoletto e chip con l'icona (Caratteristiche, Allergeni). */
+function Chips({ label, chips }: { label: string; chips: { key: string | number; icon: ReactNode; label: string }[] }) {
+    return (
+        <>
+            <h3 className={styles.metaLabel}>{label}</h3>
+            <ul className={styles.chips}>
+                {chips.map(chip => (
+                    <li key={chip.key} className={styles.chip}>
+                        {chip.icon}
+                        {chip.label}
+                    </li>
+                ))}
+            </ul>
         </>
     );
 }

@@ -4,7 +4,7 @@
 .root {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 20px;
 }
 
 .image {
@@ -14,30 +14,13 @@
   background: color-mix(in srgb, var(--pub-text) 6%, transparent);
 }
 
-.head {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* Nome fino a due righe, poi i puntini */
-.name {
-  display: -webkit-box;
-  margin: 0;
-  overflow: hidden;
-  font-size: 1.375em;
-  font-weight: 700;
-  line-height: 1.2;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
+/* Prezzo sotto il nome, in testata (mockup v38 .mx-hs) */
 .priceLine {
   display: flex;
   gap: 8px;
-  margin: 0;
-  font-weight: 600;
+  margin: 5px 0 0;
+  font-size: 16px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -48,104 +31,166 @@
 
 .description {
   margin: 0;
-  color: color-mix(in srgb, var(--pub-text) 75%, transparent);
-  line-height: 1.45;
+  color: color-mix(in srgb, var(--pub-text) 82%, transparent);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.55;
 }
 
 .block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .blockTitle {
   margin: 0;
   color: inherit;
   font: inherit;
+  font-size: 15px;
   font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
 }
 
 .rule {
   color: color-mix(in srgb, var(--pub-text) 55%, transparent);
-  font-weight: 400;
+  font-weight: 600;
 }
 
-.list {
+/* Riquadro dei gruppi, dei Dettagli e di Perfetto con (mockup v38 .pd-box):
+   fondo leggero, angoli da 18, filo tra le righe. */
+.box {
   margin: 0;
-  padding: 0;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
   list-style: none;
+
+  > * + * {
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+  }
 }
 
-.optionRow,
-.line {
+.optionRow {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+  min-height: 44px;
+  padding: 11px 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
-.price {
+.price,
+.surcharge {
   display: inline-flex;
   flex-shrink: 0;
   gap: 6px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
+.surcharge {
+  color: inherit;
+}
+
+/* «Mostra tutti (8) ⌄» sotto il riquadro, sul posto */
 .showAll {
+  display: inline-flex;
   align-self: flex-start;
+  align-items: center;
+  gap: 4px;
   min-height: 44px;
-  padding: 0;
+  padding: 0 4px;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
 }
 
-/* Dettagli: etichetta smorzata a sinistra, valore a destra */
-.details {
-  margin: 0;
-}
-
+/* Dettagli: etichetta smorzata a sinistra, valore forte a destra */
 .detailRow {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+  display: grid;
+  grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 11px 0;
 
   dt {
     color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.35;
   }
 
   dd {
     margin: 0;
-    text-align: right;
+    font-size: 14.5px;
+    font-weight: 700;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
   }
 }
 
-.traits {
+/* Ingredienti in testo con le virgole (D70) */
+.ingredients {
+  margin: 0;
+  color: color-mix(in srgb, var(--pub-text) 82%, transparent);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+/* Caratteristiche e Allergeni: dopo un filo, etichette in maiuscoletto e chip */
+.meta {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+}
+
+.metaLabel {
+  margin: 0 0 8px;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.trait {
+.chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+  padding: 7px 12px 7px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.none {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .note,
@@ -154,64 +199,21 @@
 }
 
 .note {
-  margin: 4px 0 0;
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
-.pairing {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 64px;
-  padding: 8px 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-
-button.pairing {
-  cursor: pointer;
-}
-
-.thumb {
-  flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
-  object-fit: cover;
-  background: color-mix(in srgb, var(--pub-text) 7%, transparent);
-}
-
-.pairingText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-/* Nome dell'abbinamento fino a due righe */
-.pairingName {
-  display: -webkit-box;
-  overflow: hidden;
-  font-weight: 600;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
-/* La storia: card quieta */
+/* La storia: card quieta, «La storia» in maiuscoletto sopra il titolo */
 .story {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 64px;
-  padding: 10px 14px;
+  padding: 10px 12px 10px 10px;
   border: 0;
-  border-radius: 16px;
+  border-radius: 18px;
   background: color-mix(in srgb, var(--pub-text) 5%, transparent);
   color: inherit;
   font: inherit;
@@ -220,15 +222,35 @@ button.pairing {
 }
 
 .storyCover {
+  display: grid;
   flex-shrink: 0;
+  place-items: center;
   width: 56px;
   height: 56px;
-  border-radius: 10px;
+  border-radius: 12px;
   object-fit: cover;
+  background: color-mix(in srgb, var(--pub-text) 7%, transparent);
+}
+
+.storyText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.eyebrow {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .storyTitle {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
 }

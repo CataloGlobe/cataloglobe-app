@@ -27,10 +27,10 @@ export function groupRule(group: Pick<OptionGroup, "isRequired" | "maxSelectable
     return { key: "product_sheet.rule_optional" };
 }
 
-/** Pagina del prodotto: il nome sta nel corpo su due righe, in testata solo per «‹ Nome» e i lettori di schermo. */
+/** Pagina del prodotto: nome e prezzo in testata, fermi mentre il corpo scorre (mockup v38). */
 export function productSheetPage(item: Pick<CollectionViewSectionItem, "id" | "name">): SheetPage {
     // «‹ Nome del piatto» per l'abbinamento o la storia aperti da qui (mockup v27-v38).
-    return { key: `${PRODUCT_PAGE_PREFIX}${item.id}`, title: item.name, size: "large", titleHidden: true, named: true };
+    return { key: `${PRODUCT_PAGE_PREFIX}${item.id}`, title: item.name, size: "large", stacked: true, named: true };
 }
 
 export function productIdOf(page: SheetPage): string | null {
