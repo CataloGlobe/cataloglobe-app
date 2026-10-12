@@ -64,6 +64,7 @@ export interface FeaturedContent {
     media_aspect_ratio: number | null;
     cta_text: string | null;
     cta_url: string | null;
+    cta_action?: "link" | "reservation";
     status: FeaturedContentStatus;
     layout_style: string | null;
     pricing_mode: FeaturedContentPricingMode;

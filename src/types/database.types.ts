@@ -2941,6 +2941,7 @@ export type Database = {
           content_type: string
           created_at: string
           cta_text: string | null
+          cta_action: string
           cta_text_hash: string | null
           cta_url: string | null
           description: string | null
@@ -2970,6 +2971,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           cta_text?: string | null
+          cta_action?: string
           cta_text_hash?: string | null
           cta_url?: string | null
           description?: string | null
@@ -2999,6 +3001,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           cta_text?: string | null
+          cta_action?: string
           cta_text_hash?: string | null
           cta_url?: string | null
           description?: string | null

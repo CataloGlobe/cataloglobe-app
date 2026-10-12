@@ -1353,6 +1353,15 @@ export default function CollectionView({
             return true;
         });
     }, [featuredBeforeCatalog, featuredAfterCatalog]);
+    // «Prenota» di un contenuto in evidenza: stessa strada del menu, /:slug/prenota.
+    const openReservationForm = enableReservations && slug
+        ? () => {
+              const lang = langCtx?.currentLang;
+              const base = langCtx?.baseLanguage;
+              navigate(lang && lang !== base ? `/${slug}/${lang}/prenota` : `/${slug}/prenota`);
+          }
+        : undefined;
+
     const renderFeaturedBlock = (slot: "before_catalog" | "after_catalog", blocks: V2FeaturedContent[]) =>
         blocks.length > 0 ? (
             <FeaturedBlock
@@ -1368,6 +1377,7 @@ export default function CollectionView({
                 showCta={style.showFeaturedCta ?? true}
                 // Style Editor: card e «Vedi tutti» visibili ma inerti.
                 interactive={mode === "public"}
+                onOpenReservation={openReservationForm}
             />
         ) : null;
     // Nessuna surface preview per "storia": has_story assente nei mock StylePreview
@@ -3263,8 +3273,8 @@ export default function CollectionView({
                         </div>
                     }
                     footerContent={
-                        selectedEvent && hasFeaturedCta(selectedEvent)
-                            ? <FeaturedCtaFooter block={selectedEvent} />
+                        selectedEvent && hasFeaturedCta(selectedEvent, !!openReservationForm)
+                            ? <FeaturedCtaFooter block={selectedEvent} onOpenReservation={openReservationForm} />
                             : undefined
                     }
                 >
