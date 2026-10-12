@@ -184,7 +184,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
         env.current = { isMobile, reducedMotion };
     }, [isMobile, reducedMotion]);
 
-    useSheetBodyLock(isOpen);
+    useSheetBodyLock(isOpen, { light: true });
 
     // Host smontato (cambio di rotta) con il foglio aperto: si chiude lo store e
     // si lascia andare il nodo ricordato per il fuoco. Si aspetta un microtask:
