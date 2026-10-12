@@ -2,7 +2,7 @@
 // e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { CalendarClock, Check, Copy, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Palette, Plus, ScanText, ScrollText, TriangleAlert, UtensilsCrossed } from "lucide-react";
+import { CalendarClock, Check, CirclePause, Copy, Info, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Palette, Plus, Radio, ScanText, ScrollText, TriangleAlert, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import type { StoryBlock } from "@/services/supabase/stories";
 import { MAX_STORY_IMAGES } from "@/services/supabase/stories";
@@ -15,10 +15,10 @@ import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, type PassoGruppo, type Pas
 import { DB_LATER, invalid, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, priceText, sentence, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel } from "./creaModel";
+import { KIND, ONDA, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, goesLive, keepReady, offLater, ondaChange, priceText, sentence, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel } from "./creaModel";
 import { hidFeatured } from "./stileLook";
 import s from "./Crea.module.scss";
-import { Box, Chip, Field, Opt, Sh, Toggle, Warnish } from "./CreaUi";
+import { Box, Chip, Field, Opt, Pick, Sh, Toggle, Warnish } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
 
 export type U = (fn: (t: Tunnel) => void) => void;
@@ -45,7 +45,13 @@ export function Modifica({ t, u, c, L, styleName }: { t: Tunnel; u: U; c: Ctx; L
             if (i >= 0) p.splice(i, 1);
             else p.push(x);
         });
-    const inCal = t.kind !== "storia" && c.owner && !e.ruleId;
+    const inCal = t.kind !== "storia" && c.owner && e.rules > 1;
+    // il «Dove e quando» dice prima se è in onda (D189)
+    const was = (x: StepId) => {
+        const sum = stepSummary({ ...e.orig, edit: e }, x, L, styleName);
+        if (x !== "dove" && x !== "quando") return sum;
+        return e.orig.onda === "on" ? "In onda · " + sum : "Non in onda";
+    };
     return (
         <>
             <Sh title="Cosa vuoi modificare?">Scegli una cosa o più: «Avanti» ti porta solo lì. Il resto resta com'è.</Sh>
@@ -57,16 +63,14 @@ export function Modifica({ t, u, c, L, styleName }: { t: Tunnel; u: U; c: Ctx; L
                             <Box on={on} />
                             <span>
                                 <b>{stepLabel(t, x)}</b>
-                                <span>{stepSummary({ ...e.orig, edit: e }, x, L, styleName) || "—"}</span>
+                                <span>{was(x) || "—"}</span>
                             </span>
                         </button>
                     );
                 })}
             </div>
             {inCal && (
-                <p className={s.hint}>
-                    {e.rules > 1 ? `È nel Calendario ${e.rules} volte: il dove e il quando si cambiano da lì, una voce alla volta.` : "Non è nel Calendario: il dove e il quando si scelgono da lì."}
-                </p>
+                <p className={s.hint}>{`È nel Calendario ${e.rules} volte: il dove e il quando si cambiano da lì, una voce alla volta.`}</p>
             )}
         </>
     );
@@ -349,6 +353,60 @@ const KIND_TXT: Record<Tunnel["kind"], string> = {
 
 type Upd = (fn: (d: Draft) => void) => void;
 
+/** La domanda in cima a «Dove e quando» (D189): in onda o pronto. Creando nessuna è scelta. */
+export function OndaAsk({ t, u }: { t: Tunnel; u: U }) {
+    const o = ONDA[t.kind], chosen = t.onda !== null;
+    return (
+        <div className={s.ask}>
+            <p>{`Vuoi che i clienti ${o.lo} vedano${t.edit ? "" : " appena salvi"}?`}</p>
+            <div className={cx(s.ondaPick, chosen ? s.made : s.fresh)}>
+                <Pick
+                    on={t.onda === "on"}
+                    lead
+                    icon={<Radio size={18} />}
+                    title={`Sì, ${o.lo} metto in onda`}
+                    text={`Scegli in quali sedi e quando ${o.lo} vedono i clienti.`}
+                    onClick={() => u(x => void (x.onda = "on"))}
+                />
+                <Pick
+                    on={t.onda === "off"}
+                    icon={<CirclePause size={18} />}
+                    title={keepReady(t.kind)}
+                    text={`Salvi ${o.q} ${o.completo}, ma nessun cliente ${o.lo} vede.`}
+                    disabled={offLater(t)}
+                    later={offLater(t) ? "Arriva col database nuovo" : undefined}
+                    onClick={() => u(x => void (x.onda = "off"))}
+                />
+            </div>
+            <p className={s.swap}>{chosen ? "Per cambiare idea, tocca l'altro." : "Puoi cambiare idea quando vuoi."}</p>
+        </div>
+    );
+}
+
+/** «Lo tengo pronto»: niente sedi né orari. Spegnendo una cosa in onda, la sua voce resta spenta. */
+export function OndaOff({ t }: { t: Tunnel }) {
+    const o = ONDA[t.kind];
+    if (t.edit?.orig.onda === "on")
+        return (
+            <div className={s.callout}>
+                <TriangleAlert size={16} aria-hidden />
+                <span>
+                    {`Salvando, ${o.q} esce da tutte le sedi: da quel momento nessun cliente ${o.lo} vede.`}
+                    {/* la storia non ha voci nel Calendario */}
+                    {t.kind !== "storia" && ` La sua voce nel Calendario resta, spenta, con sedi e orari: ${o.lo} ritrovi uguale quando ${o.lo} rimetti in onda.`}
+                </span>
+            </div>
+        );
+    return (
+        <div className={cx(s.callout, s.info)}>
+            <Info size={16} aria-hidden />
+            <span>{`Nessuna sede e nessun orario. ${o.Il} resta in «${KIND[t.kind].page}» come «${o.Pronto}, non in onda». Quando vuoi, ${o.lo} metti in onda da lì con «Metti in onda».`}</span>
+        </div>
+    );
+}
+
+const ondaSub = (t: Tunnel) => `Prima decidi se i clienti ${ONDA[t.kind].lo} vedono. Si cambia quando vuoi.`;
+
 /** Il Quando, con una sede sola; `bare` è solo «Sempre o in certi momenti», dentro «Dove e quando». */
 export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean }) {
     const storia = t.kind === "storia";
@@ -386,12 +444,18 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel;
     if (bare) return choice;
     return (
         <>
-            <Sh title="Quando">Quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
-            {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
-            {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
-            {t.edit && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
-            {choice}
-            <p className={s.hint}>{KIND_TXT[t.kind]}</p>
+            <Sh title="Quando">{ondaSub(t)}</Sh>
+            <OndaAsk t={t} u={u} />
+            {t.onda === "off" && <OndaOff t={t} />}
+            {t.onda === "on" && (
+                <>
+                    {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
+                    {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+                    {t.edit?.ruleId && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
+                    {choice}
+                    <p className={s.hint}>{KIND_TXT[t.kind]}</p>
+                </>
+            )}
         </>
     );
 }
@@ -403,32 +467,56 @@ export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; se
     const storiaBad = storia ? blocker(t, "dove", { owner: true, multi: true }) : "";
     return (
         <>
-            <Sh title="Dove e quando">In quali sedi e quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
-            {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
-            {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
-            {t.edit && !storia && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
-            <div className={cx(cal.root, s.calwrap)}>
-                <DoveQuandoPasso
-                    draft={draft}
-                    upd={p.updDraft}
-                    sedi={p.sedi}
-                    groups={p.groups}
-                    L={p.L}
-                    bad={invalid(draft)}
-                    durs={p.durs}
-                    axis={p.axis}
-                    split={!storia && !t.edit}
-                    quando={<Quando bare t={t} u={p.u} draft={draft} updDraft={p.updDraft} durs={p.durs} axis={p.axis} />}
-                />
-            </div>
-            <p className={s.hint}>
-                {storia ? storiaBad ? <Warnish>{storiaBad}.</Warnish> : `Oggi una storia va in tutte le sedi o in una sola; per alcune sedi ${DB_LATER}.` : KIND_TXT[t.kind]}
-            </p>
+            <Sh title="Dove e quando">{ondaSub(t)}</Sh>
+            <OndaAsk t={t} u={p.u} />
+            {t.onda === "off" && <OndaOff t={t} />}
+            {t.onda === "on" && (
+                <>
+                    {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
+                    {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+                    {t.edit?.ruleId && !storia && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
+                    <div className={cx(cal.root, s.calwrap)}>
+                        <DoveQuandoPasso
+                            draft={draft}
+                            upd={p.updDraft}
+                            sedi={p.sedi}
+                            groups={p.groups}
+                            L={p.L}
+                            bad={invalid(draft)}
+                            durs={p.durs}
+                            axis={p.axis}
+                            split={!storia && !t.edit}
+                            quando={<Quando bare t={t} u={p.u} draft={draft} updDraft={p.updDraft} durs={p.durs} axis={p.axis} />}
+                        />
+                    </div>
+                    <p className={s.hint}>
+                        {storia ? storiaBad ? <Warnish>{storiaBad}.</Warnish> : `Oggi una storia va in tutte le sedi o in una sola; per alcune sedi ${DB_LATER}.` : KIND_TXT[t.kind]}
+                    </p>
+                </>
+            )}
         </>
     );
 }
 
 /* ---------- Controlla ---------- */
+
+/** Pronto e controllato (D189): la lista di «Controlla» quando non va in onda. */
+export function Checks({ t }: { t: Tunnel }) {
+    return (
+        <div className={s.blk}>
+            <h4>Controlli</h4>
+            <ul className={s.checks}>
+                {["Il contenuto è completo", "Nessun errore da correggere", `${ONDA[t.kind].Pronto} per andare in onda in qualunque sede`].map(x => (
+                    <li key={x}>
+                        <Check size={14} aria-hidden />
+                        {x}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
 export function Controlla({
     t,
     c,
@@ -456,9 +544,18 @@ export function Controlla({
         const ch = st.filter(x => changed(t, x));
         const stray = strays(t, c);
         const inCal = ch.some(x => x === "dove" || x === "quando") && t.kind !== "storia";
+        // spegnere una cosa in onda (D189): esce da tutte le sedi, la sua voce resta spenta
+        const spegni = t.edit.orig.onda === "on" && t.onda === "off";
+        const dq = (x: StepId) => (x === "dove" || x === "quando") && t.onda !== t.edit!.orig.onda;
         return (
             <>
                 <Sh title="Controlla">{ch.length ? "Si salva solo quello che hai cambiato. Il resto resta com'è." : "Non hai ancora cambiato niente."}</Sh>
+                {spegni && (
+                    <div className={s.blk}>
+                        <h4>In una frase</h4>
+                        <p className={s.isent}>{sentence(t, L)}</p>
+                    </div>
+                )}
                 {stray.map(x => (
                     <div className={cx(s.callout, s.info)} key={x}>
                         <TriangleAlert size={16} aria-hidden />
@@ -478,7 +575,19 @@ export function Controlla({
                             return (
                                 <div key={x} className={on ? undefined : s.same}>
                                     <dt>{stepLabel(t, x)}</dt>
-                                    <dd>{on ? stepSummary(t, x, L, styleName) : "Come prima"}</dd>
+                                    <dd>
+                                        {on && dq(x) ? (
+                                            <>
+                                                {ondaChange(t, x, L)[0]}
+                                                <br />
+                                                <b>{ondaChange(t, x, L)[1]}</b>
+                                            </>
+                                        ) : on ? (
+                                            stepSummary(t, x, L, styleName)
+                                        ) : (
+                                            "Come prima"
+                                        )}
+                                    </dd>
                                     <Button variant="ghost" size="sm" onClick={() => onGo(all.indexOf(x))}>
                                         Cambia
                                     </Button>
@@ -492,13 +601,18 @@ export function Controlla({
                 {inCal && (
                     <div className={s.blk}>
                         <h4>Cosa cambia nel calendario</h4>
-                        <ul className={s.ieff}>
-                            {effect.lines.map((x, i) => (
-                                <li key={i}>{x}</li>
-                            ))}
-                        </ul>
+                        {spegni ? (
+                            <p>{`La sua voce (${stepSummary(t.edit.orig, st.includes("dove") ? "dove" : "quando", L, styleName)}) si spegne e resta lì, pronta per tornare in onda.`}</p>
+                        ) : (
+                            <ul className={s.ieff}>
+                                {effect.lines.map((x, i) => (
+                                    <li key={i}>{x}</li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 )}
+                {spegni && !fb && <Checks t={t} />}
                 {fb && (
                     <div className={s.callout}>
                         <TriangleAlert size={16} aria-hidden />
@@ -510,21 +624,22 @@ export function Controlla({
             </>
         );
     }
+    const live = goesLive(t, c), o = ONDA[t.kind];
     return (
         <>
             <Sh title="Controlla">Se qualcosa non va, «Cambia» ti riporta a quel passo.</Sh>
-            {c.owner ? (
-                <div className={s.blk}>
-                    <h4>In una frase</h4>
-                    <p className={s.isent}>{sentence(t, L)}</p>
-                    {(t.kind === "menu" || t.kind === "stile") && (
-                        <ScontriAvviso kind={t.kind === "menu" ? "menu" : "style"} scontri={effect.scontri} multi={L.multi} insieme={!!t.insieme} onInsieme={onInsieme} />
-                    )}
-                </div>
-            ) : (
-                <div className={cx(s.callout, s.info)}>
+            <div className={s.blk}>
+                <h4>In una frase</h4>
+                {/* chi non gestisce il Calendario tiene sempre pronto */}
+                <p className={s.isent}>{sentence(live ? t : { ...t, onda: "off" }, L)}</p>
+                {live && (t.kind === "menu" || t.kind === "stile") && (
+                    <ScontriAvviso kind={t.kind === "menu" ? "menu" : "style"} scontri={effect.scontri} multi={L.multi} insieme={!!t.insieme} onInsieme={onInsieme} />
+                )}
+            </div>
+            {!c.owner && (
+                <div className={s.callout}>
                     <Lock size={16} aria-hidden />
-                    <span>La messa in onda la decide chi gestisce il Calendario: con «Salva» lo trova {t.kind === "storia" ? "tra le storie in bozza" : "tra le bozze"}, con tutto pronto.</span>
+                    <span>{`La messa in onda la decide chi gestisce il Calendario. Con «Salva e tieni ${o.pronto}» ${o.q} resta in «${KIND[t.kind].page}» come «${o.Pronto}, non in onda», con tutti i controlli fatti.`}</span>
                 </div>
             )}
             <div className={s.blk}>
@@ -544,13 +659,18 @@ export function Controlla({
             {c.owner && t.kind !== "storia" && (
                 <div className={s.blk}>
                     <h4>Cosa cambia nel calendario</h4>
-                    <ul className={s.ieff}>
-                        {effect.lines.map((x, i) => (
-                            <li key={i}>{x}</li>
-                        ))}
-                    </ul>
+                    {live ? (
+                        <ul className={s.ieff}>
+                            {effect.lines.map((x, i) => (
+                                <li key={i}>{x}</li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p>Niente: non è in onda in nessuna sede.</p>
+                    )}
                 </div>
             )}
+            {!live && !fb && <Checks t={t} />}
             {fb && (
                 <div className={s.callout}>
                     <TriangleAlert size={16} aria-hidden />

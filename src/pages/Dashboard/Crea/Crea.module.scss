@@ -225,6 +225,12 @@
         }
     }
 }
+.isteps em {
+    font-style: normal;
+    font-weight: 400;
+    color: var(--text-muted);
+    @include cal.fs(fine);
+}
 .idot {
     width: 22px;
     height: 22px;
@@ -486,6 +492,111 @@ select.in {
     }
     &.done {
         border-style: dashed;
+    }
+}
+/* «Dove e quando» (D189): prima la domanda, in onda o pronto */
+.ask {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius-surface);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    > p:first-child {
+        @include cal.fs(group);
+        font-weight: 600;
+        color: var(--text);
+    }
+}
+.ondaPick {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 10px;
+}
+.opt.pk {
+    position: relative;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    .oi {
+        width: 36px;
+        height: 36px;
+        margin: 0;
+        flex: none;
+    }
+    > span:not(.oi):not(.tick) {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        color: var(--text);
+        b {
+            @include cal.fs(strong);
+        }
+        > span {
+            @include cal.fs(small);
+            color: var(--text-muted);
+        }
+    }
+    .tick {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--c-brand);
+        color: var(--on-brand);
+        display: none;
+        place-items: center;
+    }
+    &[aria-pressed="true"] .tick {
+        display: grid;
+    }
+}
+/* nessuna scelta: il «Sì» è pieno, per guidare l'occhio */
+.ondaPick.fresh .pk.lead {
+    background: var(--c-brand);
+    border-color: var(--c-brand);
+    > span:not(.oi):not(.tick) {
+        color: var(--on-brand);
+        > span {
+            color: var(--on-brand);
+            opacity: 0.85;
+        }
+    }
+    .oi {
+        background: color-mix(in srgb, var(--on-brand) 18%, transparent);
+        color: var(--on-brand);
+    }
+    &:hover {
+        background: var(--brand-primary-hover);
+    }
+}
+.ondaPick.made .pk[aria-pressed="false"] b {
+    font-weight: 500;
+}
+.swap {
+    @include cal.fs(fine);
+    color: var(--text-muted);
+}
+.checks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    @include cal.fs(small);
+    li {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    svg {
+        color: var(--c-success);
     }
 }
 .oi {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, readFromAi, steps, tunnelTitle, whenProblem, withAside, type FromMenu } from "@/pages/Dashboard/Crea/creaModel";
+import { CHOOSE, blocker, effWhen, firstBlock, goesLive, isDirty, keepReady, kindOfSlug, newTunnel, readFromAi, sentence, stepSummary, steps, tunnelTitle, whenProblem, withAside, type FromMenu, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, logoColors, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
 
@@ -47,7 +48,11 @@ describe("tunnel di creazione: cosa ferma «Avanti»", () => {
         // la foto si carica nel passo dopo (D180): il nome basta per andare avanti
         expect(firstBlock({ ...named, source: "foto" }, OWNER)).toEqual({ i: 2, why: "Aggiungi almeno un piatto" });
         const dish = { key: "d", productId: null, name: "Capricciosa", price: 9.5 };
-        expect(firstBlock({ ...named, sections: [{ key: "s", name: "Pizze", dishes: [dish], subs: [] }] }, OWNER)).toBeNull();
+        const full = { ...named, sections: [{ key: "s", name: "Pizze", dishes: [dish], subs: [] }] };
+        // D189: senza la scelta «in onda / pronto» non si va avanti
+        expect(firstBlock(full, OWNER)).toEqual({ i: 3, why: CHOOSE });
+        expect(firstBlock({ ...full, onda: "on" }, OWNER)).toBeNull();
+        expect(firstBlock({ ...full, onda: "off" }, OWNER)).toBeNull();
     });
 
     it("lo stile va già bene com'è; copiato, vuole lo stile di partenza", () => {
@@ -68,18 +73,54 @@ describe("tunnel di creazione: cosa ferma «Avanti»", () => {
 
     it("il Dove: almeno una sede; la storia per ora in una sede sola", () => {
         const none = { all: false, activityIds: [], groupIds: [] };
-        expect(blocker(newTunnel("menu", none), "dove", OWNER)).toBe("Scegli almeno una sede");
-        expect(blocker(newTunnel("menu", none), "dove", { owner: true, multi: false })).toBe("");
-        expect(blocker(newTunnel("storia", { all: false, activityIds: ["a", "b"], groupIds: [] }), "dove", OWNER)).toMatch(/^Una storia in più sedi/);
-        expect(blocker(newTunnel("storia", { all: false, activityIds: ["a"], groupIds: [] }), "dove", OWNER)).toBe("");
+        const on = (t: Tunnel): Tunnel => ({ ...t, onda: "on" });
+        expect(blocker(on(newTunnel("menu", none)), "dove", OWNER)).toBe("Scegli almeno una sede");
+        expect(blocker(on(newTunnel("menu", none)), "dove", { owner: true, multi: false })).toBe("");
+        expect(blocker(on(newTunnel("storia", { all: false, activityIds: ["a", "b"], groupIds: [] })), "dove", OWNER)).toMatch(/^Una storia in più sedi/);
+        expect(blocker(on(newTunnel("storia", { all: false, activityIds: ["a"], groupIds: [] })), "dove", OWNER)).toBe("");
     });
 
     it("il Quando: «Sempre» non guarda il modulo; il modulo non passa cose che il database rifiuta", () => {
-        const t = { ...newTunnel("menu", ALL), when: { days: [] } };
+        const t: Tunnel = { ...newTunnel("menu", ALL), when: { days: [] }, onda: "on" };
         expect(effWhen(t)).toEqual({});
         expect(blocker(t, "quando", OWNER)).toBe("");
         expect(blocker({ ...t, qmode: "momenti" }, "quando", OWNER)).toBe("Scegli almeno un giorno");
         expect(whenProblem({ ranges: [[900, 720]] })).toBe("Una fascia finisce prima di cominciare");
+    });
+});
+
+describe("«Dove e quando»: in onda o pronto (D189)", () => {
+    const none = { all: false, activityIds: [], groupIds: [] };
+
+    it("nessuna delle due è scelta: ferma Avanti nel Dove e nel Quando", () => {
+        expect(newTunnel("menu", ALL).onda).toBeNull();
+        expect(blocker(newTunnel("menu", ALL), "dove", OWNER)).toBe("Scegli una delle due per andare avanti");
+        expect(blocker(newTunnel("menu", ALL), "quando", { owner: true, multi: false })).toBe(CHOOSE);
+    });
+
+    it("«lo tengo pronto» va avanti senza sedi né orari", () => {
+        const t: Tunnel = { ...newTunnel("menu", none), qmode: "momenti", when: { days: [] }, onda: "off" };
+        expect(blocker(t, "dove", OWNER)).toBe("");
+        expect(blocker(t, "quando", OWNER)).toBe("");
+        expect(blocker({ ...t, onda: "on" }, "dove", OWNER)).toBe("Scegli almeno una sede");
+    });
+
+    it("va in onda solo se lo sceglie chi gestisce il Calendario", () => {
+        const t: Tunnel = { ...newTunnel("menu", ALL), onda: "on" };
+        expect(goesLive(t, OWNER)).toBe(true);
+        expect(goesLive({ ...t, onda: "off" }, OWNER)).toBe(false);
+        expect(goesLive(newTunnel("menu", ALL), OWNER)).toBe(false);
+        expect(goesLive(t, { owner: false, multi: true })).toBe(false);
+    });
+
+    it("le parole: la scelta nel riepilogo, la frase di Controlla, la storia al femminile", () => {
+        const L = { multi: true } as DraftLookups;
+        const m: Tunnel = { ...newTunnel("menu", ALL), name: "Pranzo", onda: "off" };
+        expect(stepSummary(m, "dove", L, () => "")).toBe("No, per ora lo tengo pronto");
+        expect(keepReady("storia")).toBe("No, per ora la tengo pronta");
+        expect(sentence(m, L)).toBe("Il menù «Pranzo» è pronto ma spento: nessun cliente lo vede finché non lo metti in onda.");
+        const st: Tunnel = { ...newTunnel("storia", ALL), title: "Le origini", onda: "off" };
+        expect(sentence(st, L)).toBe("La storia «Le origini» è pronta ma spenta: nessun cliente la vede finché non la metti in onda.");
     });
 });
 

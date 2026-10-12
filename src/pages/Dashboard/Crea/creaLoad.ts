@@ -18,6 +18,15 @@ export type Loaded = { t: Tunnel; style: V2Style | null };
 /** Lo stile di CataloGlobe non si modifica: se ne fa una copia. */
 export class SystemStyleError extends Error {}
 
+/**
+ * Anche le voci spente (D189): una cosa tenuta pronta dopo essere stata in onda
+ * ha ancora la sua voce, con sedi e orari. Le accese vengono prima.
+ */
+export function allEntriesOf(kind: CreaKind, id: string, data: Pick<CreaData, "rules" | "names">): CalEntry[] {
+    const off = data.rules.filter(r => !r.enabled).map(r => ({ ...r, enabled: true }));
+    return [...entriesOf(kind, id, data), ...entriesOf(kind, id, { rules: off, names: data.names })];
+}
+
 /** Le voci del Calendario che mettono in onda questa cosa. */
 export function entriesOf(kind: CreaKind, id: string, data: Pick<CreaData, "rules" | "names">): CalEntry[] {
     if (kind === "storia") return [];
@@ -68,7 +77,7 @@ async function loadStile(t: Tunnel, id: string, tenantId: string): Promise<V2Sty
 
 const EV_OF = Object.fromEntries((Object.keys(EV) as EvType[]).map(k => [EV[k].type, k])) as Record<string, EvType>;
 
-async function loadEvid(t: Tunnel, id: string, tenantId: string) {
+async function loadEvid(t: Tunnel, id: string, tenantId: string): Promise<boolean> {
     const [c, rows] = await Promise.all([getFeaturedContentById(id, tenantId), listFeaturedContentProducts(id, tenantId)]);
     t.evType = EV_OF[c.content_type] ?? "annuncio";
     t.title = c.title ?? "";
@@ -86,9 +95,10 @@ async function loadEvid(t: Tunnel, id: string, tenantId: string) {
     t.notes = Object.fromEntries(sorted.filter(r => r.note).map(r => [r.product_id, r.note!]));
     t.bundle = c.bundle_price == null ? "" : String(c.bundle_price).replace(".", ",");
     t.showOrig = !!c.show_original_total;
+    return c.status === "published";
 }
 
-async function loadStoria(t: Tunnel, id: string, tenantId: string) {
+async function loadStoria(t: Tunnel, id: string, tenantId: string): Promise<boolean> {
     const st = await getStory(id, tenantId);
     t.kicker = st.eyebrow ?? "";
     t.title = st.title;
@@ -96,19 +106,23 @@ async function loadStoria(t: Tunnel, id: string, tenantId: string) {
     t.linked = st.product_id ?? "";
     t.blocks = st.body_blocks ?? [];
     if (st.activity_id) t.where = { all: false, activityIds: [st.activity_id], groupIds: [] };
+    return st.status === "published";
 }
 
 export async function loadTunnel(kind: CreaKind, id: string, tenantId: string, data: CreaData): Promise<Loaded> {
     const t = newTunnel(kind, ALL);
     let style: V2Style | null = null;
+    // pubblicato: per in evidenza e storie conta anche lo stato del contenuto
+    let published = true;
     if (kind === "menu") await loadMenu(t, id, tenantId, data);
     else if (kind === "stile") style = await loadStile(t, id, tenantId);
-    else if (kind === "evid") await loadEvid(t, id, tenantId);
-    else await loadStoria(t, id, tenantId);
+    else if (kind === "evid") published = await loadEvid(t, id, tenantId);
+    else published = await loadStoria(t, id, tenantId);
 
-    // il quando e il dove sono quelli della sua regola, se è una sola
-    const es = entriesOf(kind, id, data);
+    // il quando e il dove sono quelli della sua regola, se è una sola: accesa o spenta
+    const es = allEntriesOf(kind, id, data);
     const one = es.length === 1 ? es[0] : null;
+    const live = kind === "storia" ? published : published && entriesOf(kind, id, data).length > 0;
     if (one) {
         const w = cloneWhen(whenOfRule(one.rule)), where = whereOfRule(one.rule);
         t.when = w;
@@ -116,5 +130,5 @@ export async function loadTunnel(kind: CreaKind, id: string, tenantId: string, d
         t.where = { all: where.all, activityIds: [...where.activityIds], groupIds: [...where.groupIds] };
         if (kind === "evid") t.slot = one.rule.featured_contents.find(c => c.featured_content_id === id)?.slot === "after_catalog" ? "after" : "before";
     }
-    return { t: asEdit(t, id, { id: one?.ruleId ?? null, count: es.length }), style };
+    return { t: asEdit(t, id, { id: one?.ruleId ?? null, count: es.length, live }), style };
 }

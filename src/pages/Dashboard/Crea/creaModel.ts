@@ -33,9 +33,20 @@ export const kindOfSlug = (s: string | undefined): CreaKind | null => CREA_KINDS
 export const KIND: Record<CreaKind, { t: string; edit: string; page: string; list: string; pub: string; noun: string }> = {
     menu: { t: "Nuovo menù", edit: "Modifica il menù", page: "Menù", list: "catalogs", pub: "Metti in onda", noun: "menù" },
     stile: { t: "Nuovo stile", edit: "Modifica lo stile", page: "Stili", list: "styles", pub: "Metti in onda", noun: "stile" },
-    evid: { t: "Nuovo contenuto in evidenza", edit: "Modifica il contenuto in evidenza", page: "In evidenza", list: "featured", pub: "Pubblica", noun: "contenuto" },
-    storia: { t: "Nuova storia", edit: "Modifica la storia", page: "Storie", list: "stories", pub: "Pubblica", noun: "storia" }
+    evid: { t: "Nuovo contenuto in evidenza", edit: "Modifica il contenuto in evidenza", page: "In evidenza", list: "featured", pub: "Metti in onda", noun: "contenuto" },
+    storia: { t: "Nuova storia", edit: "Modifica la storia", page: "Storie", list: "stories", pub: "Metti in onda", noun: "storia" }
 };
+
+/** Le parole della scelta «in onda / pronto» (D189): la storia è femminile. */
+export const ONDA: Record<CreaKind, { Il: string; q: string; lo: string; pronto: string; Pronto: string; completo: string; spento: string }> = {
+    menu: { Il: "Il menù", q: "questo menù", lo: "lo", pronto: "pronto", Pronto: "Pronto", completo: "completo e controllato", spento: "spento" },
+    stile: { Il: "Lo stile", q: "questo stile", lo: "lo", pronto: "pronto", Pronto: "Pronto", completo: "completo e controllato", spento: "spento" },
+    evid: { Il: "Il contenuto", q: "questo contenuto", lo: "lo", pronto: "pronto", Pronto: "Pronto", completo: "completo e controllato", spento: "spento" },
+    storia: { Il: "La storia", q: "questa storia", lo: "la", pronto: "pronta", Pronto: "Pronta", completo: "completa e controllata", spento: "spenta" }
+};
+
+/** «No, per ora lo tengo pronto». */
+export const keepReady = (k: CreaKind) => `No, per ora ${ONDA[k].lo} tengo ${ONDA[k].pronto}`;
 
 export type EvType = "annuncio" | "evento" | "promo" | "bundle";
 /** Il contenuto porta dei piatti: è questo, non un tipo scelto, a decidere come si salva (D187). */
@@ -186,6 +197,11 @@ export type Tunnel = {
     /** Aperto da «Crea un menù nuovo» del Calendario con la bozza messa da parte: quando e dove vengono da lì. */
     aside: boolean;
     edit: Edit | null;
+    /**
+     * «Dove e quando» (D189): in onda, o pronto ma spento. Creando nessuna è scelta;
+     * modificando parte da com'è adesso. Chi non gestisce il Calendario non sceglie: pronto.
+     */
+    onda: "on" | "off" | null;
 };
 
 let seq = 0;
@@ -233,7 +249,8 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         per: clonePer(from?.per ?? null),
         from,
         aside: false,
-        edit: null
+        edit: null,
+        onda: null
     };
 }
 
@@ -328,6 +345,18 @@ export function whenProblem(w: CalWhen): string {
     return "";
 }
 
+/** Nessuna delle due scelte di «Dove e quando»: non si va avanti. */
+export const CHOOSE = "Scegli una delle due per andare avanti";
+
+/** In onda per chi salva: chi non gestisce il Calendario tiene sempre pronto. */
+export const goesLive = (t: Tunnel, c: Ctx) => c.owner && t.onda === "on";
+
+/**
+ * Spegnere uno stile in onda: la sua voce è la regola del menù, e spegnerla
+ * spegnerebbe anche il menù. Aspetta il database nuovo.
+ */
+export const offLater = (t: Tunnel) => t.kind === "stile" && t.edit?.orig.onda === "on";
+
 /** Il quando che conta: «Sempre» non guarda il modulo, anche se è stato toccato. */
 export const effWhen = (t: Tunnel): CalWhen => (t.qmode === "sempre" ? {} : t.when);
 
@@ -358,9 +387,11 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
         case "racconto":
             return t.title.trim() ? "" : "Manca il titolo";
         case "quando":
-            return whenProblem(effWhen(t));
+            if (!t.onda) return CHOOSE;
+            return t.onda === "off" ? "" : whenProblem(effWhen(t));
         case "dove":
-            if (!c.multi) return "";
+            if (!t.onda) return CHOOSE;
+            if (t.onda === "off" || !c.multi) return "";
             if (!t.where.all && !t.where.activityIds.length && !t.where.groupIds.length) return "Scegli almeno una sede";
             if (t.kind === "storia" && !STORIA_WHEN && !t.where.all && (t.where.groupIds.length || t.where.activityIds.length > 1))
                 return "Una storia in più sedi " + DB_LATER;
@@ -467,8 +498,9 @@ function editSteps(t: Tunnel, c: Ctx): StepId[] {
               : t.kind === "evid"
                 ? ["contenuto"]
                 : ["racconto", "blocchi"];
-    // il «Dove e quando» cambia la sua regola del Calendario: c'è solo se è una (la storia non ha regole)
-    const one = t.kind === "storia" ? c.multi : !!t.edit?.ruleId;
+    // il «Dove e quando» cambia la sua regola del Calendario: c'è se è una sola, o nessuna
+    // (allora la si crea mettendolo in onda); la storia non ha regole
+    const one = t.kind === "storia" || (t.edit?.rules ?? 0) <= 1;
     const when: StepId[] = c.owner && one ? [c.multi ? "dove" : "quando"] : [];
     return ["modifica", ...content, ...when, "controlla"];
 }
@@ -501,7 +533,8 @@ function partOf(t: Tunnel, s: StepId): unknown {
             return [t.blocks, t.pending];
         case "quando":
         case "dove":
-            return [cloneWhen(effWhen(t)), t.where.all, sorted(t.where.activityIds), sorted(t.where.groupIds), t.per];
+            // spento, sedi e orari non contano: restano quelli della sua voce
+            return t.onda !== "on" ? t.onda : [t.onda, cloneWhen(effWhen(t)), t.where.all, sorted(t.where.activityIds), sorted(t.where.groupIds), t.per];
         default:
             return null;
     }
@@ -527,8 +560,8 @@ export function stepFrom(t: Tunnel, c: Ctx, i: number, dir: 1 | -1): number {
 }
 
 /** Mette in piedi la modifica: `t` è la cosa com'è oggi, letta dal database. */
-export function asEdit(t: Tunnel, id: string, rule: { id: string | null; count: number }): Tunnel {
-    const orig = { ...t, i: 0, seen: 0, edit: null };
+export function asEdit(t: Tunnel, id: string, rule: { id: string | null; count: number; live: boolean }): Tunnel {
+    const orig: Tunnel = { ...t, i: 0, seen: 0, edit: null, onda: rule.live ? "on" : "off" };
     return { ...structuredClone(orig), seen: 99, edit: { id, picked: [], orig, ruleId: rule.id, rules: rule.count } };
 }
 
@@ -547,6 +580,19 @@ export function rebase(t: Tunnel, fresh: Tunnel): Tunnel {
 /** Il clic sulla riga: lo stesso tunnel, già dentro al primo passo, senza niente di scelto. */
 export function asInside(t: Tunnel): Tunnel {
     return t.edit ? { ...t, i: 1, edit: { ...t.edit, free: true } } : t;
+}
+
+/**
+ * «Metti in onda» dall'elenco (D189): la stessa modifica, già sul «Dove e quando»
+ * scelto e con «Sì» acceso. Senza quel passo (chi non gestisce il Calendario,
+ * o più voci), resta la modifica di sempre.
+ */
+export function asMetti(t: Tunnel, c: Ctx): Tunnel {
+    if (!t.edit) return t;
+    const s: StepId = c.multi ? "dove" : "quando";
+    const x: Tunnel = { ...t, onda: "on", edit: { ...t.edit, picked: [s] } };
+    const i = steps(x, c).indexOf(s);
+    return i < 0 ? t : { ...x, i, seen: Math.max(t.seen, i) };
 }
 
 /* ---------- le frasi ---------- */
@@ -575,8 +621,16 @@ function what(t: Tunnel): string {
 
 /** «In una frase»: quando, dove e cosa succede. */
 export function sentence(t: Tunnel, L: DraftLookups): string {
+    if (t.onda !== "on") return readySentence(t);
     if (t.per) return perGroups(t.per).map(g => whenWords(g.when) + ", " + whereFor({ all: false, activityIds: g.ids, groupIds: [] }, L)).join("; ") + ": " + what(t) + ".";
     return whenWords(effWhen(t)) + (L.multi ? ", " + whereFor(t.where, L) : "") + ": " + what(t) + ".";
+}
+
+/** «In una frase» quando non va in onda: creando è pronto e spento, modificando esce da tutte le sedi. */
+export function readySentence(t: Tunnel): string {
+    const o = ONDA[t.kind], n = q(thingName(t));
+    if (t.edit?.orig.onda === "on") return `${o.Il} ${n} esce da tutte le sedi: da quando salvi nessun cliente ${o.lo} vede.`;
+    return `${o.Il} ${n} è ${o.pronto} ma ${o.spento}: nessun cliente ${o.lo} vede finché non ${o.lo} metti in onda.`;
 }
 
 function whenWords(w: CalWhen): string {
@@ -637,12 +691,20 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
             return [...n].map(([k, c]) => `${c} ${BLOCK_NAME[k][c === 1 ? 0 : 1]}`).join(", ");
         }
         case "quando":
-            return durLabel(effWhen(t));
+            return t.onda === "off" ? keepReady(t.kind) : durLabel(effWhen(t));
         case "dove":
+            if (t.onda === "off") return keepReady(t.kind);
             return t.per ? perText(t.per, L) : whereText(t.where, L) + " · " + durLabel(effWhen(t));
         default:
             return "";
     }
+}
+
+/** Modificando, la riga di «Dove e quando» in «Le tue modifiche»: com'era e com'è adesso. */
+export function ondaChange(t: Tunnel, s: StepId, L: DraftLookups): [string, string] {
+    const was = (x: Tunnel) => (x.onda === "on" ? "in onda, " + stepSummary(x, s, L, () => "") : "non in onda");
+    const orig = t.edit ? { ...t.edit.orig, edit: t.edit } : t;
+    return ["Prima: " + was(orig), "Adesso: " + (t.onda === "on" ? "in onda, " + stepSummary(t, s, L, () => "") : keepReady(t.kind).toLowerCase())];
 }
 
 /** Il totale dei piatti di un bundle, a listino. */

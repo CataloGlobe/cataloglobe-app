@@ -19,10 +19,10 @@ import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Edito
 import type { V2Style } from "@/services/supabase/styles";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { rebase, FONTS, KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { rebase, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
-import { entriesOf, loadTunnel, type Loaded } from "./creaLoad";
+import { allEntriesOf, loadTunnel, type Loaded } from "./creaLoad";
 import { sampleOf, styleTokens, tokensOf, useFonts, useStyleSeen } from "./creaStyle";
 import { StileAspetto } from "./StileAspetto";
 import { StilePhone } from "./StilePhone";
@@ -199,13 +199,15 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     }, [data.names, calKind, name]);
     // modificando, la bozza è la sua voce del Calendario: la settimana non la conta due volte
     const editId = t.edit?.id, editRule = t.edit?.ruleId;
-    const editEntry = useMemo(() => (editId && editRule ? entriesOf(kind, editId, data).find(e => e.ruleId === editRule) ?? null : null), [kind, editId, editRule, data]);
+    // anche spenta (D189): rimettendolo in onda si riaccende la sua voce
+    const editEntry = useMemo(() => (editId && editRule ? allEntriesOf(kind, editId, data).find(e => e.ruleId === editRule) ?? null : null), [kind, editId, editRule, data]);
     const draft: Draft | null = !calKind
         ? null
         : editEntry
           ? { ...draftFromEntry(editEntry, L, calKind === "featured" && editEntry.rule.featured_contents.length > 1 ? editId : null), when: structuredClone(effWhen(t)), where: t.where, per: clonePer(t.per) }
           : draftFor(t, calKind, FAKE, pair);
-    const calTouched = !t.edit || changed(t, "dove") || changed(t, "quando");
+    // tenuto pronto non tocca il Calendario (D189)
+    const calTouched = t.onda === "on" && (!t.edit || changed(t, "dove") || changed(t, "quando"));
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
     const calWhy = owner && draft && calTouched ? waitsForDb(draft) || scontriWait(draft, effect.scontri) : "";
     const why = stepWhy || (last && !showAfter ? calWhy : "");
@@ -276,7 +278,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const go = (n: number) => u(x => void (x.i = Math.max(0, Math.min(n, st.length - 1))));
     const next = () => {
         if (why) return;
-        if (last) return void finish(owner);
+        if (last) return void finish();
         u(x => {
             x.i = stepFrom(x, c, i, 1);
             x.seen = Math.max(x.seen, x.i);
@@ -291,7 +293,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     // i passi già riusciti di un salvataggio fallito a metà: «Riprova» riparte da lì
     const progress = useRef(new Map<string, unknown>());
     const savingNow = useRef(false);
-    async function finish(live: boolean): Promise<boolean> {
+    async function finish(): Promise<boolean> {
         // con l'abbonamento fermo non si crea niente, come dai bottoni «Crea» delle liste
         // un ref, non lo stato: due clic nello stesso istante vedrebbero tutti e due `saving` falso
         if (savingNow.current || !ensureActive()) return false;
@@ -305,7 +307,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         setSaving(true);
         try {
             if (t.edit) {
-                await saveEdit(t, { tenantId, L, names: data.names, blockFiles, done: progress.current });
+                await saveEdit(t, { tenantId, L, names: data.names, blockFiles, done: progress.current, pair, owner });
                 progress.current = new Map();
                 void reload();
                 setLeave(false);
@@ -313,10 +315,12 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 setGoing(origin.to);
                 return true;
             }
-            const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, blockFiles, done: progress.current });
+            const saved = await saveTunnel(t, { tenantId, L, live: goesLive(t, c), pair, blockFiles, done: progress.current });
             progress.current = new Map();
             const n = saved.name;
-            const pub = t.kind === "menu" || t.kind === "stile" ? "in onda" : t.kind === "storia" ? "pubblicata" : "pubblicato";
+            const pub = "in onda";
+            // tenuto pronto (D189): le parole della pagina
+            const kept = `${ONDA[t.kind].Il} resta in «${KIND[t.kind].page}» come «${ONDA[t.kind].Pronto}, non in onda».`;
             void reload();
             setLeave(false);
             // la bozza del Calendario si toglie solo quando va in onda
@@ -333,11 +337,11 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             if (after && t.from) {
                 setAfter({ ...after, kids: [...after.kids, t.kind] });
                 setT(after.t);
-                showToast({ message: saved.live ? `${n}: ${pub}. Si torna a «E adesso?».` : `${n}: salvato come bozza. Si torna a «E adesso?».`, type: "success" });
+                showToast({ message: (saved.live ? `${n}: ${pub}.` : kept) + " Si torna a «E adesso?».", type: "success" });
                 return true;
             }
             showToast({
-                message: saved.live ? `${n}: ${pub}.` : t.kind === "storia" ? "Salvata come bozza: non è pubblicata." : "Salvato come bozza: non è in calendario.",
+                message: saved.live ? `${n}: ${pub}.` : kept,
                 type: "success"
             });
             setGoing(landing(t.kind, saved.id));
@@ -508,7 +512,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     );
 
     /* ---------- la testa ---------- */
-    const pubLabel = t.edit ? "Salva le modifiche" : owner ? KIND[t.kind].pub : "Salva";
+    const pubLabel = t.edit ? "Salva le modifiche" : goesLive(t, c) ? KIND[t.kind].pub : `Salva e tieni ${ONDA[t.kind].pronto}`;
     const title = showAfter && after ? `${after.saved.name} è in onda` : tunnelTitle(t);
     const sub = showAfter ? "Vuoi aggiungere qualcosa?" : t.edit ? "Scegli cosa cambiare: il resto resta com'è." : `${st.length} passi. A destra vedi già com'è.`;
     const isMenuFlow = t.kind === "menu" && !t.edit;
@@ -526,11 +530,6 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                         <b>{t.edit ? KIND[t.kind].edit : KIND[t.kind].t}</b>
                     </nav>
                     <span className={s.itopa}>
-                        {!showAfter && !t.edit && (
-                            <Button variant="secondary" size="sm" onClick={() => void finish(false)} disabled={saving}>
-                                Tieni come bozza
-                            </Button>
-                        )}
                         <Button variant="ghost" size="sm" leftIcon={<X size={14} />} onClick={exit}>
                             Esci
                         </Button>
@@ -558,6 +557,8 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                                     >
                                         <span className={s.idot}>{done ? <Check size={12} aria-hidden /> : n === "modifica" ? <Pencil size={11} aria-hidden /> : t.edit ? j : j + 1}</span>
                                         {stepLabel(t, n)}
+                                        {/* la scelta fatta nel «Dove e quando» (D189) */}
+                                        {(n === "dove" || n === "quando") && t.onda && <em>{t.onda === "on" ? "· in onda" : "· non in onda"}</em>}
                                     </button>
                                 </li>
                             );
@@ -603,13 +604,13 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             <UnsavedChangesDialog
                 isOpen={leave}
                 title="Uscire dal tunnel?"
-                message={t.edit ? "Le modifiche non sono ancora salvate. Se esci senza salvare, le perdi." : `${t.kind === "storia" ? "La storia" : "Quello che hai scritto"} non è ancora salvat${t.kind === "storia" ? "a" : "o"}. Se esci senza salvare, lo perdi.`}
-                cancelLabel="Resta qui"
-                saveLabel={t.edit ? "Salva le modifiche ed esci" : "Tieni come bozza ed esci"}
+                message={t.edit ? "Le modifiche non sono ancora salvate. Se esci senza salvare, le perdi." : "Quello che hai scritto non è ancora salvato. Se esci senza salvare, lo perdi."}
+                cancelLabel="Resta"
+                saveLabel="Salva le modifiche ed esci"
                 wide
                 onCancel={() => setLeave(false)}
                 onDiscard={discard}
-                onSaveAndExit={() => finish(false)}
+                onSaveAndExit={t.edit ? () => finish() : undefined}
             />
         </div>
     );
