@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPageByUrl } from "./business";
-import { MENU, PRODUCT, SEDE, STYLE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { FEATURED, MENU, PRODUCT, RULE, SEDE, STYLE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 import { StubError, type Row } from "./restStub";
 
 /**
@@ -30,6 +30,17 @@ function main(page: Page) {
 }
 const button = (page: Page, name: string | RegExp) => main(page).getByRole("button", { name, exact: typeof name === "string" });
 const next = (page: Page) => button(page, "Avanti").click();
+/** «Dove e quando» (D189): prima la domanda, «Sì, lo metto in onda». */
+const onAir = (page: Page) => button(page, /^Sì, (lo|la) metto in onda/).click();
+/** Dal passo prima di «Dove e quando» fino a «Controlla», tenendolo pronto: niente sedi né orari. */
+async function toReady(page: Page) {
+    await next(page);
+    await button(page, /^No, per ora (lo|la) tengo pront/).click();
+    await next(page);
+    await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+}
+const saveReady = (page: Page) => button(page, /^Salva e tieni pront/).click();
+
 /** La fila dei passi (nella barra in alto c'è anche la lista del percorso). */
 const rail = (page: Page) => main(page).getByRole("list").filter({ has: page.getByRole("button", { name: /Controlla$/ }) });
 
@@ -146,7 +157,6 @@ test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
     test("il passo 0: «Avanti» va solo ai passi scelti, e senza modifiche non si salva", async ({ page }) => {
         await expect(button(page, "Avanti")).toBeDisabled();
         await expect(main(page).getByText("Scegli almeno una cosa")).toBeVisible();
-        await expect(button(page, "Tieni come bozza")).toHaveCount(0);
         await main(page).getByRole("checkbox", { name: /^Categorie e piatti/ }).click();
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Categorie e piatti" })).toBeVisible();
@@ -207,7 +217,7 @@ test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
         await main(page).getByLabel("Nome del menù").fill("Altro");
         await button(page, "Esci").click();
         const dlg = page.getByRole("alertdialog", { name: "Uscire dal tunnel?" });
-        await expect(dlg.getByRole("button")).toHaveText(["Resta qui", "Esci senza salvare", "Salva le modifiche ed esci"]);
+        await expect(dlg.getByRole("button")).toHaveText(["Resta", "Esci senza salvare", "Salva le modifiche ed esci"]);
         await dlg.getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/catalogs$/);
         expect(stub.writes).toEqual([]);
@@ -292,11 +302,12 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(steps.getByRole("button", { name: /Controlla/ })).toBeDisabled();
     });
 
-    test("Tieni come bozza: menù, sezioni e piatti, niente nel Calendario; si atterra sul menù", async ({ page }) => {
+    test("Lo tengo pronto (D189): menù, sezioni e piatti, niente nel Calendario; si atterra sul menù", async ({ page }) => {
         wireMenu(stub);
         await open(page, "menu", "menu");
         await walkMenu(page);
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         // il nome senza gli spazi ai lati (#240)
         expect(bodyOf(stub, "catalogs.POST")).toMatchObject({ name: "Pranzo veloce" });
@@ -315,6 +326,9 @@ test.describe("Tunnel di creazione — menù", () => {
         await next(page);
         // Dove e quando, un passo solo (D145): le sedi col bottone del Calendario, poi solo Porto
         await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
+        // prima la domanda (D189): finché non si sceglie, niente sedi né ore e non si va avanti
+        await expect(button(page, "Avanti")).toBeDisabled();
+        await onAir(page);
         await main(page).getByRole("button", { name: /^Tutte le sedi · \d+, anche le nuove$/ }).click();
         await page.getByRole("dialog", { name: "Sedi" }).getByRole("button", { name: "Solo Porto e2e" }).click();
         await page.keyboard.press("Escape");
@@ -338,7 +352,6 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(button(page, /^Dagli i tuoi colori/)).toBeVisible();
         await expect(button(page, /^Metti qualcosa in evidenza/)).toBeVisible();
         await expect(button(page, /^Racconta una storia/)).toBeVisible();
-        await expect(button(page, "Tieni come bozza")).toHaveCount(0);
         await button(page, /^Ho finito/).click();
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`));
     });
@@ -352,6 +365,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await open(page, "menu");
         await walkMenu(page, "Pranzo veloce");
         await next(page);
+        await onAir(page);
         await button(page, /^Solo in certi momenti/).click();
         await next(page);
         await button(page, "Metti in onda").click();
@@ -362,6 +376,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await next(page);
         await button(page, "Blu").click();
         await next(page);
+        await onAir(page);
         await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
         await expect(main(page).getByText("Già compilato dal menù «Pranzo veloce»: puoi cambiarlo.")).toBeVisible();
         await next(page);
@@ -370,7 +385,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(button(page, /^Dagli i tuoi colori/)).toContainText("Fatto: puoi aggiungerne un altro.");
     });
 
-    test("Esci con qualcosa scritto: «Resta qui» resta, «Esci senza salvare» torna indietro", async ({ page }) => {
+    test("Esci con qualcosa scritto: «Resta» resta, «Esci senza salvare» torna indietro", async ({ page }) => {
         await open(page, "menu", "menu");
         // senza niente scritto si esce subito
         await button(page, "Esci").click();
@@ -380,8 +395,10 @@ test.describe("Tunnel di creazione — menù", () => {
         await button(page, "Esci").click();
         const dlg = page.getByRole("alertdialog", { name: "Uscire dal tunnel?" });
         await expect(dlg).toBeVisible();
-        await expect(dlg.getByRole("button")).toHaveText(["Resta qui", "Esci senza salvare", "Tieni come bozza ed esci"]);
-        await dlg.getByRole("button", { name: "Resta qui" }).click();
+        // creando non c'è più «Tieni come bozza ed esci» (D189): o si resta o si esce senza salvare
+        await expect(dlg.getByText("Quello che hai scritto non è ancora salvato. Se esci senza salvare, lo perdi.")).toBeVisible();
+        await expect(dlg.getByRole("button")).toHaveText(["Resta", "Esci senza salvare"]);
+        await dlg.getByRole("button", { name: "Resta" }).click();
         await expect(dlg).toBeHidden();
         await expect(button(page, /^Menù classico/)).toHaveAttribute("aria-pressed", "true");
         await button(page, "Esci").click();
@@ -393,7 +410,8 @@ test.describe("Tunnel di creazione — menù", () => {
     test("il salvataggio che non riesce lo dice, e si resta nel tunnel", async ({ page }) => {
         await open(page, "menu");
         await walkMenu(page);
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
         await expect(page.getByText("Non siamo riusciti a salvare il menù. Riprova.")).toBeVisible();
         await expect(page).toHaveURL(/\/crea\/menu/);
     });
@@ -417,8 +435,8 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(button(page, "Togli Bufalina")).toBeVisible();
         expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
         await next(page);
-        await next(page);
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "catalogs.POST")).toMatchObject({ name: "Carta" });
         expect(writesOf(stub, "catalog_categories.POST").map(w => first(w.body).name)).toEqual(["Pizze"]);
@@ -471,7 +489,8 @@ test.describe("Tunnel di creazione — menù", () => {
         await dish.fill("Marg");
         await main(page).getByRole("option", { name: /Margherita e2e/ }).click();
         await expect(button(page, "Porta fuori da Pizze")).toBeVisible();
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         const cats = writesOf(stub, "catalog_categories.POST").map(w => first(w.body));
         expect(cats.map(c => [c.name, c.level, c.sort_order])).toEqual([["Pizze", 1, 0], ["Rosse", 2, 0], ["Dolci", 1, 1]]);
@@ -486,12 +505,13 @@ test.describe("Tunnel di creazione — menù", () => {
         stub.onWrite("catalog_category_products.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-000000000010", ...first(body) }));
         await open(page, "menu", "menu");
         await walkMenu(page);
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
         await expect(page.getByText("Non siamo riusciti a salvare il menù. Riprova.")).toBeVisible();
         expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
         // ora il piatto si salva: si riprende da lì
         stub.onWrite("products.POST", ({ body }) => ({ ...first(body) }));
-        await button(page, "Tieni come bozza").click();
+        await saveReady(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
         expect(writesOf(stub, "catalog_categories.POST")).toHaveLength(1);
@@ -503,7 +523,8 @@ test.describe("Tunnel di creazione — menù", () => {
         wireMenu(stub);
         await open(page, "menu", "menu");
         await walkMenu(page);
-        await button(page, "Tieni come bozza").evaluate((el: HTMLElement) => {
+        await toReady(page);
+        await button(page, "Salva e tieni pronto").evaluate((el: HTMLElement) => {
             el.click();
             el.click();
         });
@@ -541,6 +562,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByRole("navigation", { name: "Percorso" }).getByRole("button", { name: "Calendario" })).toBeVisible();
         await walkMenu(page);
         await next(page);
+        await onAir(page);
         await main(page).getByRole("button", { name: "Porto e2e", exact: true }).click();
         const pop = page.getByRole("dialog", { name: "Sedi" });
         await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toBeChecked();
@@ -590,7 +612,8 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await pal.getByRole("button").nth(12).click();
         await expect(pal).toHaveCount(0);
         await expect(second.getByRole("button", { name: "Un tuo colore" })).toBeVisible();
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
         await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
         expect(bodyOf(stub, "styles.POST")).toMatchObject({ name: "Natale", is_system: false });
         const config = JSON.stringify(bodyOf(stub, "style_versions.POST").config);
@@ -625,8 +648,9 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await expect(button(page, "Avanti")).toBeDisabled();
         await piatti.getByRole("checkbox", { name: /Margherita e2e/ }).click();
         await next(page);
+        await onAir(page);
         await next(page);
-        await button(page, "Pubblica").click();
+        await button(page, "Metti in onda").click();
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Pizza del giorno", status: "published", content_type: "promo" });
         expect(writesOf(stub, "featured_content_products.POST")).toHaveLength(1);
@@ -646,10 +670,11 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await button(page, "Testo").click();
         await main(page).getByRole("textbox", { name: "Scrivi un paragrafo..." }).fill("Lo accendiamo alle sei.");
         await next(page);
+        await onAir(page);
         // la storia ha un orario solo: niente «hanno le stesse ore?»
         await expect(main(page).getByRole("radio", { name: "No, cambiano" })).toHaveCount(0);
         await next(page);
-        await button(page, "Pubblica").click();
+        await button(page, "Metti in onda").click();
         await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "stories.POST")).toMatchObject({ title: "Il forno a legna", eyebrow: "Il forno", status: "draft" });
         const done = bodyOf(stub, "stories.PATCH");
@@ -659,7 +684,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
 });
 
 test.describe("Tunnel di creazione — chi non gestisce il Calendario", () => {
-    test("niente Quando né Dove; «Salva» lascia la bozza a chi gestisce il Calendario", async ({ page }) => {
+    test("niente Quando né Dove; «Salva e tieni pronto» lascia la messa in onda a chi gestisce il Calendario", async ({ page }) => {
         stub = await stubProgrammazione(page);
         await stub.revoke("scheduling.write");
         await open(page, "evidenza");
@@ -667,10 +692,12 @@ test.describe("Tunnel di creazione — chi non gestisce il Calendario", () => {
         await expect(rail(page).getByRole("button")).toHaveText(["1Il contenuto", "2Controlla"]);
         await main(page).getByLabel("Titolo", { exact: true }).fill("Chiusi per ferie");
         await next(page);
-        await expect(button(page, "Pubblica")).toHaveCount(0);
-        // «Salva» lascia una bozza e nessuna regola nel Calendario (#360.8: prima non si cliccava)
+        await expect(button(page, "Metti in onda")).toHaveCount(0);
+        // nessuna scelta (D189): sempre pronto, con la riga della pagina
+        await expect(main(page).getByText("La messa in onda la decide chi gestisce il Calendario. Con «Salva e tieni pronto» questo contenuto resta in «In evidenza» come «Pronto, non in onda», con tutti i controlli fatti.")).toBeVisible();
+        // «Salva e tieni pronto» lascia una bozza e nessuna regola nel Calendario (#360.8: prima non si cliccava)
         stub.onWrite("featured_contents.POST", ({ body }) => ({ id: ID.featured, ...first(body) }));
-        await button(page, "Salva").click();
+        await saveReady(page);
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Chiusi per ferie", status: "draft" });
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
@@ -766,5 +793,194 @@ test.describe("Tunnel dello stile: modificare (D186)", () => {
         // una parte sola torna com'era
         await button(page, "Torna com'era").click();
         await expect(button(page, "Rosso")).toHaveAttribute("aria-pressed", "true");
+    });
+});
+
+test.describe("Dove e quando: in onda o pronto (D189)", () => {
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+    });
+
+    /** I scritti di un contenuto in evidenza e della sua regola, tutti finti. */
+    function wireEvid() {
+        stub.onWrite("featured_contents.POST", ({ body }) => ({ id: ID.featured, ...first(body) }));
+        stub.onWrite("featured_contents.PATCH", ({ body }) => [{ ...first(body) }]);
+        stub.onWrite("featured_content_products.POST", () => null);
+        stub.onWrite("schedules.POST", () => ({ id: ID.rule }));
+        stub.onWrite("schedules.PATCH", () => [{ id: ID.rule }]);
+        stub.onWrite("schedules.DELETE", () => null);
+        stub.onWrite("schedule_featured_contents.DELETE", () => null);
+        stub.onWrite("schedule_featured_contents.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+    }
+    /** «Luci di Natale e2e» ancora da mettere in onda: pubblicato no, la sua regola sì. */
+    async function nataleDraft(page: Page) {
+        await page.route(/\/rest\/v1\/featured_contents\?/, async route => {
+            if (route.request().method() !== "GET") return route.fallback();
+            const res = await route.fetch();
+            const body = await res.json();
+            const off = (r: Row) => (r.id === FEATURED.natale ? { ...r, status: "draft" } : r);
+            await route.fulfill({ response: res, json: Array.isArray(body) ? body.map(off) : off(body) });
+        });
+    }
+
+    test("creando nessuna delle due è scelta: «Avanti» spento finché non si sceglie, la fila dice com'è", async ({ page }) => {
+        await open(page, "menu", "menu");
+        await walkMenu(page);
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
+        await expect(main(page).getByText("Vuoi che i clienti lo vedano appena salvi?")).toBeVisible();
+        await expect(main(page).getByText("Scegli una delle due per andare avanti")).toBeVisible();
+        await expect(button(page, "Avanti")).toBeDisabled();
+        // niente sedi né ore finché non si sceglie
+        await expect(main(page).getByRole("button", { name: /^Tutte le sedi/ })).toHaveCount(0);
+        await button(page, /^No, per ora lo tengo pronto/).click();
+        await expect(button(page, /^No, per ora lo tengo pronto/)).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByText("Nessuna sede e nessun orario. Il menù resta in «Menù» come «Pronto, non in onda». Quando vuoi, lo metti in onda da lì con «Metti in onda».")).toBeVisible();
+        await expect(rail(page).getByRole("button", { name: /Dove e quando\s*· non in onda/ })).toBeVisible();
+        // si cambia idea con un clic: tornano sedi e ore
+        await onAir(page);
+        await expect(main(page).getByRole("button", { name: /^Tutte le sedi/ })).toBeVisible();
+        await expect(rail(page).getByRole("button", { name: /Dove e quando\s*· in onda/ })).toBeVisible();
+    });
+
+    test("menù tenuto pronto: in Controlla la frase, il Calendario non cambia e i controlli fatti", async ({ page }) => {
+        await open(page, "menu", "menu");
+        await walkMenu(page, "Pranzo veloce");
+        await toReady(page);
+        await expect(main(page).getByText(/^Il menù «Pranzo veloce» è pronto ma spento: nessun cliente lo vede finché non lo metti in onda\.$/)).toBeVisible();
+        await expect(main(page).getByText("Niente: non è in onda in nessuna sede.")).toBeVisible();
+        await expect(main(page).getByText("Il contenuto è completo")).toBeVisible();
+        await expect(main(page).getByText("Nessun errore da correggere")).toBeVisible();
+        await expect(main(page).getByText("Pronto per andare in onda in qualunque sede")).toBeVisible();
+        await expect(button(page, "Salva e tieni pronto")).toBeEnabled();
+        await expect(button(page, "Metti in onda")).toHaveCount(0);
+    });
+
+    test("stile: «Sì, lo metto in onda» fa la sua regola nel Calendario", async ({ page }) => {
+        stub.onWrite("styles.POST", ({ body }) => ({ id: ID.style, ...first(body) }));
+        stub.onWrite("style_versions.POST", ({ body }) => ({ id: ID.version, ...first(body) }));
+        stub.onWrite("styles.PATCH", ({ body }) => ({ id: ID.style, name: "Natale", ...first(body) }));
+        wireRule(stub);
+        await open(page, "stile", "stili");
+        await next(page);
+        await main(page).getByLabel("Nome dello stile").fill("Natale");
+        await next(page);
+        await next(page);
+        await onAir(page);
+        await next(page);
+        await button(page, "Metti in onda").click();
+        await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
+        expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "layout" });
+        expect(bodyOf(stub, "schedule_layout.POST")).toMatchObject({ style_id: ID.style });
+    });
+
+    test("in evidenza tenuto pronto: resta bozza, nessuna regola nel Calendario", async ({ page }) => {
+        wireEvid();
+        await open(page, "evidenza", "evidenza");
+        await main(page).getByLabel("Titolo", { exact: true }).fill("Chiusi per ferie");
+        await toReady(page);
+        await saveReady(page);
+        await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
+        expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Chiusi per ferie", status: "draft" });
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+    });
+
+    test("storia tenuta pronta: resta bozza", async ({ page }) => {
+        stub.onWrite("stories.POST", ({ body }) => ({ id: ID.story, ...first(body) }));
+        stub.onWrite("stories.PATCH", ({ body }) => ({ id: ID.story, ...first(body) }));
+        await open(page, "storia", "storie");
+        await next(page);
+        await main(page).getByLabel("Titolo", { exact: true }).fill("Il forno a legna");
+        await next(page);
+        await button(page, "Testo").click();
+        await main(page).getByRole("textbox", { name: "Scrivi un paragrafo..." }).fill("Lo accendiamo alle sei.");
+        await next(page);
+        await button(page, /^No, per ora la tengo pronta/).click();
+        await next(page);
+        await expect(main(page).getByText(/^La storia «Il forno a legna» è pronta ma spenta: nessun cliente la vede finché non la metti in onda\.$/)).toBeVisible();
+        await button(page, "Salva e tieni pronta").click();
+        await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });
+        expect(bodyOf(stub, "stories.PATCH")).toMatchObject({ status: "draft" });
+    });
+
+    test("«Metti in onda» dall'elenco: si apre la modifica già sul «Dove e quando», con «Sì» scelto", async ({ page }) => {
+        wireEvid();
+        await nataleDraft(page);
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza&metti=1`);
+        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible({ timeout: 20_000 });
+        await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
+        await next(page);
+        await expect(main(page).getByText("Prima: non in onda")).toBeVisible();
+        await expect(main(page).getByText(/^Adesso: in onda, /)).toBeVisible();
+        await button(page, "Salva le modifiche").click();
+        await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
+        expect(writesOf(stub, "featured_contents.PATCH").map(w => first(w.body))).toContainEqual(expect.objectContaining({ status: "published" }));
+        const on = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + RULE.natale);
+        expect(on.map(w => first(w.body))).toContainEqual(expect.objectContaining({ enabled: true }));
+    });
+
+    test("spegnere e riaccendere: la voce del Calendario si spegne e resta, poi si riaccende la stessa", async ({ page }) => {
+        wireEvid();
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await expect(main(page).getByText(/^In onda · /)).toBeVisible();
+        await main(page).getByRole("checkbox", { name: /^Dove e quando/ }).click();
+        await next(page);
+        // modificando si parte da com'è: in onda
+        await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
+        await button(page, /^No, per ora lo tengo pronto/).click();
+        await expect(main(page).getByText(/^Salvando, questo contenuto esce da tutte le sedi: da quel momento nessun cliente lo vede\. La sua voce nel Calendario resta, spenta/)).toBeVisible();
+        await next(page);
+        await expect(main(page).getByText(/^Prima: in onda, /)).toBeVisible();
+        await expect(main(page).getByText(/esce da tutte le sedi: da quando salvi nessun cliente lo vede\./)).toBeVisible();
+        await expect(main(page).getByText(/si spegne e resta lì, pronta per tornare in onda\./)).toBeVisible();
+        await button(page, "Salva le modifiche").click();
+        await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
+        const off = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + RULE.natale);
+        expect(off.map(w => first(w.body))).toEqual([{ enabled: false }]);
+        expect(writesOf(stub, "schedules.DELETE")).toHaveLength(0);
+    });
+
+    test("riaccendere un contenuto pronto con la sua voce: torna pubblicato, la voce si riscrive accesa", async ({ page }) => {
+        wireEvid();
+        await nataleDraft(page);
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
+        await expect(main(page).getByText("Non in onda")).toBeVisible({ timeout: 20_000 });
+        await main(page).getByRole("checkbox", { name: /^Dove e quando/ }).click();
+        await next(page);
+        await expect(button(page, /^No, per ora lo tengo pronto/)).toHaveAttribute("aria-pressed", "true");
+        await onAir(page);
+        await next(page);
+        await button(page, "Salva le modifiche").click();
+        await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
+        expect(writesOf(stub, "featured_contents.PATCH").map(w => first(w.body))).toContainEqual(expect.objectContaining({ status: "published" }));
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+    });
+
+    test("spento in una regola con altri contenuti: ne fa una sua spenta e l'altra resta accesa", async ({ page }) => {
+        wireEvid();
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.jazz}?da=evidenza`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await main(page).getByRole("checkbox", { name: /^Dove e quando/ }).click();
+        await next(page);
+        await button(page, /^No, per ora lo tengo pronto/).click();
+        await next(page);
+        await button(page, "Salva le modifiche").click();
+        await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(1);
+        const mine = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + ID.rule).map(w => first(w.body));
+        expect(mine).toContainEqual(expect.objectContaining({ enabled: false }));
+        // la regola di partenza non si spegne: esce solo lui
+        const shared = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + RULE.promoPorto).map(w => first(w.body));
+        expect(shared).not.toContainEqual(expect.objectContaining({ enabled: false }));
+    });
+
+    test("chi non gestisce il Calendario non sceglie, nemmeno modificando: niente «Dove e quando»", async ({ page }) => {
+        await stub.revoke("scheduling.write");
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
+        await stub.revoked;
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await expect(main(page).getByRole("checkbox", { name: /^Dove e quando/ })).toHaveCount(0);
     });
 });
