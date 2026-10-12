@@ -7,6 +7,7 @@ import type { AppSidebarNavGroup, AppSidebarNavItem } from "@/components/layout/
 import { NAV_MODELS, type NavContext } from "@/utils/navModel";
 import { buildSidebarGroups, type SidebarSignals } from "./sidebarItems";
 import { navSidebarGroups } from "./navSidebarGroups";
+import { useTranslationWaitingSignal } from "./useTranslationWaitingSignal";
 
 export interface UseNavGroupsOptions {
     context: NavContext;
@@ -16,7 +17,12 @@ export interface UseNavGroupsOptions {
     defaultActivityId: string | null;
     /** Sedi non ancora arrivate: niente voci, invece di un contesto provvisorio. */
     loading?: boolean;
-    signals: Omit<SidebarSignals, "translationLabel">;
+    signals: Omit<SidebarSignals, "translationLabel" | "translationWaitingCount" | "translationWaitingLabel">;
+    /**
+     * Traduzioni in attesa dei 10 minuti (fonte unica: MainLayout). Senza
+     * lavoro in corso il badge mostra queste, col titolo «partono tra X min».
+     */
+    translationWaiting?: { count: number; nextRunAt: string | null };
 }
 
 export interface NavGroups {
@@ -36,13 +42,15 @@ export function useNavGroups({
     activityId,
     defaultActivityId,
     loading = false,
-    signals
+    signals,
+    translationWaiting
 }: UseNavGroupsOptions): NavGroups {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { t } = useTranslation("admin");
     const { catalogLabel } = useVerticalConfig();
     const { permissions, loading: permissionsLoading } = usePermissions();
     const { hasFeature } = usePlanFeatures();
+    const waitingSignal = useTranslationWaitingSignal(translationWaiting);
 
     // Finché i permessi non arrivano niente voci: senza, lo staff vedrebbe
     // per un attimo Team e Abbonamento.
@@ -57,7 +65,7 @@ export function useNavGroups({
     const options = {
         permissions,
         hasFeature,
-        signals: { ...signals, translationLabel: t("sidebar.translations_in_progress") }
+        signals: { ...signals, translationLabel: t("sidebar.translations_in_progress"), ...waitingSignal }
     };
     return {
         groups: buildSidebarGroups(groups, options),

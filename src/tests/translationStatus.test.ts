@@ -25,7 +25,7 @@ function builder(result: { data?: unknown; error: unknown }) {
 
 /** Una risposta per tabella, come le legge getFieldTranslationStatus. */
 function tables(
-    jobs: { status: string; target_language_code: string; last_error: string | null }[],
+    jobs: { status: string; target_language_code: string; last_error: string | null; run_after?: string }[],
     translations: { language_code: string; status: string; source_hash: string | null }[] = []
 ) {
     const byTable: Record<string, ReturnType<typeof builder>> = {
@@ -84,6 +84,36 @@ describe("getFieldTranslationStatus", () => {
             { code: "de", state: "pending" },
             { code: "es", state: "done" }
         ]);
+    });
+});
+
+describe("getFieldTranslationStatus con l'attesa", () => {
+    const future = (min: number) => new Date(Date.now() + min * 60_000).toISOString();
+    const past = new Date(Date.now() - 60_000).toISOString();
+
+    it("separa i job in attesa da quelli in corso, con la prima partenza", async () => {
+        const enAt = future(8);
+        const frAt = future(3);
+        tables([
+            { status: "pending", target_language_code: "en", last_error: null, run_after: enAt },
+            { status: "pending", target_language_code: "fr", last_error: null, run_after: frAt },
+            { status: "pending", target_language_code: "de", last_error: null, run_after: past },
+            { status: "processing", target_language_code: "es", last_error: null, run_after: past }
+        ]);
+        const status = await getFieldTranslationStatus("t1", "product", "p1", "description");
+        expect(status.waitingCount).toBe(2);
+        expect(status.pendingCount).toBe(2);
+        expect(status.nextRunAt).toBe(frAt);
+        expect(status.languages?.map(l => l.state)).toEqual(["waiting", "waiting", "pending", "pending"]);
+        expect(status.languages?.[0].runAfter).toBe(enAt);
+    });
+
+    it("senza run_after (prima della migration) un pending resta in corso", async () => {
+        tables([{ status: "pending", target_language_code: "en", last_error: null }]);
+        const status = await getFieldTranslationStatus("t1", "product", "p1", "description");
+        expect(status.waitingCount).toBe(0);
+        expect(status.pendingCount).toBe(1);
+        expect(status.nextRunAt).toBeNull();
     });
 });
 

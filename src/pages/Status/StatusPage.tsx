@@ -190,7 +190,8 @@ function ServiceRow({
     );
 }
 
-const STALE_THRESHOLD_MS = 10 * 60 * 1000;
+// il controllo gira ogni 5 minuti: 15 tollera due giri saltati prima di dire che il monitoring è fermo
+const STALE_THRESHOLD_MS = 15 * 60 * 1000;
 
 export default function StatusPage() {
     usePageTitle("Stato sistema");
@@ -218,10 +219,19 @@ export default function StatusPage() {
         }
         void load();
         // Soft auto-refresh ogni 60s: ritarda la freshness ma non assilla.
-        const id = window.setInterval(() => void load(), 60_000);
+        // Scheda nascosta: niente richieste (una scheda dimenticata aperta
+        // consumava Redis giorno e notte); tornando visibile si rilegge subito.
+        const id = window.setInterval(() => {
+            if (!document.hidden) void load();
+        }, 60_000);
+        const onVisible = () => {
+            if (!document.hidden) void load();
+        };
+        document.addEventListener("visibilitychange", onVisible);
         return () => {
             cancelled = true;
             window.clearInterval(id);
+            document.removeEventListener("visibilitychange", onVisible);
         };
     }, []);
 
@@ -280,7 +290,7 @@ export default function StatusPage() {
                     className={`${styles.headerMeta} ${isStale ? styles.headerMetaStale : ""}`}
                     title={
                         isStale
-                            ? "Il monitoring potrebbe essere fermo: ultimo check oltre 10 minuti fa."
+                            ? "Il monitoring potrebbe essere fermo: ultimo check oltre 15 minuti fa."
                             : undefined
                     }
                 >

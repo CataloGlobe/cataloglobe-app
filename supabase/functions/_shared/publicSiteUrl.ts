@@ -1,8 +1,8 @@
 // Reader for the public base URL of the app (`APP_URL`).
 //
 // `APP_URL` is the pre-existing single source of truth for the frontend URL
-// (see the comment in `generate-table-qrs`). Those older consumers still read
-// the env var directly; moving them onto this helper is separate work.
+// (see the comment in `generate-table-qrs`). Every edge reads it through this
+// helper; do not add new direct `Deno.env.get("APP_URL")` reads.
 //
 // Kept OUT of `emailFormat.ts` on purpose: that module is pure and must stay
 // importable from a plain test runner, while this one touches `Deno.env` and

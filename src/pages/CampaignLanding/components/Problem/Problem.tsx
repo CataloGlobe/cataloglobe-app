@@ -14,10 +14,12 @@ type ProblemProps = {
     /** Margine sopra il visivo su mobile: 22 (schede) o 0 (ordini, che ha il suo). */
     visualGap?: "card" | "none";
     visual: ReactNode;
+    /** Tra il testo e la soluzione: il costo del problema (fornitore). */
+    cost?: ReactNode;
 };
 
 /** Sezioni 2-4: problema a mano, titolo a due tempi, soluzione, visivo interattivo. */
-export default function Problem({ id, tone, copy, visualSide, visualGap = "card", visual }: ProblemProps) {
+export default function Problem({ id, tone, copy, visualSide, visualGap = "card", visual, cost }: ProblemProps) {
     const headingId = id ? `${id}-title` : undefined;
     return (
         <Section id={id} tone={tone} labelledBy={headingId}>
@@ -26,7 +28,8 @@ export default function Problem({ id, tone, copy, visualSide, visualGap = "card"
                     <HandNote size="md">{copy.note}</HandNote>
                     <SplitHeading id={headingId} title={copy.title} size="problem" block className={styles.title} />
                     <p className={styles.lede}>{copy.lede}</p>
-                    <WithUs pro={copy.pro}>{copy.solution}</WithUs>
+                    {cost}
+                    <WithUs lead={copy.solution.lead} pro={copy.pro}>{copy.solution.body}</WithUs>
                 </Reveal>
                 <Reveal className={[styles.visual, visualGap === "card" ? styles.visualGap : null].filter(Boolean).join(" ")}>
                     <div className={styles.visualInner}>{visual}</div>

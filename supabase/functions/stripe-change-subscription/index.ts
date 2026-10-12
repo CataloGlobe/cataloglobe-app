@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import {
@@ -34,6 +33,7 @@ import {
     lookupStripePriceId,
     type BillingInterval
 } from "../_shared/planPrices.ts";
+import { appCorsHeaders } from "../_shared/cors.ts";
 
 // ---------------------------------------------------------------------------
 // stripe-change-subscription
@@ -69,23 +69,8 @@ import {
 // o uguale al corrente ogni path esistente e' byte-identico.
 // ---------------------------------------------------------------------------
 
-const ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://staging.cataloglobe.com",
-    "https://cataloglobe.com",
-    "https://www.cataloglobe.com"
-];
-
 function corsHeaders(req: Request): Record<string, string> {
-    const origin = req.headers.get("origin") ?? "";
-    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
-    return {
-        "Access-Control-Allow-Origin": allowed,
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Vary": "Origin",
-        "Content-Type": "application/json"
-    };
+    return appCorsHeaders(req.headers.get("origin"), { json: true });
 }
 
 const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
@@ -824,7 +809,7 @@ async function handleIntervalDown(ctx: IntervalChangeContext): Promise<Response>
     });
 }
 
-serve(async req => {
+Deno.serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
     if (req.method !== "POST") return json(req, 405, { error: "method_not_allowed" });
 

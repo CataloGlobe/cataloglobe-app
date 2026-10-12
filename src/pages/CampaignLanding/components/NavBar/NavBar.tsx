@@ -10,22 +10,23 @@ const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boo
 /** Scarto fra la pillola nell'hero (16 + 28 px) e la pillola fissa (18 px). */
 const PILL_DROP = 26;
 
-type BarState = { pastHero: boolean; atForm: boolean };
+type BarState = { scrolled: boolean; pastHero: boolean; atForm: boolean };
 
 /**
  * Barra di navigazione (SPEC §5).
- * Desktop: pillola fissa logo | Accedi, trasparente sull'hero e bianca dopo;
+ * Desktop: pillola fissa logo | Accedi, trasparente in cima, vetro scuro
+ * quando il titolo dell'hero le scorre sotto, bianca dopo l'hero;
  * a destra entra la CTA dopo l'hero ed esce al form.
  * Mobile: la testata sta nell'hero; dopo l'hero compare in alto una barra
- * compatta (logo | pulsante piccolo). Come la pillola desktop, al form la
- * barra resta e sparisce solo il pulsante. In alto e non in
+ * compatta (logo | pulsante piccolo). Al form la barra sale via tutta (lo
+ * schermo è del form) e torna appena si risale. In alto e non in
  * basso: in fondo allo schermo le barre di Safari, Chrome e delle webview la
  * coprono o la fanno saltare.
  * Lo scroll scrive solo `transform` (rAF); lo stato cambia solo alle soglie.
  */
 export default function NavBar() {
     const desk = useRef<HTMLDivElement>(null);
-    const [state, setState] = useState<BarState>({ pastHero: false, atForm: false });
+    const [state, setState] = useState<BarState>({ scrolled: false, pastHero: false, atForm: false });
 
     useEffect(() => {
         let frame = 0;
@@ -38,7 +39,9 @@ export default function NavBar() {
             const form = document.getElementById("contatto");
             const pastHero = hero ? hero.getBoundingClientRect().bottom < 80 : false;
             const atForm = form ? form.getBoundingClientRect().top < window.innerHeight * 0.85 : false;
-            setState((s) => (s.pastHero === pastHero && s.atForm === atForm ? s : { pastHero, atForm }));
+            // Appena la pillola si ferma, il testo dell'hero le scorre sotto: vetro scuro.
+            const scrolled = y > PILL_DROP;
+            setState((s) => (s.scrolled === scrolled && s.pastHero === pastHero && s.atForm === atForm ? s : { scrolled, pastHero, atForm }));
         };
         const onScroll = () => {
             if (!frame) frame = requestAnimationFrame(measure);
@@ -59,7 +62,7 @@ export default function NavBar() {
         <>
             <div className={styles.desk}>
                 <div ref={desk} className={styles.deskInner}>
-                    <nav className={cx(styles.pill, state.pastHero && styles.pillSolid)} aria-label="Principale">
+                    <nav className={cx(styles.pill, state.scrolled && styles.pillGlass, state.pastHero && styles.pillSolid)} aria-label="Principale">
                         <span className={styles.logos}>
                             <Logo variant="wordmark" {...WORDMARK_INTRINSIC} color="mono-white" className={cx(styles.logo, styles.logoLight)} alt={BRAND.name} />
                             <Logo variant="wordmark" {...WORDMARK_INTRINSIC} color="mono-dark" className={cx(styles.logo, styles.logoDark)} alt="" />
@@ -75,7 +78,7 @@ export default function NavBar() {
                 </div>
             </div>
 
-            <div className={cx(styles.mobileBar, state.pastHero && styles.on)} aria-hidden={!state.pastHero || undefined}>
+            <div className={cx(styles.mobileBar, showCta && styles.on)} aria-hidden={!showCta || undefined}>
                 <Logo variant="wordmark" {...WORDMARK_INTRINSIC} color="mono-dark" className={styles.mobileLogo} alt={BRAND.name} />
                 <div className={cx(styles.mobileCta, showCta && styles.on)}>
                     <LandingCta placement="bar-mobile" shape="compact" inert={!showCta} />

@@ -32,14 +32,16 @@ interface Props {
     onReviewClick?: (languageCode: string) => void;
 }
 
-type Status = "idle" | "done" | "in_progress" | "error" | "to_review";
+type Status = "idle" | "done" | "in_progress" | "waiting" | "error" | "to_review";
 
 // Priorità identica alla RPC get_translation_coverage:
-// pending > (fresh==total) ; failed prima di stale/missing.
+// pending > waiting > (fresh==total) ; failed prima di stale/missing.
+// `waiting` = accodati in attesa dei 10 minuti (run_after futuro).
 function deriveStatus(isActive: boolean, coverage?: LanguageCoverage): Status {
     if (!isActive) return "idle";
     if (!coverage || coverage.total === 0) return "done"; // nessun contenuto da tradurre
     if (coverage.pending > 0) return "in_progress";
+    if ((coverage.waiting ?? 0) > 0) return "waiting";
     if (coverage.failed > 0) return "error";
     if (coverage.fresh >= coverage.total) return "done";
     return "to_review"; // stale + missing > 0
@@ -139,6 +141,14 @@ export function LanguageRow({
                 <StatusBadge
                     variant="info"
                     label={t("languages.coverage.queued", { count: coverage?.pending ?? 0 })}
+                />
+            );
+        }
+        if (status === "waiting") {
+            return (
+                <StatusBadge
+                    variant="neutral"
+                    label={t("languages.coverage.waiting", { count: coverage?.waiting ?? 0 })}
                 />
             );
         }

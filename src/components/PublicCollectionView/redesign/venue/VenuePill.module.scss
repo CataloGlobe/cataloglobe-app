@@ -1,0 +1,81 @@
+/* Stato del locale nell'isola. Il pallino pulsa solo in «Chiude tra N min»:
+   alone da 1 a 2,7 in 2 s (specifica), solo transform/opacity, fermo con movimento ridotto. */
+
+.stato {
+  --stato-colore: #8a8a8a;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  /* A sinistra lo spazio per l'alone: il contenitore della seconda riga taglia ciò che esce. */
+  padding: 2px 0 2px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Area di tocco da 44 px senza ingrandire la riga. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -12px -8px;
+  }
+
+  &[data-stato="open"] {
+    --stato-colore: #3faa66;
+  }
+
+  &[data-stato="closing-soon"] {
+    --stato-colore: #e8a33d;
+  }
+}
+
+.pallino {
+  position: relative;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--stato-colore);
+
+  .stato[data-stato="closing-soon"] &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--stato-colore);
+    animation: battito 2s ease-out infinite;
+  }
+}
+
+.testo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+@keyframes battito {
+  from {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(2.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pallino::after {
+    animation: none !important;
+  }
+}

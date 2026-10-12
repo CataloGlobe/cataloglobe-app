@@ -35,6 +35,14 @@
         "more_aria": "Weitere Optionen",
         "logo_alt": "Logo {{name}}"
     },
+    "venue": {
+        "open": "Geöffnet",
+        "closing_soon": "Schließt in {{minutes}} Min.",
+        "closed": "Geschlossen",
+        "closed_opens_today": "Geschlossen · öffnet um {{time}} Uhr",
+        "closed_opens_tomorrow": "Geschlossen · öffnet morgen um {{time}} Uhr",
+        "closed_opens_day": "Geschlossen · öffnet {{day}} um {{time}} Uhr"
+    },
     "nav": {
         "bottom_aria": "Navigation",
         "subcategories_aria": "Unterkategorien von {{name}}"

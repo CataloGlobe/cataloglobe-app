@@ -13,6 +13,9 @@ interface ImportMetaEnv {
     // Allergie nel modulo pubblico di prenotazione: "true" → campo e consenso
     // visibili; assente/altro → OFF. Gemello edge: RESERVATION_ALLERGIES_ENABLED.
     readonly VITE_RESERVATION_ALLERGIES?: string;
+    // Redesign della pagina pubblica: "true" → componenti di
+    // PublicCollectionView/redesign/; assente/altro → pagina di oggi. Solo staging.
+    readonly VITE_PUBLIC_REDESIGN?: string;
     // aggiungi qui eventuali altre variabili
 }
 

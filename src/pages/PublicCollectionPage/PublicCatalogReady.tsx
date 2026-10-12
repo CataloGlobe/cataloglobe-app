@@ -6,6 +6,10 @@ import CollectionView, {
     type CollectionViewSectionGroup,
     type CollectionViewSectionItem
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import {
+    PUBLIC_REDESIGN_ENABLED,
+    RedesignCollectionView
+} from "@/components/PublicCollectionView/redesign";
 import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
 import LanguageFallbackBanner from "@/components/PublicCollectionView/LanguageFallbackBanner/LanguageFallbackBanner";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
@@ -291,7 +295,9 @@ function CollectionViewWithCustomerSession(
     props: Omit<ComponentProps<typeof CollectionView>, "orderingActive">
 ) {
     const { isActive } = useCustomerSession();
-    return <CollectionView {...props} orderingActive={isActive} />;
+    // Redesign (VITE_PUBLIC_REDESIGN): costante di build, il ramo spento sparisce.
+    const View = PUBLIC_REDESIGN_ENABLED ? RedesignCollectionView : CollectionView;
+    return <View {...props} orderingActive={isActive} />;
 }
 
 /* ===============================================
