@@ -1,5 +1,6 @@
 import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { useCanonical } from '@/hooks/useCanonical';
 import { COMPANY, getFullAddress } from '@/config/company';
 import styles from './TermsPage.module.scss';
 
@@ -16,6 +17,7 @@ function formatDate(isoDate: string): string {
 
 export default function TermsPage() {
     usePageTitle('Termini');
+    useCanonical(COMPANY.web.termsUrl);
     return (
         <LegalLayout otherLegalLink={{ href: '/legal/privacy', label: 'Privacy Policy' }}>
             <div className={styles.content}>

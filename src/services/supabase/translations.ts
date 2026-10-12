@@ -43,7 +43,8 @@ export async function listTranslationsForEntity(
 }
 
 /**
- * Cancella le translations per un'entità + field opzionale.
+ * Cancella le translations per un'entità + field opzionale, e i job ancora
+ * `pending` dello stesso testo.
  *
  * Usata dal service layer quando il source diventa null/vuoto (es. il tenant
  * cancella la description di un prodotto): il caller calcola
@@ -72,6 +73,25 @@ export async function deleteTranslationsForEntity(
 
     const { error } = await query;
     if (error) throw error;
+
+    // Anche i job ancora in coda per quel testo: con l'attesa di 10 minuti
+    // (run_after) un testo cancellato poco dopo il salvataggio lascerebbe un
+    // job che chiama DeepL e riscrive una traduzione orfana. I `processing`
+    // restano: sono già partiti.
+    let jobsQuery = supabase
+        .from("translation_jobs")
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("entity_type", entityType)
+        .eq("entity_id", entityId)
+        .eq("status", "pending");
+
+    if (field !== undefined) {
+        jobsQuery = jobsQuery.eq("field", field);
+    }
+
+    const { error: jobsError } = await jobsQuery;
+    if (jobsError) throw jobsError;
 }
 
 /**

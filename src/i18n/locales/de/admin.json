@@ -1,6 +1,8 @@
 {
     "sidebar": {
-        "translations_in_progress": "Übersetzungen in Arbeit"
+        "translations_in_progress": "Übersetzungen in Arbeit",
+        "translations_waiting_one": "{{count}} Übersetzung wartet · startet in {{minutes}} Min.",
+        "translations_waiting_other": "{{count}} Übersetzungen warten · starten in {{minutes}} Min."
     },
     "languages": {
         "title": "Sprachen",
@@ -17,7 +19,9 @@
             "badge_queued": "In Bearbeitung",
             "badge_errors": "Zu beheben",
             "badge_done": "Aktuell",
-            "auto_note": "bestehende Inhalte werden in wenigen Minuten übersetzt"
+            "auto_note": "neue Sprachen in wenigen Minuten, Änderungen 10 Minuten nach dem letzten Speichern",
+            "badge_waiting": "Wartet",
+            "waiting": "{{count}} wartend"
         },
         "italian_base": "Ihr Inhalt ist in Italienisch (Basissprache).",
         "review": {
@@ -61,7 +65,8 @@
             "to_review": "{{count}} zu prüfen",
             "to_review_hint": "Einige Übersetzungen sind nicht auf dem Stand der italienischen Quelle. Prüfen Sie sie auf der Seite des jeweiligen Elements.",
             "last_updated": "aktualisiert {{time}}",
-            "inactive_hint": "Für Kunden nicht sichtbar"
+            "inactive_hint": "Für Kunden nicht sichtbar",
+            "waiting": "{{count}} wartend"
         },
         "activated": "{{lang}} aktiviert. {{count}} Inhalte zu aktualisieren.",
         "activated_no_jobs": "{{lang}} aktiviert. Kein neuer zu übersetzender Inhalt.",
@@ -80,12 +85,24 @@
             "completed": "Übersetzungen aktualisiert",
             "translated_aria": "Übersetzt",
             "in_progress_aria": "In Bearbeitung",
-            "retry_count_label": "{{count}} erneut zu versuchen"
+            "retry_count_label": "{{count}} erneut zu versuchen",
+            "waiting_one": "{{count}} Text wartet auf Übersetzung · startet in {{minutes}} Min.",
+            "waiting_other": "{{count}} Texte warten auf Übersetzung · starten in {{minutes}} Min.",
+            "waiting_hint": "Übersetzungen starten 10 Minuten nach der letzten Änderung, damit Texte in Bearbeitung nicht übersetzt werden.",
+            "translate_now": "Jetzt übersetzen",
+            "translate_now_done": "Übersetzungen gestartet",
+            "translate_now_error": "Fehler beim Starten der Übersetzungen"
         },
         "read_only_role": "Nur Lesezugriff: Sprachen aktivieren und verwalten dürfen Inhaber und Administratoren.",
         "read_only_subscription": "Nur Lesezugriff: Das Abonnement ist nicht aktiv.",
         "load_error_desc": "Prüfe die Verbindung und versuche es erneut.",
-        "confirm_ai_credit": "Die Übersetzungen nutzen das KI-Guthaben deines Tarifs."
+        "confirm_ai_credit": "Die Übersetzungen nutzen das KI-Guthaben deines Tarifs.",
+        "confirm_counting": "Zu übersetzende Texte werden gezählt…",
+        "confirm_count_one": "Wir übersetzen {{count}} Text (Produkte, Kategorien und andere Inhalte) ins {{lang}}. Er ist in wenigen Minuten fertig.",
+        "confirm_count_other": "Wir übersetzen {{count}} Texte (Produkte, Kategorien und andere Inhalte) ins {{lang}}. Sie sind in wenigen Minuten fertig.",
+        "confirm_count_zero": "Es gibt keine Texte zu übersetzen: {{lang}} ist sofort bereit.",
+        "confirm_ai_used": "Übersetzungen nutzen das KI-Guthaben deines Tarifs: In diesem Zyklus hast du {{percent}}% verbraucht.",
+        "confirm_ai_blocked": "Das KI-Guthaben dieses Zyklus ist aufgebraucht: Die Sprache wird aktiviert, aber die Texte bleiben auf Italienisch. Nach der Verlängerung deaktiviere und aktiviere sie erneut, um sie zu übersetzen."
     },
     "errors": {
         "load_failed": "Fehler beim Laden von Sprachen",
@@ -139,7 +156,13 @@
         "confirm_revert_title": "Zur automatischen Übersetzung zurückkehren?",
         "confirm_revert_message": "Die manuelle Übersetzung geht verloren. Innerhalb einer Minute wird eine neue automatische Übersetzung erstellt.",
         "confirm": "Bestätigen",
-        "toast_updating_one": "Übersetzungen werden in {{count}} Sprache aktualisiert.",
-        "toast_updating_other": "Übersetzungen werden in {{count}} Sprachen aktualisiert."
+        "toast_updating_one": "Übersetzung in {{count}} Sprache in 10 Minuten, wenn nichts mehr geändert wird.",
+        "toast_updating_other": "Übersetzungen in {{count}} Sprachen in 10 Minuten, wenn nichts mehr geändert wird.",
+        "badge_waiting": "Wartet · in {{count}} Min.",
+        "waiting_banner_one": "{{count}} Sprache wartet: startet in {{minutes}} Min., wenn nichts mehr geändert wird.",
+        "waiting_banner_other": "{{count}} Sprachen warten: starten in {{minutes}} Min., wenn nichts mehr geändert wird.",
+        "translate_now": "Jetzt übersetzen",
+        "translate_now_done": "Übersetzungen gestartet",
+        "translate_now_error": "Fehler beim Starten der Übersetzungen"
     }
 }

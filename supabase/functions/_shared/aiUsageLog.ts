@@ -15,6 +15,7 @@
 //   - Nessun controllo quota qui — l'enforcement è una fase futura, altrove.
 // =============================================================================
 
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PRICE_MAP_VERSION, computeCostNanoUsd } from "./aiPricing.ts";
 
 export interface AiUsageEventInput {
@@ -39,8 +40,7 @@ export interface AiUsageEventInput {
  * mai. `supabase` deve essere un client service_role.
  */
 export async function logAiUsage(
-    // deno-lint-ignore no-explicit-any — client supabase-js senza Database generics (stesso pattern JobStore)
-    supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any -- vedi deno-lint-ignore sopra
+    supabase: SupabaseClient,
     event: AiUsageEventInput
 ): Promise<void> {
     try {

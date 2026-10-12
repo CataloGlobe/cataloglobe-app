@@ -64,6 +64,26 @@ $ld-bp-hero-wide: 1200px;
     @return clamp(#{$min}px, #{$px}px + #{$vw}vw, #{$max}px);
 }
 
+// ── Telefono (kit/Phone) ────────────────────────────────────────────────────
+// Unica misura del telefono simulato: si sceglie la larghezza, l'altezza segue
+// la proporzione iPhone (1 : 2,05). Padding 3,4 % e raggio 15 % della
+// larghezza; il contenuto è disegnato su 300 px e scalato sullo schermo.
+@mixin ld-phone($w) {
+    $h: math.round($w * 2.05);
+    $pad: math.round($w * 0.026);
+    $radius: math.round($w * 0.15);
+    $scale: math.div(math.round(math.div($w - 2 * $pad, 300) * 10000), 10000);
+    --ph-w: #{$w}px;
+    --ph-h: #{$h}px;
+    --ph-pad: #{$pad}px;
+    --ph-r: #{$radius}px;
+    --ph-screen-r: #{$radius - $pad}px;
+    --ph-island-top: #{$pad + 6}px;
+    --ph-island-h: #{math.min(math.round($w * 0.075), 24)}px;
+    --ph-scale: #{$scale};
+    --ph-content-h: #{math.ceil(math.div($h - 2 * $pad, $scale))}px;
+}
+
 // ── Tipografia ──────────────────────────────────────────────────────────────
 // Young Serif esiste solo a 400: mai chiedere 700 (il browser lo falserebbe).
 
@@ -118,6 +138,20 @@ $ld-bp-hero-wide: 1200px;
     font: inherit;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+}
+
+// Area toccabile di almeno $min senza cambiare l'aspetto: un ::before
+// trasparente centrato sull'elemento, che deve essere posizionato.
+@mixin ld-hit-area($min: 44px) {
+    &::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: max(100%, #{$min});
+        height: max(100%, #{$min});
+        transform: translate(-50%, -50%);
+    }
 }
 
 @mixin ld-focus {
