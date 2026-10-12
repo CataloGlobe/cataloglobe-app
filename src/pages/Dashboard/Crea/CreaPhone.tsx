@@ -1,6 +1,7 @@
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { EV, bundlePrice, bundleTotal, euro, type StepId, type Tunnel } from "./creaModel";
+import { bundlePrice, bundleTotal, euro, type StepId, type Tunnel } from "./creaModel";
+import { ideaOf } from "./evidIdee";
 import { phoneVars } from "./creaStyle";
 import { allSecs } from "./menuTree";
 import s from "./Crea.module.scss";
@@ -80,11 +81,13 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
             </>
         );
     } else if (t.kind === "evid") {
-        const ty = t.evType ?? "evento", ex = EV[ty].ex;
+        const ty = t.evType ?? "evento", idea = ideaOf(t.idea);
+        // senza niente di scritto, l'esempio dell'idea da cui si è partiti (D187): il tipo non si nomina più
+        const ex = idea ? [idea.ex[0], idea.ex[2]] : ["Giovedì karaoke", "Come lo diresti al tavolo."];
         const dishes = t.dishes.map(id => ({ id, name: L.products.get(id)?.name ?? "Prodotto", price: L.products.get(id)?.listPrice ?? null }));
         const feat = (
             <div className={cx(s.pFeat, step !== "controlla" && !!t.evType && s.hl)}>
-                <span className={s.k}>{EV[ty].name}</span>
+                <span className={s.k}>In evidenza</span>
                 {imageUrl && <img src={imageUrl} alt="" />}
                 <b>{t.title.trim() || ex[0]}</b>
                 {t.sub.trim() && <span style={{ fontWeight: 600 }}>{t.sub.trim()}</span>}
