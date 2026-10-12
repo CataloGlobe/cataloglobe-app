@@ -54,13 +54,14 @@ import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
 import { menuPreferences } from "../search/preferences";
 import { AllergensFooter, AllergensPage, CharacteristicsPage } from "./MenuInfoPages";
 import { rateOf } from "../vote/rateSheet";
+import { loadVoteForm } from "../vote/loadVoteForm";
 import { useBooking, type BookingBinding } from "../booking/useBooking";
 import { isBookingPage, pushBookingSheet } from "../booking/bookingSheet";
 import { isOwnBookingUrl, type BookingConfig } from "../booking/bookingForm";
 import styles from "./VenueSheets.module.scss";
 
 // Lo stesso modulo del voto di oggi, nel suo chunk (lo stesso di CollectionView).
-const ReviewsView = lazy(() => import("@components/PublicCollectionView/ReviewsView/ReviewsView"));
+const VoteForm = lazy(loadVoteForm);
 // I passi della prenotazione (calendario, orari, campi della pagina /prenota) in un chunk loro.
 const loadBooking = () => import("../booking/BookingPages");
 const BookingPage = lazy(loadBooking);
@@ -218,11 +219,14 @@ function VenuePage({
     const rating = rateOf(page);
     if (rating !== undefined) {
         return props.rate ? (
-            <Suspense fallback={null}>
-                <ReviewsView
-                    {...props.rate.props}
-                    initialRating={rating || undefined}
-                    onReviewSubmitted={props.rate.onSubmitted}
+            // Segnaposto alto quanto la modale: il foglio entra già alla sua altezza.
+            <Suspense fallback={<div style={{ height: page.growFrom }} />}>
+                <VoteForm
+                    review={props.rate.props}
+                    initialRating={rating}
+                    logoUrl={props.rate.logoUrl}
+                    venueName={props.rate.venueName}
+                    onSubmitted={props.rate.onSubmitted}
                 />
             </Suspense>
         ) : null;

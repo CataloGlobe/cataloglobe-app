@@ -145,7 +145,7 @@ export function useVoteInvite(vote: VoteSlotContext | undefined) {
         };
     }, [enabled, moment]);
 
-    // Il modulo è nel foglio: chiuso senza voto, il pulsante torna nella barra.
+    // Il modulo è nel foglio: chiuso senza voto è «no grazie» (× anche lì, spec §11).
     const sheetOpen = useSheetState().pages.length > 0;
     const sawSheet = useRef(false);
     useEffect(() => {
@@ -154,7 +154,7 @@ export function useVoteInvite(vote: VoteSlotContext | undefined) {
             return;
         }
         if (sheetOpen) sawSheet.current = true;
-        else if (sawSheet.current) dispatch({ type: "sheetClosed" });
+        else if (sawSheet.current) dispatch({ type: "formClosed" });
     }, [state.phase, sheetOpen]);
 
     return { state, send };

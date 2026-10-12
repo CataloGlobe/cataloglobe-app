@@ -693,7 +693,39 @@
   },
   "vote": {
     "button": "Noter",
-    "dismiss_aria": "Non merci"
+    "dismiss_aria": "Non merci",
+    "helps": "Ton avis aide {{name}}",
+    "summary": "{{label}} · {{count}} sur 5",
+    "labels": {
+      "1": "Mauvais",
+      "2": "Moyen",
+      "3": "Bien",
+      "4": "Très bien",
+      "5": "Excellent"
+    },
+    "topics_aria": "De quoi veux-tu parler",
+    "topics": {
+      "service": "Service",
+      "dishes": "Plats",
+      "atmosphere": "Ambiance",
+      "wait": "Attente"
+    },
+    "comment_placeholder": "Tu veux ajouter quelque chose ?",
+    "comment_aria": "Tu veux ajouter quelque chose ? Facultatif",
+    "send": "Envoyer",
+    "thanks_high": "Merci !",
+    "thanks_high_text": "Ton avis est bien arrivé à {{name}}.",
+    "thanks_low": "Merci, nous le transmettrons",
+    "thanks_low_text": "{{name}} lit chaque avis et s'en sert pour s'améliorer. Il reste entre toi et l'établissement.",
+    "share_title": "Ça t'a plu ? Raconte-le aussi aux autres",
+    "share_text": "Un avis public aide {{name}} à se faire connaître.",
+    "google_hint": "Visible par ceux qui cherchent sur Google Maps",
+    "google_aria": "Laisser un avis sur Google : s'ouvre dans un nouvel onglet",
+    "copy": "Copier ton commentaire",
+    "copied": "Copié : colle-le dans ton avis",
+    "copy_hint": "Les plateformes ne peuvent pas être préremplies : comme ça, tu n'as pas à le réécrire.",
+    "later": "Pas maintenant",
+    "close": "Fermer"
   },
   "page_end": {
     "end_of_menu": "Fin du menu",

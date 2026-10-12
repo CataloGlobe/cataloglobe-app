@@ -38,15 +38,17 @@ describe("voteReducer", () => {
         expect(voteReducer(parked, { type: "shrink" })).toMatchObject({ phase: "parked", wide: false });
     });
 
-    it("una stella apre il modulo; chiuso senza voto il pulsante torna stretto", () => {
+    it("una stella fa crescere il modulo; chiuso senza voto è «no grazie»", () => {
         const rating = run([moment(), { type: "rate" }]);
         expect(rating.phase).toBe("rating");
-        expect(voteReducer(rating, { type: "sheetClosed" })).toMatchObject({ phase: "parked", wide: false });
+        expect(voteReducer(rating, { type: "formClosed" })).toMatchObject({ phase: "gone" });
     });
 
-    it("il pulsante della barra apre il modulo", () => {
-        const state = run([moment(), { type: "ignore" }, { type: "rate" }]);
-        expect(state).toMatchObject({ phase: "rating", wide: false });
+    it("il pulsante della barra riapre la modale; ignorata di nuovo torna stretto", () => {
+        const state = run([moment(), { type: "ignore" }, { type: "reopen" }]);
+        expect(state).toMatchObject({ phase: "invite", again: true });
+        expect(voteReducer(state, { type: "ignore" })).toMatchObject({ phase: "parked", wide: false });
+        expect(voteReducer(state, { type: "dismiss" })).toMatchObject({ phase: "gone" });
     });
 
     it("al massimo un secondo tentativo: riallarga il pulsante una volta sola", () => {

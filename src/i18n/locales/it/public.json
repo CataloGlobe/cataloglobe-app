@@ -692,7 +692,39 @@
     },
     "vote": {
         "button": "Vota",
-        "dismiss_aria": "No grazie"
+        "dismiss_aria": "No grazie",
+        "helps": "Il tuo parere aiuta {{name}}",
+        "summary": "{{label}} · {{count}} su 5",
+        "labels": {
+            "1": "Male",
+            "2": "Così così",
+            "3": "Bene",
+            "4": "Molto bene",
+            "5": "Ottimo"
+        },
+        "topics_aria": "Di cosa vuoi parlare",
+        "topics": {
+            "service": "Servizio",
+            "dishes": "Piatti",
+            "atmosphere": "Atmosfera",
+            "wait": "Attesa"
+        },
+        "comment_placeholder": "Vuoi aggiungere qualcosa?",
+        "comment_aria": "Vuoi aggiungere qualcosa? Facoltativo",
+        "send": "Invia",
+        "thanks_high": "Grazie!",
+        "thanks_high_text": "Il tuo parere è arrivato a {{name}}.",
+        "thanks_low": "Grazie, lo diremo al locale",
+        "thanks_low_text": "{{name}} legge ogni parere e lo usa per migliorare. Resta tra te e il locale.",
+        "share_title": "Ti è piaciuto? Raccontalo anche agli altri",
+        "share_text": "Una recensione pubblica aiuta {{name}} a farsi trovare.",
+        "google_hint": "La vede chi cerca su Google Maps",
+        "google_aria": "Lascia una recensione su Google: si apre in una nuova scheda",
+        "copy": "Copia il tuo commento",
+        "copied": "Copiato: incollalo nella recensione",
+        "copy_hint": "Le piattaforme non si possono precompilare: così non lo riscrivi.",
+        "later": "Non ora",
+        "close": "Chiudi"
     },
     "page_end": {
         "end_of_menu": "Fine del menu",

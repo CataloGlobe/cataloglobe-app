@@ -1,11 +1,12 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Star, X } from "lucide-react";
+import { VoteHead } from "./VoteHead";
+import { loadVoteForm } from "./loadVoteForm";
 import { hasOpenSheet } from "../../hooks/openSheets";
 import { INVITE_IGNORE_MS, WIDE_MS, fitsWide, type VoteEvent, type VoteState } from "./voteInvite";
 import styles from "./VoteControls.module.scss";
 
-const STARS = [1, 2, 3, 4, 5] as const;
 /** Volo dalla modale alla barra e uscita: solo transform e opacity, su WAAPI. */
 const FLIGHT_MS = 460;
 const LEAVE_MS = 220;
@@ -23,23 +24,36 @@ function reducedMotion(): boolean {
 }
 
 /**
- * La modale piccola dell'invito (spec §11): sopra la barra, senza velo e senza
- * blocco della pagina. × = «no grazie»; ignorata, tocco fuori o tirata giù = vola
- * nella barra; una stella apre il modulo nel foglio col voto scelto.
+ * La modale piccola dell'invito (spec §11, mockup v38): nella geometria dei
+ * fogli, attaccata al fondo, senza velo e senza blocco della pagina; la barra
+ * scende finché c'è. × = «no grazie»; ignorata, tocco fuori o tirata giù = vola
+ * nella barra; una stella = la modale cresce nel modulo (il foglio entra già alto
+ * quanto lei, con la stessa testata).
  */
 export function VoteInviteCard({
     send,
     onRate,
-    onLeave
+    onLeave,
+    logoUrl,
+    venueName
 }: {
     send: (event: VoteEvent) => void;
-    onRate: (rating: number) => void;
+    /** Una stella: il voto e l'altezza della modale, da cui il modulo cresce. */
+    onRate: (rating: number, height: number) => void;
     /** Prima di andare nella barra: dove stava, per il volo. */
     onLeave: (origin: FlightOrigin) => void;
+    logoUrl: string | null;
+    venueName: string;
 }) {
     const { t } = useTranslation("public");
     const cardRef = useRef<HTMLElement>(null);
     const done = useRef(false);
+    // La stella toccata si accende subito, mentre il modulo arriva.
+    const [picked, setPicked] = useState(0);
+
+    useEffect(() => {
+        void loadVoteForm();
+    }, []);
 
     useEffect(() => {
         const card = cardRef.current;
@@ -97,8 +111,8 @@ export function VoteInviteCard({
         }
         const exit = card.animate(
             [
-                { transform: "translateY(0)", opacity: 1 },
-                { transform: "translateY(16px)", opacity: 0 }
+                { transform: "translateY(0)" },
+                { transform: "translateY(100%)" }
             ],
             { duration: LEAVE_MS, easing: "ease-in", fill: "forwards" }
         );
@@ -108,32 +122,27 @@ export function VoteInviteCard({
     const rate = (value: number) => {
         if (done.current) return;
         done.current = true;
+        setPicked(value);
         send({ type: "rate" });
-        onRate(value);
+        onRate(value, cardRef.current?.offsetHeight ?? 0);
     };
 
     return (
         // Non è una finestra modale: niente fuoco rubato a chi sta leggendo, una regione col suo titolo.
         <section ref={cardRef} className={styles.card} role="region" aria-labelledby="pub-vote-title">
+            <span className={styles.handle} aria-hidden="true" />
             <button type="button" className={styles.close} aria-label={t("vote.dismiss_aria")} onClick={dismiss}>
-                <X size={18} strokeWidth={2} aria-hidden />
+                <X size={18} strokeWidth={2.25} aria-hidden />
             </button>
-            <h2 id="pub-vote-title" className={styles.title}>
-                {t("page_end.rate_title")}
-            </h2>
-            <p className={styles.subtitle}>{t("page_end.rate_subtitle")}</p>
-            <div className={styles.stars} role="group" aria-labelledby="pub-vote-title">
-                {STARS.map(value => (
-                    <button
-                        key={value}
-                        type="button"
-                        className={styles.star}
-                        aria-label={t("reviews.stars_aria", { count: value })}
-                        onClick={() => rate(value)}
-                    >
-                        <Star size={30} strokeWidth={1.75} aria-hidden />
-                    </button>
-                ))}
+            <div className={styles.body}>
+                <VoteHead
+                    titleId="pub-vote-title"
+                    logoUrl={logoUrl}
+                    venueName={venueName}
+                    subtitle={t("vote.helps", { name: venueName })}
+                    rating={picked}
+                    onRate={rate}
+                />
             </div>
         </section>
     );
@@ -141,26 +150,23 @@ export function VoteInviteCard({
 
 /**
  * Il pulsante del voto nella barra: largo «Com'è andata? ★» quando arriva, poi
- * «★ Vota». Arriva volando dalla modale (FLIP su WAAPI). Resta anche mentre il
- * modulo è nel foglio (coperto dal velo): chiuso senza voto, è già al suo posto;
- * dopo il voto se ne va sotto il foglio. Materiale pieno, mai sfocato: si muove.
+ * «★ Vota». Arriva volando dalla modale (FLIP su WAAPI); toccato, torna la
+ * modale piccola (mockup v38). Materiale pieno, mai sfocato: si muove.
  */
 export function VoteButton({
     state,
     send,
-    onRate,
     flightFrom,
     onLanded
 }: {
     state: VoteState;
     send: (event: VoteEvent) => void;
-    onRate: () => void;
     flightFrom: FlightOrigin | null;
     onLanded: () => void;
 }) {
     const { t } = useTranslation("public");
     const ref = useRef<HTMLButtonElement>(null);
-    const shown = state.phase === "parked" || state.phase === "rating";
+    const shown = state.phase === "parked";
     const wide = state.phase === "parked" && state.wide;
 
     useLayoutEffect(() => {
@@ -218,10 +224,7 @@ export function VoteButton({
             type="button"
             className={styles.vote}
             data-wide={wide || undefined}
-            onClick={() => {
-                send({ type: "rate" });
-                onRate();
-            }}
+            onClick={() => send({ type: "reopen" })}
         >
             {wide ? (
                 <>

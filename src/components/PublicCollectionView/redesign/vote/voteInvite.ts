@@ -22,10 +22,10 @@ export const TOP_ZONE_PX = 120;
 
 /**
  * - `idle`: niente ancora.
- * - `invite`: la modale piccola è a vista.
- * - `rating`: toccata una stella, il modulo è nel foglio.
+ * - `invite`: la modale piccola è a vista (`again`: riaperta dal pulsante della barra).
+ * - `rating`: toccata una stella, la modale è cresciuta nel modulo (foglio col velo).
  * - `parked`: il pulsante sta nella barra (`wide`: «Com'è andata? ★», altrimenti «★ Vota»).
- * - `gone`: «No grazie» o voto dato; per questa visita non torna.
+ * - `gone`: «No grazie», modulo chiuso senza voto o voto dato; per questa visita non torna.
  */
 export type VotePhase = "idle" | "invite" | "rating" | "parked" | "gone";
 
@@ -34,6 +34,8 @@ export type VoteState = {
     wide: boolean;
     /** Momenti già usati: il primo apre l'invito, il secondo riallarga il pulsante, poi basta. */
     attempts: number;
+    /** Invito riaperto dal pulsante della barra: ignorato, ci torna stretto. */
+    again?: boolean;
 };
 
 export type VoteEvent =
@@ -43,10 +45,12 @@ export type VoteEvent =
     | { type: "dismiss" }
     /** Ignorata, tocco fuori o tirata giù: vola nella barra. */
     | { type: "ignore" }
-    /** Una stella della modale, o il pulsante della barra: il modulo si apre nel foglio. */
+    /** Una stella della modale: la modale cresce nel modulo. */
     | { type: "rate" }
-    /** Il foglio del voto si è chiuso senza voto: il pulsante torna nella barra, stretto. */
-    | { type: "sheetClosed" }
+    /** Il pulsante della barra: torna la modale piccola (mockup v38). */
+    | { type: "reopen" }
+    /** Il modulo si è chiuso senza voto: × vuol dire «no grazie» anche lì (spec §11). */
+    | { type: "formClosed" }
     /** Il pulsante largo si stringe (tempo o scorrimento). */
     | { type: "shrink" }
     /** Voto inviato (anche dal fondo): il pulsante esce. */
@@ -64,15 +68,15 @@ export function voteReducer(state: VoteState, event: VoteEvent): VoteState {
             // Un foglio aperto o la pagina a metà lettura: il momento si perde, il prossimo conta.
             return event.type === "moment" && event.canInvite ? { phase: "invite", wide: false, attempts: 1 } : state;
         case "invite":
-            if (event.type === "dismiss") return { ...state, phase: "gone" };
-            if (event.type === "ignore") return { ...state, phase: "parked", wide: true };
-            if (event.type === "rate") return { ...state, phase: "rating" };
+            if (event.type === "dismiss") return { ...state, phase: "gone", again: false };
+            if (event.type === "ignore") return { ...state, phase: "parked", wide: !state.again, again: false };
+            if (event.type === "rate") return { ...state, phase: "rating", again: false };
             return state;
         case "rating":
-            return event.type === "sheetClosed" ? { ...state, phase: "parked", wide: false } : state;
+            return event.type === "formClosed" ? { ...state, phase: "gone" } : state;
         case "parked":
             if (event.type === "shrink") return { ...state, wide: false };
-            if (event.type === "rate") return { ...state, phase: "rating", wide: false };
+            if (event.type === "reopen") return { ...state, phase: "invite", wide: false, again: true };
             // Al massimo un secondo tentativo, solo con un momento nuovo e utile: riallarga il pulsante.
             if (event.type === "moment" && event.canInvite && state.attempts < 2 && !state.wide) {
                 return { ...state, wide: true, attempts: 2 };

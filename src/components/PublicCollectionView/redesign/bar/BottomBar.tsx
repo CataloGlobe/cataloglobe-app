@@ -5,6 +5,7 @@ import { ChevronUp, ReceiptText, ScrollText, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import type { BottomBarSlotContext } from "../slots";
 import { useVoteInvite } from "../vote/useVoteInvite";
+import { onSheetShown } from "../sheets/sheetStack";
 import type { FlightOrigin } from "../vote/VoteControls";
 import styles from "./BottomBar.module.scss";
 
@@ -12,6 +13,8 @@ import styles from "./BottomBar.module.scss";
 const loadVote = () => import("../vote/VoteControls");
 const VoteInviteCard = lazy(() => loadVote().then(m => ({ default: m.VoteInviteCard })));
 const VoteButton = lazy(() => loadVote().then(m => ({ default: m.VoteButton })));
+/** Se il foglio non arriva (rete giù), la modale non resta appesa. */
+const HANDOFF_MAX_MS = 1500;
 
 const VOCI: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
     { id: "menu", icon: <Utensils size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
@@ -49,7 +52,34 @@ export default function BottomBar({
     const { state: voteState, send: sendVote } = useVoteInvite(vote);
     const [flightFrom, setFlightFrom] = useState<FlightOrigin | null>(null);
     const landed = useCallback(() => setFlightFrom(null), []);
-    const rateFromInvite = useCallback((rating: number) => vote?.onRate(rating), [vote]);
+    // Toccata una stella la modale resta finché il foglio non è montato (il primo
+    // arriva da un pezzo a parte): niente istante vuoto fra le due.
+    // In ascolto prima di aprire: se il foglio è già montato avvisa nello stesso commit.
+    const [handoff, setHandoff] = useState(false);
+    const stopHandoff = useRef<(() => void) | null>(null);
+    const rateFromInvite = useCallback(
+        (rating: number, height: number) => {
+            stopHandoff.current?.();
+            const stopListening = onSheetShown(() => end(true));
+            const timer = window.setTimeout(() => end(false), HANDOFF_MAX_MS);
+            function end(shown: boolean) {
+                stopListening();
+                window.clearTimeout(timer);
+                stopHandoff.current = null;
+                setHandoff(false);
+                // Il foglio non è arrivato: il voto non resta appeso.
+                if (!shown) sendVote({ type: "formClosed" });
+            }
+            stopHandoff.current = () => {
+                stopListening();
+                window.clearTimeout(timer);
+            };
+            setHandoff(true);
+            vote?.onRate(rating, height);
+        },
+        [vote, sendVote]
+    );
+    useEffect(() => () => stopHandoff.current?.(), []);
 
     // Altezza reale → `--pub-bottombar-h` su `main.page`: da qui parte lo spazio in fondo
     // (`--pub-bottom-clearance`, scrim, toast). Non cambia quando la barra si nasconde.
@@ -89,27 +119,36 @@ export default function BottomBar({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, showStoryTab]);
 
-    // L'invito arriva o vola qui: la barra si deve vedere.
+    // Con la modale a vista la barra scende (mockup v38); il pulsante ci vola
+    // dentro, largo o stretto: la barra risale anche se lo scorrere l'aveva nascosta.
     const revealRef = useRef(vote?.reveal);
     revealRef.current = vote?.reveal;
-    const voteWide = voteState.phase === "parked" && voteState.wide;
+    const parked = voteState.phase === "parked";
     useEffect(() => {
-        if (voteState.phase === "invite" || voteWide) revealRef.current?.();
-    }, [voteState.phase, voteWide]);
+        if (parked) revealRef.current?.();
+    }, [parked]);
+    const inviteShown = !!vote && (voteState.phase === "invite" || handoff);
+    const barHidden = hidden || inviteShown;
 
     return (
         <>
-            {vote && voteState.phase === "invite" && (
+            {vote && inviteShown && (
                 <Suspense fallback={null}>
-                    <VoteInviteCard send={sendVote} onRate={rateFromInvite} onLeave={setFlightFrom} />
+                    <VoteInviteCard
+                        send={sendVote}
+                        onRate={rateFromInvite}
+                        onLeave={setFlightFrom}
+                        logoUrl={vote.logoUrl}
+                        venueName={vote.venueName}
+                    />
                 </Suspense>
             )}
             <div
                 ref={wrapRef}
                 className={styles.wrap}
-                data-hidden={hidden ? "true" : undefined}
-                inert={hidden}
-                aria-hidden={hidden ? true : undefined}
+                data-hidden={barHidden ? "true" : undefined}
+                inert={barHidden}
+                aria-hidden={barHidden ? true : undefined}
             >
                 {showStoryTab && (
                     <nav className={styles.capsula} aria-label={t("nav.bottom_aria")}>
@@ -148,12 +187,11 @@ export default function BottomBar({
                     </nav>
                 )}
 
-                {vote && (voteState.phase === "parked" || voteState.phase === "rating") && (
+                {vote && voteState.phase === "parked" && (
                     <Suspense fallback={null}>
                         <VoteButton
                             state={voteState}
                             send={sendVote}
-                            onRate={() => vote.onRate()}
                             flightFrom={flightFrom}
                             onLanded={landed}
                         />

@@ -41,7 +41,8 @@ test("Oggi apre gli Orari, il voto apre il foglio col voto già scelto", async (
     await expect(dialog).toHaveCount(0);
 
     await end.getByRole("button", { name: "4 stelle" }).click();
-    await expect(page.getByText("Cosa ti è piaciuto di più?")).toBeVisible();
+    await expect(dialog.getByText("Molto bene · 4 su 5")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "4 stelle" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("Allergeni e Caratteristiche nel foglio, coi piatti che li contengono", async ({ page }) => {

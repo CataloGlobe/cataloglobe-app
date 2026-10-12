@@ -4,18 +4,19 @@ import { openSheet, type SheetPage } from "../sheets/sheetStack";
 /**
  * Pagina del voto nel foglio unico (spec §11): `rate:<voto>`, 0 = ancora da scegliere.
  * Il voto sta nella chiave, così una stella diversa è una pagina nuova e il
- * modulo riparte da quel voto.
+ * modulo riparte da quel voto. È la modale piccola cresciuta: niente riga di
+ * testata, × sospesa; dall'invito entra già alta quanto la modale (`growFrom`).
  */
 export const RATE_PREFIX = "rate:";
 
-export function openRateSheet(rating?: number): void {
+export function openRateSheet(rating?: number, growFrom?: number): void {
     const value = rating && rating >= 1 && rating <= 5 ? Math.round(rating) : 0;
     openSheet({
         key: `${RATE_PREFIX}${value}`,
-        title: i18next.t("hub.reviews", { ns: "public" }),
+        title: i18next.t("page_end.rate_title", { ns: "public" }),
         size: "large",
-        // Il modulo ha già la sua domanda in testa.
-        titleHidden: true
+        floatingClose: true,
+        growFrom
     });
 }
 

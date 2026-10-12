@@ -693,7 +693,39 @@
     },
     "vote": {
         "button": "Valorar",
-        "dismiss_aria": "No, gracias"
+        "dismiss_aria": "No, gracias",
+        "helps": "Tu opinión ayuda a {{name}}",
+        "summary": "{{label}} · {{count}} de 5",
+        "labels": {
+            "1": "Mal",
+            "2": "Regular",
+            "3": "Bien",
+            "4": "Muy bien",
+            "5": "Excelente"
+        },
+        "topics_aria": "De qué quieres hablar",
+        "topics": {
+            "service": "Servicio",
+            "dishes": "Platos",
+            "atmosphere": "Ambiente",
+            "wait": "Espera"
+        },
+        "comment_placeholder": "¿Quieres añadir algo?",
+        "comment_aria": "¿Quieres añadir algo? Opcional",
+        "send": "Enviar",
+        "thanks_high": "¡Gracias!",
+        "thanks_high_text": "Tu opinión ha llegado a {{name}}.",
+        "thanks_low": "Gracias, se lo diremos al local",
+        "thanks_low_text": "{{name}} lee cada opinión y la usa para mejorar. Queda entre tú y el local.",
+        "share_title": "¿Te ha gustado? Cuéntaselo también a los demás",
+        "share_text": "Una reseña pública ayuda a que encuentren a {{name}}.",
+        "google_hint": "La ve quien busca en Google Maps",
+        "google_aria": "Deja una reseña en Google: se abre en una pestaña nueva",
+        "copy": "Copiar tu comentario",
+        "copied": "Copiado: pégalo en la reseña",
+        "copy_hint": "Las plataformas no se pueden rellenar de antemano: así no tienes que volver a escribirlo.",
+        "later": "Ahora no",
+        "close": "Cerrar"
     },
     "page_end": {
         "end_of_menu": "Fin del menú",

@@ -3568,7 +3568,15 @@ export default function CollectionView({
                 hidden: isBottomBarHidden,
                 // Senza Storia e senza ordini la barra c'è solo per il voto (spec §11).
                 vote: openRate && activityId
-                    ? { activityId, tableMoment, reviewed: reviewSent, onRate: openRate, reveal: revealBottomBar }
+                    ? {
+                          activityId,
+                          tableMoment,
+                          reviewed: reviewSent,
+                          onRate: openRate,
+                          reveal: revealBottomBar,
+                          logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
+                          venueName: businessName
+                      }
                     : undefined
             })}
             {isBottomBarMounted && !useBarSlot && (
@@ -3730,7 +3738,14 @@ export default function CollectionView({
                         onWaiterCalledAtChange: setWaiterCalledAt
                     }
                     : undefined,
-                rate: reviewsProps ? { props: reviewsProps, onSubmitted: markReviewed } : undefined
+                rate: reviewsProps
+                    ? {
+                          props: reviewsProps,
+                          onSubmitted: markReviewed,
+                          logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
+                          venueName: businessName
+                      }
+                    : undefined
             })}
 
             {isOrderingOpen && (

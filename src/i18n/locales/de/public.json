@@ -693,7 +693,39 @@
     },
     "vote": {
         "button": "Bewerten",
-        "dismiss_aria": "Nein danke"
+        "dismiss_aria": "Nein danke",
+        "helps": "Deine Meinung hilft {{name}}",
+        "summary": "{{label}} · {{count}} von 5",
+        "labels": {
+            "1": "Schlecht",
+            "2": "Geht so",
+            "3": "Gut",
+            "4": "Sehr gut",
+            "5": "Ausgezeichnet"
+        },
+        "topics_aria": "Worüber möchtest du sprechen",
+        "topics": {
+            "service": "Service",
+            "dishes": "Gerichte",
+            "atmosphere": "Atmosphäre",
+            "wait": "Wartezeit"
+        },
+        "comment_placeholder": "Möchtest du etwas hinzufügen?",
+        "comment_aria": "Möchtest du etwas hinzufügen? Optional",
+        "send": "Senden",
+        "thanks_high": "Danke!",
+        "thanks_high_text": "Deine Meinung ist bei {{name}} angekommen.",
+        "thanks_low": "Danke, wir geben es weiter",
+        "thanks_low_text": "{{name}} liest jede Meinung und nutzt sie, um besser zu werden. Sie bleibt zwischen dir und dem Lokal.",
+        "share_title": "Hat es dir gefallen? Erzähl es auch anderen",
+        "share_text": "Eine öffentliche Bewertung hilft {{name}}, gefunden zu werden.",
+        "google_hint": "Sichtbar für alle, die auf Google Maps suchen",
+        "google_aria": "Auf Google bewerten: öffnet sich in einem neuen Tab",
+        "copy": "Kommentar kopieren",
+        "copied": "Kopiert: füge ihn in die Bewertung ein",
+        "copy_hint": "Bewertungsseiten lassen sich nicht vorausfüllen: So musst du nichts neu schreiben.",
+        "later": "Nicht jetzt",
+        "close": "Schließen"
     },
     "page_end": {
         "end_of_menu": "Ende der Speisekarte",

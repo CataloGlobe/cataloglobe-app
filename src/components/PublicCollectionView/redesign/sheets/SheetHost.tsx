@@ -27,6 +27,7 @@ import {
 } from "./sheetMotion";
 import {
     closeSheet,
+    notifySheetShown,
     popSheetPage,
     takeSheetOpener,
     useSheetState,
@@ -145,6 +146,9 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
     const { t } = useTranslation("public");
     const state = useSheetState();
     const isOpen = state.pages.length > 0;
+    // Letta dall'entrata senza farne una dipendenza: conta solo all'apertura.
+    const growFrom = useRef<number | undefined>(undefined);
+    growFrom.current = state.pages[0]?.growFrom;
     const portalTarget = useContext(PublicPortalContext);
     const isMobile = useMediaQuery(PUBLIC_MOBILE_QUERY, mobileSubscribe);
     const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)", reducedSubscribe);
@@ -309,10 +313,14 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
         if (!panel) return;
         panel.style.transform = "";
         if (backdropRef.current) backdropRef.current.style.opacity = "";
+        // Dalla modale del voto: si vede già la sua parte alta, il resto cresce sotto.
+        // In percentuale: segue l'altezza vera anche se il contenuto arriva dopo.
+        const grow = growFrom.current;
+        const from = grow ? `translateY(calc(100% - ${Math.round(grow)}px))` : "translateY(100%)";
         play(
             panel,
             env.current.isMobile
-                ? [{ transform: "translateY(100%)" }, { transform: "translateY(0)" }]
+                ? [{ transform: from }, { transform: "translateY(0)" }]
                 : [
                       { opacity: 0, transform: "scale(0.97)" },
                       { opacity: 1, transform: "scale(1)" }
@@ -320,6 +328,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
             ENTER_DURATION_MS
         );
         play(backdropRef.current, [{ opacity: 0 }, { opacity: 1 }], ENTER_DURATION_MS);
+        notifySheetShown();
         // Un campo della pagina può aver già preso il fuoco (la ricerca, nel gesto
         // della lente): rubarlo chiuderebbe la tastiera su iOS.
         if (!panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
@@ -618,6 +627,13 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
                                 {activePage.title}
                             </h2>
                             {customHeader}
+                        </div>
+                    ) : activePage.floatingClose ? (
+                        <div className={styles.header} data-floating="">
+                            <h2 id="pub-sheet-title" className={styles.hiddenTitle}>
+                                {activePage.title}
+                            </h2>
+                            {closeButton}
                         </div>
                     ) : activePage.stacked ? (
                         // Scheda prodotto (mockup v38): «‹ Madre» sopra, nome che va a capo

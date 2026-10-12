@@ -693,7 +693,39 @@
     },
     "vote": {
         "button": "Rate",
-        "dismiss_aria": "No thanks"
+        "dismiss_aria": "No thanks",
+        "helps": "Your feedback helps {{name}}",
+        "summary": "{{label}} · {{count}} out of 5",
+        "labels": {
+            "1": "Bad",
+            "2": "So-so",
+            "3": "Good",
+            "4": "Very good",
+            "5": "Excellent"
+        },
+        "topics_aria": "What would you like to mention",
+        "topics": {
+            "service": "Service",
+            "dishes": "Dishes",
+            "atmosphere": "Atmosphere",
+            "wait": "Waiting time"
+        },
+        "comment_placeholder": "Anything to add?",
+        "comment_aria": "Anything to add? Optional",
+        "send": "Send",
+        "thanks_high": "Thank you!",
+        "thanks_high_text": "Your feedback has reached {{name}}.",
+        "thanks_low": "Thank you, we'll pass it on",
+        "thanks_low_text": "{{name}} reads every review and uses it to improve. It stays between you and the venue.",
+        "share_title": "Enjoyed it? Tell others too",
+        "share_text": "A public review helps {{name}} get found.",
+        "google_hint": "Seen by people searching on Google Maps",
+        "google_aria": "Leave a review on Google: opens in a new tab",
+        "copy": "Copy your comment",
+        "copied": "Copied: paste it into your review",
+        "copy_hint": "Review sites can't be prefilled: this way you don't have to retype it.",
+        "later": "Not now",
+        "close": "Close"
     },
     "page_end": {
         "end_of_menu": "End of the menu",

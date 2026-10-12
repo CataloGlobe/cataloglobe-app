@@ -94,6 +94,16 @@
   }
 }
 
+/* × sospesa in alto a destra, senza riga di testata (modale del voto, mockup v38). */
+.header[data-floating] {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  min-height: 0;
+  padding: 0;
+}
+
 /* Titolo della pagina con testata su misura: solo per i lettori di schermo. */
 .hiddenTitle {
   position: absolute;
@@ -289,6 +299,10 @@
   .header,
   .header[data-stacked] {
     padding: 14px 14px 8px 22px;
+  }
+
+  .header[data-floating] {
+    padding: 0;
   }
 
   /* A tendina sotto l'isola (la ricerca): posizione e larghezza misurate da SheetHost. */

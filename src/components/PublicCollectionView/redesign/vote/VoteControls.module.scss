@@ -1,26 +1,24 @@
 /* Invito al voto (spec §11). Solo telefono: sopra 640 px niente modale né pulsante.
    Mai backdrop-filter: la modale entra ed esce, il pulsante vola. */
 
-/* La modale piccola: sopra la barra, nessun velo, nessun blocco della pagina.
-   z-index sotto la barra (150) e sopra contenuto e scrim (100). */
+/* La modale piccola: nella geometria dei fogli (mockup v38), attaccata al fondo,
+   angoli in alto 26px; nessun velo, nessun blocco della pagina. La barra scende
+   finché c'è. Stesse misure di SheetHost (maniglia, ×, superficie): toccata una
+   stella il foglio entra al suo posto e sembra la stessa. */
 .card {
   position: fixed;
-  right: 12px;
-  bottom: calc(var(--pub-bottombar-bottom, 34px) + var(--pub-bottombar-h, 0px) + 12px);
-  left: 12px;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 140;
   box-sizing: border-box;
-  max-width: 360px;
-  margin: 0 auto;
-  padding: 18px 16px 14px;
-  border: 1px solid var(--pub-surface-border, rgb(0 0 0 / 7%));
-  border-radius: 22px;
-  background: var(--pub-surface, #fff);
-  color: var(--pub-surface-text, #171717);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 22%);
-  text-align: center;
+  border-radius: 26px 26px 0 0;
+  background: var(--pub-surface);
+  color: var(--pub-text);
+  box-shadow: 0 -14px 40px -18px rgb(0 0 0 / 50%);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   touch-action: none;
-  animation: entra 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation: entra 0.32s cubic-bezier(0.22, 1.14, 0.36, 1) backwards;
 
   /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts): solo telefono, ≤640 px. */
   @media (min-width: 641px) {
@@ -28,22 +26,45 @@
   }
 }
 
+/* SYNC con .handle di SheetHost.module.scss */
+.handle {
+  display: block;
+  width: 36px;
+  height: 5px;
+  margin: 8px auto 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--pub-text) 24%, transparent);
+}
+
+/* SYNC con .closeButton e .header[data-floating] di SheetHost.module.scss */
 .close {
   position: absolute;
   top: 6px;
   right: 6px;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
   background: transparent;
-  color: color-mix(in srgb, var(--pub-surface-text, #171717) 62%, transparent);
+  color: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--pub-text) 9%, transparent);
+  }
+
+  svg {
+    position: relative;
+  }
 
   &:focus-visible {
     outline: 2px solid var(--pub-accent, var(--pub-primary));
@@ -51,49 +72,9 @@
   }
 }
 
-.title {
-  margin: 0 36px 4px;
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.subtitle {
-  margin: 0 0 10px;
-  color: color-mix(in srgb, var(--pub-surface-text, #171717) 62%, transparent);
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.stars {
-  display: flex;
-  justify-content: center;
-  gap: 2px;
-}
-
-.star {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: var(--pub-accent, var(--pub-primary));
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s ease;
-
-  &:active {
-    transform: scale(var(--pub-press-scale, 0.94));
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--pub-accent, var(--pub-primary));
-    outline-offset: -2px;
-  }
+/* SYNC con .body di VoteForm.module.scss */
+.body {
+  padding: 4px 20px 18px;
 }
 
 /* Il pulsante nella barra: alto come il cerchio dell'ordine, largo 155 o 88. */
@@ -143,13 +124,7 @@
 
 @keyframes entra {
   from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateY(100%);
   }
 }
 

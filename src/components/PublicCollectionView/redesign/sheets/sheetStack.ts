@@ -26,6 +26,18 @@ export type SheetPage = {
      */
     stacked?: boolean;
     /**
+     * Niente riga di testata: la × sta sospesa in alto a destra e il corpo parte
+     * sotto la maniglia (modale del voto, mockup v38). Il titolo resta per i
+     * lettori di schermo.
+     */
+    floatingClose?: boolean;
+    /**
+     * Solo telefono, sulla prima pagina: il foglio entra già alto questi px e
+     * cresce, invece di salire dal fondo. È la modale piccola del voto che
+     * diventa modulo: la stessa testata, al posto suo (spec §11).
+     */
+    growFrom?: number;
+    /**
      * Chi sta sopra torna qui col nome: «‹ Info e orari» invece della sola freccia.
      * Solo dove il ritorno non è ovvio: link diretto a una figlia (Orari dalla
      * pillola), elenco «In evidenza», un piatto sotto l'altro (mockup v38).
@@ -136,6 +148,21 @@ export function subscribeSheet(listener: () => void): () => void {
     return () => {
         listeners.delete(listener);
     };
+}
+
+/**
+ * Il pannello è montato e sta entrando. Il primo foglio arriva da un pezzo a
+ * parte: chi gli passa il posto (la modale del voto) resta a vista fino a qui.
+ */
+const shownListeners = new Set<() => void>();
+
+export function onSheetShown(listener: () => void): () => void {
+    shownListeners.add(listener);
+    return () => shownListeners.delete(listener);
+}
+
+export function notifySheetShown(): void {
+    for (const listener of [...shownListeners]) listener();
 }
 
 export function useSheetState(): SheetState {

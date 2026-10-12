@@ -4,8 +4,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
 /**
  * Invito al voto nel redesign (PR 8b, spec §11): dopo la permanenza (20 s con
  * `?prova-voto=1`) e un ritorno in cima arriva la modale piccola, senza velo.
- * × = «no grazie»; ignorata vola nella barra come «Com'è andata?», poi «Vota»;
- * una stella apre il modulo nel foglio unico. Pagina servita da stub, orologio finto.
+ * × = «no grazie»; ignorata vola nella barra come «Com'è andata?», poi «Vota»,
+ * che riapre la modale; una stella fa crescere la modale nel modulo (mockup v38),
+ * con le scelte rapide in testa al commento (D71). Pagina servita da stub, orologio finto.
  *
  * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
  * e2e/voto-invito-redesign.spec.ts`.
@@ -80,21 +81,31 @@ test("ignorata vola nella barra, si stringe, e dal pulsante si vota", async ({ p
     const narrow = page.getByRole("button", { name: "Vota", exact: true });
     await expect(narrow).toBeVisible();
 
+    // «Vota» riapre la modale piccola; ignorata di nuovo, torna stretto.
     await narrow.click();
-    const sheet = page.getByRole("dialog");
-    await expect(sheet.getByRole("heading", { name: "Come è stata la tua esperienza?" })).toBeVisible();
+    await expect(invite(page)).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.keyboard.press("Escape");
-    await expect(sheet).toHaveCount(0);
+    await expect(invite(page)).toHaveCount(0);
     await expect(narrow).toBeVisible();
 });
 
 test("una stella apre il modulo col voto; dopo l'invio il pulsante non c'è e il fondo ringrazia", async ({ page }) => {
+    let sent: { rating?: number; comment?: string } = {};
+    await page.route("**/functions/v1/submit-review**", route => {
+        sent = route.request().postDataJSON();
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
+    });
     await arriveInvite(page);
     await invite(page).getByRole("button", { name: "4 stelle" }).click();
-    const sheet = page.getByRole("dialog");
-    await expect(sheet.getByText("Cosa ti è piaciuto di più?")).toBeVisible();
-    await sheet.getByRole("button", { name: "Invia feedback" }).click();
-    await expect(sheet.getByRole("heading", { name: "Grazie per il tuo feedback!" })).toBeVisible();
+    // La modale è cresciuta nel modulo: stessa domanda, il voto scritto sotto.
+    const sheet = page.getByRole("dialog", { name: "Com'è andata?" });
+    await expect(sheet.getByText("Molto bene · 4 su 5")).toBeVisible();
+    await sheet.getByRole("button", { name: "Servizio" }).click();
+    await sheet.getByRole("textbox", { name: /Vuoi aggiungere qualcosa/ }).fill("Tutto ottimo");
+    await sheet.getByRole("button", { name: "Invia", exact: true }).click();
+    await expect(sheet.getByRole("heading", { name: "Grazie!" })).toBeVisible();
+    expect(sent).toMatchObject({ rating: 4, comment: "Servizio: Tutto ottimo" });
     await page.keyboard.press("Escape");
     await expect(sheet).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^(Vota|Com'è andata\?)$/ })).toHaveCount(0);

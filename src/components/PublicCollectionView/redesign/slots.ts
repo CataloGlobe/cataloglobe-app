@@ -83,8 +83,11 @@ export type VoteSlotContext = {
     tableMoment: number;
     /** Voto inviato in questa visita (anche dal fondo). */
     reviewed: boolean;
-    /** Apre il modulo del voto nel foglio, col voto già scelto se c'è. */
-    onRate: (rating?: number) => void;
+    /** Apre il modulo del voto nel foglio, col voto scelto; dall'invito cresce dalla sua altezza. */
+    onRate: (rating?: number, growFrom?: number) => void;
+    /** Logo e nome del locale nella testata della modale (mockup v38). */
+    logoUrl: string | null;
+    venueName: string;
     /** Rimostra la barra: l'invito vola dentro, il pulsante largo si deve vedere. */
     reveal: () => void;
 };
@@ -194,8 +197,8 @@ export type SheetsSlotContext = {
     };
     /** Foglio «Il tuo ordine · Tavolo N» (spec §7): solo col QR del tavolo. */
     ordering?: OrderingContext;
-    /** Modulo del voto nel foglio (spec §11): lo stesso di oggi, aperto da invito, barra e fondo. */
-    rate?: { props: ReviewsViewProps; onSubmitted: () => void };
+    /** Modulo del voto nel foglio (spec §11): la modale piccola cresciuta, aperta dall'invito e dal fondo. */
+    rate?: { props: ReviewsViewProps; onSubmitted: () => void; logoUrl: string | null; venueName: string };
 };
 
 /** Il carrello e il tavolo, tenuti da `CollectionView` (stessa selezione e stessa sessione di oggi). */
@@ -236,7 +239,7 @@ export type SheetsSlot = {
     /** «Aggiunto · nome» con Annulla, anche per il + della lista (spec §7). */
     notifyAdded?: (name: string, undo: () => void) => void;
     /** Il modulo del voto nel foglio, col voto già scelto se c'è (spec §11). */
-    openRate?: (rating?: number) => void;
+    openRate?: (rating?: number, growFrom?: number) => void;
     /** Prenota a passi nel foglio; assente = la pagina `/:slug/prenota` di oggi. */
     openBooking?: () => void;
     /** Preferenze dei Filtri (Vegetariano, Vegano, Piccante), in aggiunta agli allergeni. */
