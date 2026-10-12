@@ -6092,6 +6092,25 @@ export type Database = {
           r_residual_qty: number
         }[]
       }
+      get_reservation_capacity_check: {
+        Args: {
+          p_activity_id: string
+          p_exclude_reservation_id?: string
+          p_party_size: number
+          p_reservation_date: string
+          p_reservation_time: string
+        }
+        Returns: {
+          capacity: number | null
+          duration_minutes: number
+          pacing_bucket_bookings: number
+          pacing_bucket_covers: number
+          pacing_max_bookings: number | null
+          pacing_max_covers: number | null
+          pacing_slot_minutes: number
+          peak_with_candidate: number
+        }[]
+      }
       get_reservation_day_availability: {
         Args: {
           p_activity_id: string
