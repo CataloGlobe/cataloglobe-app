@@ -59,7 +59,7 @@ export function places(xs: readonly (number | undefined)[]): number[] {
  * vuole il suo genitore, e una portata fuori non deve sparire col suo), poi le
  * categorie tolte, e solo alla fine i piatti.
  */
-export async function saveSezioni(sections: readonly Section[], origSections: readonly Section[], catalogId: string, tenantId: string) {
+export async function saveSezioni(sections: readonly Section[], origSections: readonly Section[], catalogId: string, tenantId: string, once: Once = always) {
     const was = new Map(allSecs(origSections).map(({ sec, path }) => [sec.id!, { sec, parent: path[path.length - 2]?.id ?? null, level: path.length }]));
     const wasIn = new Map<string, string>();
     for (const { sec } of allSecs(origSections)) for (const d of sec.dishes) wasIn.set(d.linkId!, sec.id!);
@@ -101,7 +101,8 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
                 if (d.sort !== sort[j]) await updateProductSortOrder(d.linkId!, tenantId, sort[j]);
                 continue;
             }
-            const productId = await productOf(d, tenantId);
+            // il prodotto nuovo si ricorda per piatto: al «Riprova» non nasce una seconda volta
+            const productId = await productOf(d, tenantId, once, `edit:${d.key}`);
             // una variante sta nel menù col suo prodotto e sé stessa accanto
             await addProductToCategory(tenantId, catalogId, idOf.get(sec)!, d.parentId ?? productId, sort[j], d.parentId ? productId : null);
         }
