@@ -16,8 +16,8 @@ const CUSTOMER_MS = 900;
  * 3 · Un piatto è finito. Il branzino parte «Disponibile»; all'ingresso nello
  * schermo l'interruttore passa su «Esaurito» e nel menù del cliente la riga
  * diventa «Non disponibile». Poi l'interruttore è libero. Uscito del tutto
- * dallo schermo torna «Disponibile» e al rientro rifà il passaggio, se
- * nessuno ha toccato l'interruttore. Con `prefers-reduced-motion` parte già
+ * dallo schermo torna «Disponibile» e al rientro rifà il passaggio, anche se
+ * l'interruttore era stato toccato. Con `prefers-reduced-motion` parte già
  * esaurito.
  */
 export default function SoldOut() {
@@ -28,7 +28,7 @@ export default function SoldOut() {
     const [played, setPlayed] = useState(false);
     const [touched, setTouched] = useState(false);
     const visible = useVisible(ref, 0.4, () => {
-        if (touched) return;
+        setTouched(false);
         setPhone(false);
         setCustomer(false);
         setPlayed(false);
@@ -67,14 +67,17 @@ export default function SoldOut() {
             visualSide="left"
             visual={
                 <>
+                    <p className={styles.hint}>{SOLD_OUT.hint}</p>
                     <div ref={ref}>
                         <PhoneQrCard
                             dish={SOLD_OUT.dish}
                             paper="phone"
                             control={
                                 <>
-                                    <span className={cx(styles.state, soldOut && styles.stateOff)} aria-hidden="true">
-                                        {soldOut ? SOLD_OUT.soldOut : SOLD_OUT.available}
+                                    {/* Le due parole sempre nella stessa cella, allineate a destra: la larghezza non cambia e la parola non salta. */}
+                                    <span className={styles.state} aria-hidden="true">
+                                        <span className={cx(styles.word, !soldOut && styles.wordOn)}>{SOLD_OUT.available}</span>
+                                        <span className={cx(styles.word, styles.wordOff, soldOut && styles.wordOn)}>{SOLD_OUT.soldOut}</span>
                                     </span>
                                     <button
                                         type="button"
@@ -103,7 +106,6 @@ export default function SoldOut() {
                             })}
                         </PhoneQrCard>
                     </div>
-                    <p className={styles.hint}>{SOLD_OUT.hint}</p>
                 </>
             }
         />

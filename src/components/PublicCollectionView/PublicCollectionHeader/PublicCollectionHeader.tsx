@@ -126,7 +126,7 @@ export default function PublicCollectionHeader({
     catalogName,
     showCatalogName = false,
     coverImageUrl,
-    showCoverImage,
+    showCoverImage: showCoverSetting,
     showLogo,
     mode,
     onSearchOpen,
@@ -150,6 +150,10 @@ export default function PublicCollectionHeader({
     previewDevice,
     frozen = false,
 }: PublicCollectionHeaderProps) {
+    // D14: in pubblico una copertina accesa ma senza foto vale come spenta
+    // (niente blocco vuoto, header piatto). In anteprima resta il segnaposto,
+    // che invita a caricare la foto.
+    const showCoverImage = showCoverSetting && (!!coverImageUrl || mode === "preview");
     const { t } = useTranslation("public");
     const prefersReducedMotion = useReducedMotion();
     // Aggiornato sincronicamente ad ogni render: già true prima degli scroll
@@ -332,12 +336,11 @@ export default function PublicCollectionHeader({
                                 />
                             );
                         })()
-                    ) : mode === "preview" ? (
+                    ) : (
+                        // Solo anteprima: in pubblico senza foto la cover non c'è.
                         <div className={styles.coverPlaceholder} aria-hidden>
                             <ImageIcon size={32} strokeWidth={1.5} />
                         </div>
-                    ) : (
-                        <div className={styles.coverPlaceholder} aria-hidden />
                     )}
                 </div>
             )}
@@ -349,10 +352,15 @@ export default function PublicCollectionHeader({
                 ref={headerRef}
                 className={styles.root}
                 data-cover={showCoverImage || undefined}
+                data-flat={!showCoverImage || undefined}
                 data-bottombar={mode === "public" || undefined}
                 data-preview-device={mode === "preview" ? previewDevice : undefined}
                 style={
-                    engaged
+                    // Variante piatta (senza cover): già a tutta larghezza e senza
+                    // raggio, niente lerp né inline style (tutto dal CSS).
+                    !showCoverImage
+                        ? undefined
+                        : engaged
                         ? {
                               top: currentTopOffset,
                               marginLeft: currentMargin,
@@ -539,8 +547,8 @@ export default function PublicCollectionHeader({
                 </div>
             </header>
 
-            {/* Animated gap between header and pill bar */}
-            <div aria-hidden style={{ height: currentGap }} />
+            {/* Animated gap between header and pill bar (variante piatta: già a 0) */}
+            <div aria-hidden style={{ height: showCoverImage ? currentGap : 0 }} />
         </>
     );
 }

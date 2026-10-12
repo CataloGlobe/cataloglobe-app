@@ -12,6 +12,7 @@
  *   cataloglobe:{env}:status:v1:current                    JSON StatusCurrent
  *   cataloglobe:{env}:status:v1:uptime:{service}:{YYYY-MM-DD}  hash up|degraded|down → conteggio
  *   cataloglobe:{env}:status:v1:alert:{service}            JSON AlertState
+ *   cataloglobe:{env}:status:v1:history                    JSON UptimeHistory (giorni chiusi, 1 volta al giorno)
  *
  * Giorni in UTC, come la vecchia aggregazione `get_daily_uptime`.
  * Timeout: quello del client condiviso (`getRedis`, REDIS_TIMEOUT_MS).
@@ -170,22 +171,113 @@ export async function readCurrent(): Promise<StatusCurrent | null> {
 }
 
 /**
- * Uptime degli ultimi `days` giorni per ogni servizio, in un'unica pipeline.
- * Giorni senza chiave → `unknown`. Lancia su errore Redis.
+ * Riepilogo dei giorni chiusi (fino a ieri, UTC), ricalcolato una volta al
+ * giorno. I giorni passati non cambiano più: rileggerli a ogni richiesta
+ * costava 4 × 89 HGETALL, e una pagina di stato lasciata aperta ha
+ * esaurito da sola la quota mensile di Upstash (ottobre 2026).
+ */
+export type UptimeHistory = {
+    /** Ultimo giorno compreso (ieri rispetto a quando è stato calcolato). */
+    through: string;
+    days: Record<ServiceKey, DailyBucket[]>;
+};
+
+/** Due giorni: basta a coprire il cambio di giorno, poi si ricalcola. */
+const HISTORY_TTL_SECONDS = 2 * 24 * 60 * 60;
+
+export function historyKey(): string {
+    return `${prefix()}:history`;
+}
+
+/**
+ * Il riepilogo vale se copre esattamente i giorni chiusi richiesti (stesso
+ * primo e ultimo giorno, stessa lunghezza) per tutti i servizi. Se cambia la
+ * finestra (UPTIME_DAYS) si ricalcola invece di mostrare giorni vuoti.
+ */
+export function isHistoryFresh(
+    history: UptimeHistory | null | undefined,
+    pastDays: string[]
+): history is UptimeHistory {
+    if (!history || !history.days) return false;
+    if (history.through !== pastDays[pastDays.length - 1]) return false;
+    return SERVICE_KEYS.every(s => {
+        const buckets = history.days[s];
+        return (
+            Array.isArray(buckets) &&
+            buckets.length === pastDays.length &&
+            buckets[0]?.date === pastDays[0]
+        );
+    });
+}
+
+/** Giorni chiusi (riepilogo) + oggi (contatori vivi) → finestra completa. */
+export function mergeUptime(
+    pastDays: string[],
+    today: string,
+    history: UptimeHistory | null,
+    todayCounts: Array<Record<string, unknown> | null>
+): Record<ServiceKey, DailyBucket[]> {
+    const out = {} as Record<ServiceKey, DailyBucket[]>;
+    SERVICE_KEYS.forEach((service, si) => {
+        const byDate = new Map((history?.days[service] ?? []).map(b => [b.date, b]));
+        out[service] = [
+            ...pastDays.map(day => byDate.get(day) ?? bucketFromCounts(day, null)),
+            bucketFromCounts(today, todayCounts[si])
+        ];
+    });
+    return out;
+}
+
+/** Rilegge i contatori dei giorni chiusi e salva il riepilogo (best-effort). */
+async function rebuildHistory(pastDays: string[]): Promise<UptimeHistory> {
+    const redis = getRedis();
+    const p = redis.pipeline();
+    for (const service of SERVICE_KEYS) {
+        for (const day of pastDays) p.hgetall(uptimeKey(service, day));
+    }
+    const raw = (await p.exec()) as Array<Record<string, unknown> | null>;
+    const days = {} as Record<ServiceKey, DailyBucket[]>;
+    SERVICE_KEYS.forEach((service, si) => {
+        days[service] = pastDays.map((day, di) =>
+            bucketFromCounts(day, raw[si * pastDays.length + di])
+        );
+    });
+    const history: UptimeHistory = { through: pastDays[pastDays.length - 1], days };
+    try {
+        await redis.set(historyKey(), history, { ex: HISTORY_TTL_SECONDS });
+    } catch (err) {
+        logRedisError("write_history", err);
+    }
+    return history;
+}
+
+/**
+ * Uptime degli ultimi `days` giorni per ogni servizio. Di solito 5 comandi
+ * (riepilogo + 4 HGETALL di oggi); i giorni chiusi si ricalcolano alla
+ * prima lettura del giorno. Giorni senza chiave → `unknown`. Lancia su
+ * errore Redis.
  */
 export async function readUptime(
     now: Date,
     days = UPTIME_DAYS
 ): Promise<Record<ServiceKey, DailyBucket[]>> {
     const dayList = lastUtcDays(now, days);
+    const today = dayList[dayList.length - 1];
+    const pastDays = dayList.slice(0, -1);
+
     const p = getRedis().pipeline();
-    for (const service of SERVICE_KEYS) {
-        for (const day of dayList) p.hgetall(uptimeKey(service, day));
+    p.get(historyKey());
+    for (const service of SERVICE_KEYS) p.hgetall(uptimeKey(service, today));
+    const [historyRaw, ...todayCounts] = (await p.exec()) as [
+        UptimeHistory | null,
+        ...Array<Record<string, unknown> | null>
+    ];
+
+    let history: UptimeHistory | null = null;
+    if (pastDays.length > 0) {
+        history = isHistoryFresh(historyRaw, pastDays)
+            ? historyRaw
+            : await rebuildHistory(pastDays);
     }
-    const raw = (await p.exec()) as Array<Record<string, unknown> | null>;
-    const out = {} as Record<ServiceKey, DailyBucket[]>;
-    SERVICE_KEYS.forEach((service, si) => {
-        out[service] = dayList.map((day, di) => bucketFromCounts(day, raw[si * dayList.length + di]));
-    });
-    return out;
+    return mergeUptime(pastDays, today, history, todayCounts);
 }

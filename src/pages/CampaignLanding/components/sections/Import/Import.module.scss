@@ -3,7 +3,7 @@
 .grid {
     @include desktop {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
         gap: ld-fluid-desk(48, 80);
         align-items: center;
     }
@@ -50,316 +50,413 @@
     }
 }
 
-// ── Palco: foto di carta + scheda sovrapposte ───────────────────────────────
+// ── Palco: foglio storto sul tavolo + scheda sfalsata sotto ─────────────────
+$paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .32 0 0 0 0 .2 0 0 0 .08 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+
 .stage {
     position: relative;
-    height: 420px;
+    padding: 4px 0 2px;
 
     @include desktop {
-        height: 372px;
+        display: flex;
+        align-items: flex-start;
+        padding: 8px 0;
     }
 }
 
-.photo {
-    position: absolute;
-    z-index: 1;
-    left: 8px;
-    top: 6px;
-    width: 176px;
-    overflow: hidden;
-    border-radius: 3px;
-    transform: rotate(-5deg);
-    box-shadow:
-        0 1px 0 rgba(0, 0, 0, 0.04),
-        0 18px 36px rgba(21, 20, 43, 0.2);
-
-    @include desktop {
-        left: 0;
-        top: 0;
-        width: 220px;
-    }
-}
-
-.paper {
+.sheetWrap {
     position: relative;
-    height: 214px;
-    box-sizing: border-box;
-    padding: 11px;
-    overflow: hidden;
-    background:
-        linear-gradient(160deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 40%, rgba(120, 90, 50, 0.06) 100%),
-        var(--ld-illo-paper-bg);
-    color: var(--ld-illo-paper-ink);
+    width: 232px;
+    margin-left: 4px;
+    perspective: 900px;
 
     @include desktop {
-        height: 250px;
-        padding: 14px;
+        flex-shrink: 0;
+        width: ld-fluid-desk(220, 256);
+        margin-left: 6px;
     }
 }
 
-.paperTitle {
+.sheet {
+    position: relative;
+    aspect-ratio: 3 / 3.7;
+    box-sizing: border-box;
+    padding: 16px 16px 14px;
+    border-radius: 3px;
+    background:
+        $paper-grain,
+        radial-gradient(120% 80% at 20% 0%, #FFFDF6 0%, var(--ld-illo-paper-bg) 55%, #EDE2C8 100%);
+    color: var(--ld-illo-paper-ink);
+    box-shadow:
+        0 1px 1px rgba(60, 40, 10, 0.12),
+        0 18px 34px -10px rgba(40, 30, 80, 0.35),
+        0 4px 10px rgba(40, 30, 80, 0.12);
+    transform-origin: 50% 60%;
+    transform: rotateX(16deg) rotateZ(-7deg) translateY(4px);
+    transition: transform 900ms var(--ld-ease);
+
+    // piega del foglio
+    &::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 47%;
+        height: 14px;
+        background: linear-gradient(180deg, rgba(120, 90, 40, 0), rgba(120, 90, 40, 0.09) 50%, rgba(255, 255, 255, 0.35) 52%, rgba(255, 255, 255, 0));
+        pointer-events: none;
+    }
+
+    @include desktop {
+        aspect-ratio: 3 / 4.1;
+        padding: 22px 22px 18px;
+    }
+}
+
+.straight .sheet {
+    transform: none;
+}
+
+.sheetTitle {
     @include ld-serif;
     text-align: center;
-    font-size: 13px;
+    font-size: 17px;
+    line-height: 1;
+    letter-spacing: 0.02em;
 
     @include desktop {
-        font-size: 15px;
+        font-size: 22px;
     }
 }
 
-.paperCat {
-    margin-top: 6px;
-    font-size: 7px;
+.sheetOrn {
+    display: block;
+    width: 46px;
+    height: 6px;
+    margin: 5px auto 8px;
+    fill: none;
+    stroke: var(--ld-illo-paper-muted);
+    stroke-width: 0.8;
+}
+
+.sheetCat {
+    margin-top: 10px;
+    font-size: 7.5px;
     font-weight: 700;
-    letter-spacing: 0.14em;
+    line-height: 1;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
     color: var(--ld-illo-paper-muted);
 
     @include desktop {
-        margin-top: 8px;
-        font-size: 8px;
+        font-size: 9px;
     }
 }
 
-.paperDish {
+.sheetDish {
     position: relative;
     display: flex;
     align-items: baseline;
     gap: 4px;
-    margin: 0 -4px;
-    padding: 0 4px;
-    border-radius: 3px;
+    margin-top: 3px;
     font-family: var(--ld-font-serif);
-    font-size: 9.5px;
     font-style: italic;
+    font-size: 11.5px;
+    line-height: 1.25;
 
     @include desktop {
-        font-size: 11px;
-    }
-
-    // Evidenziatura del piatto letto: solo opacità.
-    &::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        background: rgba(155, 152, 240, 0.35);
-        opacity: 0;
-        transition: opacity 400ms ease;
-    }
-
-    > span {
-        position: relative;
+        margin-top: 4px;
+        font-size: 14px;
     }
 }
 
-.paperDishOn::before {
-    opacity: 1;
-}
-
-.paperDots {
-    flex-grow: 1;
-    border-bottom: 1px dotted var(--ld-illo-paper-dots);
+.sheetDots {
+    flex: 1;
+    border-bottom: 1px dotted rgba(74, 63, 53, 0.45);
     transform: translateY(-3px);
 }
 
-.paperFoot {
+.sheetPrice {
+    font-style: normal;
+    font-size: 10.5px;
+
+    @include desktop {
+        font-size: 13px;
+    }
+}
+
+// riquadro del testo letto, come il testo dal vivo della fotocamera
+.ocr {
     position: absolute;
-    left: 11px;
-    right: 11px;
+    inset: -2px -3px;
+    border-radius: 4px;
+    border: 1.5px solid var(--ld-azione);
+    background: rgba(70, 72, 198, 0.08);
+    opacity: 0;
+    transform: scale(0.96);
+    transition:
+        opacity 220ms ease,
+        transform 300ms var(--ld-ease);
+}
+
+.sheetDishRead .ocr {
+    opacity: 1;
+    transform: none;
+}
+
+.sheetDishDone .ocr {
+    opacity: 0;
+    transform: none;
+    transition-duration: 600ms;
+}
+
+.stain {
+    position: absolute;
+    right: 14px;
+    bottom: 34px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 2px solid rgba(150, 100, 40, 0.13);
+    box-shadow: inset 0 0 6px rgba(150, 100, 40, 0.08);
+    transform: rotate(20deg) scaleX(0.92);
+}
+
+.sheetFoot {
+    position: absolute;
+    left: 16px;
+    right: 16px;
     bottom: 12px;
     text-align: center;
     font-family: var(--ld-font-serif);
     font-style: italic;
+    font-size: 8.5px;
+    line-height: 1.4;
     color: var(--ld-illo-paper-muted);
 
     @include desktop {
-        left: 14px;
-        right: 14px;
+        left: 22px;
+        right: 22px;
         bottom: 16px;
+        font-size: 10.5px;
     }
 }
 
-.paperRule {
+.sheetRule {
+    display: block;
     width: 34px;
+    height: 1px;
     margin: 0 auto 5px;
-    border-top: 1px solid var(--ld-illo-paper-rule);
-
-    @include desktop {
-        margin-bottom: 6px;
-    }
+    background: var(--ld-illo-paper-rule);
 }
 
-.paperFootLine {
-    font-size: 8.5px;
-
-    @include desktop {
-        font-size: 10px;
-    }
-}
-
-.paperFootNote {
-    margin-top: 2px;
-    font-size: 7.5px;
-
-    @include desktop {
-        font-size: 8.5px;
-    }
-}
-
-// Linea di scansione: il binario è alto quanto il foglio, così translateY in %
-// corrisponde alla posizione sul foglio.
-.scanTrack {
+// lampo dentro il foglio: segue la sua inclinazione
+.flash {
     position: absolute;
     inset: 0;
+    z-index: 3;
+    border-radius: inherit;
+    background: #FFFFFF;
+    opacity: 0;
     pointer-events: none;
-    transition: transform 300ms linear;
 }
 
-@each $y in 12, 26, 37, 47, 59, 100 {
-    .scanTrack[data-y="#{$y}"] {
-        transform: translateY(#{$y * 1%});
+.flashOn {
+    @include motion-ok {
+        animation: ld-import-flash 620ms ease-out;
     }
 }
 
-.scan {
-    height: 2px;
-    background: var(--ld-azione);
-    box-shadow: 0 0 12px 3px rgba(70, 72, 198, 0.45);
-    opacity: 0;
-    transition: opacity 250ms ease;
+@keyframes ld-import-flash {
+    0% { opacity: 0; }
+    12% { opacity: 0.85; }
+    100% { opacity: 0; }
 }
 
-.scanOn {
-    opacity: 1;
-}
-
-.frame {
+// mirino della fotocamera
+.finder {
     position: absolute;
-    inset: 0;
-    pointer-events: none;
+    inset: -14px -12px;
     opacity: 0;
-    transform: scale(1.06);
-    transition:
-        opacity 250ms ease,
-        transform 300ms var(--ld-ease);
+    pointer-events: none;
+    transition: opacity 320ms ease;
 }
 
-.frameOn {
+.finderOn {
     opacity: 1;
-    transform: scale(1);
+
+    .corner {
+        @include motion-ok {
+            animation: ld-import-lock 700ms var(--ld-ease) both;
+        }
+    }
+}
+
+@keyframes ld-import-lock {
+    from {
+        opacity: 0;
+        transform: scale(1.18);
+    }
 }
 
 .corner {
     position: absolute;
-    width: 16px;
-    height: 16px;
-    border: 0 solid var(--ld-azione);
+    width: 22px;
+    height: 22px;
+    border: 0 solid #FFFFFF;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
 }
 
-.cTL {
-    left: 8px;
-    top: 8px;
-    border-left-width: 2.5px;
-    border-top-width: 2.5px;
-    border-radius: 4px 0 0 0;
-}
+.cTL { left: 0; top: 0; border-left-width: 3px; border-top-width: 3px; border-top-left-radius: 8px; }
+.cTR { right: 0; top: 0; border-right-width: 3px; border-top-width: 3px; border-top-right-radius: 8px; }
+.cBL { left: 0; bottom: 0; border-left-width: 3px; border-bottom-width: 3px; border-bottom-left-radius: 8px; }
+.cBR { right: 0; bottom: 0; border-right-width: 3px; border-bottom-width: 3px; border-bottom-right-radius: 8px; }
 
-.cTR {
-    right: 8px;
-    top: 8px;
-    border-right-width: 2.5px;
-    border-top-width: 2.5px;
-    border-radius: 0 4px 0 0;
-}
-
-.cBL {
-    left: 8px;
-    bottom: 8px;
-    border-left-width: 2.5px;
-    border-bottom-width: 2.5px;
-    border-radius: 0 0 0 4px;
-}
-
-.cBR {
-    right: 8px;
-    bottom: 8px;
-    border-right-width: 2.5px;
-    border-bottom-width: 2.5px;
-    border-radius: 0 0 4px 0;
-}
-
-.flash {
+.shutter {
     position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: var(--ld-white);
-    opacity: 0;
-    transition: opacity 350ms ease;
+    left: 50%;
+    bottom: 14px;
+    width: 38px;
+    height: 38px;
+    margin-left: -19px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 3px solid #FFFFFF;
+    background: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 2px 8px rgba(30, 20, 80, 0.3);
+
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 4px;
+        border-radius: 50%;
+        background: #FFFFFF;
+        transition: transform 150ms ease;
+    }
 }
 
-.flashOn {
-    opacity: 0.85;
-    transition-duration: 60ms;
+.finderPress .shutter::after {
+    transform: scale(0.78);
+}
+
+// nome che vola dal foglio alla scheda (creato da flyName)
+.ghost {
+    position: absolute;
+    z-index: 5;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    box-shadow: 0 6px 14px -4px rgba(70, 72, 198, 0.6);
+    pointer-events: none;
 }
 
 // ── Scheda «Dalla foto al menù» ─────────────────────────────────────────────
-.card {
-    position: absolute;
+.right {
+    position: relative;
     z-index: 2;
-    right: 0;
-    top: 150px;
-    width: 296px;
+
+    @include desktop {
+        flex: 1;
+        min-width: 0;
+        margin: 72px 0 0 -14px;
+    }
+}
+
+.card {
+    width: calc(100% - 26px);
+    max-width: 330px;
+    margin: -54px 0 0 auto;
     overflow: hidden;
     border-radius: 18px;
     background: var(--ld-white);
-    border: 1px solid var(--ld-line);
-    box-shadow: 0 24px 50px rgba(21, 20, 43, 0.14);
+    box-shadow:
+        0 0 0 1px rgba(30, 30, 80, 0.06),
+        0 24px 44px -16px rgba(40, 30, 110, 0.35);
 
     @include desktop {
-        top: 96px;
-        width: 370px;
+        width: auto;
+        max-width: 400px;
+        margin: 0;
     }
 }
 
 .cardHead {
     display: flex;
     align-items: center;
-    gap: 9px;
-    padding: 13px 16px;
+    gap: 10px;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--ld-line);
 }
 
-.camera {
+.thumb {
+    position: relative;
     flex-shrink: 0;
-    fill: none;
-    stroke: var(--ld-note-icon);
-    stroke-width: 2.2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    width: 30px;
+    height: 38px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: radial-gradient(120% 80% at 20% 0%, #FFFDF6, var(--ld-illo-paper-bg) 55%, #EADFC4);
+    box-shadow: 0 0 0 1px rgba(60, 40, 10, 0.15);
+    transform: scale(0);
+    transition: transform 500ms var(--ld-ease-pop);
+
+    i {
+        position: absolute;
+        left: 6px;
+        right: 6px;
+        height: 1.5px;
+        border-radius: 1px;
+        background: rgba(74, 63, 53, 0.35);
+    }
+
+    i:nth-child(1) { top: 7px; }
+    i:nth-child(2) { top: 13px; right: 10px; }
+    i:nth-child(3) { top: 18px; }
+    i:nth-child(4) { top: 23px; right: 12px; }
+    i:nth-child(5) { top: 28px; }
 }
 
-.cameraFill {
-    fill: var(--ld-note-icon-fill);
-}
-
-.cameraLens {
-    fill: var(--ld-white);
+.thumbOn {
+    transform: none;
 }
 
 .cardTitle {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--ld-ink);
+    flex: 1;
+    min-width: 0;
+
+    b {
+        display: block;
+        font-size: 14.5px;
+        font-weight: 600;
+        line-height: 1.2;
+        color: var(--ld-ink);
+    }
+
+    small {
+        display: block;
+        overflow: hidden;
+        font-size: 11.5px;
+        line-height: 1.3;
+        color: var(--ld-muted);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
 }
 
 .chip {
-    margin-left: auto;
-    padding: 3px 9px;
+    flex-shrink: 0;
+    padding: 4px 9px;
     border-radius: 999px;
     background: var(--ld-line-2);
     color: var(--ld-muted);
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
     transition:
         background-color 300ms ease,
@@ -367,77 +464,192 @@
 }
 
 .chipReady {
-    background: var(--ld-brand-s);
-    color: var(--ld-azione);
+    background: rgba(47, 125, 83, 0.12);
+    color: var(--ld-ok);
 }
 
-.cardBody {
-    padding: 4px 16px 14px;
+.rows {
+    padding: 4px 14px 0;
 }
 
 .row {
-    display: flex;
+    position: relative;
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto auto;
     align-items: center;
-    gap: 10px;
-    padding: 9px 0;
+    gap: 8px;
+    height: 42px;
     border-bottom: 1px solid var(--ld-line-2);
-    opacity: 0;
-    transform: translateX(-10px);
-    transition:
-        opacity 280ms ease,
-        transform 280ms var(--ld-ease);
+    font-size: 13.5px;
 
-    &:nth-last-child(2) {
-        border-bottom: 0;
+    > :not(.rowSkel) {
+        opacity: 0;
+        transform: translateY(6px);
+        transition:
+            opacity 280ms ease,
+            transform 380ms var(--ld-ease);
+    }
+
+    @include desktop {
+        height: 46px;
+        font-size: 14.5px;
     }
 }
 
 .rowOn {
-    opacity: 1;
-    transform: none;
+    > :not(.rowSkel) {
+        opacity: 1;
+        transform: none;
+    }
+
+    > .rowCat {
+        transition-delay: 60ms;
+    }
+
+    > .rowPrice {
+        transition-delay: 120ms;
+    }
+}
+
+// segnaposto che luccica finché il piatto non arriva
+.rowSkel {
+    position: absolute;
+    inset: 0 0 0 26px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    transition: opacity 200ms ease;
+
+    span {
+        display: block;
+        height: 9px;
+        border-radius: 5px;
+        background: linear-gradient(90deg, var(--ld-line-2) 0%, #F8F8FC 50%, var(--ld-line-2) 100%);
+        background-size: 200% 100%;
+
+        @include motion-ok {
+            animation: ld-import-shimmer 1.2s linear infinite;
+        }
+    }
+
+    span:last-child {
+        width: 30px;
+    }
+}
+
+.rowOn .rowSkel {
+    opacity: 0;
+}
+
+@keyframes ld-import-shimmer {
+    to { background-position: -200% 0; }
+}
+
+.rowTick {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(47, 125, 83, 0.12);
+
+    svg {
+        width: 11px;
+        height: 11px;
+        fill: none;
+        stroke: var(--ld-ok);
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 20;
+        stroke-dashoffset: 20;
+    }
+}
+
+.rowOn .rowTick svg {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 380ms 180ms ease;
 }
 
 .rowName {
-    flex-grow: 1;
-    font-size: 14px;
+    overflow: hidden;
     color: var(--ld-ink);
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .rowCat {
-    padding: 3px 9px;
+    padding: 2px 8px;
     border-radius: 999px;
     background: var(--ld-brand-s);
-    font-size: 11px;
-    font-weight: 600;
     color: var(--ld-azione);
+    font-size: 11.5px;
+    font-weight: 600;
 }
 
 .rowPrice {
-    font-size: 14px;
+    min-width: 38px;
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
     color: var(--ld-ink);
 }
 
+.cardFoot {
+    padding: 12px 14px 14px;
+}
+
 .publish {
-    margin-top: 12px;
-    padding: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 42px;
     border-radius: 12px;
     background: var(--ld-line-2);
     color: var(--ld-off-label);
     font-size: 14px;
     font-weight: 600;
-    text-align: center;
     transition:
         background-color 300ms ease,
         color 300ms ease,
-        transform 300ms var(--ld-ease-pop);
+        box-shadow 300ms ease;
 }
 
 .publishOn {
     background: var(--ld-azione);
     color: var(--ld-on-azione);
+    box-shadow: 0 8px 18px -6px rgba(70, 72, 198, 0.55);
 }
 
 .publishPop {
-    transform: scale(1.03);
+    @include motion-ok {
+        animation: ld-import-pop 520ms var(--ld-ease-pop);
+    }
+}
+
+@keyframes ld-import-pop {
+    40% { transform: scale(1.04); }
+}
+
+.cardNote {
+    margin: 8px 0 0;
+    padding-left: 26px;
+    font-family: var(--ld-font-hand);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.1;
+    text-align: center;
+    color: var(--ld-hand);
+    opacity: 0;
+    transition: opacity 400ms ease;
+
+    @include desktop {
+        max-width: 400px;
+        padding-left: 0;
+    }
+}
+
+.cardNoteOn {
+    opacity: 1;
 }

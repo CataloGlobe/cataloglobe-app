@@ -26,10 +26,16 @@ import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { listMyPendingInvites } from "@/services/supabase/team";
 import { useToast } from "@/context/Toast/ToastContext";
+import { workspaceRoleIsOwner } from "@/utils/workspaceRole";
 import styles from "./WorkspacePage.module.scss";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 import type { BusinessSubtype } from "@/constants/verticalTypes";
+
+// Solo il proprietario può pagare (stripe-checkout rifiuta gli altri): a chi è
+// stato invitato in un'attività non ancora attivata il wizard non si apre, si
+// spiega chi deve attivarla.
+const NOT_OWNER_ACTIVATE_MESSAGE = "Questa attività non è ancora attiva: può attivarla solo il proprietario.";
 
 function countByTenant(rows: { tenant_id: string }[] | null): Record<string, number> {
     const counts: Record<string, number> = {};
@@ -254,6 +260,11 @@ export default function WorkspacePage() {
     };
 
     const handleActivate = (id: string) => {
+        const tenant = tenants.find(t => t.id === id);
+        if (tenant && !workspaceRoleIsOwner(tenant.user_role)) {
+            showToast({ type: "info", message: NOT_OWNER_ACTIVATE_MESSAGE });
+            return;
+        }
         setSearchParams({ resume: id });
     };
 
@@ -275,6 +286,22 @@ export default function WorkspacePage() {
             setResumeTenant(null);
             return;
         }
+        // Arriva qui anche il non proprietario (MainLayout rimanda a ?resume
+        // chiunque entri in un'attività non attivata, es. dopo aver accettato
+        // un invito): niente wizard, avviso e via il parametro.
+        if (!workspaceRoleIsOwner(base.user_role)) {
+            setResumeTenant(null);
+            showToast({ type: "info", message: NOT_OWNER_ACTIVATE_MESSAGE });
+            setSearchParams(
+                prev => {
+                    const next = new URLSearchParams(prev);
+                    next.delete("resume");
+                    return next;
+                },
+                { replace: true }
+            );
+            return;
+        }
         getTenantFiscalProfile(resumeId)
             .then(fiscal => {
                 if (!cancelled) setResumeTenant({ ...base, ...fiscal });
@@ -286,7 +313,7 @@ export default function WorkspacePage() {
         return () => {
             cancelled = true;
         };
-    }, [resumeId, tenants]);
+    }, [resumeId, tenants, setSearchParams, showToast]);
 
     const closeResumeWizard = () => {
         const next = new URLSearchParams(searchParams);

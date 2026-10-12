@@ -1013,3 +1013,69 @@ export async function reassignActivityTables(
     }
     return summary;
 }
+
+/* ── Capienza vista dal server (back office) ───────────────────────────── */
+
+export type ReservationCapacityCheck = {
+    /** Capienza della sede; null = non impostata. */
+    capacity: number | null;
+    durationMinutes: number;
+    /** Picco di coperti nella finestra della prenotazione, lei compresa. */
+    peakWithCandidate: number;
+    pacingSlotMinutes: number;
+    pacingMaxCovers: number | null;
+    pacingMaxBookings: number | null;
+    /** Arrivi già nella fascia della prenotazione, lei esclusa. */
+    pacingBucketCovers: number;
+    pacingBucketBookings: number;
+};
+
+export type ReservationCapacityCheckInput = {
+    activityId: string;
+    /** `YYYY-MM-DD` */
+    date: string;
+    /** `HH:MM` o `HH:MM:SS` */
+    time: string;
+    partySize: number;
+    /** In modifica: la prenotazione stessa, che non va contata due volte. */
+    excludeReservationId?: string;
+};
+
+/**
+ * I numeri di capienza e pacing per una prenotazione (nuova o in modifica),
+ * calcolati sul database e non sulle righe in memoria della pagina
+ * (RPC `get_reservation_capacity_check`, permesso `reservations.read`).
+ * Serve solo agli avvisi: non blocca niente.
+ *
+ * Errori (`.code`): 42501 (sede non autorizzata), 22023 (parametri). Chi
+ * chiama tratta un errore come "non lo so" e torna al calcolo in memoria.
+ */
+export async function getReservationCapacityCheck(
+    input: ReservationCapacityCheckInput
+): Promise<ReservationCapacityCheck> {
+    const { data, error } = await supabase.rpc("get_reservation_capacity_check", {
+        p_activity_id: input.activityId,
+        p_reservation_date: input.date,
+        p_reservation_time: input.time.length === 5 ? `${input.time}:00` : input.time,
+        p_party_size: input.partySize,
+        ...(input.excludeReservationId ? { p_exclude_reservation_id: input.excludeReservationId } : {})
+    });
+
+    if (error) throw error;
+    const row = (data ?? [])[0];
+    if (!row) {
+        const err = new Error("Risposta vuota dal server");
+        (err as unknown as { code: string }).code = "SERVER_ERROR";
+        throw err;
+    }
+    return {
+        capacity: row.capacity,
+        durationMinutes: row.duration_minutes,
+        peakWithCandidate: row.peak_with_candidate,
+        pacingSlotMinutes: row.pacing_slot_minutes,
+        pacingMaxCovers: row.pacing_max_covers,
+        pacingMaxBookings: row.pacing_max_bookings,
+        pacingBucketCovers: row.pacing_bucket_covers,
+        pacingBucketBookings: row.pacing_bucket_bookings
+    };
+}

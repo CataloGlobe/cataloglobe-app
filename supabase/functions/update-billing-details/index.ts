@@ -18,29 +18,13 @@
 // Stripe NON fa fallire la richiesta (200 + `stripe_sync`). Il prossimo
 // salvataggio o checkout riallinea.
 // ---------------------------------------------------------------------------
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createStripeClient } from "../_shared/stripe-helpers.ts";
 import { syncStripeCustomerProfile, TENANT_FISCAL_COLUMNS } from "../_shared/stripeCustomerProfile.ts";
-
-// Stessa allowlist di stripe-checkout.
-const ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://staging.cataloglobe.com",
-    "https://cataloglobe.com",
-    "https://www.cataloglobe.com",
-];
+import { appCorsHeaders } from "../_shared/cors.ts";
 
 function corsHeaders(req: Request): Record<string, string> {
-    const origin = req.headers.get("origin") ?? "";
-    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
-    return {
-        "Access-Control-Allow-Origin": allowed,
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Vary": "Origin",
-        "Content-Type": "application/json"
-    };
+    return appCorsHeaders(req.headers.get("origin"), { json: true });
 }
 
 function json(req: Request, status: number, body: Record<string, unknown>) {
@@ -115,7 +99,7 @@ async function syncStripeForTenant(supabaseUrl: string, serviceRoleKey: string, 
     });
 }
 
-serve(async req => {
+Deno.serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
     if (req.method !== "POST") return json(req, 405, { error: "method_not_allowed" });
 

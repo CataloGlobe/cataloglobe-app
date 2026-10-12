@@ -34,6 +34,7 @@ import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
+import type { BottomBarSlot, HeaderSlot } from "../redesign/slots";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -87,6 +88,7 @@ import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
+import { formatDecimal } from "@/utils/formatCurrency";
 const importOrderConfirmationSheet = () => import("../OrderConfirmationSheet/OrderConfirmationSheet");
 const OrderConfirmationSheet = lazy(importOrderConfirmationSheet);
 
@@ -427,26 +429,26 @@ function ProductRowInner({
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                {t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })}
+                                {t("product.price_from", { price: `€ ${formatDecimal(dp.originalPrice)}` })}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            {t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })}
+                            {t("product.price_from", { price: `€ ${formatDecimal(dp.price)}` })}
                         </span>
                     </Text>
                 ) : dp.type === "single" ? (
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                € {dp.originalPrice.toFixed(2)}
+                                € {formatDecimal(dp.originalPrice)}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            € {dp.price.toFixed(2)}
+                            € {formatDecimal(dp.price)}
                         </span>
                     </Text>
                 ) : null}
@@ -598,14 +600,14 @@ function ProductCompactRowInner({
                             {dp.originalPrice != null && (
                                 <span className={styles.compactPriceOriginal}>
                                     {dp.type === "from"
-                                        ? t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })
-                                        : `€ ${dp.originalPrice.toFixed(2)}`}
+                                        ? t("product.price_from", { price: `€ ${formatDecimal(dp.originalPrice)}` })
+                                        : `€ ${formatDecimal(dp.originalPrice)}`}
                                 </span>
                             )}
                             <span>
                                 {dp.type === "from"
-                                    ? t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })
-                                    : `€ ${dp.price.toFixed(2)}`}
+                                    ? t("product.price_from", { price: `€ ${formatDecimal(dp.price)}` })
+                                    : `€ ${formatDecimal(dp.price)}`}
                             </span>
                         </span>
                     )}
@@ -821,6 +823,12 @@ type Props = {
      * passata dal path pubblico.
      */
     initialSelection?: SelectionItem[];
+    /**
+     * Redesign (PR 2): sostituisce l'header di oggi con l'isola nuova, solo in
+     * mode "public". Assente col flag spento → nessuna differenza di comportamento.
+     */
+    headerSlot?: HeaderSlot;
+    bottomBarSlot?: BottomBarSlot;
 };
 
 export default function CollectionView({
@@ -856,7 +864,9 @@ export default function CollectionView({
     slug,
     enableReservations = false,
     previewDevice,
-    initialSelection
+    initialSelection,
+    headerSlot,
+    bottomBarSlot
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -1558,6 +1568,9 @@ export default function CollectionView({
     }, [selectionCount]);
 
     // ── Bottom bar: nascondi/mostra tutto o niente (regole in bottomBarVisibility.ts) ──
+    // Barra del redesign (solo pubblico): senza Storia e senza ordini non c'è nessuna barra.
+    const useBarSlot = mode === "public" && !!bottomBarSlot;
+    const barSlotShown = showStoryTab || !shouldHideOrderingEntry;
     const isBottomBarMounted = useBottomBar || (mode === "preview" && previewDevice === "mobile");
     const {
         hidden: isBottomBarHidden,
@@ -2093,8 +2106,25 @@ export default function CollectionView({
             scrollEndCleanupRef.current = () => container.removeEventListener("scroll", onScroll);
         }
 
-        // Rete di sicurezza: l'effetto parte comunque entro ~800ms.
-        highlightMaxTimeoutRef.current = setTimeout(fire, 800);
+        // Rete di sicurezza: dopo 800ms parte solo se lo scroll è arrivato o si è
+        // fermato. Su un menù lungo lo scroll smooth dura più di 800ms: partire
+        // a tempo fisso faceva finire l'effetto con il prodotto ancora fuori
+        // schermo. Tetto a 3s per non restare appesi.
+        const startedAt = performance.now();
+        let lastTop: number | null = null;
+        const safetyCheck = () => {
+            if (done) return;
+            const top = el.getBoundingClientRect().top;
+            const arrived = Math.abs(top - scrollOffset) < 4;
+            const stopped = lastTop !== null && Math.abs(top - lastTop) < 1;
+            if (arrived || stopped || performance.now() - startedAt > 3000) {
+                fire();
+                return;
+            }
+            lastTop = top;
+            highlightMaxTimeoutRef.current = setTimeout(safetyCheck, 150);
+        };
+        highlightMaxTimeoutRef.current = setTimeout(safetyCheck, 800);
     }, [applyHighlight, cleanupHighlightDetector, recomputeStickyOffset, ignoreProgrammaticScroll]);
 
     // Cleanup di timer/listener all'unmount.
@@ -2723,7 +2753,24 @@ export default function CollectionView({
             )}
 
             {/* ── HEADER: sostituisce PublicBrandHeader + CollectionHero ── */}
-            {hasHeader && (
+            {mode === "public" && headerSlot && hasHeader
+                ? headerSlot({
+                      logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
+                      coverImageUrl: style.showCoverImage ? businessImage : null,
+                      activityName: businessName,
+                      menuName: style.showCatalogName ? collectionTitle || null : null,
+                      onSearchOpen: handleOpenSearch,
+                      onSearchPointerDown: handleSearchPrefetch,
+                      allergensCount: allergenFilterIds.length,
+                      onOpenMore: () => setIsMoreSheetOpen(true),
+                      activeTab,
+                      onTabChange: handleHubTabTap,
+                      showStoryTab,
+                      openingHours: openingHours ?? [],
+                      upcomingClosures: upcomingClosures ?? [],
+                      onOpenHours: () => setIsInfoSheetOpen(true)
+                  })
+                : hasHeader && (
                 <PublicCollectionHeader
                     logoUrl={tenantLogoUrl}
                     activityName={businessName}
@@ -3301,7 +3348,16 @@ export default function CollectionView({
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
             {/* Preview mobile: barra montata SOLO per fedeltà di layout, completamente
                 inerte (props no-op, ordering OFF). Runtime (useBottomBar) invariato. */}
-            {isBottomBarMounted && (
+            {isBottomBarMounted && useBarSlot && barSlotShown && bottomBarSlot?.({
+                activeTab,
+                onTabChange: handleHubTabTap,
+                showStoryTab,
+                orderVisible: !shouldHideOrderingEntry,
+                selectionCount,
+                onOpenOrder: openOrdering,
+                hidden: isBottomBarHidden
+            })}
+            {isBottomBarMounted && !useBarSlot && (
                 <PublicBottomBar
                     activeTab={mode === "preview" ? "menu" : activeTab}
                     onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
@@ -3326,7 +3382,7 @@ export default function CollectionView({
 
             {/* ── SCRIM bordo inferiore — stessa condizione di mount della barra.
                 Sotto la barra (z 100 < 150), sopra il contenuto. Solo CSS. ── */}
-            {isBottomBarMounted && (
+            {isBottomBarMounted && (!useBarSlot || barSlotShown) && (
                 <PublicBottomScrim isPreview={mode === "preview"} hidden={isBottomBarHidden} />
             )}
 

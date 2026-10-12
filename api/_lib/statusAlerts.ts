@@ -15,7 +15,7 @@
  *     AND last_notified_status == 'down'.
  *   - up <-> degraded: silent in entrambe le direzioni.
  *   - Bootstrap (no row precedente per il service): silent. Servono 2 check
- *     per confermare uno stato. 4 minuti di latenza accettati come tradeoff
+ *     per confermare uno stato: 5-10 minuti di latenza accettati come tradeoff
  *     vs falsi positivi al freddo.
  *
  * Mailer: Resend via REST API diretta (no SDK npm, vincolo CLAUDE.md).
