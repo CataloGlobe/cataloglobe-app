@@ -323,6 +323,8 @@
         "more_count_one": "1 más",
         "more_count_other": "{{count}} más",
         "see_all_count": "Ver todos ({{count}})",
+        "list_count_one": "{{count}} contenido",
+        "list_count_other": "{{count}} contenidos",
         "prev_aria": "Contenidos anteriores",
         "next_aria": "Contenidos siguientes",
         "position": "{{index}} de {{count}}"

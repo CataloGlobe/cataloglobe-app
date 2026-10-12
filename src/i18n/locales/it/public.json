@@ -322,6 +322,8 @@
         "more_count_one": "Un altro",
         "more_count_other": "Altri {{count}}",
         "see_all_count": "Vedi tutti ({{count}})",
+        "list_count_one": "{{count}} contenuto",
+        "list_count_other": "{{count}} contenuti",
         "prev_aria": "Contenuti precedenti",
         "next_aria": "Contenuti successivi",
         "position": "{{index}} di {{count}}"

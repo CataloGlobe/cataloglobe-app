@@ -204,6 +204,32 @@ function featuredOf(page: SheetPage, contents: V2FeaturedContent[]): V2FeaturedC
     return contents.find(block => block.id === id) ?? null;
 }
 
+/** Tutti i contenuti in evidenza (mockup v38): quanti sono, poi le card. */
+function FeaturedPage({
+    featured,
+    onOpen
+}: {
+    featured: SheetsSlotContext["featured"];
+    onOpen: (block: V2FeaturedContent) => void;
+}) {
+    const { t } = useTranslation("public");
+    const count = featured.contents.length;
+    return (
+        <>
+            {count > 0 ? <p className={styles.summary}>{t("featured.list_count", { count })}</p> : null}
+            <EventsView
+                featuredContents={featured.contents}
+                layout={featured.layout}
+                showSubtitle={featured.showSubtitle}
+                showTitle={featured.showTitle}
+                showCta={featured.showCta}
+                selectedFeatured={null}
+                onSelectFeatured={block => block && onOpen(block)}
+            />
+        </>
+    );
+}
+
 function VenuePage({
     page,
     orderFor,
@@ -258,17 +284,7 @@ function VenuePage({
         case "characteristics":
             return <CharacteristicsPage {...props.menuInfo} />;
         case "featured":
-            return (
-                <EventsView
-                    featuredContents={props.featured.contents}
-                    layout={props.featured.layout}
-                    showSubtitle={props.featured.showSubtitle}
-                    showTitle={props.featured.showTitle}
-                    showCta={props.featured.showCta}
-                    selectedFeatured={null}
-                    onSelectFeatured={block => block && pushFeaturedDetail(block)}
-                />
-            );
+            return <FeaturedPage featured={props.featured} onOpen={pushFeaturedDetail} />;
         default: {
             if (editTargetKey(page)) {
                 const edit = editTargetOf(page, props);
