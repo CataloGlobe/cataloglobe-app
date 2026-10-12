@@ -17,7 +17,7 @@ import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { deriveTypeFields, parsePrice } from "@/pages/Dashboard/Highlights/featuredContentTypes";
-import { EV, changed, cloneWhen, effWhen, hasDishes, thingName, type Tunnel } from "./creaModel";
+import { EV, changed, clonePer, cloneWhen, effWhen, hasDishes, thingName, type Tunnel } from "./creaModel";
 import { saveSezioni } from "./menuSave";
 import { entriesOf } from "./creaLoad";
 import { styleConfig } from "./creaStyle";
@@ -114,6 +114,7 @@ async function saveQuando(t: Tunnel, c: EditCtx) {
     const D = draftFromEntry(e, c.L, t.kind === "evid" && e.rule.featured_contents.length > 1 ? id : null);
     D.when = cloneWhen(effWhen(t));
     D.where = { all: t.where.all, activityIds: [...t.where.activityIds], groupIds: [...t.where.groupIds] };
+    D.per = clonePer(t.per);
     await saveDraft(D, c.L, c.tenantId);
 }
 

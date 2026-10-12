@@ -374,12 +374,15 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
     }
 }
 
+/** Modificando, un passo da guardare: cambiato, o con un import da foto ancora aperto. */
+export const touched = (t: Tunnel, step: StepId) => changed(t, step) || (step === "sezioni" && !!t.impOpen);
+
 /** Il primo passo con qualcosa che manca, prima di «Controlla». */
 export function firstBlock(t: Tunnel, c: Ctx): { i: number; why: string } | null {
     const st = steps(t, c);
     for (let i = 0; i < st.length - 1; i++) {
         // modificando conta solo quello che si è cambiato: il resto era già così
-        if (t.edit && !changed(t, st[i])) continue;
+        if (t.edit && !touched(t, st[i])) continue;
         const why = blocker(t, st[i], c);
         if (why) return { i, why };
     }
