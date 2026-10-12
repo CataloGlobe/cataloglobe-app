@@ -15,10 +15,9 @@
 //
 // Thin wrapper around the shared performAdminOrderTransition helper.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { performAdminOrderTransition } from "../_shared/adminOrderTransition.ts";
 
-serve(req =>
+Deno.serve(req =>
     performAdminOrderTransition(req, {
         function_name: "cancel-order-admin",
         source_status: ["submitted", "acknowledged", "ready"],

@@ -10,6 +10,7 @@ import {
     canChangeRoleOf,
     canRemoveMember,
     canWriteRule,
+    visibleActivityIds,
     type UserPermissions
 } from "@/lib/permissions";
 
@@ -411,6 +412,17 @@ describe("ruoli diversi per sede (D35)", () => {
             activitiesByPermission: new Map([["scheduling.read", [ACT_B]]])
         });
         expect(canWriteRule(viewerOnly, { applyToAll: false, activityIds: [ACT_B], groupIds: [] })).toBe(false);
+    });
+
+    it("visibleActivityIds: sedi di tutti i ruoli, A e B", () => {
+        expect([...visibleActivityIds(mixed)].sort()).toEqual([ACT_A, ACT_B].sort());
+        // activityIds resta del ruolo più alto: liste di scrittura e team invariate.
+        expect(mixed.activityIds).toEqual([ACT_A]);
+    });
+
+    it("visibleActivityIds senza mappa: activityIds come prima", () => {
+        const before = mk("manager", { activityIds: [ACT_A], permissions: new Set(["orders.manage"]) });
+        expect(visibleActivityIds(before)).toEqual([ACT_A]);
     });
 
     it("senza mappa (migration non applicata) resta come prima", () => {

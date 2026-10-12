@@ -27,27 +27,27 @@ function heroAt(ms: number): HeroState {
 describe("hero: sequenza", () => {
     it("cinque passi da 2,3 s, il primo a 150 ms, giro di 13 s con la pausa finale", () => {
         expect(HERO_START_MS).toBe(150);
-        expect(HERO_STEP_MS).toBe(2300);
-        expect(HERO_LOOP_MS).toBe(5 * 2300 + 1500);
+        expect(HERO_STEP_MS).toBe(1800);
+        expect(HERO_LOOP_MS).toBe(5 * 1800 + 1500);
         expect(heroEvents().every((e) => e.at < HERO_LOOP_MS)).toBe(true);
     });
 
     it("12:00 pranzo in corso, senza far uscire il menù già in vista", () => {
         const s = heroAt(1000);
-        expect(s).toMatchObject({ clock: "12:00", slot: 0, menu: 0, menuOut: false, lives: 0 });
+        expect(s).toMatchObject({ clock: "12:00", slot: 0, menu: 0, lives: 0 });
     });
 
     it("13:10: la modifica entra in lista, poi la linea, poi il telefono (~650 ms)", () => {
         const t = HERO_START_MS + HERO_STEP_MS + 100;
-        expect(heroAt(t)).toMatchObject({ clock: "12:00", lives: 1, filled: 0, applied: 0 });
+        expect(heroAt(t)).toMatchObject({ clock: "13:10", lives: 1, filled: 0, applied: 0 });
         expect(heroAt(t + 450)).toMatchObject({ clock: "13:10", filled: 1, applied: 0 });
         expect(heroAt(t + 650)).toMatchObject({ applied: 1, menu: 0 });
     });
 
-    it("18:00 aperitivo: il menù esce (160 ms) e rientra quello nuovo", () => {
+    it("18:00 aperitivo: il menù cambia 450 ms dopo l'ora", () => {
         const t0 = HERO_START_MS + 2 * HERO_STEP_MS;
-        expect(heroAt(t0 + 450)).toMatchObject({ slot: 1, menu: 0, menuOut: true });
-        expect(heroAt(t0 + 620)).toMatchObject({ menu: 1, menuOut: false });
+        expect(heroAt(t0 + 449)).toMatchObject({ slot: 1, menu: 0 });
+        expect(heroAt(t0 + 450)).toMatchObject({ menu: 1 });
     });
 
     it("fine giornata: cena, due modifiche al volo in lista", () => {
@@ -96,16 +96,24 @@ describe("hero: programmazione", () => {
 });
 
 describe("importFrame", () => {
-    it("legge un piatto ogni due tick dal tick 4, fino a 4", () => {
-        expect([3, 4, 5, 6, 8, 10, 11].map((t) => importFrame(t).read)).toEqual([0, 1, 1, 2, 3, 4, 4]);
+    it("mirino, scatto, lampo, poi il foglio si raddrizza a lampo finito", () => {
+        expect(importFrame(2)).toMatchObject({ phase: "photo", finderOn: false, straight: false });
+        expect(importFrame(5)).toMatchObject({ finderOn: true, press: false });
+        expect(importFrame(7)).toMatchObject({ finderOn: true, press: true, flash: false });
+        expect(importFrame(8)).toMatchObject({ phase: "reading", finderOn: false, flash: true, thumb: true, straight: false });
+        expect(importFrame(11).straight).toBe(true);
     });
 
-    it("mirino, lampo, scansione e pronto nei tick giusti", () => {
-        expect(importFrame(1)).toMatchObject({ frameOn: true, flash: false, scanOn: false });
-        expect(importFrame(2).flash).toBe(true);
-        expect(importFrame(3).scanOn).toBe(true);
-        expect(importFrame(12)).toMatchObject({ ready: true, pop: true, highlight: false });
-        expect(importFrame(IMPORT_READY_TICK)).toMatchObject({ ready: true, pop: false, read: 4 });
+    it("ogni piatto: riquadro, poi il nome in volo, poi la riga, uno ogni 4 tick", () => {
+        expect([12, 13, 16, 17, 25, 28].map((t) => importFrame(t).lit)).toEqual([0, 1, 1, 2, 4, 4]);
+        expect([13, 14, 18, 26, 27].map((t) => importFrame(t).fly)).toEqual([null, 0, 1, 3, null]);
+        expect([15, 16, 20, 28].map((t) => importFrame(t).rows)).toEqual([0, 1, 2, 4]);
+    });
+
+    it("pronto con il rimbalzo del pulsante, fermo pronto con reduced-motion", () => {
+        expect(importFrame(29).ready).toBe(false);
+        expect(importFrame(30)).toMatchObject({ phase: "ready", ready: true, pop: true, rows: 4 });
+        expect(importFrame(IMPORT_READY_TICK)).toMatchObject({ ready: true, pop: false, rows: 4, straight: true, fly: null });
         expect(importFrame(IMPORT_TICKS - 1).ready).toBe(true);
     });
 });

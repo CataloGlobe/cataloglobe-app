@@ -1,5 +1,6 @@
 import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { useCanonical } from '@/hooks/useCanonical';
 import { COMPANY, getFullAddress } from '@/config/company';
 import { PRIVACY_PUBLISHED_AT } from '@shared/consentVersions';
 import styles from './PrivacyPolicyPage.module.scss';
@@ -20,6 +21,7 @@ function formatDate(isoDate: string): string {
 
 export default function PrivacyPolicyPage() {
     usePageTitle('Privacy');
+    useCanonical(COMPANY.web.privacyUrl);
     return (
         <LegalLayout otherLegalLink={{ href: '/legal/termini', label: 'Termini e Condizioni' }}>
             <div className={styles.content}>

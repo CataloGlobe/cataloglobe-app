@@ -1,0 +1,146 @@
+/* Il solo foglio della pagina pubblica (redesign). Mobile: attaccato al fondo e
+   ai lati, angoli in alto 26px, in basso 0. ≥641px: finestra al centro.
+   ⚠️ SYNC soglia con publicBreakpoints.ts (max 640 / min 641).
+   Mai backdrop-filter qui: il pannello trasla (regola di PublicCollectionView). */
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* Velo unico per tutti i fogli: scuro al 34%, fermo (solo opacity), un tocco chiude. */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, black 34%, transparent);
+  touch-action: none;
+}
+
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: var(--sheet-max-height);
+  overflow: hidden;
+  outline: none;
+  background: var(--pub-surface);
+  color: var(--pub-text);
+  border-radius: 26px 26px 0 0;
+  /* la superficie arriva al bordo e tiene dentro la safe area: le barre di
+     Safari e Chrome non aprono spazi sotto il foglio */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+
+  &[data-size="medium"] {
+    --sheet-max-height: 62dvh;
+  }
+
+  &[data-size="large"] {
+    --sheet-max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px);
+  }
+}
+
+.dragZone {
+  flex-shrink: 0;
+  /* il dito sulla maniglia e sulla testata trascina il foglio, non la pagina */
+  touch-action: none;
+  user-select: none;
+}
+
+.handle {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 10px auto 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--pub-text) 22%, transparent);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 8px;
+}
+
+.title {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  font: inherit;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  /* bersaglio di tocco da 44px */
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Altezza impostata da SheetHost (segue la pagina attiva); il tetto sta sul pannello. */
+.viewport {
+  min-height: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+
+.track {
+  display: flex;
+  align-items: flex-start;
+  height: 100%;
+  will-change: transform;
+}
+
+.page {
+  flex: 0 0 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pageContent {
+  padding: 0 16px 16px;
+}
+
+@media (min-width: 641px) {
+  .root {
+    align-items: center;
+  }
+
+  .panel {
+    width: min(560px, calc(100% - 48px));
+    border-radius: 26px;
+
+    &[data-size="medium"],
+    &[data-size="large"] {
+      --sheet-max-height: 86dvh;
+    }
+  }
+
+  .handle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    will-change: auto;
+  }
+}

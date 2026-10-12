@@ -1,9 +1,7 @@
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
 .head {
-    @include desktop {
-        text-align: center;
-    }
+    text-align: center;
 }
 
 .handNote {
@@ -15,14 +13,15 @@
 }
 
 .lede {
-    display: none;
+    margin: 10px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ld-body);
 
     @include desktop {
-        display: block;
-        margin: 14px 0 0;
+        margin-top: 14px;
         font-size: 17px;
         line-height: 1.55;
-        color: var(--ld-body);
     }
 }
 
@@ -36,15 +35,24 @@
 }
 
 // ── Pill dei gruppi (tablist) ───────────────────────────────────────────────
-// Sotto 768 icona e numero sopra il nome: le tre pill stanno su una riga a 390.
+// Un selettore a segmenti come Mensile/Annuale dei prezzi, con la pill che
+// scivola da una voce all'altra. Telefono: solo il nome, alto 44 px (prima
+// icona e numero sopra il nome, 60 px: «selettore tozzo» della chiamata del
+// 2026-10-07). Desktop: anche icona e numero.
 .tabs {
+    position: relative;
     display: flex;
-    justify-content: center;
-    gap: 6px;
-    margin-bottom: 12px;
+    max-width: 100%;
+    margin: 0 auto 12px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    box-sizing: border-box;
+    width: fit-content;
 
     @include desktop {
-        gap: 8px;
+        gap: 4px;
         margin-bottom: 16px;
     }
 }
@@ -52,32 +60,36 @@
 .tab {
     @include ld-reset-button;
     @include ld-focus;
+    position: relative;
+    z-index: 1;
     display: flex;
-    flex-direction: column;
+    flex: 1 1 auto;
     align-items: center;
-    gap: 4px;
-    padding: 9px 14px 8px;
-    border-radius: 18px;
-    background: var(--ld-white);
-    border: 1px solid var(--ld-line);
-    color: var(--ld-ink);
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 999px;
+    color: var(--ld-muted);
     transition:
         background-color 250ms ease,
         border-color 250ms ease,
         color 250ms ease;
 
+    @media (max-width: 359px) {
+        padding: 0 10px;
+    }
+
     @include desktop {
-        flex-direction: row;
-        gap: 8px;
-        padding: 10px 16px 10px 14px;
-        border-radius: 999px;
+        flex: none;
+        padding: 0 16px 0 14px;
+        color: var(--ld-ink);
     }
 }
 
 .tabTop {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    // Icona e numero solo su desktop.
+    display: none;
 
     @include desktop {
         display: contents;
@@ -96,6 +108,10 @@
     line-height: 1.2;
     font-weight: 600;
     white-space: nowrap;
+
+    @media (max-width: 359px) {
+        font-size: 13px;
+    }
 
     @include desktop {
         order: 1;
@@ -141,15 +157,52 @@
     }
 }
 
+// Pill che scivola (Faq.tsx): finché il JS non l'ha messa al suo posto, la
+// voce attiva ha il suo sfondo (HTML prerenderizzato); poi lo prende la pill.
+.pill {
+    display: none;
+}
+
+.tabs[data-pill] {
+    .pill {
+        position: absolute;
+        left: 0;
+        top: 4px;
+        bottom: 4px;
+        display: block;
+        border-radius: 999px;
+        background: var(--ld-azione);
+        transition:
+            transform 320ms var(--ld-ease),
+            width 320ms var(--ld-ease);
+    }
+
+    .tabActive {
+        background: transparent;
+        border-color: transparent;
+    }
+}
+
+@include reduced-motion {
+    .pill {
+        transition: none !important;
+    }
+}
+
+// Una scheda sola, le domande divise da linee sottili (prima un riquadro con
+// una scheda per domanda: «riquadro dentro riquadro»).
 .list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 8px;
-    border-radius: 24px;
-    background: var(--ld-line-3);
+    padding: 0 20px;
+    border-radius: 22px;
+    background: var(--ld-white);
     border: 1px solid var(--ld-line);
-    box-shadow: var(--ld-shadow-card);
+    box-shadow: var(--ld-shadow-soft);
+
+    @include desktop {
+        padding: 0 26px;
+    }
 }
 
 // `hidden` sui pannelli inattivi: la classe col display vince sul foglio del
@@ -158,10 +211,24 @@
     display: none;
 }
 
-.item {
-    border-radius: 16px;
-    background: var(--ld-white);
-    box-shadow: 0 1px 2px rgba(21, 20, 43, 0.05);
+.item + .item {
+    border-top: 1px solid var(--ld-line-2);
+}
+
+// Al cambio di gruppo il pannello passa da `hidden` a visibile: le domande
+// entrano in dissolvenza, 40 ms l'una dall'altra.
+@include motion-ok {
+    .item {
+        animation: ld-faq-in 340ms ease both;
+        animation-delay: calc(var(--k) * 40ms);
+    }
+}
+
+@keyframes ld-faq-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
 }
 
 .qWrap {
@@ -176,12 +243,12 @@
     justify-content: space-between;
     gap: 14px;
     width: 100%;
-    padding: 17px 18px;
-    border-radius: 16px;
+    padding: 18px 0;
+    border-radius: 6px;
     text-align: left;
 
     @include desktop {
-        padding: 20px 22px;
+        padding: 20px 0;
     }
 }
 
@@ -191,6 +258,11 @@
     line-height: 1.25;
     font-weight: 600;
     color: var(--ld-ink);
+    transition: color 250ms ease;
+}
+
+.itemOpen .qText {
+    color: var(--ld-azione);
 }
 
 .plus {
@@ -246,14 +318,25 @@
 
 .aText {
     margin: 0;
-    padding: 0 18px 18px;
+    padding: 0 44px 18px 0;
     font-size: 15px;
     line-height: 1.6;
     color: var(--ld-body);
+    opacity: 0;
+    transform: translateY(-4px);
+    transition:
+        opacity 200ms ease,
+        transform 260ms ease;
 
     @include desktop {
-        padding: 0 22px 20px;
+        padding-bottom: 20px;
     }
+}
+
+.aOpen .aText {
+    opacity: 1;
+    transform: none;
+    transition-delay: 80ms;
 }
 
 @include reduced-motion {
@@ -261,71 +344,32 @@
     .tabIcon,
     .tabCount,
     .a,
+    .aText,
+    .qText,
     .plus,
     .plusBar {
         transition: none;
     }
 }
 
-// ── Riquadro contatto, fuori dalla fisarmonica ──────────────────────────────
+// ── Contatto, in una riga sotto le domande ──────────────────────────────────
 .contact {
-    margin-top: 12px;
-    padding: 8px;
-    border-radius: 24px;
-    background: var(--ld-line-3);
-    border: 1px solid var(--ld-line);
-}
-
-.contactInner {
     display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px;
-    border-radius: 16px;
-    background: var(--ld-white);
-
-    @include desktop {
-        gap: 22px;
-        padding: 20px 24px;
-    }
-}
-
-.mark {
-    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    width: 44px;
-    height: 44px;
-    border-radius: 13px;
-    background: linear-gradient(160deg, var(--ld-hero-a), var(--ld-scuro));
-
-    @include desktop {
-        width: 56px;
-        height: 56px;
-        border-radius: 16px;
-    }
-}
-
-.mark .markIcon {
-    height: 20px;
-
-    @include desktop {
-        height: 26px;
-    }
-}
-
-.contactText {
-    min-width: 0;
+    gap: 4px 12px;
+    margin-top: 20px;
+    text-align: center;
 }
 
 .more {
     margin: 0;
-    font-size: 13px;
+    font-size: 14px;
     color: var(--ld-muted);
 
     @include desktop {
-        font-size: 14px;
+        font-size: 15px;
     }
 }
 
@@ -333,103 +377,28 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-top: 6px;
 }
 
+// Mai a capo dentro l'indirizzo.
 .mail {
-    @include ld-serif;
     min-width: 0;
-    font-size: 18px;
-    line-height: 1.1;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
     text-decoration: none;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
 
     &,
     &:hover {
         color: var(--ld-ink);
     }
 
-    @include desktop {
-        font-size: 22px;
+    &:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
     }
-}
 
-.copyWrap {
-    position: relative;
-    display: inline-flex;
-}
-
-.copy {
-    @include ld-reset-button;
-    @include ld-focus;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--ld-azione);
-    color: var(--ld-white);
-    transition:
-        background-color 250ms ease,
-        transform 250ms var(--ld-ease-pop);
-}
-
-.copied {
-    background: var(--ld-azione-deep);
-    transform: scale(1.08);
-}
-
-.icCopy,
-.icOk {
-    position: absolute;
-    transition:
-        opacity 180ms ease,
-        transform 250ms ease;
-}
-
-.icOk {
-    opacity: 0;
-    transform: scale(0.6);
-    transition-timing-function: ease, var(--ld-ease-pop);
-}
-
-.copied .icCopy {
-    opacity: 0;
-    transform: scale(0.6);
-}
-
-.copied .icOk {
-    opacity: 1;
-    transform: none;
-}
-
-.tip {
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 8px);
-    padding: 4px 9px;
-    border-radius: 8px;
-    background: var(--ld-scuro);
-    color: var(--ld-white);
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transform: translate(-50%, 4px);
-    transition:
-        opacity 200ms ease,
-        transform 250ms ease;
-}
-
-.srOnly {
-    @include ld-sr-only;
-}
-
-.copied + .tip {
-    opacity: 1;
-    transform: translate(-50%, 0);
+    @include desktop {
+        font-size: 16px;
+    }
 }

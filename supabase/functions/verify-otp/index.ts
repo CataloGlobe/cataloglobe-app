@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { LOCK_MINUTES, sha256 } from "../_shared/otpCore.ts";
 
@@ -22,7 +21,7 @@ function json(status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
-serve(async req => {
+Deno.serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 

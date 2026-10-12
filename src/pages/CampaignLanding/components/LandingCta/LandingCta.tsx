@@ -46,7 +46,8 @@ const LandingCta = forwardRef<HTMLAnchorElement, LandingCtaProps>(function Landi
     // perderebbe il contatto. Con il pulsante disabilitato non invia nemmeno
     // l'Invio da tastiera. A vista non cambia nulla: lo stile «in invio»
     // segue `aria-busy`, non `:disabled`.
-    if (placement === "final" && variante === "form") {
+    // `callback`: lo stesso form, aperto sotto la prova nella variante signup.
+    if ((placement === "final" && variante === "form") || placement === "callback") {
         return (
             <button
                 type="submit"
@@ -57,6 +58,7 @@ const LandingCta = forwardRef<HTMLAnchorElement, LandingCtaProps>(function Landi
                 disabled={busyLabel !== undefined || !hydrated}
                 aria-busy={busyLabel !== undefined || undefined}
             >
+                {busyLabel !== undefined && <span className={styles.spinner} aria-hidden="true" />}
                 {busyLabel ?? entry.label}
             </button>
         );
