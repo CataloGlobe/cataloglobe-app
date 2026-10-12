@@ -19,8 +19,9 @@ export const BOOKING_STEPS: readonly BookingStep[] = ["when", "who", "recap"];
 /** Campi che ogni passo controlla prima di andare avanti. */
 export const STEP_FIELDS: Record<BookingStep, readonly (keyof FormFields)[]> = {
     when: ["reservation_date", "party_size", "reservation_time"],
-    who: ["customer_name", "customer_email", "customer_phone", "notes", "allergies"],
-    recap: []
+    who: ["customer_name", "customer_email", "customer_phone"],
+    // Le note nel Riepilogo (mockup v38).
+    recap: ["notes", "allergies"]
 };
 
 /** Dati della sede per il modulo: gli stessi che legge la pagina di prenotazione. */

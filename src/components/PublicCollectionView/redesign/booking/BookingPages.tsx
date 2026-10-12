@@ -2,21 +2,21 @@ import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { Check, Phone } from "lucide-react";
-import WhenSection from "@/pages/ReservationPage/WhenSection";
 import WhoSection from "@/pages/ReservationPage/WhoSection";
 import NotesSection from "@/pages/ReservationPage/NotesSection";
 import ReservationRecap from "@/pages/ReservationPage/ReservationRecap";
 import { closeSheet, type SheetPage } from "../sheets/sheetStack";
 import { BOOKING_DONE_KEY, bookingStepOf, pushBookingSheet } from "./bookingSheet";
-import { whenSummary } from "./bookingForm";
+import { BOOKING_STEPS, whenSummary, type BookingStep } from "./bookingForm";
+import BookingWhen from "./BookingWhen";
 import type { BookingBinding } from "./useBooking";
 import styles from "./BookingPages.module.scss";
 
 /**
  * Le pagine della prenotazione nel foglio unico (Quando, I tuoi dati, Riepilogo,
- * conferma) e il loro piede. Le sezioni del modulo sono quelle della pagina
- * `/:slug/prenota`, montate una per passo: stessi orari, stessa disponibilità,
- * stessi controlli. Ogni passo è un `<form>`; il pulsante del piede lo invia
+ * conferma) e il loro piede. «Quando» è quello del mockup v38 (`BookingWhen`,
+ * stessi orari e stessa disponibilità di /prenota); dati, note e riepilogo sono
+ * le sezioni della pagina `/:slug/prenota`. Le note stanno nel Riepilogo (v38). Ogni passo è un `<form>`; il pulsante del piede lo invia
  * col suo attributo `form`, così Invio sulla tastiera fa la stessa cosa.
  */
 const FORM_ID = { when: "booking-when", who: "booking-who", recap: "booking-recap" } as const;
@@ -38,47 +38,30 @@ export default function BookingPage({ page, booking }: { page: SheetPage; bookin
 
     return (
         <form id={FORM_ID[step]} className={styles.step} onSubmit={submit} noValidate aria-busy={booking.submitting}>
+            <StepProgress step={step} />
             {step === "when" ? (
-                <WhenSection
+                <BookingWhen
                     values={{
                         reservation_date: form.reservation_date,
                         reservation_time: form.reservation_time,
                         party_size: form.party_size
                     }}
                     errors={errors}
-                    hours={config.hours}
-                    closures={config.closures}
-                    pacingSlotMinutes={config.pacingSlotMinutes}
-                    horizonDays={config.horizonDays}
-                    minNoticeMinutes={config.minNoticeMinutes}
-                    slug={config.slug}
+                    config={config}
                     onChange={booking.setField}
-                    onBlur={booking.blurField}
                 />
             ) : null}
             {step === "who" ? (
-                <>
-                    <WhoSection
-                        values={{
-                            customer_name: form.customer_name,
-                            customer_email: form.customer_email,
-                            customer_phone: form.customer_phone
-                        }}
-                        errors={errors}
-                        onChange={booking.setField}
-                        onBlur={booking.blurField}
-                    />
-                    <NotesSection
-                        value={form.notes}
-                        error={errors.notes}
-                        allergies={form.allergies}
-                        allergiesError={errors.allergies}
-                        allergiesConsent={booking.allergiesConsent}
-                        onAllergiesConsentChange={booking.setAllergiesConsent}
-                        onChange={booking.setField}
-                        onBlur={booking.blurField}
-                    />
-                </>
+                <WhoSection
+                    values={{
+                        customer_name: form.customer_name,
+                        customer_email: form.customer_email,
+                        customer_phone: form.customer_phone
+                    }}
+                    errors={errors}
+                    onChange={booking.setField}
+                    onBlur={booking.blurField}
+                />
             ) : null}
             {step === "recap" ? (
                 <>
@@ -89,6 +72,16 @@ export default function BookingPage({ page, booking }: { page: SheetPage; bookin
                         reservationTime={form.reservation_time}
                         partySize={form.party_size}
                         customerName={form.customer_name}
+                    />
+                    <NotesSection
+                        value={form.notes}
+                        error={errors.notes}
+                        allergies={form.allergies}
+                        allergiesError={errors.allergies}
+                        allergiesConsent={booking.allergiesConsent}
+                        onAllergiesConsentChange={booking.setAllergiesConsent}
+                        onChange={booking.setField}
+                        onBlur={booking.blurField}
                     />
                     {booking.unavailable ? (
                         <div className={styles.notice} role="alert">
@@ -128,6 +121,28 @@ export default function BookingPage({ page, booking }: { page: SheetPage; bookin
                 </>
             ) : null}
         </form>
+    );
+}
+
+const STEP_LABELS: Record<BookingStep, string> = {
+    when: "reservation.when",
+    who: "booking.title_who",
+    recap: "booking.title_recap"
+};
+
+/** «1 di 3 · Quando» con i tre trattini (mockup v38). */
+function StepProgress({ step }: { step: BookingStep }) {
+    const { t } = useTranslation("public");
+    const n = BOOKING_STEPS.indexOf(step) + 1;
+    const label = t(STEP_LABELS[step]);
+    const total = BOOKING_STEPS.length;
+    return (
+        <p className={styles.progress}>
+            {BOOKING_STEPS.map((s, i) => (
+                <i key={s} data-on={i < n ? "" : undefined} aria-hidden="true" />
+            ))}
+            <span>{t("booking.progress", { n, total, label })}</span>
+        </p>
     );
 }
 
@@ -177,16 +192,9 @@ export function BookingFooter({ page, booking }: { page: SheetPage; booking: Boo
         const summary = whenSummary(booking.form, i18n.language, count => t("reservation.party_count", { count }));
         return (
             <div className={styles.footer}>
-                {/* Manca l'ora: il pulsante lo dice e porta lì (mai preselezionata, spec v25). */}
+                {/* Manca l'ora: il pulsante lo dice e porta lì (mai preselezionata, spec v25). Su una riga (v38). */}
                 <button type="submit" form={FORM_ID.when} className={styles.cta} data-missing={summary ? undefined : ""}>
-                    {summary ? (
-                        <>
-                            <span className={styles.ctaLabel}>{t("booking.continue")}</span>
-                            <span className={styles.ctaSummary}>{summary}</span>
-                        </>
-                    ) : (
-                        t("booking.pick_time")
-                    )}
+                    {summary ? <span className={styles.ctaLine}>{`${t("booking.continue")} · ${summary}`}</span> : t("booking.pick_time")}
                 </button>
             </div>
         );

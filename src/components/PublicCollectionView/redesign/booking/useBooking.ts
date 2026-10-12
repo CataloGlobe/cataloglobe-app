@@ -146,7 +146,7 @@ export function useBooking(config: BookingConfig | undefined): BookingBinding | 
     const submit = useCallback(() => {
         if (!config || sendingRef.current) return;
         // Un passo indietro modificato male: si torna lì, col campo a vista.
-        for (const step of ["when", "who"] as const) {
+        for (const step of ["when", "who", "recap"] as const) {
             const stepErrors = validateStep(step, form, config, t);
             const field = firstErrorField(step, stepErrors);
             if (field) {

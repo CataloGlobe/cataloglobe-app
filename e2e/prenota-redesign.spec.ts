@@ -2,9 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { SLUG, featured, stubPublicPage } from "./publicPageStub";
 
 /**
- * Prenota a passi nel foglio unico del redesign (spec v25): Quando, I tuoi dati,
- * Riepilogo, poi la conferma. Giorno già scelto, ora mai; il pulsante del primo
- * passo porta il riepilogo. Pagina servita da stub, orologio fisso (mercoledì
+ * Prenota a passi nel foglio unico del redesign (spec v25, mockup v38): Quando,
+ * I tuoi dati, Riepilogo, poi la conferma. «1 di 3 · Quando» con giorni in fila,
+ * persone con − e +, orari a vista per fascia; giorno già scelto, ora mai; il
+ * pulsante del primo passo porta il riepilogo; le note nel Riepilogo. Pagina servita da stub, orologio fisso (mercoledì
  * 14/10/2026 12:30), `reservation-availability` e `submit-reservation` finti.
  *
  * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
@@ -53,10 +54,9 @@ async function openFromFooter(page: Page) {
     await expect(dialog(page).getByRole("heading", { name: "Prenota un tavolo" })).toBeVisible();
 }
 
-/** Primo passo: sera, 20:00, poi Continua. */
+/** Primo passo: 20:00 fra gli orari della sera. */
 async function pickEvening(page: Page) {
-    await dialog(page).getByRole("radio", { name: "Sera" }).click();
-    await dialog(page).getByRole("option", { name: "20:00" }).click();
+    await dialog(page).getByRole("group", { name: "Sera" }).getByRole("button", { name: "20:00" }).click();
 }
 
 async function fillDetails(page: Page) {
@@ -71,15 +71,24 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
     const sheet = dialog(page);
 
     // Oggi è già scelto; l'ora no, e il pulsante lo dice e porta lì.
-    await expect(sheet.getByRole("listbox", { name: "Seleziona la data" }).getByRole("option", { selected: true })).toContainText("14");
+    await expect(sheet.getByText("1 di 3 · Quando")).toBeVisible();
+    await expect(sheet.getByRole("group", { name: /^Giorno/ }).getByRole("button", { pressed: true })).toContainText("14");
     await sheet.getByRole("button", { name: "Scegli l'orario" }).click();
     await expect(sheet.getByText("Inserisci un orario valido.")).toBeVisible();
 
+    // Persone: numero esatto con − e + (D37).
+    const people = sheet.getByRole("group", { name: "Persone" });
+    await people.getByRole("button", { name: "Una persona in più" }).click();
+    await people.getByRole("button", { name: "Una persona in più" }).click();
+    await people.getByRole("button", { name: "Una persona in meno" }).click();
+    await expect(people.locator("output")).toHaveText("3persone");
+
     await pickEvening(page);
-    await expect(sheet.getByRole("button", { name: "Continua mer 14 ott · 20:00 · 2 persone" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Continua · mer 14 ott · 20:00 · 3 persone" })).toBeVisible();
     await sheet.getByRole("button", { name: /^Continua/ }).click();
 
     await expect(sheet.getByRole("heading", { name: "I tuoi dati" })).toBeVisible();
+    await expect(sheet.getByText("2 di 3 · I tuoi dati")).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Indietro" })).toBeVisible();
     await sheet.getByRole("button", { name: "Continua", exact: true }).click();
     await expect(sheet.getByText("Il nome è obbligatorio.")).toBeVisible();
@@ -90,6 +99,8 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
     await expect(sheet.getByRole("heading", { name: "Riepilogo" })).toBeVisible();
     await expect(sheet.getByText("Sede e2e barra")).toBeVisible();
     await expect(sheet.locator("#booking-recap").getByText("20:00")).toBeVisible();
+    // Le note nel Riepilogo (v38).
+    await sheet.locator("#booking-recap textarea").first().fill("Un seggiolone");
     await sheet.getByRole("button", { name: "Invia richiesta" }).click();
 
     await expect(sheet.getByRole("heading", { name: "Richiesta inviata!" })).toBeVisible();
@@ -99,7 +110,8 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
         slug: SLUG,
         reservation_date: "2026-10-14",
         reservation_time: "20:00",
-        party_size: 2,
+        party_size: 3,
+        notes: "Un seggiolone",
         customer_name: "Anna Rossi",
         customer_email: "anna@example.com",
         customer_phone: "+39 333 1234567"
@@ -145,4 +157,16 @@ test("In evidenza col pulsante verso la prenotazione della sede apre i passi nel
     await expect(sheet.getByRole("heading", { name: "Prenota un tavolo" })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Indietro" })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/${SLUG}$`));
+});
+
+test("persone fino a 20, poi il rimando alle richieste particolari; i giorni in fila", async ({ page }) => {
+    await open(page);
+    await openFromFooter(page);
+    const sheet = dialog(page);
+    const more = sheet.getByRole("button", { name: "Una persona in più" });
+    for (let i = 2; i < 20; i++) await more.click();
+    await expect(more).toBeDisabled();
+    await expect(sheet.getByText(/Oltre 20 persone scrivilo nelle richieste particolari/)).toBeVisible();
+    const days = sheet.getByRole("group", { name: /^Giorno/ }).getByRole("button");
+    expect(await days.count()).toBeGreaterThan(7);
 });
