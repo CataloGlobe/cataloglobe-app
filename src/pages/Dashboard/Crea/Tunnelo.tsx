@@ -15,15 +15,14 @@ import { analyzeMenuFiles } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyz
 import { partitionBySizeBudget } from "@/pages/Dashboard/Catalogs/AiMenuImport/sizeBudget";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
 import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/SettimanaAnteprima";
-import type { Draft, Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import type { V2Style } from "@/services/supabase/styles";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
-import { NO_IMPATTO, dropAside, scontriWait, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { rebase, FONTS, KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
-import { loadTunnel } from "./creaLoad";
-import { entriesOf, type Loaded } from "./creaLoad";
-import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { entriesOf, loadTunnel, type Loaded } from "./creaLoad";
 import { sampleOf, styleTokens, tokensOf, useFonts, useStyleSeen } from "./creaStyle";
 import { StileAspetto } from "./StileAspetto";
 import { StilePhone } from "./StilePhone";
@@ -53,9 +52,6 @@ function useObjectUrl(f: File | null) {
     }, [f]);
     return url;
 }
-
-import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import type { V2Style } from "@/services/supabase/styles";
 
 /** Il tunnel di creazione già su «Parti da questo stile». */
 function fromSystem(t: Tunnel, st: V2Style | undefined): Tunnel {
@@ -402,7 +398,6 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 kids={after.kids}
                 onChain={chain}
                 onFinish={finishAfter}
-                can={{ stile: true, evid: true, storia: true }}
             />
         );
     } else
@@ -417,7 +412,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 body = <MenuParti t={t} u={u} />;
                 break;
             case "sezioni":
-                body = <MenuCategorie t={t} u={u} pick={data.pickList} onRead={onRead} onSuggest={null} />;
+                body = <MenuCategorie t={t} u={u} pick={data.pickList} onRead={onRead} />;
                 break;
             case "serve":
                 body = <Serve t={t} example={t.kind === "stile" ? liveStyle?.name ?? null : null} business={business} />;

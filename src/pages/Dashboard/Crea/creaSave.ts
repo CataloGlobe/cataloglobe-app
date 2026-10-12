@@ -36,7 +36,6 @@ export type SaveCtx = {
     live: boolean;
     /** Il compagno della regola: lo stile per un menù, il menù per uno stile. */
     pair: string | null;
-    /** Lo stile da cui parte uno stile nuovo. */
     /** I file dei blocchi immagine della storia, per id del blocco. */
     blockFiles: Record<string, File>;
     /**

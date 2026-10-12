@@ -564,10 +564,10 @@ export function Controlla({
 }
 
 /* ---------- E adesso? (dopo un menù in onda) ---------- */
-export function Adesso({ name, kids, onChain, onFinish, can }: { name: string; kids: readonly string[]; onChain: (k: "stile" | "evid" | "storia") => void; onFinish: () => void; can: Record<"stile" | "evid" | "storia", boolean> }) {
+export function Adesso({ name, kids, onChain, onFinish }: { name: string; kids: readonly string[]; onChain: (k: "stile" | "evid" | "storia") => void; onFinish: () => void }) {
     const card = (k: "stile" | "evid" | "storia", icon: ReactNode, title: string, text: string) => {
         const done = kids.includes(k);
-        return <Opt key={k} done={done} icon={done ? <Check size={16} /> : icon} title={title} text={done ? "Fatto: puoi aggiungerne un altro." : text} onClick={() => onChain(k)} disabled={!can[k]} />;
+        return <Opt key={k} done={done} icon={done ? <Check size={16} /> : icon} title={title} text={done ? "Fatto: puoi aggiungerne un altro." : text} onClick={() => onChain(k)} />;
     };
     return (
         <>
