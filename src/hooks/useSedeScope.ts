@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { usePermissions } from "@/context/usePermissions";
-import { isOwnerOrAdmin } from "@/lib/permissions";
+import { isOwnerOrAdmin, visibleActivityIds } from "@/lib/permissions";
 import type { V2Activity } from "@/types/activity";
 import {
     SEDE_SINGLE_SITE_ROUTES,
@@ -129,7 +129,8 @@ export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
     const readableActivities = useMemo<V2Activity[]>(() => {
         if (!permissions) return [];
         if (isOwnerOrAdmin(permissions)) return activities;
-        const allowed = new Set(permissions.activityIds);
+        // Sedi di tutti i ruoli, anche quelle da viewer (D35).
+        const allowed = new Set(visibleActivityIds(permissions));
         return activities.filter(a => allowed.has(a.id));
     }, [activities, permissions]);
 
