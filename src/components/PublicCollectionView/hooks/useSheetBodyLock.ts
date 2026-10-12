@@ -12,17 +12,8 @@ import { popSheetOpen, pushSheetOpen } from "./openSheets";
  * rilascia il lock a inizio animazione (vincolo di interattività), non a fine.
  * Il cleanup dell'effect qui sotto è solo la rete di sicurezza per le chiusure
  * che non passano dal path animato.
- *
- * `light` (fogli del redesign): niente `position: fixed`, la pagina resta dov'è
- * e si ferma con `overflow: hidden` su `html` (iOS 16+) e `overscroll-behavior`.
- * Su iPhone il blocco classico sposta il body e Safari ridisegna l'intera pagina
- * (25-60 ms di composite all'apertura e alla chiusura, misurati sull'iPhone):
- * così il primo fotogramma del foglio non salta.
  */
-export function useSheetBodyLock(
-    isOpen: boolean,
-    { light = false }: { light?: boolean } = {}
-): {
+export function useSheetBodyLock(isOpen: boolean): {
     releaseBodyLock: () => void;
     lockBody: () => void;
 } {
@@ -31,36 +22,13 @@ export function useSheetBodyLock(
     // così triggerClose può rilasciare il lock direttamente senza aspettare React.
     const savedScrollYRef = useRef(0);
     const prevBodyStyleRef = useRef({ overflow: "", position: "", top: "", width: "" });
-    const prevRootStyleRef = useRef({ overflow: "", overscrollBehavior: "" });
-    const lightRef = useRef(light);
-    lightRef.current = light;
-    // Il modo con cui è stato preso il lock in corso: il rilascio lo segue anche
-    // se `light` cambiasse nel frattempo.
-    const lockedLightRef = useRef(false);
     // true = lock non attivo (iniziale o già rilasciato); false = lock attivo
     const bodyLockReleasedRef = useRef(true);
-
-    // ── Variante leggera: la radice smette di scorrere, nessuno spostamento ──
-    // Tocca solo `html` (l'overflow della radice passa al viewport), mai il body:
-    // così non si sovrappone al blocco classico di PublicSheet e della ricerca,
-    // che salva e ripristina gli stili del body.
-    const applyLightLock = useCallback(() => {
-        const root = document.documentElement.style;
-        prevRootStyleRef.current = { overflow: root.overflow, overscrollBehavior: root.overscrollBehavior };
-        root.overflow = "hidden";
-        root.overscrollBehavior = "none";
-    }, []);
 
     // ── Rilascio body lock — sicuro da chiamare più volte (idempotente) ──────
     const releaseBodyLock = useCallback(() => {
         if (bodyLockReleasedRef.current) return;
         bodyLockReleasedRef.current = true;
-        if (lockedLightRef.current) {
-            const root = document.documentElement.style;
-            root.overflow = prevRootStyleRef.current.overflow;
-            root.overscrollBehavior = prevRootStyleRef.current.overscrollBehavior;
-            return;
-        }
         const prev = prevBodyStyleRef.current;
         document.body.style.overflow = prev.overflow;
         document.body.style.position = prev.position;
@@ -75,13 +43,6 @@ export function useSheetBodyLock(
     const lockBody = useCallback(() => {
         if (!bodyLockReleasedRef.current) return;
         savedScrollYRef.current = window.scrollY;
-        if (lightRef.current) {
-            bodyLockReleasedRef.current = false;
-            lockedLightRef.current = true;
-            applyLightLock();
-            return;
-        }
-        lockedLightRef.current = false;
         prevBodyStyleRef.current = {
             overflow: document.body.style.overflow,
             position: document.body.style.position,
@@ -96,7 +57,7 @@ export function useSheetBodyLock(
         document.body.style.width = "100%";
         document.body.style.overflow = "hidden";
         document.body.style.position = "fixed";
-    }, [applyLightLock]);
+    }, []);
 
     // ── iOS Safari scroll lock — useLayoutEffect per rilascio sincrono pre-paint ─
     // useLayoutEffect cleanup esegue PRIMA del paint, eliminando il frame dove il body
@@ -112,16 +73,6 @@ export function useSheetBodyLock(
         pushSheetOpen();
 
         savedScrollYRef.current = window.scrollY;
-        if (lightRef.current) {
-            bodyLockReleasedRef.current = false;
-            lockedLightRef.current = true;
-            applyLightLock();
-            return () => {
-                popSheetOpen();
-                releaseBodyLock();
-            };
-        }
-        lockedLightRef.current = false;
         prevBodyStyleRef.current = {
             overflow: document.body.style.overflow,
             position: document.body.style.position,
@@ -150,7 +101,7 @@ export function useSheetBodyLock(
             // a false dall'esterno senza passare per triggerClose), lo rilascia qui.
             releaseBodyLock();
         };
-    }, [isOpen, releaseBodyLock, applyLightLock]);
+    }, [isOpen, releaseBodyLock]);
 
     return { releaseBodyLock, lockBody };
 }
