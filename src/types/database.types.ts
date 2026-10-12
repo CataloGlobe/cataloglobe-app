@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -8308,12 +8308,12 @@ export type Database = {
           p_reservation_time: string
         }
         Returns: {
-          capacity: number | null
+          capacity: number
           duration_minutes: number
           pacing_bucket_bookings: number
           pacing_bucket_covers: number
-          pacing_max_bookings: number | null
-          pacing_max_covers: number | null
+          pacing_max_bookings: number
+          pacing_max_covers: number
           pacing_slot_minutes: number
           peak_with_candidate: number
         }[]
