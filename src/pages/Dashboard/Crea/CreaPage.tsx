@@ -4,14 +4,19 @@
 // nel Dove, la settimana del Calendario).
 import { Navigate, useParams } from "react-router-dom";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { kindOfSlug, type CreaKind } from "./creaModel";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { usePermissions } from "@/context/usePermissions";
+import { kindOfSlug } from "./creaModel";
+import { CREA_READ, creaAccess } from "./creaAccess";
 import { CreaTunnel } from "./CreaTunnel";
-
-const READ: Record<CreaKind, string> = { menu: "catalogs.read", stile: "styles.read", evid: "featured.read", storia: "stories.read" };
 
 export default function CreaPage() {
     const { kind: slug, id } = useParams<{ kind: string; id?: string }>();
+    const { permissions, loading } = usePermissions();
     const kind = kindOfSlug(slug);
     if (!kind) return <Navigate to="../overview" replace />;
-    return <PageGate readPermission={READ[kind]}>{() => <CreaTunnel key={kind + (id ?? "")} kind={kind} editId={id} />}</PageGate>;
+    // senza il permesso di lettura il tunnel non parte nemmeno: niente letture prima del blocco
+    const access = creaAccess(kind, permissions, loading);
+    if (access === "wait") return <Skeleton height={420} />;
+    return <PageGate readPermission={CREA_READ[kind]}>{() => (access === "open" ? <CreaTunnel key={kind + (id ?? "")} kind={kind} editId={id} /> : null)}</PageGate>;
 }
