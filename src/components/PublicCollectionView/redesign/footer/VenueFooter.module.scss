@@ -1,6 +1,6 @@
 /* Fondo della pagina nel redesign (spec §10, mockup v38). Colori dallo stile
-   del locale: testo sul fondo pagina (`--pub-bg-text*`), gruppi su `--pub-surface`,
-   voto e Prenota nel colore del locale (`--pub-accent`). Niente animazioni. */
+   del locale: testo sul fondo pagina (`--pub-bg-text*`), gruppi come campi tenui
+   sul fondo (come i fogli e il mockup), Prenota nel colore del locale. Niente animazioni. */
 
 .root {
   width: 100%;
@@ -21,8 +21,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0 0 24px;
-  font-size: 12px;
+  margin: 0 4px 24px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.14em;
   color: var(--pub-bg-text-muted);
 
   &::before,
@@ -46,10 +49,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 26px 18px 22px;
-  border-radius: 24px;
-  background: color-mix(in srgb, var(--pub-accent, var(--pub-primary)) 10%, var(--pub-bg));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pub-accent, var(--pub-primary)) 22%, transparent);
+  /* mockup v38 («Blocco finale»): niente riquadro, solo titolo e stelle */
+  padding: 16px 0 12px;
   text-align: center;
 }
 
@@ -62,8 +63,8 @@
 
 .rateSub {
   margin: 6px 0 0;
-  font-size: 14px;
-  color: var(--pub-bg-text-secondary);
+  font-size: 13.5px;
+  color: var(--pub-bg-text-muted);
 }
 
 .stars {
@@ -81,7 +82,7 @@
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: var(--pub-accent, var(--pub-primary));
+  color: var(--pub-bg-text-muted);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 
@@ -120,10 +121,8 @@
 .rows {
   padding: 0 14px;
   border-radius: 18px;
-  background: var(--pub-surface);
-  color: var(--pub-surface-text);
-  /* Si vede anche quando la superficie ha il colore del fondo pagina. */
-  box-shadow: inset 0 0 0 1px var(--pub-surface-border);
+  background: color-mix(in srgb, var(--pub-bg-text) 6%, transparent);
+  color: var(--pub-bg-text);
 }
 
 .row {
@@ -144,7 +143,7 @@
   -webkit-tap-highlight-color: transparent;
 
   & + & {
-    border-top: 1px solid var(--pub-surface-border);
+    border-top: 1px solid color-mix(in srgb, var(--pub-bg-text) 10%, transparent);
   }
 
   &:focus-visible {
@@ -162,7 +161,7 @@
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--pub-surface-text) 7%, transparent);
+  background: color-mix(in srgb, var(--pub-bg-text) 7%, transparent);
 }
 
 .text {
@@ -183,23 +182,32 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: var(--pub-surface-text-secondary);
+  color: var(--pub-bg-text-muted);
   overflow-wrap: anywhere;
 }
 
-.dot {
+.dotSlot {
+  display: grid;
   flex-shrink: 0;
-  width: 7px;
-  height: 7px;
+  place-items: center;
+  width: 34px;
+}
+
+/* Pallino con l'alone (mockup v38): verde aperto, ambra in chiusura, spento chiuso. */
+.dot {
+  --dot: color-mix(in srgb, var(--pub-bg-text) 45%, transparent);
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: var(--pub-surface-text-muted);
+  background: var(--dot);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--dot) 22%, transparent);
 
   &[data-kind="open"] {
-    background: #1f9d55;
+    --dot: #1f9d55;
   }
 
   &[data-kind="closing-soon"] {
-    background: #d98a00;
+    --dot: #d98a00;
   }
 }
 
@@ -208,7 +216,7 @@
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-  color: var(--pub-surface-text-muted);
+  color: var(--pub-bg-text-muted);
 }
 
 .trailText {
@@ -216,8 +224,8 @@
   align-items: center;
   gap: 2px;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--pub-accent, var(--pub-surface-text));
+  font-weight: 700;
+  color: var(--pub-bg-text);
 }
 
 .srOnly {

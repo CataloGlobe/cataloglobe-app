@@ -738,6 +738,7 @@
         "today": "Today {{hours}}",
         "today_closed": "Closed today",
         "all_hours": "All hours",
+        "hours": "Hours",
         "useful_info": "Useful information",
         "allergens_help_one": "The regulated allergen and which dishes have it",
         "allergens_help_other": "The {{count}} regulated allergens and which dishes have them",

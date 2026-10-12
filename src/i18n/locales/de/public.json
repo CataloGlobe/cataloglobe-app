@@ -738,6 +738,7 @@
         "today": "Heute {{hours}}",
         "today_closed": "Heute geschlossen",
         "all_hours": "Alle Öffnungszeiten",
+        "hours": "Öffnungszeiten",
         "useful_info": "Nützliche Informationen",
         "allergens_help_one": "Das kennzeichnungspflichtige Allergen und in welchen Gerichten es ist",
         "allergens_help_other": "Die {{count}} kennzeichnungspflichtigen Allergene und in welchen Gerichten sie sind",

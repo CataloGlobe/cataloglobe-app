@@ -80,7 +80,7 @@ test("su desktop Orari, Informazioni utili e Contatti stanno su tre colonne", as
     const end = footer(page);
     await end.scrollIntoViewIfNeeded();
     const boxes = await Promise.all(
-        ["Orari di apertura", "Informazioni utili", "Contatti"].map(name =>
+        ["Orari", "Informazioni utili", "Contatti"].map(name =>
             end.getByRole("region", { name }).boundingBox()
         )
     );
@@ -96,7 +96,7 @@ test("su un desktop stretto due colonne, e Contatti va sotto", async ({ page }) 
     const end = footer(page);
     await end.scrollIntoViewIfNeeded();
     const [hours, info, contacts] = await Promise.all(
-        ["Orari di apertura", "Informazioni utili", "Contatti"].map(async name => (await end.getByRole("region", { name }).boundingBox())!)
+        ["Orari", "Informazioni utili", "Contatti"].map(async name => (await end.getByRole("region", { name }).boundingBox())!)
     );
     expect(Math.abs(hours.y - info.y)).toBeLessThan(2);
     expect(contacts.y).toBeGreaterThan(hours.y + hours.height);

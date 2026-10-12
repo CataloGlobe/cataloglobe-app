@@ -738,6 +738,7 @@
         "today": "Hoy {{hours}}",
         "today_closed": "Hoy cerrado",
         "all_hours": "Todos los horarios",
+        "hours": "Horario",
         "useful_info": "Información útil",
         "allergens_help_one": "El alérgeno de declaración obligatoria y en qué platos está",
         "allergens_help_other": "Los {{count}} alérgenos de declaración obligatoria y en qué platos están",

@@ -4,7 +4,6 @@ import {
     ArrowUpRight,
     CalendarCheck,
     ChevronRight,
-    Clock,
     Facebook,
     Instagram,
     Leaf,
@@ -89,7 +88,7 @@ export default function VenueFooter({
                 {hasHours ? (
                     <section className={styles.group} aria-labelledby="pf-hours">
                         <h2 id="pf-hours" className={styles.label}>
-                            {t("opening_hours.title")}
+                            {t("page_end.hours")}
                         </h2>
                         <div className={styles.rows}>
                             <TodayRow openingHours={openingHours} upcomingClosures={upcomingClosures} />
@@ -289,17 +288,13 @@ function TodayRow({ openingHours, upcomingClosures }: Pick<FooterSlotContext, "o
                 openVenueSheet("hours");
             }}
         >
-            <span className={styles.icon} aria-hidden>
-                <Clock size={18} strokeWidth={2} />
+            {/* mockup v38: il pallino dello stato al posto dell'icona */}
+            <span className={styles.dotSlot} aria-hidden>
+                <span className={styles.dot} data-kind={status.kind} />
             </span>
             <span className={styles.text}>
                 <span className={styles.title}>{title}</span>
-                {label ? (
-                    <small className={styles.help}>
-                        <span className={styles.dot} data-kind={status.kind} aria-hidden />
-                        {label}
-                    </small>
-                ) : null}
+                {label ? <small className={styles.help}>{label}</small> : null}
             </span>
             <span className={styles.trail} aria-hidden>
                 <span className={`${styles.trailText} ${styles.allHours}`}>{t("page_end.all_hours")}</span>

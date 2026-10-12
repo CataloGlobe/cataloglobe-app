@@ -738,6 +738,7 @@
     "today": "Aujourd'hui {{hours}}",
     "today_closed": "Fermé aujourd'hui",
     "all_hours": "Tous les horaires",
+    "hours": "Horaires",
     "useful_info": "Informations utiles",
     "allergens_help_one": "L'allergène réglementaire et les plats qui le contiennent",
     "allergens_help_other": "Les {{count}} allergènes réglementaires et les plats qui les contiennent",

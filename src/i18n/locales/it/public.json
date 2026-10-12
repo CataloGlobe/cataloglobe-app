@@ -737,6 +737,7 @@
         "today": "Oggi {{hours}}",
         "today_closed": "Oggi chiuso",
         "all_hours": "Tutti gli orari",
+        "hours": "Orari",
         "useful_info": "Informazioni utili",
         "allergens_help_one": "L'allergene di legge e in quali piatti è",
         "allergens_help_other": "I {{count}} allergeni di legge e in quali piatti sono",
