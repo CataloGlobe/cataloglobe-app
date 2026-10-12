@@ -5,7 +5,7 @@ import { useId, type ReactNode } from "react";
 import { CalendarHeart, ChefHat, Megaphone, MousePointerClick, Plus, Tag, UtensilsCrossed } from "lucide-react";
 import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { hasDishes, type Tunnel } from "./creaModel";
-import { IDEE, ideaOf, type IdeaId } from "./evidIdee";
+import { IDEE, dropIdea, ideaOf, pickIdea, type IdeaId } from "./evidIdee";
 import { EvidPiatti, type U } from "./CreaSteps";
 import { Chip, Field, Sh } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
@@ -27,7 +27,7 @@ export function EvidIdee({ t, u }: { t: Tunnel; u: U }) {
         return (
             <div className={`${e.start} ${e.line}`}>
                 Partito da <b>{idea.name}</b>
-                <button type="button" className={st.linkb} onClick={() => u(x => void (x.idea = null))}>
+                <button type="button" className={st.linkb} onClick={() => u(dropIdea)}>
                     Parti da un'altra idea
                 </button>
             </div>
@@ -47,12 +47,7 @@ export function EvidIdee({ t, u }: { t: Tunnel; u: U }) {
                                 type="button"
                                 className={e.idea}
                                 key={i.id}
-                                onClick={() =>
-                                    u(x => {
-                                        x.idea = i.id;
-                                        if (i.dishes) x.evType = i.dishes;
-                                    })
-                                }
+                                onClick={() => u(x => pickIdea(x, i))}
                             >
                                 {IDEA_ICON[i.id]}
                                 <span>

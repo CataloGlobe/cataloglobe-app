@@ -40,11 +40,12 @@ export const KIND: Record<CreaKind, { t: string; edit: string; page: string; lis
 export type EvType = "annuncio" | "evento" | "promo" | "bundle";
 /** Il contenuto porta dei piatti: è questo, non un tipo scelto, a decidere come si salva (D187). */
 export const hasDishes = (t: { evType: EvType | null }) => t.evType === "promo" || t.evType === "bundle";
-export const EV: Record<EvType, { name: string; desc: string; type: FeaturedContentType; ex: [string, string] }> = {
-    annuncio: { name: "Annuncio", desc: "Una notizia: «Chiusi il 25 dicembre».", type: "announcement", ex: ["Chiusi il 25 dicembre", "Ci vediamo il 26, a pranzo."] },
-    evento: { name: "Evento", desc: "Una serata con data: «Jazz giovedì alle 21».", type: "event", ex: ["Jazz giovedì alle 21", "Trio dal vivo, prenota il tavolo."] },
-    promo: { name: "Promo", desc: "Alcuni piatti col loro prezzo, ognuno con una nota: «-20% a pranzo».", type: "promo", ex: ["Pranzo veloce", "Due piatti, serviti in dieci minuti."] },
-    bundle: { name: "Bundle", desc: "Più piatti insieme a un prezzo unico.", type: "bundle", ex: ["Menù degustazione", "Cinque portate, solo a cena."] }
+/** Come si salva: il tipo nel database (D187), non più una scelta del tunnel. */
+export const EV: Record<EvType, { type: FeaturedContentType }> = {
+    annuncio: { type: "announcement" },
+    evento: { type: "event" },
+    promo: { type: "promo" },
+    bundle: { type: "bundle" }
 };
 
 /** I colori pronti dell'aspetto; gli altri nella tavolozza. */
@@ -267,7 +268,6 @@ export type StepId =
     | "serve"
     | "nome"
     | "aspetto"
-    | "cosa"
     | "contenuto"
     | "piatti"
     | "racconto"
@@ -284,7 +284,6 @@ export const STEP_LABEL: Record<StepId, string> = {
     serve: "A cosa serve",
     nome: "Il nome",
     aspetto: "L'aspetto",
-    cosa: "Che cosa",
     contenuto: "Il contenuto",
     piatti: "Piatti",
     racconto: "Il racconto",
@@ -348,8 +347,6 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
             return t.base === "copy" && !t.baseStyleId ? "Scegli lo stile da cui partire" : "";
         case "aspetto":
             return "";
-        case "cosa":
-            return t.evType ? "" : "Scegli cosa mettere in evidenza";
         case "contenuto":
             if (t.cta && t.ctaLink.trim() && !/^https:\/\//.test(t.ctaLink.trim())) return "Il link del bottone deve cominciare con https://";
             if (t.cta && !t.ctaText.trim()) return "Manca il testo del bottone";
@@ -622,13 +619,11 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
                 FONTS[t.look.typography.fontFamily].name,
                 t.look.card.productStyle === "compact" ? "piatti in elenco" : "piatti a riquadri"
             ].join(" · ");
-        case "cosa":
-            return t.evType ? EV[t.evType].name : "—";
         case "contenuto":
             return `${t.title.trim()} · ${t.slot === "before" ? "sopra" : "sotto"} il menù${t.cta ? ` · pulsante «${t.ctaText.trim()}»` : ""}${hasDishes(t) ? " · " + stepSummary(t, "piatti", L, styleName) : ""}`;
         case "piatti":
             return t.evType === "bundle"
-                ? `${t.dishes.map(product).join(", ")} · ${t.bundle.trim()} €${t.showOrig ? " · totale originale barrato" : ""}`
+                ? `${t.dishes.map(product).join(", ")} · ${t.bundle.trim()} €${t.showOrig ? " · totale di prima barrato" : ""}`
                 : t.dishes.map(d => product(d) + (t.notes[d]?.trim() ? ` (${t.notes[d].trim()})` : "")).join(", ");
         case "racconto":
             return [t.kicker.trim(), t.title.trim()].filter(Boolean).join(" · ") + (t.cover || t.coverUrl ? " · con copertina" : "") + (t.linked ? ` · anche in ${product(t.linked)}` : "");
@@ -676,12 +671,8 @@ export function qcardText(t: Tunnel, step: StepId, L: DraftLookups, baseName: st
             return [t.name.trim() || "Lo stile nuovo", t.base === "copy" && baseName ? `Parte da «${baseName}».` : "Parte dai colori di CataloGlobe."];
         case "aspetto":
             return ["L'aspetto", "Su tutta la pagina, con ogni menù."];
-        case "cosa":
-            return [t.evType ? EV[t.evType].name : "In evidenza", "In cima al menù o in fondo, a colpo d'occhio."];
         case "contenuto":
             return [t.title.trim() || "Il titolo", t.slot === "before" ? "Sopra il menù, appena sotto il nome." : "Sotto il menù, in fondo alla pagina."];
-        case "piatti":
-            return ["I piatti", t.evType === "promo" ? "Ognuno col suo prezzo e la sua nota." : "Tutti insieme, a un prezzo unico."];
         case "racconto":
             return [t.title.trim() || "Il titolo", "Così si presenta nell'elenco delle storie."];
         case "blocchi":

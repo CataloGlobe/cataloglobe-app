@@ -1,7 +1,7 @@
 // Le idee da cui partire per un contenuto in evidenza (D187): quello che un
 // bravo cameriere direbbe a voce arrivando al tavolo. Un'idea non è un tipo:
 // dà gli esempi nei campi e, se parla di piatti, apre la loro parte.
-import type { EvType } from "./creaModel";
+import type { EvType, Tunnel } from "./creaModel";
 
 export type IdeaId = "chef" | "offerta" | "fisso" | "serata" | "avviso";
 export type Idea = { id: IdeaId; name: string; say: string; ex: readonly [title: string, sub: string, text: string]; dishes?: Extract<EvType, "promo" | "bundle"> };
@@ -20,3 +20,15 @@ export const IDEE: readonly { job: string; ideas: readonly Idea[] }[] = [
 ];
 
 export const ideaOf = (id: string | null): Idea | null => IDEE.flatMap(j => j.ideas).find(i => i.id === id) ?? null;
+
+/** Partire da un'idea: se parla di piatti, ne apre la parte. */
+export function pickIdea(x: Pick<Tunnel, "idea" | "evType">, i: Idea) {
+    x.idea = i.id;
+    if (i.dishes) x.evType = i.dishes;
+}
+
+/** «Parti da un'altra idea»: si chiude anche la parte dei piatti aperta dall'idea di prima, come con «Togli». */
+export function dropIdea(x: Pick<Tunnel, "idea" | "evType">) {
+    if (ideaOf(x.idea)?.dishes) x.evType = null;
+    x.idea = null;
+}

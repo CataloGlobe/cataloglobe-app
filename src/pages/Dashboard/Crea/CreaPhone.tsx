@@ -81,18 +81,18 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
             </>
         );
     } else if (t.kind === "evid") {
-        const ty = t.evType ?? "evento", idea = ideaOf(t.idea);
+        const idea = ideaOf(t.idea);
         // senza niente di scritto, l'esempio dell'idea da cui si è partiti (D187): il tipo non si nomina più
         const ex = idea ? [idea.ex[0], idea.ex[2]] : ["Giovedì karaoke", "Come lo diresti al tavolo."];
         const dishes = t.dishes.map(id => ({ id, name: L.products.get(id)?.name ?? "Prodotto", price: L.products.get(id)?.listPrice ?? null }));
         const feat = (
-            <div className={cx(s.pFeat, step !== "controlla" && !!t.evType && s.hl)}>
+            <div className={cx(s.pFeat, step !== "controlla" && s.hl)}>
                 <span className={s.k}>In evidenza</span>
                 {imageUrl && <img src={imageUrl} alt="" />}
                 <b>{t.title.trim() || ex[0]}</b>
                 {t.sub.trim() && <span style={{ fontWeight: 600 }}>{t.sub.trim()}</span>}
                 <span>{t.text.trim() || ex[1]}</span>
-                {ty === "promo" &&
+                {t.evType === "promo" &&
                     dishes.map(d => (
                         <span key={d.id} className={s.fd}>
                             <span>
@@ -101,7 +101,7 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
                             <b>{price(d.price)}</b>
                         </span>
                     ))}
-                {ty === "bundle" && dishes.length > 0 && (
+                {t.evType === "bundle" && dishes.length > 0 && (
                     <>
                         <span>{dishes.map(d => d.name).join(" · ")}</span>
                         <span className={s.fd}>
