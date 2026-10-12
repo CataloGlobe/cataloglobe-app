@@ -7,6 +7,7 @@ import type { ResolvedStyle } from "@/types/resolvedCollections";
 import { mapStyleTokensToCssVars } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { useRasterizedPattern } from "@/features/public/utils/rasterizePattern";
 import { PublicPortalContext } from "@/features/public/components/PublicPortalContext";
+import { PUBLIC_REDESIGN_ENABLED } from "@/components/PublicCollectionView/redesign/flag";
 
 type Props = {
     /** Pre-parsed tokens. Takes precedence over `style` when provided. */
@@ -37,7 +38,13 @@ type Props = {
 export default function PublicThemeScope({ tokens: tokensProp, style, className, children }: Props) {
     const tokens = tokensProp ?? parseTokens(style?.config ?? null);
     const cssVars = mapStyleTokensToCssVars(tokens);
-    const pattern = useRasterizedPattern(cssVars["--pub-bg-pattern"], cssVars["--pub-bg-pattern-size"]);
+    // Grana disegnata una volta (Safari la ricalcola a ogni ridisegno): solo col
+    // redesign, la pagina di oggi resta com'è finché il flag è spento.
+    const pattern =
+        useRasterizedPattern(
+            PUBLIC_REDESIGN_ENABLED ? cssVars["--pub-bg-pattern"] : undefined,
+            cssVars["--pub-bg-pattern-size"]
+        ) ?? cssVars["--pub-bg-pattern"];
     // Callback ref: il set triggera un re-render quando il nodo monta → il
     // context si aggiorna e PublicSheet riceve il target del portal.
     const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
