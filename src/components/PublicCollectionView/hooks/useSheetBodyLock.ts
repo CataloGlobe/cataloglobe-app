@@ -14,7 +14,7 @@ import { popSheetOpen, pushSheetOpen } from "./openSheets";
  * che non passano dal path animato.
  *
  * `light` (fogli del redesign): niente `position: fixed`, la pagina resta dov'è
- * e si ferma con `overflow: hidden` sulla radice (iOS 16+) e `overscroll-behavior`.
+ * e si ferma con `overflow: hidden` su `html` (iOS 16+) e `overscroll-behavior`.
  * Su iPhone il blocco classico sposta il body e Safari ridisegna l'intera pagina
  * (25-60 ms di composite all'apertura e alla chiusura, misurati sull'iPhone):
  * così il primo fotogramma del foglio non salta.
@@ -41,13 +41,14 @@ export function useSheetBodyLock(
     const bodyLockReleasedRef = useRef(true);
 
     // ── Variante leggera: la radice smette di scorrere, nessuno spostamento ──
+    // Tocca solo `html` (l'overflow della radice passa al viewport), mai il body:
+    // così non si sovrappone al blocco classico di PublicSheet e della ricerca,
+    // che salva e ripristina gli stili del body.
     const applyLightLock = useCallback(() => {
         const root = document.documentElement.style;
         prevRootStyleRef.current = { overflow: root.overflow, overscrollBehavior: root.overscrollBehavior };
-        prevBodyStyleRef.current = { ...prevBodyStyleRef.current, overflow: document.body.style.overflow };
         root.overflow = "hidden";
         root.overscrollBehavior = "none";
-        document.body.style.overflow = "hidden";
     }, []);
 
     // ── Rilascio body lock — sicuro da chiamare più volte (idempotente) ──────
@@ -58,7 +59,6 @@ export function useSheetBodyLock(
             const root = document.documentElement.style;
             root.overflow = prevRootStyleRef.current.overflow;
             root.overscrollBehavior = prevRootStyleRef.current.overscrollBehavior;
-            document.body.style.overflow = prevBodyStyleRef.current.overflow;
             return;
         }
         const prev = prevBodyStyleRef.current;
