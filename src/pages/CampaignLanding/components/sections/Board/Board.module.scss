@@ -71,44 +71,147 @@
     overflow: visible;
 }
 
+.lineShadow,
+.lineBase,
+.lineTwist,
+.lineHi {
+    fill: none;
+}
+
+// Ombra sul muro: più in basso e sfocata (filtro in PegDefs).
+.lineShadow {
+    stroke: rgba(0, 0, 0, 0.45);
+    stroke-width: 3;
+}
+
+.lineBase {
+    stroke: var(--ld-string);
+    stroke-width: 2.6;
+}
+
+// Trama della corda intrecciata.
+.lineTwist {
+    stroke: var(--ld-string-dark);
+    stroke-width: 2.6;
+    stroke-dasharray: 1.4 2.6;
+    opacity: 0.75;
+}
+
+.lineHi {
+    stroke: var(--ld-string-hi);
+    stroke-width: 0.8;
+    opacity: 0.8;
+}
+
 // ── Foglietto ───────────────────────────────────────────────────────────────
+// Il foglietto riempie l'altezza che gli dà la fila: tutte le comande di una
+// fila (desktop) o del carosello (mobile) sono alte come la più lunga, e il
+// riquadro «Con CataloGlobe» sta in fondo, alla stessa altezza.
 .note {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     width: 252px;
+    height: 100%;
     flex-shrink: 0;
 }
 
+// La molla della molletta cade sulla corda: la molletta sale di 8 px.
 .pegWrap {
-    margin-bottom: -20px;
+    margin: -8px 0 -22px;
 }
 
 .peg {
     position: relative;
     z-index: 3;
     display: block;
-    filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.45));
+    filter: drop-shadow(1px 4px 3px rgba(0, 0, 0, 0.5));
 }
 
+// Gli angoli in basso appena sollevati: due ombre inclinate sotto la carta.
 .paperShadow {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
     width: 100%;
-    filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.4));
+    filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.38));
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        bottom: 14px;
+        z-index: -1;
+        width: 46%;
+        height: 18px;
+        background: rgba(0, 0, 0, 0.55);
+        filter: blur(7px);
+    }
+
+    &::before {
+        left: 6px;
+        transform: rotate(-3.5deg);
+    }
+
+    &::after {
+        right: 6px;
+        transform: rotate(3.5deg);
+    }
 }
 
+// Carta: grana leggerissima, appena più chiara in alto, ombra della molletta.
 .paper {
+    position: relative;
     display: flex;
+    flex: 1;
     flex-direction: column;
-    height: 284px;
     box-sizing: border-box;
     padding: 26px 18px 16px;
     border-radius: 3px 3px 0 0;
-    background: var(--ld-note-paper);
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .3 0 0 0 0 .2 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
+        linear-gradient(180deg, #FFFEFA 0%, var(--ld-note-paper) 55%, var(--ld-note-paper-end) 100%);
 
+    &::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 0;
+        width: 34px;
+        height: 26px;
+        transform: translateX(-50%);
+        background: radial-gradient(50% 60% at 50% 0, rgba(60, 40, 20, 0.22), transparent 75%);
+        pointer-events: none;
+    }
+}
+
+// Intestazione stampata: carattere da scontrino di sistema, nessun font in più.
+.meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin: -8px -2px 14px;
+    padding-bottom: 9px;
+    border-bottom: 1.5px dashed rgba(21, 20, 31, 0.28);
+    font: 500 10.5px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: rgba(21, 20, 31, 0.58);
+
+    // Foglietti più stretti: il tavolo non deve toccare la molletta al centro.
     @include desktop {
-        height: auto;
-        min-height: 296px;
+        font-size: 9.5px;
+        letter-spacing: 0.04em;
+    }
+}
+
+.metaWord {
+    @include desktop {
+        display: none;
     }
 }
 
@@ -122,29 +225,46 @@
 .icon {
     flex-shrink: 0;
     fill: none;
-    stroke: var(--ld-note-icon);
+    stroke: var(--ld-stamp-blue);
     stroke-width: 2.2;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 
 .fill {
-    fill: var(--ld-note-icon-fill);
+    fill: rgba(61, 63, 184, 0.12);
 }
 
-.pro,
-.withTag {
-    padding: 3px 8px;
-    border-radius: 999px;
-    font-size: 9px;
+// Timbro a inchiostro: doppio bordo, leggermente storto, consumato (maschera di rumore).
+.stamp {
+    display: inline-block;
+    align-self: flex-start;
+    margin-bottom: 8px;
+    padding: 4px 8px 3px;
+    border: 2px solid currentColor;
+    border-radius: 5px;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+        inset 0 0 0 2px currentColor;
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    line-height: 1;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--ld-on-azione);
+    white-space: nowrap;
+    color: var(--ld-stamp-blue);
+    opacity: 0.88;
+    transform: rotate(-4deg);
+    $wear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.2 2.1'/%3E%3C/filter%3E%3Crect width='120' height='40' filter='url(%23n)'/%3E%3C/svg%3E");
+    -webkit-mask-image: $wear;
+    mask-image: $wear;
 }
 
-.pro {
-    background: var(--ld-scuro);
+.stampPro {
+    align-self: auto;
+    margin: -4px -4px 0 0;
+    color: var(--ld-stamp-red);
+    transform: rotate(7deg);
 }
 
 .noteTitle {
@@ -155,35 +275,58 @@
     color: var(--ld-ink);
 }
 
+// Il problema, scritto a penna dal cameriere.
 .problem {
-    // Il margine sotto tiene staccato il riquadro quando il foglietto si stringe (1024-1280).
-    margin: 10px 0 14px;
-    font-size: 14px;
-    line-height: 1.4;
-    font-style: italic;
+    margin: 6px 0 0;
+    font-family: var(--ld-font-hand);
+    font-size: 23px;
+    font-weight: 600;
+    line-height: 1.05;
     color: var(--ld-terra-ink);
+    transform: rotate(-1.2deg);
+    transform-origin: 0 50%;
 }
 
-.with {
+// Perforazione della matrice: fila di buchi e tacche ai lati (colore del fondo
+// della bacheca). `margin-top: auto` la tiene in fondo con la soluzione.
+.perf {
     position: relative;
-    margin-top: auto;
-    padding: 16px 12px 10px;
-    border-radius: 10px;
-    background: var(--ld-brand-note);
-    border: 1.5px dashed var(--ld-brand-dash);
-}
+    flex-shrink: 0;
+    height: 12px;
+    margin: auto -18px 12px;
+    // Puntini sulla stessa riga dei due fori (centro a 6 px dal fondo) e
+    // distribuiti in modo uguale fra un foro e l'altro (`space`), a 12 px dai fori.
+    padding: 16px 12px 0;
+    box-sizing: content-box;
+    background: radial-gradient(circle, rgba(21, 20, 31, 0.2) 1.6px, transparent 2.1px) center bottom / 9px 12px;
+    background-repeat: space no-repeat;
+    background-origin: content-box;
+    background-clip: content-box;
 
-.withTag {
-    position: absolute;
-    left: 10px;
-    top: -9px;
-    background: var(--ld-azione);
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--ld-scuro);
+    }
+
+    &::before {
+        left: -6px;
+    }
+
+    &::after {
+        right: -6px;
+    }
 }
 
 .withText {
     margin: 0;
     font-size: 13.5px;
-    line-height: 1.42;
+    line-height: 1.45;
     color: var(--ld-ink);
 }
 
@@ -191,8 +334,8 @@
 .tear {
     height: 10px;
     background-image:
-        linear-gradient(135deg, var(--ld-note-paper) 50%, transparent 50%),
-        linear-gradient(225deg, var(--ld-note-paper) 50%, transparent 50%);
+        linear-gradient(135deg, var(--ld-note-paper-end) 50%, transparent 50%),
+        linear-gradient(225deg, var(--ld-note-paper-end) 50%, transparent 50%);
     background-size: 12px 10px;
     background-repeat: repeat-x;
     background-position: left top;
@@ -214,7 +357,6 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: ld-fluid-desk(12, 28);
     padding: 0 12px;
-    align-items: start;
 }
 
 .slot {
@@ -223,14 +365,55 @@
     min-width: 0;
 
     .note {
-        width: min(252px, 100%);
+        width: 100%;
     }
 }
 
 .tilt,
 .swing {
+    display: flex;
+    flex-direction: column;
     transform-origin: 50% 0;
     min-width: 0;
+}
+
+.tilt {
+    width: min(252px, 100%);
+}
+
+.swing {
+    flex: 1;
+}
+
+// Ingresso: ogni comanda scende sul filo e si assesta con un piccolo rimbalzo,
+// 70 ms dopo la precedente. L'animazione ha solo `from`: alla fine resta la
+// sua inclinazione.
+@include motion-ok {
+    .rows:not(.hung) .tilt {
+        opacity: 0;
+    }
+
+    .hung .tilt {
+        animation: ld-hang 750ms cubic-bezier(0.34, 1.45, 0.64, 1) backwards;
+        animation-delay: calc(var(--i, 0) * 70ms);
+    }
+
+    .tiltA .tilt,
+    .tiltB .tilt {
+        --hang-r: -7deg;
+    }
+
+    .tiltC .tilt,
+    .tiltD .tilt {
+        --hang-r: 7deg;
+    }
+}
+
+@keyframes ld-hang {
+    from {
+        opacity: 0;
+        transform: translateY(-36px) rotate(var(--hang-r, 0deg));
+    }
 }
 
 .tiltA .tilt {
@@ -328,6 +511,11 @@
 .rail {
     position: relative;
     margin-top: 30px;
+
+    // La corda scende con le comande (il track ha 8 px in più in alto per la molletta).
+    .line {
+        top: 8px;
+    }
 }
 
 // Livello proprio per il riquadro: WebKit ritaglia e ridisegna i figli
@@ -345,7 +533,7 @@
 .track {
     display: flex;
     gap: 16px;
-    padding: 4px calc(50% - 140px) 34px;
+    padding: 12px calc(50% - 140px) 34px;
     transition: transform 560ms var(--ld-ease);
     will-change: transform;
 }
@@ -359,9 +547,11 @@
 // Solo opacità e transform: niente `filter` su card che traslano (WebKit
 // le ri-rasterizza e ne sbaglia la posizione dopo lo scroll).
 .card {
+    display: flex;
     flex-shrink: 0;
     transform-origin: 50% 0;
-    transition: opacity 400ms ease;
+    // Stessa durata del track: la card che esce si inclina mentre scorre via, senza scatto.
+    transition: opacity 400ms ease, transform 560ms var(--ld-ease);
 
     .note {
         width: 280px;
@@ -393,41 +583,61 @@
         animation: ld-arrive0 1100ms cubic-bezier(0.3, 0.7, 0.4, 1);
     }
 
-    .cardOnOdd {
+    .cardFromLeft {
         animation-name: ld-arrive1;
+    }
+
+    // Spinta della freccia: oscillazione più ampia e un po' più lunga.
+    .cardPush {
+        animation: ld-push0 1300ms cubic-bezier(0.3, 0.7, 0.4, 1);
+    }
+
+    .cardPush.cardFromLeft {
+        animation-name: ld-push1;
+    }
+
+    // La card che esce va oltre l'inclinazione di lato e ci torna.
+    .cardLeaveLeft {
+        animation: ld-leave-left 700ms var(--ld-ease);
+    }
+
+    .cardLeaveRight {
+        animation: ld-leave-right 700ms var(--ld-ease);
     }
 }
 
+// Arriva da destra: parte inclinata e ridotta come .cardAfter, poi oscilla.
 @keyframes ld-arrive0 {
     0% {
-        transform: rotate(-5deg);
+        transform: rotate(3deg) scale(0.94);
     }
-    35% {
-        transform: rotate(3.5deg);
+    40% {
+        transform: rotate(-2.4deg) scale(1);
     }
-    65% {
-        transform: rotate(-1.6deg);
+    68% {
+        transform: rotate(1.1deg);
     }
-    85% {
-        transform: rotate(0.6deg);
+    86% {
+        transform: rotate(-0.4deg);
     }
     100% {
         transform: rotate(0);
     }
 }
 
+// Arriva da sinistra: come .cardBefore, specchiato.
 @keyframes ld-arrive1 {
     0% {
-        transform: rotate(5deg);
+        transform: rotate(-3deg) scale(0.94);
     }
-    35% {
-        transform: rotate(-3.5deg);
+    40% {
+        transform: rotate(2.4deg) scale(1);
     }
-    65% {
-        transform: rotate(1.6deg);
+    68% {
+        transform: rotate(-1.1deg);
     }
-    85% {
-        transform: rotate(-0.6deg);
+    86% {
+        transform: rotate(0.4deg);
     }
     100% {
         transform: rotate(0);
@@ -449,11 +659,16 @@
     width: 44px;
     height: 44px;
     border-radius: 50%;
+    display: grid;
+    place-items: center;
     border: 1px solid var(--ld-dark-arrow);
     background: rgba(255, 255, 255, 0.06);
     color: var(--ld-white);
-    font-size: 20px;
-    line-height: 1;
+    transition: background-color 200ms ease, transform 150ms ease;
+
+    &:active {
+        transform: scale(0.94);
+    }
 }
 
 .dots {
@@ -478,10 +693,63 @@
     background: var(--ld-white);
 }
 
-.hint {
-    position: relative;
-    margin: 12px 0 0;
-    font-size: 12px;
-    text-align: center;
-    color: var(--ld-dark-hint);
+@keyframes ld-push0 {
+    0% {
+        transform: rotate(3deg) scale(0.94);
+    }
+    35% {
+        transform: rotate(-6deg) scale(1);
+    }
+    60% {
+        transform: rotate(3deg);
+    }
+    80% {
+        transform: rotate(-1.2deg);
+    }
+    100% {
+        transform: rotate(0);
+    }
+}
+
+@keyframes ld-push1 {
+    0% {
+        transform: rotate(-3deg) scale(0.94);
+    }
+    35% {
+        transform: rotate(6deg) scale(1);
+    }
+    60% {
+        transform: rotate(-3deg);
+    }
+    80% {
+        transform: rotate(1.2deg);
+    }
+    100% {
+        transform: rotate(0);
+    }
+}
+
+// Finiscono sullo stato di .cardBefore / .cardAfter: niente scatto alla fine.
+@keyframes ld-leave-left {
+    0% {
+        transform: rotate(0) scale(1);
+    }
+    40% {
+        transform: rotate(-8deg) scale(0.94);
+    }
+    100% {
+        transform: rotate(-3deg) scale(0.94);
+    }
+}
+
+@keyframes ld-leave-right {
+    0% {
+        transform: rotate(0) scale(1);
+    }
+    40% {
+        transform: rotate(8deg) scale(0.94);
+    }
+    100% {
+        transform: rotate(3deg) scale(0.94);
+    }
 }

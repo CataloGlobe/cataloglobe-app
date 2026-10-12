@@ -13,107 +13,246 @@
     margin-top: 8px;
 }
 
-.anchor {
-    margin: 12px 0 0;
-    font-size: 15px;
-    color: var(--ld-body);
-
-    @include desktop {
-        margin-top: 14px;
-        font-size: 17px;
-    }
-}
-
-.anchorDesktop {
-    display: none;
-
-    @include desktop {
-        display: inline;
-    }
-}
-
-.anchorMobile {
-    @include desktop {
-        display: none;
-    }
-}
-
 // ── Selettori a segmenti ────────────────────────────────────────────────────
+// La pillola scura scorre sotto i due pulsanti, larghi uguali; «2 mesi gratis»
+// è un'etichetta verde a cavallo del bordo, sopra Annuale.
 .seg {
+    position: relative;
     display: flex;
+    max-width: 340px;
+    margin: 30px auto 0;
     padding: 4px;
     border-radius: 999px;
-}
-
-.seg-interval {
-    max-width: 380px;
-    margin: 22px auto 0;
     background: var(--ld-white);
     border: 1px solid var(--ld-line);
-}
-
-.seg-plan {
-    margin-top: 10px;
-    background: var(--ld-line-2);
-
-    @include desktop {
-        display: none;
-    }
 }
 
 .segBtn {
     @include ld-reset-button;
     @include ld-focus;
+    position: relative;
+    z-index: 1;
     flex: 1 1 0;
     min-height: 44px;
     padding: 10px 14px;
     border-radius: 999px;
+    white-space: nowrap;
     font-size: 14px;
     font-weight: 600;
     line-height: normal;
     color: var(--ld-muted);
-    transition:
-        background-color 250ms ease,
-        color 250ms ease,
-        box-shadow 250ms ease;
+    transition: color 250ms ease;
 }
 
-.seg-interval .segOn {
-    background: var(--ld-scuro);
+.segOn {
     color: var(--ld-white);
 }
 
-.seg-plan .segOn {
-    background: var(--ld-white);
-    color: var(--ld-azione);
-    box-shadow: var(--ld-shadow-thumb);
+.segThumb {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    border-radius: 999px;
+    background: var(--ld-scuro);
+    transform: translateX(calc(var(--seg-i, 0) * 100%));
+
+    @include motion-ok {
+        transition: transform 320ms cubic-bezier(0.3, 0.7, 0.2, 1);
+    }
 }
 
-// ── Schede ──────────────────────────────────────────────────────────────────
+.segBadge {
+    position: absolute;
+    top: -13px;
+    right: 6px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--ld-ok-soft);
+    border: 1px solid var(--ld-white);
+    color: var(--ld-ok);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+// ── Schede (desktop) ────────────────────────────────────────────────────────
 .cards {
+    display: none;
+
+    @include desktop {
+        display: flex;
+        gap: 28px;
+        // Ognuna alta quanto il suo contenuto: il Base non resta con un vuoto in fondo.
+        align-items: flex-start;
+        max-width: 900px;
+        margin: 44px auto 0;
+    }
+}
+
+// ── Mobile ──────────────────────────────────────────────────────────────────
+// La scheda Pro intera; sotto, una riga che si apre sul Base.
+.mobilePlans {
     display: flex;
+    flex-direction: column;
+    gap: 12px;
     margin-top: 24px;
 
     @include desktop {
-        gap: 28px;
-        max-width: 900px;
-        margin: 44px auto 0;
-        align-items: stretch;
+        display: none;
+    }
+
+    // In colonna `flex: 1 1 0` della scheda la schiaccerebbe a zero.
+    .card {
+        flex: none;
     }
 }
 
-.desktopCard {
-    display: none !important;
+.baseOffer {
+    border-radius: 20px;
+    background: var(--ld-white);
+    border: 1px solid var(--ld-line);
+    transition:
+        border-color 300ms ease,
+        box-shadow 300ms ease;
+}
 
-    @include desktop {
-        display: block !important;
+.boOpen {
+    border-color: var(--ld-brand-s);
+    box-shadow: var(--ld-shadow-soft);
+}
+
+.boSummary {
+    @include ld-reset-button;
+    @include ld-focus;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 60px;
+    padding: 12px 16px;
+    border-radius: 20px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.boText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.boName {
+    @include ld-serif;
+    font-size: 21px;
+    line-height: 1.1;
+    color: var(--ld-ink);
+}
+
+.boClaim {
+    font-size: 13px;
+    color: var(--ld-body);
+}
+
+.boPrice {
+    @include ld-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    font-size: 21px;
+    line-height: 1;
+    color: var(--ld-ink);
+    white-space: nowrap;
+}
+
+.boPeriod {
+    font-family: var(--ld-font-sans);
+    font-size: 11px;
+    color: var(--ld-muted);
+}
+
+.boChev {
+    flex-shrink: 0;
+    color: var(--ld-muted);
+
+    @include motion-ok {
+        transition: transform 300ms cubic-bezier(0.3, 0.7, 0.2, 1);
     }
 }
 
-.mobileCard {
-    @include desktop {
-        display: none !important;
+.boOpen .boChev {
+    transform: rotate(180deg);
+}
+
+// Altezza animata: la riga della griglia passa da 0fr a 1fr; il contenuto
+// entra in dissolvenza con un piccolo scorrimento.
+.boWrap {
+    display: grid;
+    grid-template-rows: 0fr;
+
+    @include motion-ok {
+        transition: grid-template-rows 320ms cubic-bezier(0.3, 0.7, 0.2, 1);
     }
+}
+
+.boOpen .boWrap {
+    grid-template-rows: 1fr;
+}
+
+.boInner {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.boBody {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 2px 16px 16px;
+    opacity: 0;
+    transform: translateY(-6px);
+
+    @include motion-ok {
+        transition:
+            opacity 200ms ease,
+            transform 260ms ease;
+    }
+
+    .boOpen & {
+        opacity: 1;
+        transform: none;
+
+        @include motion-ok {
+            transition-delay: 90ms;
+        }
+    }
+
+    .trialBadge {
+        margin-top: -2px;
+    }
+}
+
+.boCta {
+    align-self: stretch;
+    margin-top: 0;
+}
+
+.boNote {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--ld-body);
+}
+
+.boAnchor {
+    margin: -6px 0 0;
+    font-size: 13px;
+    color: var(--ld-muted);
 }
 
 .card {
@@ -150,7 +289,7 @@
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: linear-gradient(180deg, rgba(110, 112, 216, 0.3) 0%, rgba(140, 138, 226, 0.16) 40%, rgba(233, 160, 127, 0.2) 78%, rgba(255, 255, 255, 0) 100%);
+    background: linear-gradient(180deg, rgba(110, 112, 216, 0.26) 0%, rgba(140, 138, 226, 0.12) 55%, rgba(255, 255, 255, 0) 100%);
     opacity: 0;
     transition: opacity 400ms ease;
 }
@@ -207,6 +346,24 @@
     margin-top: 22px;
 }
 
+// Al cambio mensile/annuale il prezzo rientra dal basso (key su React).
+.priceSwap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    @include motion-ok {
+        animation: ld-price-in 320ms ease both;
+    }
+}
+
+@keyframes ld-price-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+
 .price {
     @include ld-serif;
     font-size: 50px;
@@ -230,6 +387,23 @@
     color: var(--ld-strike);
 }
 
+.anchor {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--ld-body);
+}
+
+.trialBadge {
+    display: inline-flex;
+    margin-top: 14px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--ld-ok-soft);
+    color: var(--ld-ok);
+    font-size: 13px;
+    font-weight: 700;
+}
+
 .trial {
     margin: 10px 0 0;
     font-size: 12px;
@@ -243,14 +417,67 @@
     background: var(--ld-line-2);
 }
 
-.items {
+.body {
     position: relative;
-    margin: 0;
     padding: 16px 22px 22px;
-    list-style: none;
 
     @include desktop {
         padding: 18px 28px 26px;
+    }
+}
+
+.items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+// Pro al telefono: le voci in comune col Base, più piccole e fitte.
+.itemsCompact {
+    .item {
+        gap: 10px;
+        padding: 4px 0;
+    }
+
+    .itemIcon {
+        width: 18px;
+        height: 18px;
+
+        svg {
+            width: 10px;
+            height: 10px;
+        }
+    }
+
+    .itemText {
+        font-size: 13.5px;
+    }
+}
+
+.proOnlyLabel {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ld-muted);
+}
+
+// Desktop: le voci solo Pro dopo una riga col titoletto, senza riquadro, così
+// spunte e X restano in colonna con quelle sopra.
+.proOnly {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--ld-line-2);
+
+    .proOnlyLabel {
+        margin-bottom: 4px;
+    }
+}
+
+.proOnlyOn {
+    .proOnlyLabel {
+        color: var(--ld-azione);
     }
 }
 

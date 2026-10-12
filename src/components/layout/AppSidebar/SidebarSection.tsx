@@ -189,7 +189,9 @@ export function SidebarSection({
                                             </span>
                                         )}
                                         {item.badge !== undefined ? (
-                                            <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
+                                            <span title={item.badgeLabel} aria-label={item.badgeLabel}>
+                                                <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
+                                            </span>
                                         ) : (
                                             (item.showDot || item.loading) && (
                                                 <span
@@ -257,7 +259,9 @@ export function SidebarSection({
                                 </span>
                             )}
                             {item.badge !== undefined ? (
-                                <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
+                                <span title={item.badgeLabel} aria-label={item.badgeLabel}>
+                                    <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
+                                </span>
                             ) : (
                                 (item.showDot || item.loading) && (
                                     <span

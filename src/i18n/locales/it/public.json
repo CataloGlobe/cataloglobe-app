@@ -34,6 +34,14 @@
         "more_aria": "Altre opzioni",
         "logo_alt": "Logo {{name}}"
     },
+    "venue": {
+        "open": "Aperto",
+        "closing_soon": "Chiude tra {{minutes}} min",
+        "closed": "Chiuso",
+        "closed_opens_today": "Chiuso · apre alle {{time}}",
+        "closed_opens_tomorrow": "Chiuso · apre domani alle {{time}}",
+        "closed_opens_day": "Chiuso · apre {{day}} alle {{time}}"
+    },
     "nav": {
         "bottom_aria": "Navigazione",
         "subcategories_aria": "Sottocategorie di {{name}}"

@@ -88,6 +88,22 @@ export function canDoOnAnyActivity(perms: UserPermissions, permissionId: string)
 }
 
 /**
+ * Le sedi che il caller vede nelle liste (sidebar, cambio sede, redirect):
+ * quelle di tutti i suoi ruoli di sede, non solo del più alto (D35). Manager
+ * su A e viewer su B: A e B. Senza mappa (owner/admin, o migration non
+ * applicata) resta `activityIds`. Solo per vedere: per scrivere o gestire il
+ * team servono `canDoOnActivity` o `activityIds`, che restano del ruolo più alto.
+ */
+export function visibleActivityIds(perms: UserPermissions): readonly string[] {
+    if (!perms.activitiesByPermission) return perms.activityIds;
+    const ids = new Set(perms.activityIds);
+    for (const activities of perms.activitiesByPermission.values()) {
+        for (const id of activities) ids.add(id);
+    }
+    return [...ids];
+}
+
+/**
  * Può vedere perché la sede mostra quello che mostra: la banda dell'esito,
  * la provenienza per riga, il prezzo dalla regola e il menù attivo di
  * «Cosa vedono i clienti» (§50.20). È l'unico gate di quei punti.

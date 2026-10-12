@@ -18,6 +18,7 @@
     font-size: 17px;
     line-height: 1.55;
     color: var(--ld-body);
+    text-wrap: pretty;
 
     @include desktop {
         font-size: 18px;

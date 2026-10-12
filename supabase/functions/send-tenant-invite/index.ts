@@ -1,10 +1,8 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { Resend } from "npm:resend@4";
 import { COMPANY } from "../_shared/company-config.ts";
 import { buildTenantInviteEmail } from "../_shared/accountEmails.ts";
-
-const APP_URL = Deno.env.get("APP_URL");
+import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
@@ -26,13 +24,15 @@ interface InvitePayload {
     inviteToken: string;
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
     // Fail-fast: APP_URL deve essere configurato per ambiente (staging/prod).
+    // Letta da getPublicSiteUrl: senza slash finale, null se non è un URL valido.
+    const APP_URL = getPublicSiteUrl();
     if (!APP_URL) {
-        console.error("[send-tenant-invite] APP_URL env var is required");
+        console.error("[send-tenant-invite] APP_URL mancante o non valida");
         return json(500, { error: "server_misconfigured" });
     }
 

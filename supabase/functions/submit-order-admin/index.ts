@@ -30,9 +30,9 @@
 // See docs/orders-architecture.md v1.2 §6 (order submit), §7 (order_groups
 // lifecycle) e CLAUDE.md sezione "Epic Ordinazioni dal tavolo".
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { withAppCors } from "../_shared/cors.ts";
 import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";
 import {
     validateAndSnapshotOrderItems,
@@ -72,7 +72,6 @@ const ORDER_NOTES_MAX_LEN = 300;
 const ITEM_NOTES_MAX_LEN = 140;
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -639,7 +638,7 @@ function _buildItemsResponse(items: ValidatedOrder["items"]): Array<Record<strin
 // HTTP handler
 // ============================================================
 
-serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -976,4 +975,6 @@ serve(async (req: Request) => {
             message: "Errore interno."
         });
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));

@@ -39,6 +39,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { useTheme } from "@/context/Theme/useTheme";
 import type { ThemePreference } from "@/context/Theme/ThemeContext";
 import styles from "./WorkspaceSettingsPage.module.scss";
+import { PasswordField } from "@/pages/Auth/PasswordField";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
     { value: "system", label: "Come il sistema" },
@@ -534,9 +535,8 @@ export default function WorkspaceSettingsPage() {
 
                 <ModalLayoutContent>
                     <form noValidate className={styles.modalForm} onSubmit={handlePasswordChange}>
-                        <TextInput
+                        <PasswordField
                             label="Nuova password"
-                            type="password"
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             autoComplete="new-password"
@@ -546,9 +546,8 @@ export default function WorkspaceSettingsPage() {
 
                         <PasswordRequirements value={password} />
 
-                        <TextInput
+                        <PasswordField
                             label="Conferma nuova password"
-                            type="password"
                             value={confirmPassword}
                             onChange={e => setConfirmPassword(e.target.value)}
                             autoComplete="new-password"

@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
 
@@ -31,7 +30,7 @@ function deriveExcerpt(bodyBlocks: StoryBlock[] | null | undefined): string | nu
 const CARD_SELECT = "id, eyebrow, title, cover_media, body_blocks, product:product_id (id, name)";
 const DETAIL_SELECT = "id, tenant_id, activity_id, eyebrow, title, cover_media, body_blocks, sort_order, status, created_at, updated_at, product:product_id (id, name)";
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

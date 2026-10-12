@@ -45,6 +45,7 @@ import type { V2Reservation } from "@/types/reservation";
 import type { ReservationGuestSummary, V2ReservationGuestNote } from "@/types/reservationGuest";
 import { formatAbsenceCount, formatVisitCount } from "@/utils/guestVisibilityCopy";
 import type { DeferredAction } from "./useDeferredCommit";
+import { useServerCapacityCheck } from "./hooks/useServerCapacityCheck";
 import styles from "./Reservations.module.scss";
 
 const DEFAULT_DURATION_MINUTES = 120;
@@ -410,8 +411,36 @@ export default function ReservationDetailDrawer({
     //
     // When `activityCapacity` is NULL the callout still shows the peak but
     // without the "/ capienza" comparison.
+    // I numeri dal server, solo per le richieste in attesa (le uniche col
+    // callout). Finché non arrivano, o se la RPC fallisce, il calcolo in
+    // memoria qui sotto.
+    const capacityInput = useMemo(
+        () =>
+            reservation && reservation.status === "pending" && reservation.party_size > 0
+                ? {
+                      activityId: reservation.activity_id,
+                      date: reservation.reservation_date,
+                      time: reservation.reservation_time.slice(0, 5),
+                      partySize: reservation.party_size,
+                      excludeReservationId: reservation.id
+                  }
+                : null,
+        [reservation]
+    );
+    const serverCheck = useServerCapacityCheck(capacityInput, allReservations);
+
     const capacityCallout = useMemo(() => {
         if (!reservation) return null;
+        const windowMin = serverCheck ? serverCheck.durationMinutes : durationMin;
+        const [h, m] = reservation.reservation_time.split(":").map(n => parseInt(n, 10));
+        const endMin = (h ?? 0) * 60 + (m ?? 0) + windowMin;
+        const span = {
+            from: reservation.reservation_time.slice(0, 5),
+            to: `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`
+        };
+        if (serverCheck) {
+            return { peak: serverCheck.peakWithCandidate, capacity: serverCheck.capacity, ...span };
+        }
         // Quali stati occupano capienza lo dice il motore (`occupiesCapacity`),
         // non questo file: stessa terna delle funzioni SQL.
         const rows: CapacityReservation[] = allReservations
@@ -435,15 +464,8 @@ export default function ReservationDetailDrawer({
                 party_size: reservation.party_size
             }
         );
-        const [h, m] = reservation.reservation_time.split(":").map(n => parseInt(n, 10));
-        const endMin = (h ?? 0) * 60 + (m ?? 0) + durationMin;
-        return {
-            peak: result.peakWithCandidate,
-            capacity: activityCapacity,
-            from: reservation.reservation_time.slice(0, 5),
-            to: `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`
-        };
-    }, [reservation, allReservations, activityCapacity, durationMin]);
+        return { peak: result.peakWithCandidate, capacity: activityCapacity, ...span };
+    }, [reservation, allReservations, activityCapacity, durationMin, serverCheck]);
 
     if (!reservation) {
         return (

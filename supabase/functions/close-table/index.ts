@@ -40,9 +40,9 @@
 //   8. Reply 200 con { table_id, resolved_action, resolved_orders_count,
 //      closed_groups_count, closed_orders_count, cleared_bill_count }.
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { withAppCors } from "../_shared/cors.ts";
 import { hasActivityPermission } from "../_shared/membershipCheck.ts";
 
 // ============================================================
@@ -56,7 +56,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RATE_LIMIT_PER_USER_PER_TABLE_PER_MIN = 30;
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -253,7 +252,7 @@ function _mapRpcErrorToResponse(message: string): Response {
 // HTTP handler
 // ============================================================
 
-serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -444,4 +443,6 @@ serve(async (req: Request) => {
             message: "Errore interno."
         });
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));

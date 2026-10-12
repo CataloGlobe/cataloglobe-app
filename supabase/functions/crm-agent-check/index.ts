@@ -15,13 +15,13 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callCrmClaude } from "../_shared/crmClaude.ts";
+import { withAppCors } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ROLES = new Set(["conversation", "reviewer", "sensitive", "gea"]);
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -33,7 +33,7 @@ function json(status: number, body: Record<string, unknown>): Response {
     });
 }
 
-Deno.serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json(500, { error: "not_configured" });
@@ -79,4 +79,6 @@ Deno.serve(async (req: Request) => {
         cost_usd: result.costUsd,
         latency_ms: latencyMs
     });
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));

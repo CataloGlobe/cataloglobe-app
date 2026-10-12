@@ -1,0 +1,114 @@
+.pagina {
+    position: relative;
+    min-height: 100svh;
+    background: #fff;
+    color: #111;
+}
+
+.sentinellaAlta,
+.sentinellaBassa {
+    position: absolute;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+}
+
+.isola {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: calc(100% - 24px);
+    max-width: 560px;
+    padding: 14px 18px;
+    border-radius: 22px;
+    background: #111;
+    color: #fff;
+    transform: translateX(-50%);
+    // Solo transform e opacity: l'altezza e il blur non si animano.
+    transition: transform 220ms ease, opacity 220ms ease;
+
+    &[data-compact="true"] {
+        transform: translateX(-50%) scale(0.86);
+        opacity: 0.92;
+    }
+}
+
+.stato {
+    margin-left: auto;
+    font-size: 13px;
+    opacity: 0.7;
+}
+
+.contenuto {
+    padding: 96px 16px 140px;
+}
+
+.azioni {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 16px 0;
+}
+
+.btn {
+    min-height: 44px;
+    padding: 0 18px;
+    border: 1px solid #111;
+    border-radius: 12px;
+    background: #fff;
+    color: #111;
+    font-size: 15px;
+}
+
+.esito {
+    font-size: 14px;
+    color: #555;
+}
+
+.riempitivo {
+    margin: 0 0 14px;
+    color: #777;
+}
+
+.barra {
+    position: fixed;
+    bottom: 34px;
+    left: 50%;
+    z-index: 100;
+    padding: 14px 22px;
+    border-radius: 999px;
+    background: rgb(17 17 17 / 90%);
+    color: #fff;
+    transform: translateX(-50%);
+}
+
+.volante {
+    position: fixed;
+    z-index: 2000;
+    pointer-events: none;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    background: #fff;
+    color: #111;
+}
+
+.corto {
+    height: 150px;
+}
+
+.lista {
+    margin: 0;
+    padding: 0 0 24px;
+    list-style: none;
+
+    li {
+        padding: 14px 0;
+        border-bottom: 1px solid #eee;
+    }
+}

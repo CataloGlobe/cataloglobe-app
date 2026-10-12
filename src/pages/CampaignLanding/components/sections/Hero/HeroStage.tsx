@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type Ref } from "react";
 import { UtensilsCrossed } from "lucide-react";
 import { HERO } from "@pages/CampaignLanding/content/landing";
+import { Phone, PhoneStatusBar } from "@pages/CampaignLanding/components/kit/Phone";
 import { useReducedMotion } from "@pages/CampaignLanding/hooks/useReducedMotion";
 import { useVisible } from "@pages/CampaignLanding/hooks/useVisible";
 import {
     HERO_LOOP_MS,
+    HERO_STEPS,
     heroEvents,
     heroInitialState,
     heroReducedState,
@@ -16,6 +18,7 @@ import {
     type HeroEvent,
     type HeroState
 } from "./heroSequence";
+import { Swap } from "@pages/CampaignLanding/components/kit/Swap";
 import styles from "./HeroStage.module.scss";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -196,26 +199,43 @@ function Track({ state }: { state: HeroState }) {
     );
 }
 
-function StatusIcons() {
+/** Indice in HERO_STEPS dell'ultimo evento (-1 prima delle 12:00). */
+function stepIndex(last: HeroState["last"]): number {
+    if (!last) return -1;
+    return HERO_STEPS.findIndex((s) => (last.kind === "slot" ? s.kind === "slot" && s.slot === last.slot : s.kind === "live" && s.live === last.live));
+}
+
+/**
+ * Mobile: una riga sotto il telefono, perché si capisca che il menù cambia da
+ * solo. Un pallino per passo della giornata e cosa è appena successo.
+ */
+function PhoneCaption({ state }: { state: HeroState }) {
+    const at = stepIndex(state.last);
+    const step = at >= 0 ? HERO_STEPS[at] : null;
+    const text = !step
+        ? SCHEDULE.phoneIdle
+        : step.kind === "slot"
+          ? SCHEDULE.phoneSlot(PHONE.menus[step.slot].name)
+          : SCHEDULE.phoneLive(SCHEDULE.live[step.live].text);
     return (
-        <span className={styles.sbIcons}>
-            <svg viewBox="0 0 18 11" fill="currentColor">
-                <rect x="0" y="7" width="3" height="4" rx="1" />
-                <rect x="5" y="5" width="3" height="6" rx="1" />
-                <rect x="10" y="2.5" width="3" height="8.5" rx="1" />
-                <rect x="15" y="0" width="3" height="11" rx="1" />
-            </svg>
-            <svg viewBox="0 0 26 12">
-                <rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="currentColor" strokeOpacity=".5" />
-                <rect x="2" y="2" width="16" height="8" rx="1.8" fill="currentColor" />
-                <rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor" fillOpacity=".5" />
-            </svg>
-        </span>
+        <div className={styles.phoneCaption}>
+            <span className={styles.pcDots}>
+                {HERO_STEPS.map((s, i) => (
+                    <i key={s.clock} className={cx(styles.pcDot, s.kind === "live" && styles.pcDotLive, i <= at && styles.pcDotOn, i === at && styles.pcDotNow)} />
+                ))}
+            </span>
+            <Swap id={at} block className={styles.pcSwap}>
+                <span className={cx(styles.pcText, step?.kind === "live" && styles.pcTextLive)}>
+                    {step && <span className={styles.pcTime}>{step.clock} · </span>}
+                    {text}
+                </span>
+            </Swap>
+        </div>
     );
 }
 
 /** Il telefono: il menù del locale d'esempio, quello della fascia in corso. */
-function Phone({ state }: { state: HeroState }) {
+function HeroPhone({ state }: { state: HeroState }) {
     const menu = PHONE.menus[state.menu];
     // Modifiche al volo già arrivate al telefono, per riga del menù in vista.
     const mods = new Map<number, (typeof SCHEDULE.live)[number]>();
@@ -225,66 +245,64 @@ function Phone({ state }: { state: HeroState }) {
     let row = 0;
 
     return (
-        <div className={styles.phone}>
-            <span className={styles.island} />
-            <div className={styles.screen}>
-                <div className={styles.content}>
-                    <div className={styles.statusBar}>
-                        <span className={cx(styles.sbTime, state.clockOut && styles.sbTimeOut)}>{state.clock}</span>
-                        <StatusIcons />
-                    </div>
-                    <div className={styles.cover}>
-                        <div className={styles.coverId}>
-                            <span className={styles.logo}>
-                                <UtensilsCrossed size={18} strokeWidth={2.2} />
+        <Phone className={styles.phone}>
+            <div className={styles.content}>
+                <PhoneStatusBar time={state.clock} />
+                <div className={styles.cover}>
+                    <div className={styles.coverId}>
+                        <span className={styles.logo}>
+                            <UtensilsCrossed size={18} strokeWidth={2.2} />
+                        </span>
+                        <span>
+                            <span className={styles.venue}>{PHONE.venue}</span>
+                            <span className={styles.menuName}>
+                                <Swap id={state.menu}>{menu.name}</Swap>
                             </span>
-                            <span>
-                                <span className={styles.venue}>{PHONE.venue}</span>
-                                <span key={state.menu} className={cx(styles.menuName, styles.enter, state.menuOut && styles.leaving)}>
-                                    {menu.name}
-                                </span>
-                            </span>
-                        </div>
-                    </div>
-                    <div key={state.menu} className={cx(styles.menuBody, styles.enter, state.menuOut && styles.leaving)}>
-                        <div className={styles.chips}>
-                            {menu.chips.map((c, j) => (
-                                <span key={c} className={cx(styles.chip, j === 0 && styles.chipOn)}>
-                                    {c}
-                                </span>
-                            ))}
-                        </div>
-                        <div className={styles.items}>
-                            {menu.cats.map((cat) => (
-                                <div key={cat.name}>
-                                    <p className={styles.cat}>{cat.name}</p>
-                                    {cat.dishes.map((d) => {
-                                        const mod = mods.get(row++);
-                                        const up = mod?.kind === "price";
-                                        const off = mod?.kind === "sold";
-                                        return (
-                                            <div key={d.name} className={cx(styles.item, up && styles.itemUp, off && styles.itemOff)}>
-                                                <div className={styles.itemText}>
-                                                    <span className={styles.itemName}>
-                                                        {d.name}
-                                                        {off && <span className={styles.badge}>{PHONE.unavailable}</span>}
-                                                    </span>
-                                                    <span className={styles.itemDesc}>{d.desc}</span>
-                                                </div>
-                                                <span className={styles.itemPrice}>
-                                                    {up && <s className={styles.itemOld}>{d.price} €</s>}
-                                                    <span className={styles.itemValue}>{mod?.kind === "price" ? mod.to : d.price} €</span>
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ))}
-                        </div>
+                        </span>
                     </div>
                 </div>
+                <Swap id={state.menu} block soft>
+                <div className={styles.menuBody}>
+                    <div className={styles.chips}>
+                        {menu.chips.map((c, j) => (
+                            <span key={c} className={cx(styles.chip, j === 0 && styles.chipOn)}>
+                                {c}
+                            </span>
+                        ))}
+                    </div>
+                    <div className={styles.items}>
+                        {menu.cats.map((cat) => (
+                            <div key={cat.name}>
+                                <p className={styles.cat}>{cat.name}</p>
+                                {cat.dishes.map((d) => {
+                                    const mod = mods.get(row++);
+                                    const up = mod?.kind === "price";
+                                    const off = mod?.kind === "sold";
+                                    return (
+                                        <div key={d.name} className={cx(styles.item, up && styles.itemUp, off && styles.itemOff)}>
+                                            <div className={styles.itemText}>
+                                                <span className={styles.itemName}>
+                                                    {d.name}
+                                                    {off && <span className={styles.badge}>{PHONE.unavailable}</span>}
+                                                </span>
+                                                <span className={styles.itemDesc}>{d.desc}</span>
+                                            </div>
+                                            <span className={styles.itemPrice}>
+                                                {up && <s className={styles.itemOld}>{d.price} €</s>}
+                                                <Swap id={up ? "up" : "base"} roll className={styles.itemValue}>
+                                                    {mod?.kind === "price" ? mod.to : d.price} €
+                                                </Swap>
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                </Swap>
             </div>
-        </div>
+        </Phone>
     );
 }
 
@@ -320,11 +338,20 @@ export default function HeroStage({ onFascia, scheduleRef, phoneRef }: HeroStage
     return (
         <div ref={ref} className={styles.stage} aria-hidden="true">
             <div ref={scheduleRef} className={styles.scheduleTilt}>
-                <Timeline state={state} />
-                <Track state={state} />
+                <div className={cx(styles.schedule3d, !visible && styles.paused)}>
+                    <Timeline state={state} />
+                    <Track state={state} />
+                </div>
             </div>
             <div ref={phoneRef} className={styles.phoneTilt}>
-                <Phone state={state} />
+                <div className={cx(styles.phone3d, !visible && styles.paused)}>
+                    <span className={styles.phoneGround} />
+                    <div className={styles.phoneFloat}>
+                        <span className={styles.phoneEdge} />
+                        <HeroPhone state={state} />
+                    </div>
+                </div>
+                <PhoneCaption state={state} />
             </div>
         </div>
     );

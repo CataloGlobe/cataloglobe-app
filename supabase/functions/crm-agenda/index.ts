@@ -22,6 +22,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { loadTeam } from "../_shared/crmLeadMessage.ts";
 import { loadAgendaBusy, processAgenda } from "../_shared/crmAgendaJob.ts";
+import { withAppCors } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -29,7 +30,6 @@ const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? null;
 const MAX_RANGE_MS = 14 * 24 * 60 * 60_000;
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -41,7 +41,7 @@ function json(status: number, body: Record<string, unknown>): Response {
     });
 }
 
-Deno.serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json(500, { error: "not_configured" });
@@ -82,4 +82,6 @@ Deno.serve(async (req: Request) => {
         console.error("crm-agenda: error", e?.code ?? "", e?.message ?? String(err));
         return json(500, { error: "agenda_failed" });
     }
-});
+}
+
+Deno.serve(async (req: Request) => withAppCors(req, await handle(req)));
