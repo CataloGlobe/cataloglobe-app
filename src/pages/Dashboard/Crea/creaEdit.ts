@@ -21,7 +21,7 @@ import { EV, changed, clonePer, cloneWhen, effWhen, hasDishes, thingName, type T
 import { saveSezioni } from "./menuSave";
 import { allEntriesOf } from "./creaLoad";
 import { styleConfig } from "./creaStyle";
-import { CAL_KIND, draftFor, writeEvidRules, type SaveCtx, type Saved } from "./creaSave";
+import { CAL_KIND, draftFor, parts, writeEvidRules, type SaveCtx, type Saved } from "./creaSave";
 import type { CreaData } from "./useCreaData";
 
 export type EditCtx = Pick<SaveCtx, "tenantId" | "L" | "blockFiles" | "done" | "pair"> & {
@@ -137,14 +137,15 @@ async function saveQuando(t: Tunnel, c: EditCtx) {
     if (kind === "evid" && ed.orig.onda !== "on") await updateFeaturedContent(id, c.tenantId, { status: "published" });
     if (!e) {
         if (kind === "evid") await writeEvidRules(t, c, id, thingName(t), true);
-        else await saveDraft(draftFor(t, CAL_KIND[kind], id, c.pair), c.L, c.tenantId);
+        else await saveDraft(draftFor(t, CAL_KIND[kind], id, c.pair), c.L, c.tenantId, parts(c, "rule:" + id));
         return;
     }
     const D = draftFromEntry(e, c.L, shared ? id : null);
     D.when = cloneWhen(effWhen(t));
     D.where = { all: t.where.all, activityIds: [...t.where.activityIds], groupIds: [...t.where.groupIds] };
     D.per = clonePer(t.per);
-    await saveDraft(D, c.L, c.tenantId);
+    // «Riprova»: con più orari per sede, le regole già nate non si rifanno
+    await saveDraft(D, c.L, c.tenantId, parts(c, "rule:" + id));
 }
 
 export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {

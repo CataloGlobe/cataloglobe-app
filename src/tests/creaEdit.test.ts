@@ -373,6 +373,19 @@ describe("modifica nel tunnel: il menù, le ore per sede e l'import aperto", () 
         expect((saved[0][1] as { per: unknown }).per).toEqual(per);
     });
 
+    it("«Riprova» con le ore per sede: il salvataggio riceve lo stesso elenco delle regole già nate (rilettura #472)", async () => {
+        const t = upd(menu(), x => {
+            x.where = { all: false, activityIds: ["s1", "s2", "s3"], groupIds: [] };
+            x.per = { s1: { days: [1] }, s2: { days: [2] }, s3: { days: [3] } } as unknown as Tunnel["per"];
+        });
+        const c = ctx();
+        await saveEdit(t, c);
+        await saveEdit(t, c);
+        const [a, b] = calls.filter(x => x[0] === "saveDraft").map(x => x[4]);
+        expect(a).toBeInstanceOf(Set);
+        expect(b).toBe(a);
+    });
+
     it("con un import da foto ancora aperto, «Avanti» e il salvataggio si fermano anche se non è cambiato altro", () => {
         const t = upd(menu(), x => void (x.impOpen = true));
         expect(changed(t, "sezioni")).toBe(false);
