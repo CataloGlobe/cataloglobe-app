@@ -82,5 +82,14 @@ select json_build_object(
             'end_minute', ss.end_minute
         ) order by ss.schedule_id, ss.sort_order, ss.id)
         from public.schedule_slots ss
+    ), '[]'::json),
+    'slot_targets', coalesce((
+        select json_agg(json_build_object(
+            'slot_id', sst.slot_id,
+            'target_type', st.target_type,
+            'target_id', st.target_id
+        ) order by sst.slot_id, st.target_type, st.target_id)
+        from public.schedule_slot_targets sst
+        join public.schedule_targets st on st.id = sst.schedule_target_id
     ), '[]'::json)
 ) as fotografia;

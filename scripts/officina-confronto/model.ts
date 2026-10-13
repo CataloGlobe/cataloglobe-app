@@ -391,6 +391,8 @@ export function confronta(prima: Esito, dopo: Esito): Differenza[] {
     }
     const dopoById = new Map(dopo.sedi.map(s => [s.id, s]));
     const out: Differenza[] = [];
+    // Si uniscono solo tratti della stessa sede (per id: i nomi possono ripetersi).
+    let lastSedeId: string | null = null;
 
     for (const sede of prima.sedi) {
         const altra = dopoById.get(sede.id);
@@ -402,8 +404,7 @@ export function confronta(prima: Esito, dopo: Esito): Differenza[] {
                 const last = out[out.length - 1];
                 if (
                     last &&
-                    last.sede === sede.nome &&
-                    last.azienda === sede.azienda &&
+                    lastSedeId === sede.id &&
                     last.strato === type &&
                     last.a === piece.da &&
                     last.prima === piece.prima.cosa &&
@@ -424,6 +425,7 @@ export function confronta(prima: Esito, dopo: Esito): Differenza[] {
                     regola_prima: piece.prima.regola,
                     regola_dopo: piece.dopo.regola
                 });
+                lastSedeId = sede.id;
             }
         }
     }

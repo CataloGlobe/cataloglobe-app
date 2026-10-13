@@ -182,6 +182,36 @@ describe("confronto", () => {
         expect(confronta(prima, calcolaEsito(renamed, MONDAY))).toEqual([]);
     });
 
+    it("non unisce tratti di due sedi con lo stesso nome", () => {
+        const gemelle: Partial<Snapshot> = {
+            activities: [
+                { id: "sede-a", tenant_id: T1, tenant_name: "Azienda 1", name: "Centro", status: "active", group_ids: [] },
+                { id: "sede-b", tenant_id: T1, tenant_name: "Azienda 1", name: "Centro", status: "active", group_ids: [] }
+            ]
+        };
+        const prima = calcolaEsito(snapshot([rule({ id: "sempre" })], gemelle), MONDAY);
+        const dopoSnap = snapshot(
+            [
+                rule({ id: "sempre" }),
+                rule({ id: "mattina-a", apply_to_all: false, time_mode: "window", days_of_week: [1], time_from: "00:00:00", time_to: "12:00:00" }),
+                rule({ id: "mezzodi-b", apply_to_all: false, time_mode: "window", days_of_week: [1], time_from: "12:00:00", time_to: "15:00:00" })
+            ],
+            {
+                ...gemelle,
+                targets: [
+                    { schedule_id: "mattina-a", target_type: "activity", target_id: "sede-a" },
+                    { schedule_id: "mezzodi-b", target_type: "activity", target_id: "sede-b" }
+                ]
+            }
+        );
+        // Stesso menù e stile: per la sede A il tratto finisce alle 12, per la B comincia alle 12.
+        dopoSnap.layouts = dopoSnap.layouts.map(l =>
+            l.schedule_id === "sempre" ? l : { ...l, catalog_id: "menu-nuovo", style_id: "stile-nuovo" }
+        );
+        const diffs = confronta(prima, calcolaEsito(dopoSnap, MONDAY));
+        expect(diffs.map(d => d.quando)).toEqual(["lun 00:00", "lun 12:00"]);
+    });
+
     it("rifiuta settimane diverse", () => {
         const prima = calcolaEsito(snapshot(base), MONDAY);
         const dopo = calcolaEsito(snapshot(base), "2026-10-19");
