@@ -8435,14 +8435,6 @@ export type Database = {
           window_start: string
         }[]
       }
-      get_daily_uptime: {
-        Args: { p_days?: number; p_service_key: string }
-        Returns: {
-          check_count: number
-          day: string
-          worst: string
-        }[]
-      }
       get_invite_info_by_token: {
         Args: { p_token: string }
         Returns: {
