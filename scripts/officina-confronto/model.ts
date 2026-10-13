@@ -403,6 +403,7 @@ export function confronta(prima: Esito, dopo: Esito): Differenza[] {
                 if (
                     last &&
                     last.sede === sede.nome &&
+                    last.azienda === sede.azienda &&
                     last.strato === type &&
                     last.a === piece.da &&
                     last.prima === piece.prima.cosa &&
