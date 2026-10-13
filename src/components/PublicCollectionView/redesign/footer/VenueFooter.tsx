@@ -332,7 +332,7 @@ function RateBlock({
 
     if (reviewedNow || reviewedBefore) {
         return (
-            <section className={styles.rate} aria-labelledby="pf-rate">
+            <section className={styles.rate} data-done="" aria-labelledby="pf-rate">
                 <h2 id="pf-rate" className={styles.rateTitle}>
                     {t("page_end.rated_title")}
                 </h2>
