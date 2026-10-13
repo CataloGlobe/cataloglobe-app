@@ -465,7 +465,7 @@ export function ScontriAvviso({ kind, scontri, multi, insieme, onInsieme }: { ki
                     ]}
                 />
             )}
-            {vinte.length > 0 && (
+            {vinte.length > 0 && !(kind === "style" && insieme) && (
                 <p className={s.muted}>
                     {scelta && insieme ? "In quelle ore ci sono tutti e due: il cliente sceglie." : "In quelle ore va in onda il tuo; fuori da quelle ore resta tutto com'è."}
                 </p>

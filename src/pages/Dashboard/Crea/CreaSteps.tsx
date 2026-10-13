@@ -2,7 +2,7 @@
 // e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { CalendarClock, Check, CirclePause, Copy, Info, Infinity as InfinityIcon, Link2, Lock, MapPinned, Megaphone, Palette, Plus, Radio, ScanText, ScrollText, TriangleAlert } from "lucide-react";
+import { ArrowRight, CalendarClock, Check, CircleCheck, CirclePause, Copy, Info, Infinity as InfinityIcon, Layers, Link2, Lock, MapPinned, Megaphone, Palette, Plus, Radio, ScanText, ScrollText, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import type { StoryBlock } from "@/services/supabase/stories";
 import { MAX_STORY_IMAGES } from "@/services/supabase/stories";
@@ -13,14 +13,15 @@ import { BLOCK_TYPE_META, BLOCK_TYPE_ORDER } from "@/pages/Dashboard/Stories/com
 import { createBlock } from "@/pages/Dashboard/Stories/components/createBlock";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
 import { DoveQuandoPasso, OreSedi, QuandoPasso, ScontriAvviso, SediPasso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
-import { DB_LATER, invalid, sediOf, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { DB_LATER, NEW_MODEL, invalid, sediOf, type Draft, type DraftLookups, type Impatto, type PickProduct, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { KIND, ONDA, STORIA_WHEN, blocker, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, offLater, ondaChange, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel } from "./creaModel";
+import { KIND, ONDA, STORIA_WHEN, blocker, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, nTutte, offLater, ondaChange, oreSummary, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel } from "./creaModel";
 import { hidFeatured } from "./stileLook";
 import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Pick, Sh, Toggle, Warnish } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
+import { InsiemeBox } from "./InsiemeBox";
 
 export type U = (fn: (t: Tunnel) => void) => void;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -436,7 +437,7 @@ export function OndaOff({ t }: { t: Tunnel }) {
 const ondaSub = (t: Tunnel) => `Prima decidi se i clienti ${ONDA[t.kind].lo} vedono. Si cambia quando vuoi.`;
 
 /** Il Quando, con una sede sola; `bare` è solo «Sempre o in certi momenti», dentro «Dove e quando». */
-export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean }) {
+export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean; clash?: boolean; scontri?: readonly Scontro[] }) {
     const storia = t.kind === "storia";
     const choice = (
         <>
@@ -481,15 +482,17 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel;
                     {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
                     {t.edit?.ruleId && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
                     {choice}
-                    <p className={s.hint}>{KIND_TXT[t.kind]}</p>
+                    <p className={s.hint}>
+                        {t.kind === "menu" && NEW_MODEL.multiMenu
+                            ? "Nelle sue ore il cliente vede questo menù. Se si incrocia con un altro, qui sotto scegli se metterli insieme o mostrarlo al posto degli altri."
+                            : KIND_TXT[t.kind]}
+                    </p>
+                    {clash && <InsiemeBox t={t} u={u} scontri={scontri ?? []} multi={false} />}
                 </>
             )}
         </>
     );
 }
-
-/** «tutte e due le sedi», «tutte e tre le sedi», «tutte le 12 sedi». */
-const nTutte = (n: number) => (n === 2 ? "tutte e due le sedi" : n === 3 ? "tutte e tre le sedi" : `tutte le ${n} sedi`);
 
 /** Dove, con più sedi: prima se va in onda, poi in quali sedi. Le ore sono nel passo dopo. */
 export function Dove({ t, u, draft, updDraft, sedi, groups }: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[] }) {
@@ -513,14 +516,74 @@ export function Dove({ t, u, draft, updDraft, sedi, groups }: { t: Tunnel; u: U;
 }
 
 /** Quando, con più sedi: le ore, uguali per tutte o sede per sede. */
-export function QuandoOre({ t, u, draft, updDraft, sedi, groups, durs, axis }: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[]; durs: readonly CalWhen[]; axis: Axis }) {
-    const n = sediOf(t.where, sedi, groups).length;
+export function QuandoOre({
+    t,
+    u,
+    draft,
+    updDraft,
+    sedi,
+    groups,
+    durs,
+    axis,
+    clash,
+    scontri,
+    onPart
+}: {
+    t: Tunnel;
+    u: U;
+    draft: Draft;
+    updDraft: Upd;
+    sedi: readonly PassoSede[];
+    groups: readonly PassoGruppo[];
+    durs: readonly CalWhen[];
+    axis: Axis;
+    /** Nelle sue ore c'è già un altro menù o stile: il Quando ha una seconda parte. */
+    clash: boolean;
+    scontri: readonly Scontro[];
+    onPart: (n: 1 | 2) => void;
+}) {
+    const ids = sediOf(t.where, sedi, groups), n = ids.length;
     const sel = t.per ? "diverse" : t.qmode;
-    return (
+    const part = clash && t.qPart === 2 ? 2 : 1;
+    const two = t.kind === "stile" ? "Con gli altri stili" : "In onda insieme";
+    const head = (
         <>
             <Sh title="Quando">
                 {t.per ? "Le ore di ogni sede: la settimana a destra segue la sede che scegli sopra." : `Le ore in cui i clienti ${ONDA[t.kind].lo} vedono. A destra la settimana della sede che scegli sopra.`}
             </Sh>
+            {clash && (
+                <nav className={s.qst} aria-label="Parti del Quando">
+                    <button type="button" className={cx(s.qsp, part === 2 && s.ok)} aria-current={part === 1 ? "step" : undefined} onClick={() => onPart(1)}>
+                        <i>{part === 2 ? <Check size={11} aria-hidden /> : 1}</i>Le ore
+                    </button>
+                    <span className={s.qln} aria-hidden="true" />
+                    <button type="button" className={s.qsp} aria-current={part === 2 ? "step" : undefined} onClick={() => onPart(2)}>
+                        <i>2</i>
+                        {two}
+                    </button>
+                </nav>
+            )}
+        </>
+    );
+    if (part === 2)
+        return (
+            <>
+                {head}
+                <div className={s.qsum}>
+                    <CalendarClock size={15} aria-hidden />
+                    <span>
+                        <b>Le ore:</b> {oreSummary(t, ids)}
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => onPart(1)}>
+                        Cambia
+                    </Button>
+                </div>
+                <InsiemeBox t={t} u={u} scontri={scontri} multi />
+            </>
+        );
+    return (
+        <>
+            {head}
             <div className={s.opts}>
                 <Opt
                     on={sel === "sempre"}
@@ -566,6 +629,23 @@ export function QuandoOre({ t, u, draft, updDraft, sedi, groups, durs, axis }: {
                 </div>
             )}
             {t.edit?.ruleId && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
+            {clash ? (
+                <Button variant="primary" size="sm" className={s.qnext} rightIcon={<ArrowRight size={14} />} onClick={() => onPart(2)}>
+                    Avanti: {two.toLowerCase()}
+                </Button>
+            ) : t.kind === "evid" ? (
+                <p className={s.qnone}>
+                    <Layers size={15} aria-hidden />
+                    <span>Si aggiunge agli altri in evidenza; l'ordine lo scegli dopo.</span>
+                </p>
+            ) : (
+                !scontri.length && (
+                    <p className={s.qnone}>
+                        <CircleCheck size={15} aria-hidden />
+                        <span>Nessun altro {t.kind === "stile" ? "stile" : "menù"} in onda in queste ore: niente da scegliere.</span>
+                    </p>
+                )
+            )}
         </>
     );
 }

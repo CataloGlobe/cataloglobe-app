@@ -145,8 +145,13 @@ export type Tunnel = {
     i: number;
     seen: number;
     // il menù
-    /** Si accavalla con un altro menù: true = «Mettili insieme» (D135). */
+    /**
+     * Si accavalla con altri: per il menù true = «Mettili insieme» (D135), per lo
+     * stile true = «Lascia gli altri». Non ancora scelto: undefined.
+     */
     insieme?: boolean;
+    /** La parte del «Quando» che si vede: 1 le ore, 2 «In onda insieme». Solo schermo. */
+    qPart?: 1 | 2;
     name: string;
     source: "zero" | "foto" | "copia";
     /** Il menù da cui si copia: categorie e piatti arrivano da lì, poi si cambiano. */
@@ -310,13 +315,25 @@ export const STEP_LABEL: Record<StepId, string> = {
 };
 
 /** Chi crea e dove: `owner` gestisce il Calendario (Dove e quando), `multi` ha più sedi. */
-export type Ctx = { owner: boolean; multi: boolean };
+/** `clash`: nelle sue ore c'è già un altro menù o stile, e si sceglie cosa fare (dal Calendario a destra). */
+export type Ctx = { owner: boolean; multi: boolean; clash?: boolean };
 
 /** Il nome del passo: modificando un menù «Da dove parti» è solo il nome; la storia ha ancora «Dove e quando» insieme. */
 export const stepLabel = (t: Tunnel, s: StepId): string => (t.edit && s === "parti" ? "Il nome" : s === "dove" && t.kind === "storia" ? "Dove e quando" : STEP_LABEL[s]);
 
 /** Con più sedi il Dove viene prima del Quando, in due passi; con una sola c'è solo il Quando. */
 const calSteps = (t: Tunnel, c: Ctx): StepId[] => (!c.multi ? ["quando"] : t.kind === "storia" ? ["dove"] : ["dove", "quando"]);
+
+/** «tutte e due le sedi», «tutte e tre le sedi», «tutte le 12 sedi». */
+export const nTutte = (n: number) => (n === 2 ? "tutte e due le sedi" : n === 3 ? "tutte e tre le sedi" : `tutte le ${n} sedi`);
+
+/** Le ore in breve, nella seconda parte del «Quando»: «Lun–Ven 12–15 · uguale in tutte e tre le sedi». */
+export function oreSummary(t: Tunnel, ids: readonly string[]): string {
+    const b = durLabel(effWhen(t)), n = ids.length;
+    const d = t.per ? ids.filter(id => JSON.stringify(t.per![id]) !== JSON.stringify(t.when)).length : 0;
+    if (d) return `${b} · uguale in ${n - d}, ${d === 1 ? "diversa in 1 sede" : `diversa in ${d} sedi`}`;
+    return b + (n > 1 ? " · uguale in " + nTutte(n) : "");
+}
 
 /** Tenuto pronto nel «Dove»: il «Quando» non serve, si salta. */
 export const skipped = (t: Tunnel, s: StepId, c: Ctx): boolean => s === "quando" && c.multi && t.kind !== "storia" && t.onda === "off";
@@ -396,6 +413,7 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
                 const why = whenProblem(w);
                 if (why) return why;
             }
+            if (c.clash && t.insieme == null && (t.kind === "menu" || t.kind === "stile")) return t.kind === "stile" ? "Scegli: prende il posto dell'altro o lo lascia" : "Scegli: insieme o al posto degli altri";
             return "";
         case "dove":
             if (!t.onda) return CHOOSE;
@@ -548,7 +566,7 @@ function partOf(t: Tunnel, s: StepId): unknown {
             // la storia ha ancora le ore nello stesso passo
             return [t.onda, t.where.all, sorted(t.where.activityIds), sorted(t.where.groupIds), ...(t.kind === "storia" ? [cloneWhen(effWhen(t)), t.per] : [])];
         case "quando":
-            return t.onda !== "on" ? t.onda : [t.onda, cloneWhen(effWhen(t)), t.per];
+            return t.onda !== "on" ? t.onda : [t.onda, cloneWhen(effWhen(t)), t.per, !!t.insieme];
         default:
             return null;
     }
@@ -632,7 +650,7 @@ const q = (s: string) => "«" + s + "»";
 function what(t: Tunnel): string {
     const n = thingName(t);
     if (t.kind === "menu") return t.insieme ? `${q(n)} si aggiunge agli altri menù` : `${q(n)} prende il posto degli altri menù`;
-    if (t.kind === "stile") return `la pagina prende lo stile ${q(n)}`;
+    if (t.kind === "stile") return t.insieme ? `la pagina prende lo stile ${q(n)}, ma dove c'è già un altro stile resta quello` : `la pagina prende lo stile ${q(n)}`;
     if (t.kind === "evid") return `${q(n)} va in evidenza, ${t.slot === "before" ? "sopra" : "sotto"} il menù`;
     return `la storia ${q(n)} compare sotto il menù`;
 }

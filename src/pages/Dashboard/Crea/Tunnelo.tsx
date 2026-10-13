@@ -18,7 +18,7 @@ import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/Setti
 import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type { V2Style } from "@/services/supabase/styles";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
-import { NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { DB_WAIT, NEW_MODEL, NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { rebase, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, skipped, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
@@ -98,7 +98,9 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const [productOptions, setProductOptions] = useState<StoryProductOptions>({ items: null, failed: false });
     const refreshAiUsage = useBusinessOutletContext()?.refreshAiUsage;
 
-    const c = useMemo(() => ({ owner, multi: L.multi }), [owner, L.multi]);
+    // nelle sue ore c'è già un altro, e il tuo può prenderne il posto: si sceglie nel «Quando»
+    const clash = NEW_MODEL.multiMenu && NEW_MODEL.newestWins && owner && t.onda === "on" && (kind === "menu" || kind === "stile") && effect.scontri.some(x => x.vince);
+    const c = useMemo(() => ({ owner, multi: L.multi, clash }), [owner, L.multi, clash]);
     const u: U = useCallback(fn => setT(prev => {
         const n = structuredClone(prev);
         fn(n);
@@ -155,8 +157,10 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const step: StepId = st[i];
     const last = i === st.length - 1;
     const fb = firstBlock(t, c);
+    // il «Quando» in due parti (più sedi): dalla prima «Avanti» porta alla seconda, non a «Controlla»
+    const oreOnly = step === "quando" && L.multi && clash && t.qPart !== 2;
     const nothing = !!t.edit && !isDirty(t);
-    const stepWhy = showAfter ? "" : last ? fb?.why ?? (nothing ? "Non hai cambiato niente" : "") : t.edit && step !== "modifica" && !touched(t, step) ? "" : blocker(t, step, c);
+    const stepWhy = showAfter ? "" : last ? fb?.why ?? (nothing ? "Non hai cambiato niente" : "") : t.edit && step !== "modifica" && !touched(t, step) ? "" : blocker(t, step, oreOnly ? { ...c, clash: false } : c);
 
     /* ---------- lo stile del telefono ---------- */
     const styleById = useMemo(() => new Map(data.styles.map(x => [x.id, x])), [data.styles]);
@@ -230,7 +234,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     // tenuto pronto non tocca il Calendario (D189)
     const calTouched = t.onda === "on" && (!t.edit || changed(t, "dove") || changed(t, "quando"));
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
-    const calWhy = owner && draft && calTouched ? waitsForDb(draft) || scontriWait(draft, effect.scontri) : "";
+    const calWhy = owner && draft && calTouched ? waitsForDb(draft) || (clash && kind === "stile" && t.insieme ? "Lascia gli altri stili: " + DB_WAIT : scontriWait(draft, effect.scontri)) : "";
     const why = stepWhy || (last && !showAfter ? calWhy : "");
     const updDraft = (fn: (d: Draft) => void) =>
         u(x => {
@@ -296,10 +300,16 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
 
     /* ---------- le azioni ---------- */
     const toTop = () => document.querySelector("main [class*='content']")?.scrollTo({ top: 0 });
-    const go = (n: number) => u(x => void (x.i = Math.max(0, Math.min(n, st.length - 1))));
+    const go = (n: number) =>
+        u(x => {
+            x.i = Math.max(0, Math.min(n, st.length - 1));
+            // manca la scelta «insieme o al posto»: si torna alla seconda parte del «Quando»
+            if (st[x.i] === "quando" && fb?.why.startsWith("Scegli: ")) x.qPart = 2;
+        });
     const next = () => {
         if (why) return;
         if (last) return void finish();
+        if (oreOnly) return u(x => void (x.qPart = 2));
         u(x => {
             x.i = stepFrom(x, c, i, 1);
             x.seen = Math.max(x.seen, x.i);
@@ -473,7 +483,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 break;
             case "quando":
                 // con più sedi il Dove è già stato scelto: qui solo le ore
-                body = L.multi && draft ? <QuandoOre t={t} u={u} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} /> : <Quando t={t} u={u} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} />;
+                body = L.multi && draft ? <QuandoOre t={t} u={u} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} />;
                 break;
             case "dove": {
                 const D = draft ?? draftFor(t, "featured", FAKE, null);

@@ -1470,3 +1470,154 @@ select.in {
     gap: 6px;
     color: var(--c-warning);
 }
+
+/* il «Quando» in due parti: le ore, poi «In onda insieme» */
+.qst {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.qsp {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    border: 0;
+    background: none;
+    padding: 2px 0;
+    font: inherit;
+    @include cal.fs(note);
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    i {
+        font-style: normal;
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        @include cal.fs(fine);
+        background: var(--surface);
+    }
+    &[aria-current="step"] {
+        color: var(--text);
+        i {
+            background: var(--c-brand);
+            border-color: var(--c-brand);
+            color: var(--on-brand);
+        }
+    }
+    &.ok i {
+        border-color: var(--c-brand);
+        color: var(--c-brand);
+    }
+    &:focus-visible {
+        outline: 2px solid var(--c-brand);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+}
+.qln {
+    flex: 0 0 18px;
+    height: 1px;
+    background: var(--border);
+}
+.qsum {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    padding: 8px 12px;
+    background: var(--surface);
+    @include cal.fs(note);
+    svg {
+        color: var(--c-brand);
+    }
+}
+.qnext {
+    align-self: flex-start;
+}
+.qnone {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    @include cal.fs(note);
+    color: var(--text-muted);
+    margin: 0;
+    svg {
+        color: var(--c-brand);
+        flex: none;
+    }
+}
+.hx {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: var(--radius-surface);
+    background: var(--c-brand-soft);
+    border: 1px solid color-mix(in srgb, var(--c-brand) 35%, transparent);
+    p {
+        margin: 0;
+    }
+}
+.lead2 {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    @include cal.fs(text);
+    svg {
+        flex: none;
+    }
+    b {
+        font-weight: 700;
+    }
+}
+.qq {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px solid color-mix(in srgb, var(--c-brand) 25%, transparent);
+    > b {
+        @include cal.fs(text);
+    }
+}
+.hpick {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+    gap: 8px;
+}
+.hpk {
+    font: inherit;
+    color: var(--text);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius-surface);
+    padding: 10px 12px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+    b {
+        @include cal.fs(text);
+    }
+    span {
+        @include cal.fs(note);
+        color: var(--text-muted);
+    }
+    &[aria-pressed="true"] {
+        border-color: var(--c-brand);
+        box-shadow: 0 0 0 1px var(--c-brand);
+    }
+    &:focus-visible {
+        outline: 2px solid var(--c-brand);
+        outline-offset: 1px;
+    }
+}

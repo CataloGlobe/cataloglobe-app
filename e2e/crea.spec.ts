@@ -33,6 +33,11 @@ const next = (page: Page) => button(page, "Avanti").click();
 /** «Dove» (D189): prima la domanda, «Sì, lo metto in onda». */
 const onAir = (page: Page) => button(page, /^Sì, (lo|la) metto in onda/).click();
 /** «In quali sedi?»: il riquadro delle sedi del passo «Dove», sempre aperto. */
+/** La seconda parte del «Quando»: in quelle ore c'è già un altro, e si sceglie cosa fare. */
+const insieme = async (page: Page, name: string) => {
+    await expect(main(page).getByRole("navigation", { name: "Parti del Quando" }).getByRole("button", { name: /^2/ })).toHaveAttribute("aria-current", "step");
+    await main(page).locator("[data-insieme]").getByRole("button", { name: new RegExp("^" + name) }).click();
+};
 const sediBox = (page: Page) => main(page).getByRole("group", { name: "Sedi" });
 const allSedi = (page: Page) => sediBox(page).getByRole("checkbox", { name: /^Tutte le sedi, anche le nuove/ });
 /** Dal passo prima di «Dove» fino a «Controlla», tenendolo pronto: niente sedi né orari, e il «Quando» si salta. */
@@ -384,6 +389,9 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(dalle).toHaveValue("19:00");
         await main(page).getByRole("heading", { name: "Quando", exact: true }).click();
         await expect(main(page).getByRole("dialog")).toHaveCount(0);
+        // di sera a Porto c'è già la carta: prima la seconda parte del Quando
+        await next(page);
+        await insieme(page, "Mostralo al posto degli altri");
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(main(page).getByText("Dopo mezzanotte: si salva col database nuovo").first()).toBeVisible();
@@ -416,6 +424,23 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(button(page, /^Dipende dalla sede/)).toHaveCount(0);
         await button(page, /^Solo in certi momenti/).click();
         await expect(main(page).getByText("Anteprima · Menù")).toBeVisible();
+        // a pranzo a Porto c'è già la carta: il Quando ha una seconda parte, «In onda insieme»
+        const parti = main(page).getByRole("navigation", { name: "Parti del Quando" });
+        await expect(parti.getByRole("button", { name: /Le ore$/ })).toHaveAttribute("aria-current", "step");
+        await button(page, "Avanti: in onda insieme").click();
+        await expect(main(page).getByText("Le ore: Lun–Ven · 12:00–15:00")).toBeVisible();
+        await expect(main(page).getByText("In quelle ore c'è già un altro menù a Porto e2e.")).toBeVisible();
+        await expect(main(page).getByText("Come li mostri ai clienti?")).toBeVisible();
+        await expect(main(page).getByText("A Porto e2e, dal lunedì al venerdì dalle 12 alle 15, c'è già «Carta e2e».")).toBeVisible();
+        // finché non si sceglie non si va avanti
+        await expect(main(page).getByText("Scegli: insieme o al posto degli altri")).toBeVisible();
+        await expect(button(page, "Avanti")).toBeDisabled();
+        // «Cambia» riporta alle ore, e la scelta si fa dopo
+        await button(page, "Cambia").click();
+        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
+        await next(page);
+        await insieme(page, "Mostralo al posto degli altri");
+        await expect(main(page).getByRole("button", { name: /^Mostralo al posto degli altri/ })).toHaveAttribute("aria-pressed", "true");
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(main(page).getByText(/dal lunedì al venerdì, dalle 12:00 alle 15:00/)).toBeVisible();
@@ -994,6 +1019,17 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
         await next(page);
         await button(page, /^Solo in certi momenti/).click();
+        // in quelle ore c'è già lo stile di base: la seconda parte, «Con gli altri stili»
+        await button(page, "Avanti: con gli altri stili").click();
+        await expect(main(page).getByText("Che stile prende la pagina in quelle ore?")).toBeVisible();
+        await expect(main(page).getByText("Scegli: prende il posto dell'altro o lo lascia")).toBeVisible();
+        // «Lascia gli altri» il database di oggi non lo sa tenere: si vede, il salvataggio aspetta
+        await insieme(page, "Lascia gli altri");
+        await next(page);
+        await expect(main(page).getByText(/la pagina prende lo stile «Natale», ma dove c'è già un altro stile resta quello/)).toBeVisible();
+        await expect(main(page).getByText("Lascia gli altri stili: si salva col database nuovo").first()).toBeVisible();
+        await button(page, "Indietro").click();
+        await insieme(page, "Prende il posto degli altri");
         await next(page);
         await button(page, "Metti in onda").click();
         await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });

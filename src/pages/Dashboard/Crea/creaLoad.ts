@@ -140,6 +140,8 @@ export async function loadTunnel(kind: CreaKind, id: string, tenantId: string, d
         t.when = w;
         t.qmode = w.period || w.days || w.ranges ? "momenti" : "sempre";
         t.where = { all: where.all, activityIds: [...where.activityIds], groupIds: [...where.groupIds] };
+        // la scelta fatta resta (D192): le regole di oggi prendono il posto
+        if (kind === "menu" || kind === "stile") t.insieme = false;
         if (kind === "evid") t.slot = one.rule.featured_contents.find(c => c.featured_content_id === id)?.slot === "after_catalog" ? "after" : "before";
     }
     return { t: asEdit(t, id, { id: one?.ruleId ?? null, count: es.length, live }), style };

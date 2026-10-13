@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 // i moduli del tunnel arrivano fino al client: qui non serve, e senza `.env` non partirebbe
 vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
 import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { CHOOSE, blocker, effWhen, firstBlock, goesLive, isDirty, keepReady, kindOfSlug, newTunnel, readFromAi, sentence, skipped, stepFrom, stepLabel, stepSummary, steps, tunnelTitle, whenProblem, withAside, type FromMenu, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import { CHOOSE, blocker, effWhen, firstBlock, goesLive, isDirty, keepReady, kindOfSlug, newTunnel, oreSummary, readFromAi, sentence, skipped, stepFrom, stepLabel, stepSummary, steps, tunnelTitle, whenProblem, withAside, type FromMenu, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, logoColors, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
@@ -153,6 +153,46 @@ describe("«Dove e quando»: in onda o pronto (D189)", () => {
         expect(sentence(m, L)).toBe("Il menù «Pranzo» è pronto ma spento: nessun cliente lo vede finché non lo metti in onda.");
         const st: Tunnel = { ...newTunnel("storia", ALL), title: "Le origini", onda: "off" };
         expect(sentence(st, L)).toBe("La storia «Le origini» è pronta ma spenta: nessun cliente la vede finché non la metti in onda.");
+    });
+});
+
+describe("il «Quando» in due parti: le ore, poi «In onda insieme» (punto 3)", () => {
+    const CLASH = { ...OWNER, clash: true };
+    const live = (k: "menu" | "stile" | "evid"): Tunnel => ({ ...newTunnel(k, ALL), onda: "on" });
+
+    it("con un altro nelle stesse ore si sceglie: finché manca la scelta il «Quando» si ferma", () => {
+        expect(blocker(live("menu"), "quando", CLASH)).toBe("Scegli: insieme o al posto degli altri");
+        expect(blocker(live("stile"), "quando", CLASH)).toBe("Scegli: prende il posto dell'altro o lo lascia");
+        expect(blocker({ ...live("menu"), insieme: true }, "quando", CLASH)).toBe("");
+        expect(blocker({ ...live("menu"), insieme: false }, "quando", CLASH)).toBe("");
+        // senza incroci, tenuto pronto o in evidenza non c'è niente da scegliere
+        expect(blocker(live("menu"), "quando", OWNER)).toBe("");
+        expect(blocker({ ...live("menu"), onda: "off" }, "quando", CLASH)).toBe("");
+        expect(blocker(live("evid"), "quando", CLASH)).toBe("");
+    });
+
+    it("prima le ore: un orario che non va si dice prima della scelta", () => {
+        const t: Tunnel = { ...live("menu"), qmode: "momenti", when: { ranges: [[900, 720]] } };
+        expect(blocker(t, "quando", CLASH)).toBe(whenProblem(t.when));
+    });
+
+    it("lo stile che lascia gli altri lo dice nella frase", () => {
+        const L = { sedi: new Map(), groups: new Map(), multi: true } as never;
+        const t: Tunnel = { ...live("stile"), name: "Natale", insieme: true };
+        expect(sentence(t, L)).toContain("la pagina prende lo stile «Natale», ma dove c'è già un altro stile resta quello");
+        expect(sentence({ ...t, insieme: false }, L)).not.toContain("resta quello");
+    });
+
+    it("«Le ore» in breve: uguale in tutte, o diversa in alcune sedi", () => {
+        const w = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] as [number, number][] };
+        const t: Tunnel = { ...live("menu"), qmode: "momenti", when: w };
+        expect(oreSummary(t, ["a"])).toBe("Lun–Ven · 12:00–15:00");
+        expect(oreSummary(t, ["a", "b"])).toBe("Lun–Ven · 12:00–15:00 · uguale in tutte e due le sedi");
+        expect(oreSummary(t, ["a", "b", "c", "d"])).toBe("Lun–Ven · 12:00–15:00 · uguale in tutte le 4 sedi");
+        const per = { a: structuredClone(w), b: structuredClone(w), c: { days: [5, 6] } };
+        expect(oreSummary({ ...t, per }, ["a", "b", "c"])).toBe("Lun–Ven · 12:00–15:00 · uguale in 2, diversa in 1 sede");
+        // «Dipende dalla sede» ma ancora tutte uguali
+        expect(oreSummary({ ...t, per: { a: structuredClone(w), b: structuredClone(w) } }, ["a", "b"])).toBe("Lun–Ven · 12:00–15:00 · uguale in tutte e due le sedi");
     });
 });
 
