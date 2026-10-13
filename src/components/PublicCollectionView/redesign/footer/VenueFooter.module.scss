@@ -10,6 +10,12 @@
   color: var(--pub-bg-text);
 }
 
+/* Tipografia globale dell'app neutralizzata come nei fogli (SheetHost.module.scss):
+   «Com'è andata?» e Privacy · Termini prendevano i colori dell'app, illeggibili sullo scuro. */
+html :where(.root) :is(p, h1, h2, h3, h4, h5, h6) {
+  color: inherit;
+}
+
 /* Spazio sotto per la barra in basso (stessa misura dello scrim, CollectionView.module.scss). */
 @media (max-width: 640px) {
   .root {

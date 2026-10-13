@@ -8,6 +8,8 @@
 }
 
 .image {
+  /* FramedMedia riempie il contenitore posizionato più vicino: senza, la foto usciva sul foglio */
+  position: relative;
   overflow: hidden;
   border-radius: 18px;
   aspect-ratio: 4 / 3;
