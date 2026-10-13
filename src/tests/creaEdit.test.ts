@@ -20,10 +20,11 @@ const { calls, fail, fake } = vi.hoisted(() => {
 vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
 vi.mock("@/services/supabase/catalogs", async orig => ({ ...(await orig<object>()), addProductToCategory: fake("addProductToCategory"), createCategory: fake("createCategory", () => ({ id: "c-new" })), updateCatalog: fake("updateCatalog") }));
 vi.mock("@/services/supabase/products", async orig => ({ ...(await orig<object>()), createProduct: fake("createProduct", (_t, p) => ({ id: "p-" + (p as { name: string }).name })) }));
+vi.mock("@/services/supabase/styles", async orig => ({ ...(await orig<object>()), updateStyle: fake("updateStyle") }));
 vi.mock("@/services/supabase/productOptions", async orig => ({ ...(await orig<object>()), createPrimaryPriceFormat: fake("createPrimaryPriceFormat") }));
 import { asEdit, asInside, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
+import { styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 import { saveEdit, type EditCtx } from "@/pages/Dashboard/Crea/creaEdit";
 import type { Dish } from "@/pages/Dashboard/Crea/creaModel";
 
@@ -171,6 +172,31 @@ describe("modifica nel tunnel: lo stile", () => {
         expect(changed(t, "nome")).toBe(false);
     });
 
+    const sera = () => asEdit({ ...newTunnel("stile", ALL), name: "Sera", look: structuredClone(DEFAULT_STYLE_TOKENS) }, "st1", { id: null, count: 0 });
+    const saved = async (t: Tunnel) => {
+        calls.length = 0;
+        await saveEdit(t, { tenantId: "T", L: {}, names: {}, blockFiles: {}, done: new Map() } as unknown as EditCtx);
+        return calls.filter(c => c[0] === "updateStyle");
+    };
+
+    it("il solo nome cambia il nome e non fa una versione nuova (review #443)", async () => {
+        const up = await saved(upd(sera(), x => void (x.name = "Sera d'estate")));
+        expect(up).toHaveLength(1);
+        expect(up[0].slice(1, 4)).toEqual(["st1", "Sera d'estate", undefined]);
+    });
+
+    it("«Torna a questa» e poi Salva: la versione di prima diventa una versione nuova, il nome resta (review #443)", async () => {
+        const before = structuredClone(DEFAULT_STYLE_TOKENS);
+        before.appearance.borderRadius = DEFAULT_STYLE_TOKENS.appearance.borderRadius === "none" ? "soft" : "none";
+        // quello che fa il bottone in StileAspetto: l'aspetto della versione prende il posto di quello di adesso
+        const t = upd(sera(), x => void (x.look = structuredClone(before)));
+        const up = await saved(t);
+        expect(up).toHaveLength(1);
+        expect(up[0][1]).toBe("st1");
+        expect(up[0][2]).toBeUndefined();
+        expect(up[0][3]).toEqual(styleConfig(t));
+        expect(styleTokens(t).appearance.borderRadius).toBe(before.appearance.borderRadius);
+    });
 });
 
 describe("modifica nel tunnel: i piatti del contenuto in evidenza (D187)", () => {
