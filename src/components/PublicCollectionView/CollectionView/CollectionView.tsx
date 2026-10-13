@@ -365,7 +365,7 @@ function ProductRowInner({
         >
             {/* Tastiera e lettori di schermo: la riga si apre da qui. Invio e spazio
                 fanno un clic che sale alla riga (stesso onClick del tocco). */}
-            <button type="button" className={styles.rowOpen} aria-label={name} />
+            {mode !== "preview" && <button type="button" className={styles.rowOpen} aria-label={name} />}
             {showImage && (
                 <div className={styles.rowImageWrapper}>
                     {mode === "preview" || !image ? (
@@ -524,6 +524,8 @@ const ProductRow = memo(ProductRowInner);
 // ─── ProductCompactRow — text-only compact-style product row ─────────────────
 
 type ProductCompactRowProps = {
+    /** Anteprima: la riga non si apre, quindi niente pulsante per la tastiera. */
+    canOpen?: boolean;
     item: CollectionViewSectionItem;
     onClick: (item: CollectionViewSectionItem) => void;
     onAdd: (item: CollectionViewSectionItem) => void;
@@ -542,6 +544,7 @@ function ProductCompactRowInner({
     orderingEnabled,
     selectionQty = 0,
     iconChip = false,
+    canOpen = true,
     compactLayoutStyle = "modern",
     contentDensity = "full",
     isDisabled = false
@@ -587,7 +590,7 @@ function ProductCompactRowInner({
         <div className={styles.compactRow} onClick={handleRootClick}>
             {/* Tastiera e lettori di schermo: la riga si apre da qui. Invio e spazio
                 fanno un clic che sale alla riga (stesso onClick del tocco). */}
-            <button type="button" className={styles.rowOpen} aria-label={name} />
+            {canOpen && <button type="button" className={styles.rowOpen} aria-label={name} />}
             <div className={styles.compactRowBody}>
                 {isDisabled && (
                     <span className={styles.unavailableBadge}>
@@ -2827,6 +2830,7 @@ export default function CollectionView({
                             {item.parentSelected &&
                                 (style.productStyle === "compact" ? (
                                     <ProductCompactRow
+                                        canOpen={mode !== "preview"}
                                         item={item}
                                         onClick={handleRowClick}
                                         onAdd={handleRowAdd}
@@ -2869,6 +2873,7 @@ export default function CollectionView({
                                         if (!variantItem) return null;
                                         return style.productStyle === "compact" ? (
                                             <ProductCompactRow
+                                                canOpen={mode !== "preview"}
                                                 key={v.id}
                                                 item={variantItem}
                                                 onClick={handleRowClick}
