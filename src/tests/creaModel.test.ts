@@ -18,10 +18,12 @@ describe("tunnel di creazione: i passi", () => {
         expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "controlla"]);
         expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "dove", "controlla"]);
         const ev = newTunnel("evid", ALL);
-        expect(steps(ev, OWNER)).toEqual(["cosa", "contenuto", "dove", "controlla"]);
-        expect(steps({ ...ev, evType: "promo" }, OWNER)).toContain("piatti");
-        expect(steps({ ...ev, evType: "bundle" }, OWNER)).toContain("piatti");
-        expect(steps({ ...ev, evType: "evento" }, OWNER)).not.toContain("piatti");
+        // D187: niente «Che cosa?»; i piatti sono una parte del contenuto, non un passo
+        expect(steps(ev, OWNER)).toEqual(["contenuto", "dove", "controlla"]);
+        expect(steps({ ...ev, evType: "promo" }, OWNER)).toEqual(["contenuto", "dove", "controlla"]);
+        expect(blocker({ ...ev, title: "Lo chef consiglia", evType: "promo" }, "contenuto", OWNER)).toBe("Aggiungi almeno un piatto");
+        expect(blocker({ ...ev, title: "Lo chef consiglia", evType: "promo", dishes: ["p1"] }, "contenuto", OWNER)).toBe("");
+        expect(blocker({ ...ev, title: "Chiusi per ferie" }, "contenuto", OWNER)).toBe("");
     });
 
     it("chi non gestisce il Calendario non ha Dove e quando; con una sede sola solo il Quando", () => {
@@ -62,7 +64,7 @@ describe("tunnel di creazione: cosa ferma «Avanti»", () => {
         expect(blocker({ ...t, title: "Menù degustazione", cta: true, ctaLink: "http://x.it" }, "contenuto", OWNER)).toBe("Il link del bottone deve cominciare con https://");
         expect(blocker({ ...t, title: "Menù degustazione", cta: true, ctaText: " " }, "contenuto", OWNER)).toBe("Manca il testo del bottone");
         expect(blocker(t, "piatti", OWNER)).toBe("Aggiungi almeno un piatto");
-        expect(blocker({ ...t, dishes: ["p1"], bundle: "0" }, "piatti", OWNER)).toBe("Manca il prezzo del bundle");
+        expect(blocker({ ...t, dishes: ["p1"], bundle: "0" }, "piatti", OWNER)).toBe("Manca il prezzo unico");
         expect(blocker({ ...t, dishes: ["p1"], bundle: "24,50" }, "piatti", OWNER)).toBe("");
     });
 

@@ -22,6 +22,14 @@ vi.mock("@/services/supabase/catalogs", async orig => ({ ...(await orig<object>(
 vi.mock("@/services/supabase/products", async orig => ({ ...(await orig<object>()), createProduct: fake("createProduct", (_t, p) => ({ id: "p-" + (p as { name: string }).name })) }));
 vi.mock("@/services/supabase/styles", async orig => ({ ...(await orig<object>()), updateStyle: fake("updateStyle") }));
 vi.mock("@/services/supabase/productOptions", async orig => ({ ...(await orig<object>()), createPrimaryPriceFormat: fake("createPrimaryPriceFormat") }));
+vi.mock("@/services/supabase/featuredContents", async orig => ({
+    ...(await orig<object>()),
+    updateFeaturedContent: fake("updateFeaturedContent"),
+    listFeaturedContentProducts: fake("listFeaturedContentProducts", () => []),
+    syncFeaturedContentProducts: fake("syncFeaturedContentProducts"),
+    updateFeaturedContentProductNote: fake("updateFeaturedContentProductNote"),
+    updateFeaturedContentProductsSortOrder: fake("updateFeaturedContentProductsSortOrder")
+}));
 import { asEdit, asInside, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
@@ -196,6 +204,44 @@ describe("modifica nel tunnel: lo stile", () => {
         expect(up[0][2]).toBeUndefined();
         expect(up[0][3]).toEqual(styleConfig(t));
         expect(styleTokens(t).appearance.borderRadius).toBe(before.appearance.borderRadius);
+    });
+});
+
+describe("modifica nel tunnel: i piatti del contenuto in evidenza (D187)", () => {
+    function evid(evType: Tunnel["evType"], fn: (x: Tunnel) => void = () => {}): Tunnel {
+        const t = { ...newTunnel("evid", ALL), title: "Pranzo veloce" };
+        t.evType = evType;
+        fn(t);
+        return asEdit(t, "e1", { id: "r1", count: 1 });
+    }
+    const promo = () => evid("promo", x => void ((x.dishes = ["p1", "p2"]), (x.notes = { p1: "-20%" })));
+    const bundle = () => evid("bundle", x => void ((x.dishes = ["p1", "p2"]), (x.bundle = "24,50")));
+
+    it("cambiare piatti, note o prezzo unico è cambiare «Il contenuto», e Controlla lo mostra", () => {
+        expect(changed(upd(promo(), x => void x.dishes.pop()), "contenuto")).toBe(true);
+        expect(changed(upd(promo(), x => void (x.notes.p1 = "-30%")), "contenuto")).toBe(true);
+        expect(changed(upd(bundle(), x => void (x.bundle = "22")), "contenuto")).toBe(true);
+        expect(changed(upd(bundle(), x => void (x.showOrig = false)), "contenuto")).toBe(true);
+        expect(changed(upd(evid("annuncio"), x => void ((x.evType = "promo"), (x.dishes = ["p1"]))), "contenuto")).toBe(true);
+        const t = upd(upd(promo(), x => void x.edit!.picked.push("dove")), x => void (x.notes.p2 = "nuovo"));
+        expect(changedSteps(t, OWNER)).toEqual(["contenuto"]);
+        expect(strays(t, OWNER)).toEqual(["contenuto"]);
+        expect(isDirty(t)).toBe(true);
+    });
+
+    it("cambiare il tipo tiene l'aspetto che c'era: il salvataggio non tocca layout_style (review #444)", async () => {
+        const t = upd(evid("annuncio"), x => void ((x.evType = "promo"), (x.dishes = ["p1"])));
+        calls.length = 0;
+        await saveEdit(t, { tenantId: "T", L: {}, names: {}, blockFiles: {}, done: new Map() } as unknown as EditCtx);
+        const type = calls.find(c => c[0] === "updateFeaturedContent" && "content_type" in (c[3] as object));
+        expect(type?.[3]).toMatchObject({ content_type: "promo" });
+        expect(type?.[3]).not.toHaveProperty("layout_style");
+    });
+
+    it("toccati solo i piatti, scattano i controlli del contenuto", () => {
+        expect(firstBlock(upd(bundle(), x => void (x.bundle = "")), OWNER)).toEqual({ i: 1, why: "Manca il prezzo unico" });
+        expect(firstBlock(upd(promo(), x => void (x.dishes = [])), OWNER)).toEqual({ i: 1, why: "Aggiungi almeno un piatto" });
+        expect(firstBlock(upd(promo(), x => void (x.notes.p1 = "")), OWNER)).toBeNull();
     });
 });
 

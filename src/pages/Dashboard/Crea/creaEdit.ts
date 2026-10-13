@@ -16,8 +16,8 @@ import { uploadFeaturedContentImage, deleteStoryImageBestEffort, uploadStoryImag
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
-import { parsePrice } from "@/pages/Dashboard/Highlights/featuredContentTypes";
-import { changed, cloneWhen, effWhen, thingName, type Tunnel } from "./creaModel";
+import { deriveTypeFields, parsePrice } from "@/pages/Dashboard/Highlights/featuredContentTypes";
+import { EV, changed, cloneWhen, effWhen, hasDishes, thingName, type Tunnel } from "./creaModel";
 import { saveSezioni, type Once } from "./menuSave";
 import { entriesOf } from "./creaLoad";
 import { styleConfig } from "./creaStyle";
@@ -44,21 +44,29 @@ async function saveContenuto(t: Tunnel, orig: Tunnel, tenantId: string) {
     await updateFeaturedContent(id, tenantId, patch);
 }
 
-async function savePiatti(t: Tunnel, tenantId: string) {
+async function savePiatti(t: Tunnel, orig: Tunnel, tenantId: string) {
     const id = t.edit!.id;
+    // i piatti aggiunti o tolti cambiano come il contenuto si salva: il tipo lo decidono loro (D187)
+    const dishes = hasDishes(t) ? t.dishes : [];
+    if ((t.evType ?? "annuncio") !== (orig.evType ?? "annuncio")) {
+        // l'aspetto (`layout_style`) il tunnel non lo sceglie: cambiando tipo resta quello che c'era
+        const fields: Partial<FeaturedContent> = deriveTypeFields({ type: EV[t.evType ?? "annuncio"].type, bundlePrice: t.bundle, showOriginalTotal: t.showOrig, showImages: false });
+        delete fields.layout_style;
+        await updateFeaturedContent(id, tenantId, fields);
+    }
     const rows = await listFeaturedContentProducts(id, tenantId);
     const have = new Set(rows.map(r => r.product_id));
     await syncFeaturedContentProducts(
         id,
         tenantId,
-        rows.filter(r => !t.dishes.includes(r.product_id)).map(r => r.id),
-        t.dishes.filter(d => !have.has(d)).map(productId => ({ productId, sortOrder: t.dishes.indexOf(productId) }))
+        rows.filter(r => !dishes.includes(r.product_id)).map(r => r.id),
+        dishes.filter(d => !have.has(d)).map(productId => ({ productId, sortOrder: dishes.indexOf(productId) }))
     );
     const after = await listFeaturedContentProducts(id, tenantId);
-    const order = after.map(r => ({ id: r.id, sort_order: t.dishes.indexOf(r.product_id) })).filter(r => r.sort_order >= 0);
+    const order = after.map(r => ({ id: r.id, sort_order: dishes.indexOf(r.product_id) })).filter(r => r.sort_order >= 0);
     if (order.some(r => after.find(a => a.id === r.id)?.sort_order !== r.sort_order)) await updateFeaturedContentProductsSortOrder(order, tenantId);
     if (t.evType === "bundle") await updateFeaturedContent(id, tenantId, { bundle_price: parsePrice(t.bundle), show_original_total: t.showOrig });
-    else
+    else if (t.evType === "promo")
         for (const r of after) {
             const n = t.notes[r.product_id]?.trim() || null;
             if (n !== (r.note?.trim() || null)) await updateFeaturedContentProductNote(r.id, tenantId, n);
@@ -134,7 +142,7 @@ export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {
         if (changed(t, "nome") || changed(t, "aspetto")) await updateStyle(id, changed(t, "nome") ? name : undefined, changed(t, "aspetto") ? styleConfig(t) : undefined, c.tenantId);
     } else if (t.kind === "evid") {
         if (changed(t, "contenuto")) await saveContenuto(t, orig, c.tenantId);
-        if (changed(t, "piatti")) await savePiatti(t, c.tenantId);
+        if (changed(t, "piatti")) await savePiatti(t, orig, c.tenantId);
     } else if (changed(t, "racconto") || changed(t, "blocchi") || dove) await saveStoria(t, orig, c, dove);
     if (dove && t.kind !== "storia") await saveQuando(t, c);
     return { id, name, live: true, ruleId: e.ruleId };

@@ -589,12 +589,18 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         stub.onWrite("schedule_featured_contents.DELETE", () => null);
         stub.onWrite("schedule_featured_contents.POST", () => null);
         await open(page, "evidenza", "evidenza");
-        await button(page, /^Promo/).click();
-        await next(page);
+        // D187: niente «Che cosa?»: un'idea apre la parte dei piatti, che si può togliere e rimettere
+        await expect(rail(page).getByRole("button").first()).toHaveText("1Il contenuto");
+        await button(page, /^Un'offerta/).click();
+        await expect(main(page).getByText("Partito da")).toBeVisible();
+        const piatti = main(page).getByRole("region", { name: "I piatti" });
+        await piatti.getByRole("button", { name: "Togli" }).click();
+        await expect(piatti).toHaveCount(0);
+        await button(page, /^Dei piatti/).click();
         await main(page).getByLabel("Titolo", { exact: true }).fill("Pizza del giorno");
-        await next(page);
-        await expect(main(page).getByRole("heading", { name: "Piatti" })).toBeVisible();
-        await main(page).getByRole("checkbox", { name: /Margherita e2e/ }).click();
+        // coi piatti aperti e nessuno scelto non si va avanti
+        await expect(button(page, "Avanti")).toBeDisabled();
+        await piatti.getByRole("checkbox", { name: /Margherita e2e/ }).click();
         await next(page);
         await next(page);
         await button(page, "Pubblica").click();
@@ -635,9 +641,7 @@ test.describe("Tunnel di creazione — chi non gestisce il Calendario", () => {
         await stub.revoke("scheduling.write");
         await open(page, "evidenza");
         await stub.revoked;
-        await expect(rail(page).getByRole("button")).toHaveText(["1Che cosa", "2Il contenuto", "3Controlla"]);
-        await button(page, /^Annuncio/).click();
-        await next(page);
+        await expect(rail(page).getByRole("button")).toHaveText(["1Il contenuto", "2Controlla"]);
         await main(page).getByLabel("Titolo", { exact: true }).fill("Chiusi per ferie");
         await next(page);
         await expect(button(page, "Pubblica")).toHaveCount(0);
