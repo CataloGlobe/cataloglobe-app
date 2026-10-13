@@ -14,6 +14,7 @@ import {
 } from "react";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import Island, { type MenuSwitch } from "./island/Island";
+import { MENU_BUTTON_ID } from "./island/anchors";
 import BottomBar from "./bar/BottomBar";
 import FeaturedStrip from "./featured/FeaturedStrip";
 import VenueFooter from "./footer/VenueFooter";
@@ -154,15 +155,24 @@ export default function RedesignCollectionView({
     const chosenId = menuChoice.menu?.catalogId;
     const shownId = useRef(chosenId);
     const wasChoosing = useRef(choosing);
+    const chooserSeen = useRef(false);
+    const focusAfterChoice = useRef(false);
     // Chi aspetta il disegno del menu (o della scelta) per il passaggio animato.
     const drawnWaiters = useRef<Array<() => void>>([]);
     useLayoutEffect(() => {
         const leftChooser = wasChoosing.current && !choosing;
         wasChoosing.current = choosing;
+        // Uscita dalla scelta: le volte dopo le card restano ferme.
+        if (leftChooser) chooserSeen.current = true;
         if (shownId.current !== chosenId || leftChooser) {
             shownId.current = chosenId;
             // Menu nuovo, o appena scelto: si parte dalla cima (prima della fotografia d'arrivo del passaggio).
             window.scrollTo(0, 0);
+        }
+        // Dopo il tocco su una card il fuoco va al selettore del menu, non resta sul body.
+        if (leftChooser && focusAfterChoice.current) {
+            focusAfterChoice.current = false;
+            document.getElementById(MENU_BUTTON_ID)?.focus({ preventScroll: true });
         }
         drawnWaiters.current.splice(0).forEach(resolve => resolve());
     }, [chosenId, choosing]);
@@ -176,7 +186,15 @@ export default function RedesignCollectionView({
         []
     );
     const chooseFromChooser = useCallback(
-        (menu: PublicMenu) => runMenuPassage("go", () => choose(menu.slug, "chooser"), whenDrawn),
+        (menu: PublicMenu) =>
+            runMenuPassage(
+                "go",
+                () => {
+                    focusAfterChoice.current = true;
+                    choose(menu.slug, "chooser");
+                },
+                whenDrawn
+            ),
         [choose, whenDrawn]
     );
     // «Tutti i menu» dal foglio: prima il foglio si chiude, poi il menu esce a destra e scopre la scelta.
@@ -210,11 +228,7 @@ export default function RedesignCollectionView({
     }, [menuSheet, currentMenu]);
     const renderIsland = useCallback<HeaderSlot>(context => <Island {...context} menuSwitch={menuSwitch} />, [menuSwitch]);
     // Le card salgono in cascata solo la prima volta; tornando alla scelta restano ferme.
-    const chooserSeen = useRef(false);
     const chooserEntrance = chooserSeen.current ? "still" : "rise";
-    useEffect(() => {
-        if (choosing) chooserSeen.current = true;
-    }, [choosing]);
     useEffect(() => keepPreferencesFor(props.activityId), [props.activityId]);
     // Con la sede che prenota, «Prenota» apre i passi nel foglio invece della pagina /prenota.
     const sheetsSlot = useMemo<SheetsSlot>(

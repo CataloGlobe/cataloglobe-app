@@ -8,14 +8,14 @@ const ICONS: Record<MenuIcon, typeof Utensils> = { utensils: Utensils, wine: Win
 
 /**
  * «Menu disponibili ora» (mockup v38, foglio `menus`): i menu di adesso con la
- * spunta su quello a vista; sotto, «Tutti i menu» riporta alla scelta.
+ * spunta su quello a vista (`aria-current`: il tocco sceglie e chiude, niente frecce da radio); sotto, «Tutti i menu» riporta alla scelta.
  */
 export default function MenusPage({ menus, current, choose, showAll }: MenuSheetBinding) {
     const { t } = useTranslation("public");
     return (
         <div className={styles.list}>
             <p className={styles.intro}>{t("menus.sheet_subtitle", { count: menus.length })}</p>
-            <div className={styles.group} role="radiogroup" aria-label={t("menus.sheet_title")}>
+            <div className={styles.group} role="group" aria-label={t("menus.sheet_title")}>
                 {menus.map(menu => {
                     const Icon = ICONS[menuIcon(menu)];
                     const active = menu.catalogId === current?.catalogId;
@@ -23,8 +23,7 @@ export default function MenusPage({ menus, current, choose, showAll }: MenuSheet
                         <button
                             key={menu.catalogId}
                             type="button"
-                            role="radio"
-                            aria-checked={active}
+                            aria-current={active || undefined}
                             className={styles.row}
                             onClick={() => choose(menu)}
                         >

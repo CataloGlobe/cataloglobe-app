@@ -790,8 +790,8 @@
     },
     "menus": {
         "choose_title": "Elige el menú",
-        "choose_subtitle_one": "A esta hora hay {{count}}. Puedes cambiar después desde el nombre del menú arriba.",
-        "choose_subtitle_other": "A esta hora hay {{count}}. Puedes cambiar después desde el nombre del menú arriba.",
+        "choose_subtitle_one": "A esta hora hay {{count}} menú. Puedes cambiar después desde el nombre del menú arriba.",
+        "choose_subtitle_other": "A esta hora hay {{count}} menús. Puedes cambiar después desde el nombre del menú arriba.",
         "card_aria": "{{name}}, {{hours}}, {{categories}}, {{products}}. Abrir el menú",
         "categories_one": "{{count}} categoría",
         "categories_other": "{{count}} categorías",

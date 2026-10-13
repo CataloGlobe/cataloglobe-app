@@ -22,11 +22,21 @@ async function openPage(page: Page, opts: { menus?: "two" | "one"; query?: strin
 
 const chooser = (page: Page) => page.getByRole("region", { name: "Scegli il menu" });
 const card = (page: Page, name: string) => chooser(page).getByRole("button", { name: new RegExp(`^${name},`) });
+/** Durante il passaggio (View Transitions) i clic andrebbero alle fotografie: si aspetta la fine. */
+const afterPassage = (page: Page) => expect(page.locator("html")).not.toHaveAttribute("data-menu-passage");
+async function pickCard(page: Page, name: string) {
+    await card(page, name).click();
+    await expect(chooser(page)).toHaveCount(0);
+    await afterPassage(page);
+}
 
 test("con due menu adesso: la scelta, poi il menu toccato; indietro torna alla scelta", async ({ page }) => {
     await openPage(page);
     const region = chooser(page);
     await expect(region.getByRole("heading", { level: 1, name: "Scegli il menu" })).toBeVisible();
+    // Prima apertura: la cascata resta tale anche dopo l'idratazione, e il fuoco non salta sul titolo.
+    await expect(region).toHaveAttribute("data-entrance", "rise");
+    await expect(region.getByRole("heading", { level: 1 })).not.toBeFocused();
     await expect(region.getByText("A quest'ora ce ne sono 2.", { exact: false })).toBeVisible();
     // Card: nome, orario e piatti; le categorie solo per chi legge con la voce.
     await expect(card(page, "Menu pranzo")).toHaveAccessibleName("Menu pranzo, 12:00-15:00, 2 categorie, 16 piatti. Apri il menu");
@@ -40,9 +50,10 @@ test("con due menu adesso: la scelta, poi il menu toccato; indietro torna alla s
     const underInert = (name: string) => page.getByRole("button", { name }).first().evaluate(el => el.closest("[inert]") !== null);
     expect(await underInert("Altre opzioni")).toBe(true);
 
-    await card(page, "Carta dei vini").click();
+    await pickCard(page, "Carta dei vini");
     await expect(page).toHaveURL(/[?&]menu=carta-dei-vini/);
-    await expect(region).toHaveCount(0);
+    // Il fuoco passa al selettore del menu, non resta sul body.
+    await expect(page.getByRole("button", { name: /^Menu: Carta dei vini/ })).toBeFocused();
     await expect(page.getByText("Secondi 1", { exact: true })).toBeVisible();
     await expect(page.getByText("Antipasti 1", { exact: true })).toHaveCount(0);
     expect(await underInert("Altre opzioni")).toBe(false);
@@ -89,27 +100,28 @@ test("dalla scelta: Info e orari e Prenota aprono il foglio sopra, la scelta res
 
 test("il carrello resta cambiando menu", async ({ page }) => {
     await openPage(page, { ordering: true });
-    await card(page, "Menu pranzo").click();
+    await pickCard(page, "Menu pranzo");
     await page.getByRole("button", { name: "Aggiungi alla selezione" }).first().click();
     const cart = page.getByRole("button", { name: /^Il tuo ordine/ });
     await expect(cart).toContainText("1");
 
     await page.goBack();
-    await card(page, "Carta dei vini").click();
+    await pickCard(page, "Carta dei vini");
     await expect(page.getByText("Secondi 1", { exact: true })).toBeVisible();
     await expect(cart).toContainText("1");
 });
 
 test("dal menu: il nome nell'isola apre «Menu disponibili ora», si cambia menu; «Tutti i menu» torna alla scelta", async ({ page }) => {
     await openPage(page);
-    await card(page, "Carta dei vini").click();
+    await pickCard(page, "Carta dei vini");
     await expect(page.getByText("Secondi 1", { exact: true })).toBeVisible();
 
     const dialog = page.getByRole("dialog");
     await page.getByRole("button", { name: "Menu: Carta dei vini, 2 di 2. Cambia menu" }).click();
     await expect(dialog.getByRole("heading", { name: "Menu disponibili ora" })).toBeVisible();
-    await expect(dialog.getByRole("radio", { name: /Carta dei vini/ })).toHaveAttribute("aria-checked", "true");
-    await dialog.getByRole("radio", { name: /Menu pranzo/ }).click();
+    await expect(dialog.getByRole("button", { name: /^Carta dei vini/ })).toHaveAttribute("aria-current", "true");
+    await expect(dialog.getByRole("button", { name: /^Menu pranzo/ })).not.toHaveAttribute("aria-current");
+    await dialog.getByRole("button", { name: /^Menu pranzo/ }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page).toHaveURL(/[?&]menu=menu-pranzo/);
     await expect(page.getByText("Antipasti 1", { exact: true })).toBeVisible();
@@ -127,9 +139,9 @@ test("dal menu: il nome nell'isola apre «Menu disponibili ora», si cambia menu
 
 test("il cambio dal foglio non si accumula nella cronologia: indietro torna alla scelta", async ({ page }) => {
     await openPage(page);
-    await card(page, "Carta dei vini").click();
+    await pickCard(page, "Carta dei vini");
     await page.getByRole("button", { name: /^Menu: Carta dei vini/ }).click();
-    await page.getByRole("dialog").getByRole("radio", { name: /Menu pranzo/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /^Menu pranzo/ }).click();
     await expect(page.getByText("Antipasti 1", { exact: true })).toBeVisible();
     await page.goBack();
     await expect(chooser(page)).toBeVisible();
@@ -140,16 +152,15 @@ test.describe("desktop", () => {
 
     test("colonna centrale da 640 px, card dei menu affiancate; il selettore apre il foglio sotto di sé", async ({ page }) => {
         await openPage(page);
+        // A cascata d'entrata finita.
+        await page.waitForFunction(() => document.getAnimations().every(a => a.playState !== "running"));
         const pranzo = await card(page, "Menu pranzo").boundingBox();
         const vini = await card(page, "Carta dei vini").boundingBox();
         expect(pranzo && vini).toBeTruthy();
-        expect(Math.round(pranzo!.y)).toBe(Math.round(vini!.y));
+        expect(Math.abs(pranzo!.y - vini!.y)).toBeLessThan(2);
         expect(vini!.x + vini!.width - pranzo!.x).toBeLessThanOrEqual(641);
 
-        await card(page, "Menu pranzo").click();
-        await expect(chooser(page)).toHaveCount(0);
-        // A passaggio finito: durante l'animazione il clic andrebbe alle fotografie.
-        await expect(page.locator("html")).not.toHaveAttribute("data-menu-passage");
+        await pickCard(page, "Menu pranzo");
         await page.getByRole("button", { name: /^Menu: Menu pranzo/ }).click();
         await expect(page.getByRole("dialog").getByRole("heading", { name: "Menu disponibili ora" })).toBeVisible();
     });

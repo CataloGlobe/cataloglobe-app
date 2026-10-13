@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type { PublicMenu } from "@/types/resolvedCollections";
 import { defaultMenu, findMenu, shouldChoose } from "./menuList";
@@ -23,12 +23,14 @@ export type MenuChoice = {
  * scelta, e il primo disegno del browser deve uguagliarlo. Un link diretto valido
  * salta la scelta; uno sconosciuto o di un menu di più tardi torna alla scelta.
  */
+const subscribeNever = () => () => {};
+
 export function useMenuChoice(menus: PublicMenu[] | undefined, mode: { preview: boolean }): MenuChoice {
     const [params, setParams] = useSearchParams();
     const location = useLocation();
     const navigate = useNavigate();
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
+    // Falso solo nell'idratazione (come il server); in una navigazione nel browser vale subito.
+    const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
 
     const slug = mounted ? params.get(MENU_PARAM) : null;
     const canChoose = shouldChoose(menus, mode);

@@ -31,8 +31,12 @@ export function runMenuPassage(direction: PassageDirection, update: () => void, 
         update();
         return drawn;
     });
-    transition.finished.finally(() => {
-        running = false;
-        delete root.dataset.menuPassage;
-    });
+    // Passaggio saltato (scheda nascosta): `ready` rifiuta, il cambio è già avvenuto.
+    transition.ready.catch(() => undefined);
+    void transition.finished
+        .finally(() => {
+            running = false;
+            delete root.dataset.menuPassage;
+        })
+        .catch(() => undefined);
 }
