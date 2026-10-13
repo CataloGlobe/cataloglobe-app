@@ -15,6 +15,8 @@ export interface UseNavGroupsOptions {
     activityId: string | null;
     /** La sede delle parti di sede quando nessuna è in vista: l'ultima usata, o la prima. */
     defaultActivityId: string | null;
+    /** La sede scelta in alto quando nessuna è nell'indirizzo (D152). */
+    chosenActivityId?: string | null;
     /** Sedi non ancora arrivate: niente voci, invece di un contesto provvisorio. */
     loading?: boolean;
     signals: Omit<SidebarSignals, "translationLabel" | "translationWaitingCount" | "translationWaitingLabel">;
@@ -41,6 +43,7 @@ export function useNavGroups({
     context,
     activityId,
     defaultActivityId,
+    chosenActivityId = null,
     loading = false,
     signals,
     translationWaiting
@@ -60,6 +63,7 @@ export function useNavGroups({
         businessId,
         activityId,
         defaultActivityId,
+        chosenActivityId,
         catalogLabel
     });
     const options = {

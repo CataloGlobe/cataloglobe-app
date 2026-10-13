@@ -116,9 +116,15 @@
     color: var(--text-muted);
     cursor: help;
 
-    &:hover {
+    &:hover,
+    &:focus-visible {
         color: var(--text);
         background: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
     }
 }
 

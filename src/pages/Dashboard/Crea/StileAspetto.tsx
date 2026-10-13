@@ -12,6 +12,7 @@ import { COLORS, FONTS, type Tunnel } from "./creaModel";
 import { DARK_BG, LIGHT_BG, PART_IDS, hardToRead, ink, lum, partKey, readable, restore, sameHex, type PartId } from "./stileLook";
 import { Choice, Group, Palette, type Opts } from "./StileUi";
 import { Sh } from "./CreaUi";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import type { U } from "./CreaSteps";
 import s from "./StileAspetto.module.scss";
 
@@ -68,6 +69,10 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = n
     };
 
     const l = t.look, was = t.edit?.orig.look ?? null;
+    // «Torna a questa» chiede solo se nella bozza c'è qualcosa che non è salvato: lì si perderebbe
+    const [back, setBack] = useState<{ when: string; look: Look } | null>(null);
+    const dirty = !!was && PART_IDS.some(p => partKey(l, p) !== partKey(was, p));
+    const takeBack = (v: { when: string; look: Look }) => (dirty ? setBack(v) : u(x => void (x.look = structuredClone(v.look))));
     const [pal, setPal] = useState<ColorKey | null>(null);
     const set = (f: (x: Look) => void) => u(x => f(x.look));
     const close = useRef(() => setPal(null)).current;
@@ -147,7 +152,7 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = n
                                             <button type="button" className={s.linkb} onClick={() => onPeek(v.look, `Versione del ${v.when}`)}>
                                                 Guarda
                                             </button>
-                                            <button type="button" className={s.linkb} onClick={() => u(x => void (x.look = structuredClone(v.look)))}>
+                                            <button type="button" className={s.linkb} onClick={() => takeBack(v)}>
                                                 Torna a questa
                                             </button>
                                         </>
@@ -318,6 +323,19 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = n
                     </div>
                 </Group>
             )}
+            <ConfirmDialog
+                isOpen={!!back}
+                onClose={() => setBack(null)}
+                onConfirm={() => {
+                    if (back) u(x => void (x.look = structuredClone(back.look)));
+                    return true;
+                }}
+                title={`Torni alla versione del ${back?.when ?? ""}?`}
+                message="Le modifiche che non hai ancora salvato si perdono. Diventa una versione nuova solo quando salvi."
+                confirmLabel="Torna a questa"
+                cancelLabel="Resta così"
+                confirmVariant="primary"
+            />
         </div>
     );
 }
