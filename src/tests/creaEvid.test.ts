@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+// i moduli del tunnel arrivano fino al client: qui non serve, e senza `.env` non partirebbe
+vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { newTunnel, stepSummary, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
-import { dropIdea, ideaOf, pickIdea } from "@/pages/Dashboard/Crea/evidIdee";
+import { asEdit, newTunnel, stepSummary, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import { dropDishes, dropIdea, ideaOf, pickIdea } from "@/pages/Dashboard/Crea/evidIdee";
 import { CreaPhone } from "@/pages/Dashboard/Crea/CreaPhone";
 import s from "@/pages/Dashboard/Crea/Crea.module.scss";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
@@ -24,8 +26,27 @@ describe("contenuto in evidenza: partire da un'idea", () => {
         dropIdea(t);
         expect(t.idea).toBeNull();
         expect(t.evType).toBeNull();
+    });
+
+    it("una serata è un evento, anche dopo aver aggiunto e tolto i piatti (review #444)", () => {
+        const t = newTunnel("evid", ALL);
         pickIdea(t, idea("serata"));
+        expect(t.evType).toBe("evento");
+        t.evType = "promo";
+        dropDishes(t);
+        expect(t.evType).toBe("evento");
+        dropIdea(t);
         expect(t.evType).toBeNull();
+    });
+
+    it("in modifica «Togli» rimette il tipo di prima, non l'annuncio (review #444)", () => {
+        const ev = asEdit({ ...newTunnel("evid", ALL), title: "Karaoke", evType: "evento" }, "f1", { id: null, count: 0 });
+        ev.evType = "promo";
+        dropDishes(ev);
+        expect(ev.evType).toBe("evento");
+        const pr = asEdit({ ...newTunnel("evid", ALL), title: "Pranzo", evType: "promo" }, "f2", { id: null, count: 0 });
+        dropDishes(pr);
+        expect(pr.evType).toBeNull();
     });
 
     it("un'idea senza piatti, cambiata, lascia stare i piatti aperti a mano", () => {

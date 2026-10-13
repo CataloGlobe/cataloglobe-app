@@ -5,7 +5,7 @@ import { useId, type ReactNode } from "react";
 import { CalendarHeart, ChefHat, Megaphone, MousePointerClick, Plus, Tag, UtensilsCrossed } from "lucide-react";
 import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { hasDishes, type Tunnel } from "./creaModel";
-import { IDEE, dropIdea, ideaOf, pickIdea, type IdeaId } from "./evidIdee";
+import { IDEE, dropDishes, dropIdea, ideaOf, pickIdea, type IdeaId } from "./evidIdee";
 import { EvidPiatti, type U } from "./CreaSteps";
 import { Chip, Field, Sh } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
@@ -151,7 +151,7 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                         icon={<UtensilsCrossed size={17} />}
                         title="I piatti"
                         now={`${t.dishes.length} ${t.dishes.length === 1 ? "piatto" : "piatti"} · ${t.evType === "bundle" ? "a prezzo unico" : "coi loro prezzi"}`}
-                        onRemove={() => u(x => void (x.evType = null))}
+                        onRemove={() => u(dropDishes)}
                     >
                         <EvidPiatti t={t} u={u} pick={pick} L={L} />
                     </EvidParte>
