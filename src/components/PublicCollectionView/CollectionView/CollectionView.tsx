@@ -392,7 +392,7 @@ function ProductRowInner({
                                 source={image}
                                 framing={item.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
                                 aspectRatio={null}
-                                alt={name}
+                                alt=""
                             />
                         </div>
                     )}
@@ -406,7 +406,15 @@ function ProductRowInner({
                 )}
                 <div className={styles.titleRow}>
                     <div className={styles.titleRowLeft}>
-                        <Text variant="body" weight={700} className={styles.title} color="var(--pub-surface-text)">
+                        {/* Il nome lo legge già il pulsante della riga: qui solo a vista,
+                            altrimenti il lettore di schermo lo ripete. */}
+                        <Text
+                            variant="body"
+                            weight={700}
+                            className={styles.title}
+                            color="var(--pub-surface-text)"
+                            aria-hidden={mode !== "preview" || undefined}
+                        >
                             {name}
                         </Text>
                         {dp.type !== "none" && dp.originalPrice != null && (
@@ -602,7 +610,9 @@ function ProductCompactRowInner({
                         compactLayoutStyle === "editorial" ? ` ${styles.compactNameRowEditorial}` : ""
                     }`}
                 >
-                    <span className={styles.compactName}>{name}</span>
+                    <span className={styles.compactName} aria-hidden={canOpen || undefined}>
+                        {name}
+                    </span>
                     {compactLayoutStyle === "editorial" && (
                         <span className={styles.compactLeader} aria-hidden="true" />
                     )}

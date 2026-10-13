@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
     applyTenantHead,
     buildClientAssets,
+    MOTION_FEATURES_KEY,
     buildSsrShell,
     escapeHtml,
     serializeCatalogPayload,
@@ -361,6 +362,15 @@ describe("buildClientAssets", () => {
         expect(styleTags).toContain('<link rel="modulepreload" href="/public/assets/public-Bq1.js" />');
         expect(styleTags).not.toContain("common");
         expect(scriptTag).toBe('<script type="module" src="/public/assets/entry-client-Dx27gO3c.js"></script>');
+    });
+
+    it("le feature di framer-motion si scaricano sempre subito, se il build le ha in un chunk", () => {
+        const manifest: ViteManifest = {
+            ...MANIFEST,
+            [MOTION_FEATURES_KEY]: { file: "assets/motionFeatures-Ab1.js" }
+        };
+        const { styleTags } = buildClientAssets(manifest, "src/entry-client.tsx", "/public/");
+        expect(styleTags).toContain('<link rel="modulepreload" href="/public/assets/motionFeatures-Ab1.js" />');
     });
 
     it("senza chunk chiesti resta solo il CSS dell'entry", () => {
