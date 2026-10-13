@@ -218,8 +218,10 @@ export default function BottomBar({
             </div>
             {/* Desktop (≥641 px, via CSS): l'ordine è un pulsante fisso in basso a destra
                 che apre la finestra al centro (mockup v38 `.d-ofab`, D39). Solo con piatti
-                scelti (deciso da Lorenzo il 2026-10-13). */}
-            {orderVisible && selectionCount > 0 && (
+                scelti (deciso da Lorenzo il 2026-10-13). Coi fogli aperti è sotto la pagina
+                `inert`; l'invito al voto è solo da telefono, ma se la finestra si
+                allarga con l'invito a vista il pulsante resta via, come la barra. */}
+            {orderVisible && selectionCount > 0 && !inviteShown && (
                 <button
                     type="button"
                     className={styles.ordineDesktop}
