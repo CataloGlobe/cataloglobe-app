@@ -315,6 +315,10 @@ export type BuildShellArgs = {
     clientAssets: ClientAssets;
     /** Valore per il preconnect %VITE_SUPABASE_URL% del template. */
     supabaseUrl: string;
+    /** Lingua in cui il server rende la pagina, già validata: va in
+        `<html lang>`, da cui la legge anche il client prima dell'hydration.
+        Default "it", come il template. */
+    lang?: string;
 };
 
 /**
@@ -326,6 +330,7 @@ export function buildSsrShell(args: BuildShellArgs): SsrShellParts {
 
     // Placeholder env del template (in SPA lo sostituisce Vite a build-time).
     html = html.replace(/%VITE_SUPABASE_URL%/g, () => escapeHtml(args.supabaseUrl));
+    html = html.replace(/<html lang="[^"]*"/, () => `<html lang="${escapeHtml(args.lang ?? "it")}"`);
 
     html = applyTenantHead(html, args.payload, { origin: args.origin, slug: args.slug });
 

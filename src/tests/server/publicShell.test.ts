@@ -310,6 +310,12 @@ describe("buildSsrShell", () => {
         expect(afterApp).not.toContain("/src/main.tsx");
     });
 
+    it("<html lang> nella lingua in cui il server rende la pagina, italiano di default", () => {
+        expect(build().beforeApp).toMatch(/<html lang="it"/);
+        expect(build({ lang: "en" }).beforeApp).toMatch(/<html lang="en"/);
+        expect(build({ lang: 'x"><script>' }).beforeApp).toContain('<html lang="x&quot;&gt;&lt;script&gt;"');
+    });
+
     it("css dell'entry client nell'head, placeholder env sostituito", () => {
         const { beforeApp } = build();
         expect(beforeApp).toContain('rel="stylesheet" href="/public/assets/entry-client-C00LWXyq.css"');
