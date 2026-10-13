@@ -166,7 +166,7 @@ export default function MenuChooser({
                 {later.length > 0 ? (
                     <>
                         <h2 className={styles.etichetta}>{t("menus.later")}</h2>
-                        <ul className={styles.elenco}>
+                        <ul className={styles.elenco} data-later>
                             {later.map((menu, index) => {
                                 const Icon = ICONS[menuIcon(menu)];
                                 const from = menuHours(menu).slice(0, 5);

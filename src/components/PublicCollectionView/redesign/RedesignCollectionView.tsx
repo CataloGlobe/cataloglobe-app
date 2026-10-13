@@ -153,12 +153,15 @@ export default function RedesignCollectionView({
     const preview = props.mode !== "public";
     const chosenId = menuChoice.menu?.catalogId;
     const shownId = useRef(chosenId);
+    const wasChoosing = useRef(choosing);
     // Chi aspetta il disegno del menu (o della scelta) per il passaggio animato.
     const drawnWaiters = useRef<Array<() => void>>([]);
     useLayoutEffect(() => {
-        if (shownId.current !== chosenId) {
+        const leftChooser = wasChoosing.current && !choosing;
+        wasChoosing.current = choosing;
+        if (shownId.current !== chosenId || leftChooser) {
             shownId.current = chosenId;
-            // Menu nuovo: si parte dalla cima (prima della fotografia d'arrivo del passaggio).
+            // Menu nuovo, o appena scelto: si parte dalla cima (prima della fotografia d'arrivo del passaggio).
             window.scrollTo(0, 0);
         }
         drawnWaiters.current.splice(0).forEach(resolve => resolve());

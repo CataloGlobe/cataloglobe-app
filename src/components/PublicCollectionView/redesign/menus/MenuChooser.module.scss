@@ -357,6 +357,33 @@ $curva: cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 }
 
+/* ── Desktop (D79, scelta (a)): stessa pagina, colonna centrale da 640 px;
+   da 800 px le card dei menu su due colonne. ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH. ── */
+@media (min-width: 641px) {
+  .copertina {
+    height: 260px;
+  }
+
+  .isola {
+    width: min(640px, calc(100% - 24px));
+    margin-inline: auto;
+  }
+
+  .corpo {
+    max-width: 672px;
+    margin-inline: auto;
+    padding-top: 36px;
+  }
+}
+
+@media (min-width: 800px) {
+  /* Solo i menu di adesso: «Più tardi» resta a colonna intera, a metà andrebbe a capo. */
+  .elenco:not([data-later]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ── Entrata: card in cascata alla prima apertura ─────────────────── */
 
 @keyframes sale {

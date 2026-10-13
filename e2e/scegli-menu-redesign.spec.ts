@@ -134,3 +134,23 @@ test("il cambio dal foglio non si accumula nella cronologia: indietro torna alla
     await page.goBack();
     await expect(chooser(page)).toBeVisible();
 });
+
+test.describe("desktop", () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test("colonna centrale da 640 px, card dei menu affiancate; il selettore apre il foglio sotto di sé", async ({ page }) => {
+        await openPage(page);
+        const pranzo = await card(page, "Menu pranzo").boundingBox();
+        const vini = await card(page, "Carta dei vini").boundingBox();
+        expect(pranzo && vini).toBeTruthy();
+        expect(Math.round(pranzo!.y)).toBe(Math.round(vini!.y));
+        expect(vini!.x + vini!.width - pranzo!.x).toBeLessThanOrEqual(641);
+
+        await card(page, "Menu pranzo").click();
+        await expect(chooser(page)).toHaveCount(0);
+        // A passaggio finito: durante l'animazione il clic andrebbe alle fotografie.
+        await expect(page.locator("html")).not.toHaveAttribute("data-menu-passage");
+        await page.getByRole("button", { name: /^Menu: Menu pranzo/ }).click();
+        await expect(page.getByRole("dialog").getByRole("heading", { name: "Menu disponibili ora" })).toBeVisible();
+    });
+});
