@@ -47,6 +47,7 @@
   "venue": {
     "open": "Ouvert",
     "closing_soon": "Ferme dans {{minutes}} min",
+    "closing_soon_word": "Ferme bientôt",
     "closed": "Fermé",
     "closed_opens_today": "Fermé · ouvre à {{time}}",
     "closed_opens_tomorrow": "Fermé · ouvre demain à {{time}}",

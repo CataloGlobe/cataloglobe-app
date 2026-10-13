@@ -263,6 +263,10 @@ $scia: 50px; /* logo 40 + gap 10 */
   flex: none;
   font-style: normal;
   opacity: 0.72;
+
+  .menuTasto[data-senza-conto] & {
+    display: none;
+  }
 }
 
 /* Capsula dei pulsanti: un solo fondo, divisori tra i segmenti (mockup v38). */

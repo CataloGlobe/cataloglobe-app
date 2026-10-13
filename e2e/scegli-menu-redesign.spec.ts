@@ -13,10 +13,10 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
 test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
-async function openPage(page: Page, opts: { menus?: "two" | "one"; query?: string; ordering?: boolean } = {}) {
+async function openPage(page: Page, opts: { menus?: "two" | "one"; query?: string; ordering?: boolean; cover?: string } = {}) {
     // Mercoledì a mezzogiorno e mezzo: con gli orari dello stub la sede è aperta.
     await page.clock.setFixedTime(new Date("2026-10-14T12:30:00+02:00"));
-    await stubPublicPage(page, { ordering: opts.ordering ?? false, venueInfo: true, reservations: true, menus: opts.menus ?? "two" });
+    await stubPublicPage(page, { ordering: opts.ordering ?? false, venueInfo: true, reservations: true, menus: opts.menus ?? "two", cover: opts.cover });
     await page.goto(`/${SLUG}${opts.query ?? ""}`);
 }
 
@@ -145,6 +145,21 @@ test("il cambio dal foglio non si accumula nella cronologia: indietro torna alla
     await expect(page.getByText("Antipasti 1", { exact: true })).toBeVisible();
     await page.goBack();
     await expect(chooser(page)).toBeVisible();
+});
+
+test.describe("telefono stretto", () => {
+    test.use({ viewport: { width: 320, height: 700 } });
+
+    test("nell'isola il nome del menu resta intero: lo stato dice solo la parola e «2 di 2» esce", async ({ page }) => {
+        // Con la copertina l'isola si stacca dai bordi: è il caso più stretto (l'immagine può anche mancare).
+        await openPage(page, { query: "?menu=carta-dei-vini", cover: "/e2e-copertina.jpg" });
+        const selector = page.getByRole("button", { name: /^Menu: Carta dei vini/ });
+        await expect(selector).toHaveAttribute("data-senza-conto", "");
+        const name = selector.locator("i");
+        await expect(name).toHaveText("Carta dei vini");
+        expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+        await expect(selector.locator("xpath=following-sibling::button[1]")).toHaveText("Aperto");
+    });
 });
 
 test.describe("desktop", () => {

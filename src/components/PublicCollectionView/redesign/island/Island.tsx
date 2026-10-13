@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, MoreHorizontal, Search } from "lucide-react";
 import { SEARCH_TRIGGER_ID } from "@components/PublicCollectionView/PublicCollectionHeader/PublicCollectionHeader";
@@ -25,6 +25,34 @@ const ALTEZZA_COMPATTA_DESKTOP_PX = 74;
 const CIMA_FILA_COMPATTA_PX = 9;
 /** ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts) e con Island.module.scss. */
 const DESKTOP_QUERY = "(min-width: 641px)";
+
+/**
+ * «· 2 di 2» esce se il nome del menu non ci sta (mockup v38, `r2-nn`): il nome
+ * conta più del numero. Si rimisura quando cambia la larghezza della riga, il
+ * nome o il font.
+ */
+function useMenuCountFit(button: RefObject<HTMLButtonElement | null>, name: string | null | undefined) {
+    useEffect(() => {
+        const el = button.current;
+        const line = el?.parentElement;
+        if (!el || !line || typeof ResizeObserver === "undefined") return;
+        let live = true;
+        const fit = () => {
+            if (!live) return;
+            delete el.dataset.senzaConto;
+            const nome = el.querySelector("i");
+            if (nome && nome.scrollWidth > nome.clientWidth + 1) el.dataset.senzaConto = "";
+        };
+        fit();
+        void document.fonts?.ready.then(fit);
+        const ro = new ResizeObserver(fit);
+        ro.observe(line);
+        return () => {
+            live = false;
+            ro.disconnect();
+        };
+    }, [button, name]);
+}
 
 /**
  * Due sentinelle assolute in cima alla pagina: nessun lavoro a ogni scroll,
@@ -98,7 +126,9 @@ export default function Island({
     const primerRef = useRef<HTMLInputElement>(null);
     const campoRef = useRef<HTMLButtonElement>(null);
     const lenteRef = useRef<HTMLButtonElement>(null);
+    const menuTastoRef = useRef<HTMLButtonElement>(null);
     const storia = activeTab === "storia";
+    useMenuCountFit(menuTastoRef, menuSwitch && !storia ? menuName : null);
     const piuLingue = useLanguage().availableLanguages.length > 1;
 
     // Desktop: da estesa a compatta il campo lascia il posto alla lente (e viceversa).
@@ -271,6 +301,7 @@ export default function Island({
                             <div className={styles.linea}>
                                 {menuName && !storia && menuSwitch ? (
                                     <button
+                                        ref={menuTastoRef}
                                         id={MENU_BUTTON_ID}
                                         type="button"
                                         className={`${styles.menu} ${styles.menuTasto}`}
@@ -294,7 +325,12 @@ export default function Island({
                                 ) : menuName && !storia ? (
                                     <i className={styles.menu}>{menuName}</i>
                                 ) : null}
-                                <VenuePill hours={openingHours} closures={upcomingClosures} onOpenHours={onOpenHours} />
+                                <VenuePill
+                                    hours={openingHours}
+                                    closures={upcomingClosures}
+                                    onOpenHours={onOpenHours}
+                                    word={Boolean(menuName && !storia && menuSwitch)}
+                                />
                             </div>
                         </div>
                         {/* Desktop, isola estesa: il campo di ricerca prende lo spazio libero (spec §13). */}

@@ -27,7 +27,9 @@ $curva: cubic-bezier(0.2, 0.8, 0.2, 1);
 .copertina {
   height: 208px;
   overflow: hidden;
-  background: var(--pub-header-bg, #1a1a1a);
+  /* Niente fondo colorato: la scelta è fissa in cima e Safari 26 tinge la barra di
+     stato col fondo degli elementi fissi. Col colore del locale (header) diventava
+     arancione, mentre sul menu resta quello della pagina. */
 
   img {
     display: block;

@@ -47,6 +47,7 @@
     "venue": {
         "open": "Geöffnet",
         "closing_soon": "Schließt in {{minutes}} Min.",
+        "closing_soon_word": "Schließt bald",
         "closed": "Geschlossen",
         "closed_opens_today": "Geschlossen · öffnet um {{time}} Uhr",
         "closed_opens_tomorrow": "Geschlossen · öffnet morgen um {{time}} Uhr",
