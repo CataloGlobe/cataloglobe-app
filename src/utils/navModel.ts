@@ -574,7 +574,7 @@ export function isConfigurator(permissions: UserPermissions): boolean {
 
 /**
  * Entrando in una sede. Chi la gestisce parte dalla Scheda; staff e viewer
- * dalla prima voce di Operatività che possono usare (chi legge i tavoli ha
+ * dalla prima voce di Servizio che possono usare (chi legge i tavoli ha
  * almeno la Sala di Servizio, su ogni piano), altrimenti la Scheda.
  */
 export function sedeLandingSegment(permissions: UserPermissions, hasFeature: HasFeature, activityId: string): string {
@@ -587,7 +587,7 @@ export function sedeLandingSegment(permissions: UserPermissions, hasFeature: Has
 
 /**
  * L'ingresso nell'azienda (`/business/:businessId`). Chi configura: la
- * Panoramica. Gli altri: con una sede, la sua prima voce di Operatività; con
+ * Panoramica. Gli altri: con una sede, la sua prima voce di Servizio; con
  * più sedi, Sedi per scegliere il locale. Nessuna sede: la Panoramica.
  */
 export function businessHomePath(
