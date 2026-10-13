@@ -216,6 +216,23 @@ export default function BottomBar({
                     </button>
                 )}
             </div>
+            {/* Desktop (≥641 px, via CSS): l'ordine è un pulsante fisso in basso a destra
+                che apre la finestra al centro (mockup v38 `.d-ofab`, D39). Solo con piatti
+                scelti (deciso da Lorenzo il 2026-10-13). */}
+            {orderVisible && selectionCount > 0 && (
+                <button
+                    type="button"
+                    className={styles.ordineDesktop}
+                    aria-label={t("fab.cart_aria_count", { count: selectionCount })}
+                    onClick={onOpenOrder}
+                >
+                    <ReceiptText size={19} strokeWidth={1.9} aria-hidden />
+                    <span>{t("fab.cart_aria")}</span>
+                    <span className={styles.conto} aria-hidden="true">
+                        {selectionCount}
+                    </span>
+                </button>
+            )}
         </>
     );
 }

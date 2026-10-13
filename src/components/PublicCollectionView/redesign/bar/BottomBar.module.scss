@@ -152,6 +152,46 @@ $uscita: 220ms ease-in;
   font-variant-numeric: tabular-nums;
 }
 
+/* Desktop: «Il tuo ordine · N» fisso in basso a destra (mockup v38 `.d-ofab`), stesso
+   materiale dell'isola. Sul telefono c'è il cerchio dentro la barra. */
+.ordineDesktop {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  gap: 9px;
+  height: 52px;
+  padding: 0 18px 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(20 20 20 / 92%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 14px 30px -12px rgb(0 0 0 / 55%);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  animation: entra 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transition: transform 0.16s ease;
+
+  /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts) */
+  @media (min-width: 641px) {
+    display: inline-flex;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+  }
+}
+
 @keyframes entra {
   from {
     opacity: 0;
@@ -166,6 +206,11 @@ $uscita: 220ms ease-in;
 
 @media (prefers-reduced-motion: reduce) {
   .fondo {
+    transition: none;
+  }
+
+  .ordineDesktop {
+    animation: none;
     transition: none;
   }
 
