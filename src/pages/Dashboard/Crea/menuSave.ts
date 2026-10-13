@@ -148,7 +148,9 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
         const sort = places(list.map(x => (x.id ? x.sort : undefined)));
         for (const [i, sec] of list.entries()) {
             const name = sec.name.trim() || "Piatti";
-            if (!sec.id) idOf.set(sec, (await createCategory(tenantId, catalogId, name, level, parent, sort[i])).id);
+            // la categoria nuova e il collegamento si ricordano come il prodotto: al «Riprova» non si rifanno (review #388);
+            // chiavi diverse da «cat:» e «link:», che writeSections legge come righe sue
+            if (!sec.id) idOf.set(sec, await once(m, `sez-cat:${sec.key}`, async () => (await createCategory(tenantId, catalogId, name, level, parent, sort[i])).id));
             else {
                 idOf.set(sec, sec.id);
                 const o = was.get(sec.id);
@@ -183,7 +185,7 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
             // il prodotto nuovo si ricorda per piatto: al «Riprova» non nasce una seconda volta
             const productId = await productOf(d, tenantId, m);
             // una variante sta nel menù col suo prodotto e sé stessa accanto
-            await addProductToCategory(tenantId, catalogId, idOf.get(sec)!, d.parentId ?? productId, sort[j], d.parentId ? productId : null);
+            await once(m, `sez-link:${d.key}`, () => addProductToCategory(tenantId, catalogId, idOf.get(sec)!, d.parentId ?? productId, sort[j], d.parentId ? productId : null));
         }
     }
 

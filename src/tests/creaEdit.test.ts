@@ -6,20 +6,20 @@ const { calls, fail, fake } = vi.hoisted(() => {
     const calls: unknown[][] = [];
     const fail = { on: "", skip: 0 };
     const fake =
-        (name: string, out: () => unknown = () => undefined) =>
+        (name: string, out: (...a: unknown[]) => unknown = () => undefined) =>
         (...a: unknown[]) => {
             calls.push([name, ...a]);
             if (fail.on === name && fail.skip-- <= 0) {
                 fail.on = "";
                 return Promise.reject(new Error(name + " non riuscito"));
             }
-            return Promise.resolve(out());
+            return Promise.resolve(out(...a));
         };
     return { calls, fail, fake };
 });
 vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
-vi.mock("@/services/supabase/catalogs", async orig => ({ ...(await orig<object>()), addProductToCategory: fake("addProductToCategory"), updateCatalog: fake("updateCatalog") }));
-vi.mock("@/services/supabase/products", async orig => ({ ...(await orig<object>()), createProduct: fake("createProduct", () => ({ id: "p-new" })) }));
+vi.mock("@/services/supabase/catalogs", async orig => ({ ...(await orig<object>()), addProductToCategory: fake("addProductToCategory"), createCategory: fake("createCategory", () => ({ id: "c-new" })), updateCatalog: fake("updateCatalog") }));
+vi.mock("@/services/supabase/products", async orig => ({ ...(await orig<object>()), createProduct: fake("createProduct", (_t, p) => ({ id: "p-" + (p as { name: string }).name })) }));
 vi.mock("@/services/supabase/productOptions", async orig => ({ ...(await orig<object>()), createPrimaryPriceFormat: fake("createPrimaryPriceFormat") }));
 // la regola del Calendario di saveQuando: una voce sola, «r1»
 vi.mock("@/services/supabase/layoutScheduling", async orig => ({ ...(await orig<object>()), listLayoutRules: fake("listLayoutRules", () => []) }));
@@ -239,6 +239,26 @@ describe("modifica nel tunnel: «Riprova» dopo un piatto nuovo fermo a metà (r
         expect(formats.map(c => c[3])).toEqual(["Piccola", "Grande", "Grande"]);
         expect(new Set(formats.map(c => c[1])).size).toBe(1);
         expect(calls.filter(c => c[0] === "addProductToCategory")).toHaveLength(1);
+    });
+
+    it("due piatti nuovi, il secondo collegamento non riesce: «Riprova» non ricollega il primo", async () => {
+        const t = upd(menu(), x => void x.sections[0].dishes.push({ key: "n1", productId: null, name: "Carbonara", price: 11 }, { key: "n2", productId: null, name: "Gricia", price: 10 }));
+        const done = new Map<string, unknown>();
+        Object.assign(fail, { on: "addProductToCategory", skip: 1 });
+        await expect(saveEdit(t, ctx(done))).rejects.toThrow();
+        await saveEdit(t, ctx(done));
+        expect(calls.filter(c => c[0] === "addProductToCategory").map(c => c[4])).toEqual(["p-Carbonara", "p-Gricia", "p-Gricia"]);
+    });
+
+    it("categoria nuova con un piatto che non riesce: «Riprova» non crea una seconda categoria", async () => {
+        const t = upd(menu(), x => void x.sections.push({ key: "s2", name: "Secondi", dishes: [{ key: "n", productId: null, name: "Saltimbocca", price: 15 }], subs: [] }));
+        const done = new Map<string, unknown>();
+        fail.on = "addProductToCategory";
+        await expect(saveEdit(t, ctx(done))).rejects.toThrow();
+        await saveEdit(t, ctx(done));
+        expect(calls.filter(c => c[0] === "createCategory")).toHaveLength(1);
+        const links = calls.filter(c => c[0] === "addProductToCategory");
+        expect(links.map(c => c[3])).toEqual(["c-new", "c-new"]);
     });
 });
 
