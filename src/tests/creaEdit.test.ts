@@ -54,7 +54,6 @@ const OWNER = { owner: true, multi: true };
 
 function menu(rule: string | null = "r1"): Tunnel {
     const t = newTunnel("menu", ALL);
-    t.menuType = "classico";
     t.name = "Pranzo";
     t.sections = [{ key: "a", id: "c1", sort: 0, name: "Primi", dishes: [{ key: "b", linkId: "l1", sort: 0, productId: "p1", name: "Risotto", price: 12 }], subs: [] }];
     return asEdit(t, "m1", { id: rule, count: rule ? 1 : 0, live: !!rule });

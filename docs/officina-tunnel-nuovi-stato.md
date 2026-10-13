@@ -30,7 +30,7 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 ## I 27 punti
 
 ### Tunnel Menù
-1. Via «Che menù è»: niente più multi menù da qui; al suo posto «Da dove parti» e «Quale menù copi?». **Da fare**
+1. Via «Che menù è»: niente più multi menù da qui; al suo posto «Da dove parti» e «Quale menù copi?». **Fatto**: il passo e il campo `menuType` non ci sono più; «Copia da un altro menù» (si vede se c'è almeno un menù) porta categorie, piatti e varianti con `copySections`; salvando nascono righe nuove. Della nota sotto l'elenco resta «Ci sono tutti, anche quelli non in onda.» (la prima frase era una nota per chi guarda la pagina). Prove: `creaModel.test.ts`, `creaLoad.test.ts`, e2e «copia da un altro menù».
 2. Dove prima del Quando; si parte da nessuna sede; nel Dove «In onda?». **Da fare**
 3. Quando in due parti: «Le ore» («Hanno le stesse ore?», ora scritta 22 / 2230 / 22:30 o dall'orologio con ↑ ↓, «Giorno dopo» [int.], più fasce [int.]); poi «In onda insieme / al posto» [int.] («È uguale in tutte le sedi?», una sede alla volta con «N di M sedi viste», spunta, etichetta «diversa»). **Da fare**
 4. Menù che stanno da soli (soloBox) [int.]. **Da fare**

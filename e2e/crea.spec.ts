@@ -72,8 +72,6 @@ function wireMenu(stub: ProgrammazioneStub) {
 }
 
 async function walkMenu(page: Page, name = "  Pranzo veloce  ") {
-    await button(page, /^Menù classico/).click();
-    await next(page);
     await main(page).getByLabel("Nome del menù").fill(name);
     await next(page);
     await button(page, "Aggiungi una categoria").click();
@@ -115,8 +113,6 @@ const PHOTO = { name: "menu.png", mimeType: "image/png", buffer: Buffer.from("iV
 const photoInput = (page: Page) => main(page).locator('input[type="file"][aria-label="Foto o PDF del menù"]');
 
 async function readPhoto(page: Page) {
-    await button(page, /^Menù classico/).click();
-    await next(page);
     await main(page).getByLabel("Nome del menù").fill("Carta");
     await button(page, /^Da una foto o un PDF/).click();
     // la foto si carica nel passo dopo, che si apre già sull'import (D180)
@@ -283,22 +279,41 @@ test.describe("Tunnel di creazione — menù", () => {
         await emptyCategories(page);
     });
 
+    test("copia da un altro menù: «Quale menù copi?» porta categorie e piatti", async ({ page }) => {
+        await cartaCom(page);
+        await open(page, "menu");
+        await main(page).getByLabel("Nome del menù").fill("Cena");
+        await button(page, /^Copia da un altro menù/).click();
+        await expect(main(page).getByText("Scegli da quale menù copiare")).toBeVisible();
+        await main(page).getByLabel("Nome del menù").fill("");
+        const list = main(page).getByRole("radiogroup", { name: "Menù da copiare" });
+        await expect(main(page).getByRole("heading", { name: "Quale menù copi?" })).toBeVisible();
+        const carta = list.getByRole("radio").filter({ hasText: /2 categorie · 3 piatti · (in onda|pronto, non in onda)$/ }).first();
+        await carta.click();
+        await expect(carta).toHaveAttribute("aria-checked", "true");
+        // senza un nome prende quello del menù copiato
+        await expect(main(page).getByLabel("Nome del menù")).toHaveValue(/ \(copia\)$/);
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Categorie e piatti" })).toBeVisible();
+        await expect(main(page).getByText("Pizze").first()).toBeVisible();
+        await expect(main(page).getByText("Dolci").first()).toBeVisible();
+    });
+
     test("i passi: Avanti si accende quando il passo è fatto, i fatti si riaprono", async ({ page }) => {
         await open(page, "menu");
         const steps = rail(page);
-        await expect(steps.getByRole("button")).toHaveText(["1Che menù è", "2Da dove parti", "3Categorie e piatti", "4Dove e quando", "5Controlla", "E adesso?"]);
+        await expect(steps.getByRole("button")).toHaveText(["1Da dove parti", "2Categorie e piatti", "3Dove e quando", "4Controlla", "E adesso?"]);
         await expect(button(page, "Avanti")).toBeDisabled();
-        await expect(main(page).getByText("Scegli che menù è")).toBeVisible();
-        // il multi menù arriva col database nuovo
-        await expect(button(page, /^Multi menù/)).toBeDisabled();
-        await button(page, /^Menù classico/).click();
-        await next(page);
+        await expect(main(page).getByText("Manca il nome del menù")).toBeVisible();
+        // il passo «Che menù è» non c'è più: il multi menù non si crea da qui
+        await expect(button(page, /^Multi menù/)).toHaveCount(0);
         await expect(main(page).getByRole("heading", { level: 2 })).toHaveText("Nuovo menù");
         await main(page).getByLabel("Nome del menù").fill("Cena");
         await expect(main(page).getByRole("heading", { level: 2 })).toHaveText("Nuovo menù · Cena");
+        await next(page);
         // il passo fatto si riapre dalla fila
-        await steps.getByRole("button", { name: /Che menù è/ }).click();
-        await expect(button(page, /^Menù classico/)).toHaveAttribute("aria-pressed", "true");
+        await steps.getByRole("button", { name: /Da dove parti/ }).click();
+        await expect(main(page).getByLabel("Nome del menù")).toHaveValue("Cena");
         await expect(steps.getByRole("button", { name: /Controlla/ })).toBeDisabled();
     });
 
@@ -391,7 +406,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await button(page, "Esci").click();
         await expect(page).toHaveURL(/\/catalogs$/);
         await page.goBack();
-        await button(page, /^Menù classico/).click();
+        await main(page).getByLabel("Nome del menù").fill("Cena");
         await button(page, "Esci").click();
         const dlg = page.getByRole("alertdialog", { name: "Uscire dal tunnel?" });
         await expect(dlg).toBeVisible();
@@ -400,7 +415,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(dlg.getByRole("button")).toHaveText(["Resta", "Esci senza salvare"]);
         await dlg.getByRole("button", { name: "Resta" }).click();
         await expect(dlg).toBeHidden();
-        await expect(button(page, /^Menù classico/)).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByLabel("Nome del menù")).toHaveValue("Cena");
         await button(page, "Esci").click();
         await dlg.getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/catalogs$/);
@@ -468,8 +483,6 @@ test.describe("Tunnel di creazione — menù", () => {
         stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-00000000009" + n++, ...first(body) }));
         stub.onWrite("catalog_category_products.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-000000000010", ...first(body) }));
         await open(page, "menu", "menu");
-        await button(page, /^Menù classico/).click();
-        await next(page);
         await main(page).getByLabel("Nome del menù").fill("Carta");
         await next(page);
         const name = main(page).getByLabel("Nome della categoria");
@@ -710,7 +723,7 @@ test.describe("Tunnel di creazione — permessi (#360.8)", () => {
         await openBusinessPageByUrl(page, "crea/menu?da=menu");
         await stub.revoked;
         await expect(main(page).getByText("Non puoi crearlo")).toBeVisible({ timeout: 20_000 });
-        await expect(button(page, /^Menù classico/)).toHaveCount(0);
+        await expect(main(page).getByLabel("Nome del menù")).toHaveCount(0);
     });
 });
 
@@ -740,7 +753,7 @@ test.describe("Tunnel di creazione — misure", () => {
         // al telefono la barra laterale è chiusa: si entra da computer e si stringe
         await page.setViewportSize({ width: 375, height: 760 });
         await expect(main(page).getByRole("complementary", { name: "Così lo vede il cliente" })).toBeHidden();
-        await button(page, /^Menù classico/).click();
+        await main(page).getByLabel("Nome del menù").fill("Cena");
         await expect(button(page, "Avanti")).toBeEnabled();
         const side = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(side).toBeLessThanOrEqual(0);

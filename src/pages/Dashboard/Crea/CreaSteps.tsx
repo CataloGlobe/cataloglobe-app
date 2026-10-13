@@ -1,12 +1,13 @@
 // I corpi dei passi dei tunnel, uno a uno dall'artifact (`bodyOf`). Il Quando
 // e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
-import { useId, useMemo, useState, type ReactNode } from "react";
-import { CalendarClock, Check, CirclePause, Copy, Info, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Palette, Plus, Radio, ScanText, ScrollText, TriangleAlert, UtensilsCrossed } from "lucide-react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { CalendarClock, Check, CirclePause, Copy, Info, Infinity as InfinityIcon, Link2, Lock, Megaphone, Palette, Plus, Radio, ScanText, ScrollText, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import type { StoryBlock } from "@/services/supabase/stories";
 import { MAX_STORY_IMAGES } from "@/services/supabase/stories";
 import type { V2Style } from "@/services/supabase/styles";
+import { getCatalogStatsMap, type CatalogStats } from "@/services/supabase/catalogs";
 import { StoryBlockEditor } from "@/pages/Dashboard/Stories/components/StoryBlockEditor";
 import { BLOCK_TYPE_META, BLOCK_TYPE_ORDER } from "@/pages/Dashboard/Stories/components/blocks/blockTypeMeta";
 import { createBlock } from "@/pages/Dashboard/Stories/components/createBlock";
@@ -77,21 +78,29 @@ export function Modifica({ t, u, c, L, styleName }: { t: Tunnel; u: U; c: Ctx; L
 }
 
 /* ---------- il menù ---------- */
-export function MenuTipo({ t, u }: { t: Tunnel; u: U }) {
-    return (
-        <>
-            <Sh title="Che menù è?">Un menù con le sue categorie, o una pagina d'ingresso che ne raccoglie più di uno: ristorante, aperitivo, bambini. A destra vedi com'è.</Sh>
-            <div className={s.opts}>
-                <Opt on={t.menuType === "classico"} icon={<UtensilsCrossed size={16} />} title="Menù classico" text="Categorie e piatti, come oggi." onClick={() => u(x => void (x.menuType = "classico"))} />
-                <Opt on={false} icon={<Layers size={16} />} title="Multi menù" text="Un riquadro per menù: il cliente tocca e ci entra." disabled later={"Arriva col database nuovo"} />
-            </div>
-            <p className={s.hint}>Gli stessi nomi del Calendario, dove i menù hanno l'etichetta «Menù classico» o «Multi menù».</p>
-        </>
-    );
-}
+/** Un menù da cui copiare: se è in onda lo dice il Calendario. */
+export type CopyMenu = { id: string; name: string; live: boolean };
 
-export function MenuParti({ t, u }: { t: Tunnel; u: U }) {
+export function MenuParti({ t, u, menus, tenantId, onCopy }: { t: Tunnel; u: U; menus: readonly CopyMenu[]; tenantId: string; onCopy: (m: CopyMenu) => void }) {
     const id = useId();
+    const copying = !t.edit && t.source === "copia";
+    // quante categorie e quanti piatti ha ogni menù: si leggono solo se si copia
+    const [stats, setStats] = useState<Record<string, CatalogStats> | null>(null);
+    const ids = menus.map(m => m.id).join();
+    useEffect(() => {
+        if (!copying || stats || !ids) return;
+        let off = false;
+        getCatalogStatsMap(tenantId, ids.split(","))
+            .then(x => !off && setStats(x))
+            .catch(error => console.error("[Crea] i numeri dei menù non si sono letti:", error));
+        return () => {
+            off = true;
+        };
+    }, [copying, stats, ids, tenantId]);
+    const sub = (m: CopyMenu) => {
+        const n = stats?.[m.id];
+        return [...(n ? [`${n.categoryCount} ${n.categoryCount === 1 ? "categoria" : "categorie"}`, `${n.productCount} ${n.productCount === 1 ? "piatto" : "piatti"}`] : []), m.live ? "in onda" : "pronto, non in onda"].join(" · ");
+    };
     return (
         <>
             <Sh title={t.edit ? "Il nome" : "Da dove parti"}>Il nome lo legge anche il cliente, in cima al menù.</Sh>
@@ -99,9 +108,28 @@ export function MenuParti({ t, u }: { t: Tunnel; u: U }) {
                 <input className={s.in} id={id} value={t.name} placeholder="Menù pranzo" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
             <div className={s.opts} hidden={!!t.edit}>
-                <Opt on={t.source === "zero"} icon={<Plus size={16} />} title="Da zero" text="Prendi i piatti che hai o scrivine di nuovi." onClick={() => u(x => void (x.source = "zero"))} />
-                <Opt on={t.source === "foto"} icon={<ScanText size={16} />} title="Da una foto o un PDF" text="Nel passo dopo la carichi: la leggiamo noi e ti diciamo subito cosa abbiamo trovato." onClick={() => u(x => void (x.source = "foto"))} />
+                <Opt on={t.source === "zero"} icon={<Plus size={16} />} title="Da zero" text="Prendi i piatti che hai o scrivine di nuovi." onClick={() => u(x => void ((x.source = "zero"), (x.copyFrom = null)))} />
+                <Opt on={t.source === "foto"} icon={<ScanText size={16} />} title="Da una foto o un PDF" text="Nel passo dopo la carichi: la leggiamo noi e ti diciamo subito cosa abbiamo trovato." onClick={() => u(x => void ((x.source = "foto"), (x.copyFrom = null)))} />
+                {menus.length > 0 && <Opt on={t.source === "copia"} icon={<Copy size={16} />} title="Copia da un altro menù" text="Parti dalle sue categorie e dai suoi piatti: poi li cambi." onClick={() => u(x => void (x.source = "copia"))} />}
             </div>
+            {copying && (
+                <div className={s.blk}>
+                    <h4>Quale menù copi?</h4>
+                    <div className={s.list} role="radiogroup" aria-label="Menù da copiare">
+                        {menus.map(m => {
+                            const on = t.copyFrom === m.id;
+                            return (
+                                <button key={m.id} type="button" className={s.lpick} role="radio" aria-checked={on} onClick={() => onCopy(m)}>
+                                    <span className={cx(s.box, s.radio, on && s.on)} />
+                                    <span className={s.lpn}>{m.name}</span>
+                                    <span className={s.sub}>{sub(m)}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className={s.hint}>Ci sono tutti, anche quelli non in onda.</p>
+                </div>
+            )}
         </>
     );
 }

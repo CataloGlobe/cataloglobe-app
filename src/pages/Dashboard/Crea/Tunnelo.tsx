@@ -22,7 +22,7 @@ import { NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey
 import { rebase, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
-import { allEntriesOf, loadTunnel, type Loaded } from "./creaLoad";
+import { allEntriesOf, copySections, entriesOf, loadTunnel, type Loaded } from "./creaLoad";
 import { sampleOf, styleTokens, tokensOf, useFonts, useStyleSeen } from "./creaStyle";
 import { StileAspetto } from "./StileAspetto";
 import { StilePhone } from "./StilePhone";
@@ -31,7 +31,7 @@ import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
 import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
 import { EvidContenuto } from "./EvidContenuto";
-import { Adesso, Controlla, DoveQuando, Modifica, MenuParti, MenuTipo, Quando, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { Adesso, Controlla, DoveQuando, Modifica, MenuParti, Quando, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -180,6 +180,26 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             x.baseStyleId = id;
             x.look = structuredClone(tokensOf(id ? styleById.get(id) : null));
         });
+
+    // «Copia da un altro menù»: tutti i menù, anche quelli non in onda
+    const copyMenus = useMemo(() => (kind === "menu" ? data.catalogs.map(x => ({ id: x.id, name: x.name, live: entriesOf("menu", x.id, data).length > 0 })) : []), [kind, data]);
+    const copyAsk = useRef<string | null>(null);
+    const onCopy = (m: { id: string; name: string }) => {
+        copyAsk.current = m.id;
+        u(x => {
+            x.copyFrom = m.id;
+            if (!x.name.trim()) x.name = m.name + " (copia)";
+        });
+        copySections(m.id, tenantId, data)
+            // conta solo l'ultimo menù scelto, e solo se nel frattempo non si è cambiata strada
+            .then(secs => copyAsk.current === m.id && u(x => void (x.copyFrom === m.id && (x.sections = secs))))
+            .catch(error => {
+                console.error("[Crea] il menù da copiare non si è letto:", error);
+                if (copyAsk.current !== m.id) return;
+                u(x => void (x.copyFrom === m.id && (x.copyFrom = null)));
+                showToast({ message: `Non siamo riusciti a leggere ${q(m.name)}. Riprova.`, type: "error" });
+            });
+    };
 
     /* ---------- il Calendario: la bozza, i nomi, le durate ---------- */
     const calKind = t.kind === "storia" ? null : CAL_KIND[t.kind];
@@ -409,11 +429,8 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             case "modifica":
                 body = <Modifica t={t} u={u} c={c} L={L} styleName={styleName} />;
                 break;
-            case "tipo":
-                body = <MenuTipo t={t} u={u} />;
-                break;
             case "parti":
-                body = <MenuParti t={t} u={u} />;
+                body = <MenuParti t={t} u={u} menus={copyMenus} tenantId={tenantId} onCopy={onCopy} />;
                 break;
             case "sezioni":
                 body = <MenuCategorie t={t} u={u} pick={data.pickList} onRead={onRead} />;

@@ -8,7 +8,8 @@ vi.mock("@/services/supabase/catalogs", () => ({
 }));
 
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
-import { loadTunnel } from "@/pages/Dashboard/Crea/creaLoad";
+import { listCategories, listCategoryProducts } from "@/services/supabase/catalogs";
+import { copySections, loadTunnel } from "@/pages/Dashboard/Crea/creaLoad";
 import type { CreaData } from "@/pages/Dashboard/Crea/useCreaData";
 
 let n = 0;
@@ -73,5 +74,29 @@ describe("modifica di un menù: quali regole contano (D189)", () => {
         const { t } = await loadTunnel("menu", "c1", "t", data([rule({}), rule({ activityIds: ["a2"] }), rule({ enabled: false })]));
         expect(t.edit?.rules).toBe(2);
         expect(t.edit?.ruleId).toBeNull();
+    });
+});
+
+describe("copia da un altro menù", () => {
+    it("porta categorie, piatti e varianti, senza i segni del menù da cui vengono", async () => {
+        vi.mocked(listCategories).mockResolvedValueOnce([
+            { id: "k1", parent_category_id: null, sort_order: 0, name: "Primi" },
+            { id: "k2", parent_category_id: "k1", sort_order: 0, name: "Di terra" }
+        ] as never);
+        vi.mocked(listCategoryProducts).mockResolvedValueOnce([
+            { id: "l1", category_id: "k1", sort_order: 0, product_id: "p1", variant_product_id: null },
+            { id: "l2", category_id: "k2", sort_order: 0, product_id: "p2", variant_product_id: "v2" }
+        ] as never);
+        const d = data([]);
+        d.names.products.set("p1", "Carbonara").set("v2", "Tagliata grande");
+        const secs = await copySections("c1", "t", d);
+        expect(secs).toHaveLength(1);
+        const [primi] = secs;
+        expect(primi).toMatchObject({ name: "Primi", dishes: [{ productId: "p1", name: "Carbonara" }], subs: [{ name: "Di terra", dishes: [{ productId: "v2", parentId: "p2", name: "Tagliata grande" }] }] });
+        // niente id di categoria né di riga: salvando nascono nuovi
+        const flat = JSON.stringify(secs);
+        expect(flat).not.toContain("linkId");
+        expect(flat).not.toContain('"id"');
+        expect(flat).not.toContain('"sort"');
     });
 });

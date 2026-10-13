@@ -41,7 +41,6 @@ export function entriesOf(kind: CreaKind, id: string, data: Pick<CreaData, "rule
 
 async function loadMenu(t: Tunnel, id: string, tenantId: string, data: CreaData) {
     const [catalog, cats, links] = await Promise.all([getCatalog(id, tenantId), listCategories(tenantId, id), listCategoryProducts(tenantId, id)]);
-    t.menuType = "classico";
     t.name = catalog.name;
     const kids = (parent: string | null) => cats.filter(c => c.parent_category_id === parent).sort((a, b) => a.sort_order - b.sort_order);
     const walk = (parent: string | null): Section[] =>
@@ -61,6 +60,17 @@ async function loadMenu(t: Tunnel, id: string, tenantId: string, data: CreaData)
             subs: walk(c.id)
         }));
     t.sections = walk(null);
+}
+
+/** Senza i segni del menù da cui vengono: salvando nascono categorie e righe nuove, coi prodotti di prima. */
+const fresh = (list: readonly Section[]): Section[] =>
+    list.map(x => ({ key: x.key, name: x.name, dishes: x.dishes.map(d => ({ key: d.key, productId: d.productId, name: d.name, price: d.price, ...(d.parentId ? { parentId: d.parentId } : {}) })), subs: fresh(x.subs) }));
+
+/** «Copia da un altro menù»: le sue categorie e i suoi piatti, da cambiare. */
+export async function copySections(id: string, tenantId: string, data: CreaData): Promise<Section[]> {
+    const t = newTunnel("menu", ALL);
+    await loadMenu(t, id, tenantId, data);
+    return fresh(t.sections);
 }
 
 async function loadStile(t: Tunnel, id: string, tenantId: string): Promise<V2Style> {

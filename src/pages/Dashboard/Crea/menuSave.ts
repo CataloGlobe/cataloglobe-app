@@ -105,7 +105,8 @@ export async function writeSections(sections: readonly Section[], catalogId: str
                 m.delete(key);
             }
             const still = m.get(key) as LinkW | undefined;
-            if (!still) m.set(key, { id: (await addProductToCategory(tenantId, catalogId, catId, productId, j))?.id, catId, productId, sort: j });
+            // una variante sta nel menù col suo prodotto e sé stessa accanto (un menù copiato le porta con sé)
+            if (!still) m.set(key, { id: (await addProductToCategory(tenantId, catalogId, catId, d.parentId ?? productId, j, d.parentId ? productId : null))?.id, catId, productId, sort: j });
             else if (still.sort !== j) {
                 if (still.id) await updateProductSortOrder(still.id, tenantId, j);
                 m.set(key, { ...still, sort: j });

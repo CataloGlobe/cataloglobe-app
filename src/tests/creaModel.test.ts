@@ -15,7 +15,7 @@ const OWNER = { owner: true, multi: true };
 
 describe("tunnel di creazione: i passi", () => {
     it("ogni tipo ha i suoi passi, poi «Dove e quando» e Controlla (D134, D145)", () => {
-        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["tipo", "parti", "sezioni", "dove", "controlla"]);
+        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["parti", "sezioni", "dove", "controlla"]);
         expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "controlla"]);
         expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "dove", "controlla"]);
         const ev = newTunnel("evid", ALL);
@@ -28,8 +28,8 @@ describe("tunnel di creazione: i passi", () => {
     });
 
     it("chi non gestisce il Calendario non ha Dove e quando; con una sede sola solo il Quando", () => {
-        expect(steps(newTunnel("menu", ALL), { owner: false, multi: true })).toEqual(["tipo", "parti", "sezioni", "controlla"]);
-        expect(steps(newTunnel("menu", ALL), { owner: true, multi: false })).toEqual(["tipo", "parti", "sezioni", "quando", "controlla"]);
+        expect(steps(newTunnel("menu", ALL), { owner: false, multi: true })).toEqual(["parti", "sezioni", "controlla"]);
+        expect(steps(newTunnel("menu", ALL), { owner: true, multi: false })).toEqual(["parti", "sezioni", "quando", "controlla"]);
     });
 
     it("gli indirizzi: /crea/evidenza è il contenuto in evidenza, il resto non esiste", () => {
@@ -41,18 +41,21 @@ describe("tunnel di creazione: i passi", () => {
 });
 
 describe("tunnel di creazione: cosa ferma «Avanti»", () => {
-    it("il menù: il tipo, il nome (non solo spazi), almeno un piatto", () => {
+    it("il menù: il nome (non solo spazi), almeno un piatto; il passo «Che menù è» non c'è più", () => {
         const t = newTunnel("menu", ALL);
-        expect(firstBlock(t, OWNER)).toEqual({ i: 0, why: "Scegli che menù è" });
-        expect(firstBlock({ ...t, menuType: "classico", name: "   " }, OWNER)).toEqual({ i: 1, why: "Manca il nome del menù" });
-        const named = { ...t, menuType: "classico" as const, name: "Pranzo" };
-        expect(firstBlock(named, OWNER)).toEqual({ i: 2, why: "Aggiungi almeno un piatto" });
+        expect(firstBlock(t, OWNER)).toEqual({ i: 0, why: "Manca il nome del menù" });
+        expect(firstBlock({ ...t, name: "   " }, OWNER)).toEqual({ i: 0, why: "Manca il nome del menù" });
+        const named = { ...t, name: "Pranzo" };
+        expect(firstBlock(named, OWNER)).toEqual({ i: 1, why: "Aggiungi almeno un piatto" });
+        // copiando serve il menù da cui copiare
+        expect(firstBlock({ ...named, source: "copia" }, OWNER)).toEqual({ i: 0, why: "Scegli da quale menù copiare" });
+        expect(firstBlock({ ...named, source: "copia", copyFrom: "c1" }, OWNER)).toEqual({ i: 1, why: "Aggiungi almeno un piatto" });
         // la foto si carica nel passo dopo (D180): il nome basta per andare avanti
-        expect(firstBlock({ ...named, source: "foto" }, OWNER)).toEqual({ i: 2, why: "Aggiungi almeno un piatto" });
+        expect(firstBlock({ ...named, source: "foto" }, OWNER)).toEqual({ i: 1, why: "Aggiungi almeno un piatto" });
         const dish = { key: "d", productId: null, name: "Capricciosa", price: 9.5 };
         const full = { ...named, sections: [{ key: "s", name: "Pizze", dishes: [dish], subs: [] }] };
         // D189: senza la scelta «in onda / pronto» non si va avanti
-        expect(firstBlock(full, OWNER)).toEqual({ i: 3, why: CHOOSE });
+        expect(firstBlock(full, OWNER)).toEqual({ i: 2, why: CHOOSE });
         expect(firstBlock({ ...full, onda: "on" }, OWNER)).toBeNull();
         expect(firstBlock({ ...full, onda: "off" }, OWNER)).toBeNull();
     });
@@ -169,7 +172,7 @@ describe("tunnel di creazione: il titolo e cosa si perde uscendo", () => {
 
     it("appena aperto non c'è niente da perdere; una scelta o un nome sì", () => {
         expect(isDirty(newTunnel("menu", ALL))).toBe(false);
-        expect(isDirty({ ...newTunnel("menu", ALL), menuType: "classico" })).toBe(true);
+        expect(isDirty({ ...newTunnel("menu", ALL), name: "Pranzo" })).toBe(true);
         expect(isDirty({ ...newTunnel("storia", ALL), title: "Il forno" })).toBe(true);
         expect(isDirty({ ...newTunnel("stile", ALL), name: "  " })).toBe(false);
         expect(isDirty({ ...newTunnel("stile", ALL), i: 1 })).toBe(true);

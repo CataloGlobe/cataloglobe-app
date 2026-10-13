@@ -145,11 +145,12 @@ export type Tunnel = {
     i: number;
     seen: number;
     // il menù
-    menuType: "classico" | "multi" | null;
     /** Si accavalla con un altro menù: true = «Mettili insieme» (D135). */
     insieme?: boolean;
     name: string;
-    source: "zero" | "foto";
+    source: "zero" | "foto" | "copia";
+    /** Il menù da cui si copia: categorie e piatti arrivano da lì, poi si cambiano. */
+    copyFrom: string | null;
     /** Un import fermo sul resoconto (D180): finché non lo aggiungi o lo butti via non si va avanti. */
     impOpen?: boolean;
     /** L'ultimo import aggiunto, per «Annulla l'import»: le chiavi dei piatti e delle categorie nati con lui. */
@@ -213,9 +214,9 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         kind,
         i: 0,
         seen: 0,
-        menuType: null,
         name: "",
         source: "zero",
+        copyFrom: null,
         lastImport: null,
         sections: [],
         base: "zero",
@@ -279,7 +280,6 @@ export const cloneWhen = (w: CalWhen): CalWhen => ({
 
 export type StepId =
     | "modifica"
-    | "tipo"
     | "parti"
     | "sezioni"
     | "serve"
@@ -295,7 +295,6 @@ export type StepId =
 
 export const STEP_LABEL: Record<StepId, string> = {
     modifica: "Cosa vuoi modificare?",
-    tipo: "Che menù è",
     parti: "Da dove parti",
     sezioni: "Categorie e piatti",
     serve: "A cosa serve",
@@ -320,7 +319,7 @@ export function steps(t: Tunnel, c: Ctx): StepId[] {
     if (t.edit) return editSteps(t, c);
     const content: StepId[] =
         t.kind === "menu"
-            ? ["tipo", "parti", "sezioni"]
+            ? ["parti", "sezioni"]
             : t.kind === "stile"
               ? ["serve", "nome", "aspetto"]
               : t.kind === "evid"
@@ -365,10 +364,9 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
     switch (step) {
         case "modifica":
             return t.edit && (t.edit.picked.length || changedSteps(t, c).length) ? "" : "Scegli almeno una cosa";
-        case "tipo":
-            return t.menuType ? "" : "Scegli che menù è";
         case "parti":
-            return t.name.trim() ? "" : "Manca il nome del menù";
+            if (!t.name.trim()) return "Manca il nome del menù";
+            return !t.edit && t.source === "copia" && !t.copyFrom ? "Scegli da quale menù copiare" : "";
         case "sezioni":
             return t.impOpen ? "Hai un import aperto: aggiungi i piatti o butta via l'import" : hasDish(t) ? menuProblem(t.sections) : "Aggiungi almeno un piatto";
         case "nome":
@@ -482,7 +480,7 @@ function menuProblem(sections: readonly Section[]): string {
 /** C'è qualcosa da perdere uscendo. */
 export const isDirty = (t: Tunnel) =>
     !!t.impOpen || (t.edit ? EDIT_PARTS.some(s => changed(t, s)) :
-    t.i > 0 || !!t.name.trim() || !!t.title.trim() || !!t.menuType || !!t.evType || t.sections.length > 0);
+    t.i > 0 || !!t.name.trim() || !!t.title.trim() || !!t.evType || t.sections.length > 0);
 
 /* ---------- modificare (D140) ---------- */
 
@@ -661,10 +659,8 @@ const BLOCK_NAME: Record<StoryBlock["type"], [string, string]> = {
 export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (id: string) => string): string {
     const product = (id: string) => L.products.get(id)?.name ?? "Prodotto";
     switch (s) {
-        case "tipo":
-            return t.menuType === "multi" ? "Multi menù" : "Menù classico";
         case "parti":
-            return t.edit ? t.name.trim() : `${t.name.trim()} · ${t.source === "foto" ? "da una foto o un PDF" : "da zero"}`;
+            return t.edit ? t.name.trim() : `${t.name.trim()} · ${t.source === "foto" ? "da una foto o un PDF" : t.source === "copia" ? `copia di ${q(L.catalogs.get(t.copyFrom ?? "") ?? "…")}` : "da zero"}`;
         case "sezioni":
             return t.sections.map(x => `${x.name} (${total(x)})`).join(", ") || "—";
         case "nome":
@@ -724,8 +720,6 @@ export function qcardText(t: Tunnel, step: StepId, L: DraftLookups, baseName: st
     switch (step) {
         case "modifica":
             return [thingName(t), "Com'è adesso. Cambia mentre modifichi."];
-        case "tipo":
-            return t.menuType === "classico" ? ["Menù classico", "Categorie e piatti, uno sotto l'altro."] : ["Il menù", "Tocca una scelta: qui vedi com'è."];
         case "parti":
             return [t.name.trim() || "Il nome del menù", "Il cliente lo legge in cima, sopra le categorie."];
         case "sezioni":
