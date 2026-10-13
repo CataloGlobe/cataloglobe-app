@@ -428,7 +428,7 @@ export default function Catalogs() {
                     icon: Sparkles,
                     variant: "accent",
                     group: "Importa",
-                    info: `Leggiamo con l'AI una foto o un PDF del menù di carta e aggiungiamo i ${productPluralLower} a questo ${catalogLower}. Prima che entrino li controlli tu: quelli che avete già si collegano, gli altri diventano nuovi.`,
+                    info: `Leggiamo con l'AI una foto o un PDF del menù di carta e aggiungiamo i ${productPluralLower} a questo ${catalogLower}. Prima che entrino li controlli tu: quelli che hai già si collegano, gli altri diventano nuovi.`,
                     onClick: () => handleAddWithAi(catalog)
                 },
                 rowAction.remove(() => handleOpenDelete(catalog))
