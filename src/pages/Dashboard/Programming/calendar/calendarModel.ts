@@ -2,6 +2,7 @@ import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { romeDayOf } from "@/utils/romeInstant";
 import { temporalScore } from "@shared/scheduleCompetition";
+import { NEW_MODEL } from "./calendarFlags";
 
 /**
  * Il Calendario della Programmazione (Officina, versione I dell'artifact).
@@ -9,10 +10,9 @@ import { temporalScore } from "@shared/scheduleCompetition";
  * Modello «migliore» deciso con Alex (D120): ogni regola è una cosa, le
  * regole si sommano e si sceglie solo dove due toccano la stessa cosa.
  * - Menù e Stile: in ogni momento ne va in onda uno solo; vince il più
- *   vicino alla sede, poi gli orari più stretti, poi la priorità, poi il
- *   più vecchio: lo stesso ordine di `compareCandidates`, cioè della pagina
- *   pubblica. (D120 voleva il più recente: tornerà insieme alle modifiche
- *   al database, quando cambia anche il resolver.)
+ *   vicino alla sede, poi gli orari più stretti, poi l'ultimo messo (D135;
+ *   finché il menù del cliente non cambia, fuori da localhost la priorità e
+ *   il più vecchio, come lui: vedi `order`).
  * - Prezzi, Disponibilità, In evidenza: si sommano.
  * Oggi menù e stile stanno nella stessa regola Layout: qui diventano due
  * voci della stessa regola, una per corsia.
@@ -146,7 +146,7 @@ export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames):
         } else if (rule.rule_type === "visibility") {
             const vs = rule.visibility_overrides;
             const label = (p: (typeof vs)[number]) => p.product_name ?? names.products.get(p.product_id) ?? "Prodotto";
-            const auto = vs.length === 1 ? `${label(vs[0])} ${vs[0].mode === "disable" ? "non ordinabile" : "nascosto"}` : "Nascosti: " + few(vs.map(label));
+            const auto = vs.length === 1 ? `${label(vs[0])} ${vs[0].mode === "disable" ? "non disponibile" : "nascosto"}` : "Nascosti: " + few(vs.map(label));
             push("visibility", rule.name?.trim() || auto, true);
         } else if (rule.rule_type === "featured") {
             for (const c of rule.featured_contents) {
@@ -192,24 +192,32 @@ const spec = (e: CalEntry, seat: CalSeat) => {
     return m.get(seat.activityId)!;
 };
 
-/** Chi vince fra due menù (o due stili) nello stesso momento: il primo. */
+/**
+ * Chi vince fra due menù (o due stili) nello stesso momento: il primo. Vince il
+ * più vicino alla sede, poi gli orari più stretti; a pari merito l'ultimo che hai
+ * messo (D135). Finché il menù del cliente non cambia (D149), fuori da localhost
+ * il Calendario dice come va davvero: la priorità, poi il più vecchio.
+ */
 export function order(seat: CalSeat) {
     return (a: CalEntry, b: CalEntry) =>
         (spec(b, seat) ?? -1) - (spec(a, seat) ?? -1) ||
         b.tscore - a.tscore ||
-        a.priority - b.priority ||
-        a.created - b.created ||
+        (NEW_MODEL.newestWins ? b.created - a.created : a.priority - b.priority || a.created - b.created) ||
         a.ruleId.localeCompare(b.ruleId) ||
         (a.id < b.id ? -1 : 1);
 }
+
+/** `w` vince su `l` solo a pari merito: stessa vicinanza alla sede e stessi orari. */
+export const tie = (w: CalEntry, l: CalEntry, seat: CalSeat) => (spec(w, seat) ?? -1) === (spec(l, seat) ?? -1) && w.tscore === l.tscore;
 
 /** Perché `w` vince su `l`, in una frase. */
 export function why(w: CalEntry, l: CalEntry, seat: CalSeat, whereFor: (e: CalEntry) => string): string {
     const sw = spec(w, seat) ?? -1, sl = spec(l, seat) ?? -1;
     if (sw !== sl) return `vale ${whereFor(w)}, l'altro ${whereFor(l)}: vince il più vicino alla sede`;
     if (w.tscore !== l.tscore) return "ha orari più stretti";
+    if (NEW_MODEL.newestWins) return "è l'ultimo che hai messo";
     if (w.priority !== l.priority) return "ha la priorità più alta";
-    return "è stato aggiunto prima";
+    return "c'era prima";
 }
 
 /* ---------- le corsie ---------- */

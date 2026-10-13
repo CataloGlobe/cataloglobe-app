@@ -131,7 +131,7 @@
   border: 0;
   padding: 0;
   text-align: left;
-  color: #fff;
+  color: var(--color-white);
   font: inherit;
   background: none;
 
@@ -145,7 +145,7 @@
     width: 100%;
     background: linear-gradient(to top, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0));
   }
-  h3 { @include type.fs(name); font-weight: 700; letter-spacing: -0.015em; color: #fff; margin: 0; }
+  h3 { @include type.fs(name); font-weight: 700; letter-spacing: -0.015em; color: var(--color-white); margin: 0; }
   p { max-width: 60ch; color: rgba(255, 255, 255, 0.88); @include type.fs(text); }
   .noDesc { opacity: 0.75; }
   .edit {
@@ -360,7 +360,7 @@
   gap: 8px;
   padding: 0 12px;
   background: var(--st-primary, #6366f1);
-  color: #fff;
+  color: var(--color-white);
   font-weight: 700;
   @include type.fs(note);
   flex: none;
@@ -429,7 +429,7 @@
 .pAdd {
   margin: 0 12px 12px;
   background: var(--st-accent, #0f172a);
-  color: #fff;
+  color: var(--color-white);
   border-radius: 12px;
   padding: 11px;
   text-align: center;

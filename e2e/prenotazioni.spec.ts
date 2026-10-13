@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { sidebarLink } from "./nav";
+import { openInServizio } from "./nav";
 import { NOW, stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
@@ -28,7 +28,7 @@ function main(page: Page) {
     return page.getByRole("main");
 }
 
-/** Entra nella sede di test dalla griglia delle Sedi e apre Prenotazioni dalla sua sidebar. */
+/** Entra nella sede di test dalla griglia delle Sedi e apre Prenotazioni da «In servizio». */
 async function openPrenotazioni(page: Page): Promise<void> {
     await openBusinessPage(page, "locations", "Sedi");
     await page.getByRole("radio", { name: "Vista griglia" }).click();
@@ -37,7 +37,7 @@ async function openPrenotazioni(page: Page): Promise<void> {
     await card.getByRole("link").first().click();
     // L'indice della sede porta alla prima voce: si aspetta il redirect.
     await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
-    await (await sidebarLink(page, "Prenotazioni")).click();
+    await openInServizio(page, "Prenotazioni");
     await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/prenotazioni/, { timeout: 15_000 });
     // La pagina è pronta quando la prima richiesta finta è arrivata.
     await expect(main(page).getByText("Giulia Bianchi").first()).toBeVisible({ timeout: 15_000 });
@@ -75,14 +75,17 @@ test.describe("Prenotazioni", () => {
         await expect(nuova).toBeVisible();
 
         // T14 PN1: Giorni/Settimana e la settimana nella testata, sulla riga
-        // di «Nuova prenotazione».
+        // dell'interruttore di «In servizio» (con lui la riga non sta più
+        // accanto a «Nuova prenotazione»: la testata va su due righe).
         const giorni = main(page).getByRole("radio", { name: "Giorni" });
         const nav = main(page).getByRole("group", { name: "Naviga settimana" });
+        const parti = main(page).getByRole("radiogroup", { name: "Parti di In servizio" });
         await expect(giorni).toBeChecked();
         await expect(nav).toBeVisible();
+        await expect(parti.getByRole("radio", { name: "Prenotazioni" })).toBeChecked();
         const navBox = await nav.boundingBox();
-        const nuovaBox = await nuova.boundingBox();
-        expect(Math.abs(navBox!.y + navBox!.height / 2 - (nuovaBox!.y + nuovaBox!.height / 2))).toBeLessThan(12);
+        const partiBox = await parti.boundingBox();
+        expect(Math.abs(navBox!.y + navBox!.height / 2 - (partiBox!.y + partiBox!.height / 2))).toBeLessThan(12);
 
         // T14 PN2: niente riquadro «Oggi»; la sua frase è l'intestazione della
         // card delle richieste: 4 prenotazioni accettate, ~15 coperti.

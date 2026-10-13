@@ -56,6 +56,7 @@ import { canDoOnActivity } from "@/lib/permissions";
 
 import { useDetailParam } from "@/hooks/useDetailParam";
 import styles from "./Orders.module.scss";
+import { useInServizioSwitch } from "@/pages/Dashboard/Servizio/useInServizioSwitch";
 
 /**
  * Comande è la board e basta (lotto B-a). Le vecchie tab hanno una casa
@@ -268,23 +269,34 @@ function OrdersBoard() {
         () => [{ value: "all", label: "Tutti i tavoli" }, ...tables.map(t => ({ value: t.id, label: t.label }))],
         [tables]
     );
+    // Prima l'interruttore di «In servizio» (Elenco, Mappa, Prenotazioni,
+    // Comande), poi il filtro per tavolo.
+    const inServizio = useInServizioSwitch("comande");
     const headerLeading = useMemo(
         () =>
-            tables.length > 0 ? (
-                <Select
-                    aria-label="Filtra per tavolo"
-                    containerClassName={styles.tableFilter}
-                    value={tableFilter}
-                    onChange={e => setTableFilter(e.target.value)}
-                    options={tableOptions}
-                />
+            inServizio.leading || tables.length > 0 ? (
+                <div className={styles.leadingRow}>
+                    {inServizio.leading}
+                    {tables.length > 0 && (
+                        <Select
+                            aria-label="Filtra per tavolo"
+                            containerClassName={styles.tableFilter}
+                            value={tableFilter}
+                            onChange={e => setTableFilter(e.target.value)}
+                            options={tableOptions}
+                        />
+                    )}
+                </div>
             ) : undefined,
-        [tables.length, tableFilter, tableOptions]
+        [inServizio.leading, tables.length, tableFilter, tableOptions]
     );
 
     // Stessa toolbar a dati per lo stato compatto; il filtro per tavolo
     // prende il posto a sinistra.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        sections: inServizio.sections,
+        activeSection: "comande",
+        onSectionChange: inServizio.onSectionChange,
         leadingFilter:
             tables.length > 0
                 ? {
@@ -315,6 +327,8 @@ function OrdersBoard() {
             ? { label: "Crea ordine", onClick: () => setIsCreateOrderOpen(true), disabled: !canEdit }
             : undefined
     }), [
+        inServizio.sections,
+        inServizio.onSectionChange,
         tables.length,
         tableOptions,
         tableFilter,

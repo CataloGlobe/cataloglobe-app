@@ -28,6 +28,7 @@ export function usePageHeader(config: PageHeaderConfig | null) {
         config?.actions,
         config?.compact,
         config?.titleAddon,
+        config?.titleSide,
         setConfig,
     ]);
 }

@@ -203,7 +203,7 @@ export function OperationalAlerts(): null {
             // Toast soppresso solo sulla board della sede (indicatore già presente).
             if (singleSede && isViewOpen(activityId, "orders")) return;
 
-            const message = count === 1 ? "Nuovo ordine" : `${count} nuovi ordini`;
+            const message = count === 1 ? "Nuova comanda" : `${count} nuove comande`;
             showToastRef.current({
                 message,
                 type: "info",

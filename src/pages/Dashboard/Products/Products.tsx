@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { usePageHeader } from "@/context/usePageHeader";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
@@ -367,20 +366,15 @@ export default function Products() {
     }, []);
 
     // ── Header slot: leading (tabs controllati) + actions (search/view/CTA) ──
+    // Un secondo livello è un interruttore, mai altre tab (artifact v4).
     const leading = useMemo(() => (
-        <Tabs<ProductsTab>
+        <SegmentedControl<ProductsTab>
             value={activeTab}
             onChange={handleTabChange}
-            variant="line"
-        >
-            <Tabs.List>
-                {visibleTabs.map(tab => (
-                    <Tabs.Tab key={tab.value} value={tab.value}>
-                        {tab.label}
-                    </Tabs.Tab>
-                ))}
-            </Tabs.List>
-        </Tabs>
+            size="sm"
+            label="Cosa elencare"
+            options={visibleTabs.map(tab => ({ value: tab.value, label: tab.label }))}
+        />
     ), [activeTab, handleTabChange, visibleTabs]);
 
     // Una sola azione per collezione, dichiarata a dati una volta e letta sia

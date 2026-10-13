@@ -1,5 +1,5 @@
 import { useRef, type PointerEvent as RPointerEvent } from "react";
-import { DB_TODAY, normRanges, type Draft } from "./calendarDraft";
+import { NEW_MODEL, normRanges, type Draft } from "./calendarDraft";
 import { FSLOT, hhmm, type Axis, type CalWhen } from "./calendarModel";
 import s from "./CalendarioView.module.scss";
 
@@ -25,7 +25,7 @@ export function TimeSel({ v, onChange, min = 0, max }: { v: number; onChange: (m
 /* le fasce si trascinano sulla barra, a quarti d'ora */
 export function Band({ w, axis, upd }: { w: CalWhen; axis: Axis; upd: (fn: (d: Draft) => void) => void }) {
     const A0 = Math.min(axis.from, ...(w.ranges ?? []).map(r => Math.floor(r[0] / 60) * 60));
-    const A1 = DB_TODAY.overnight ? axis.to : 1440;
+    const A1 = NEW_MODEL.overnight ? axis.to : 1440;
     const X = (m: number) => ((Math.max(A0, Math.min(A1, m)) - A0) / (A1 - A0)) * 100;
     const rs = w.ranges ?? [[A0, A1] as [number, number]];
     const drag = !!w.ranges;

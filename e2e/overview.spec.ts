@@ -20,8 +20,8 @@ test.describe("Panoramica", () => {
         const link = nav.getByRole("link", { name: "Panoramica" });
         await expect(link).toBeVisible();
         await expect(link).toHaveAttribute("aria-current", "page");
-        // Sedi è diretta, Prodotti e Programmazione nel pannello di Menù.
-        for (const label of ["Sedi", "Prodotti", "Programmazione"]) {
+        // Sedi è diretta, Prodotti in Menù e vetrina, Regole nel Calendario.
+        for (const label of ["Sedi", "Prodotti", "Regole"]) {
             await expect(await sidebarLink(page, label)).toBeVisible();
         }
     });

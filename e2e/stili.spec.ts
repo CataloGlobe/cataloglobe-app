@@ -175,17 +175,12 @@ test.describe("Stili — elenco", () => {
         await expect(styleName(page, "Estate e2e")).toHaveCount(0);
     });
 
-    test("crea uno stile e apre l'editor", async ({ page }) => {
-        wireStyleWrites(stub);
+    // D124: si crea nel tunnel; i salvataggi li prova `crea.spec.ts`.
+    test("«Crea stile» apre il tunnel di creazione", async ({ page }) => {
         await openList(page);
         await page.getByRole("button", { name: "Crea stile" }).first().click();
-        const drawer = dialog(page);
-        await drawer.getByRole("textbox", { name: /^Nome stile/ }).fill("Autunno e2e");
-        await drawer.getByRole("button", { name: /^Crea/ }).click();
-        await expect.poll(() => write(stub, "styles.POST")?.body).toMatchObject({ name: "Autunno e2e" });
-        await expect.poll(() => writes(stub, "style_versions.POST").length).toBe(1);
-        await expect(page).toHaveURL(/\/styles\/e2e5e000-0000-4000-a000-0000000009\d\d$/);
-        await expect(nameField(page)).toHaveValue("Autunno e2e", { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/crea\/stile\?da=stili$/);
+        await expect(page).toHaveTitle(/Nuovo stile/);
     });
 
     test("duplica dal «⋯»", async ({ page }) => {

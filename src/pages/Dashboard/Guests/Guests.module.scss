@@ -1,34 +1,190 @@
-/* Rubrica clienti — pagina.
- *
- * Autonoma rispetto a Reservations.module.scss: i profili nascono oggi dalle
- * prenotazioni ma è già previsto che arrivino anche dagli ordini al tavolo,
- * quindi la pagina non deve dipendere dagli stili di una delle due sorgenti.
+/* Rubrica clienti — pagina (Clienti A, D154): Cerca e «Chi non torna» in
+ * una barra, la riga di chi non torna, i filtri con i conteggi, l'elenco a
+ * colonne. Misure del prototipo «Clienti e numeri».
  *
  * Non esistono stili per pulsanti di esportazione, checkbox di selezione
  * multipla o azioni di invio: quelle affordance sono escluse per scelta di
- * prodotto, non dimenticate. Righe, tabella e badge sono del sistema
- * (`ListRow`, `DataTable`, `Badge`, `StatusBadge`): qui solo la disposizione.
+ * prodotto, non dimenticate.
  */
+
+@use "@styles/scheda-type" as type;
 
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
+  gap: 14px;
 }
 
+/* ── Cerca a sinistra, «Chi non torna» in cima a destra ─────────────── */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  flex-wrap: wrap;
+}
+
+.lostToggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  @include type.fs(note);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* ── Chi non torna ──────────────────────────────────────────────────── */
+.lostLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-10) 14px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--signal-attention, var(--text-warning)) 9%, var(--card-bg));
+  @include type.fs(text);
+
+  @media (max-width: 767px) {
+    flex-wrap: wrap;
+  }
+}
+
+.lostIcon {
+  flex: none;
+  color: var(--signal-attention, var(--text-warning));
+}
+
+.lostAction {
+  margin-left: auto;
+}
+
+/* ── Filtri a sinistra, sede a destra ───────────────────────────────── */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.sede {
+  margin-left: auto;
+  width: auto;
+}
+
+// La sede è una parola grigia con la freccia, non un campo.
+.sedeSelect {
+  border-color: transparent;
+  background-color: transparent;
+  color: var(--text-muted);
+  @include type.fs(note);
+  min-height: 0;
+  padding-block: var(--space-4);
+
+  &:hover {
+    color: var(--text);
+  }
+}
+
+/* ── Elenco ─────────────────────────────────────────────────────────── */
 .guestsWrap {
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
+  container-type: inline-size;
 }
 
-/* Nome + etichetta principale + «+N» sulla stessa riga del titolo. */
-.nameLine {
-  display: inline-flex;
+// Le stesse colonne per la testata e per le righe.
+%columns {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1.5fr) 150px 120px minmax(0, 1fr);
+  gap: 14px;
   align-items: center;
-  gap: var(--space-8);
+  padding-inline: 18px;
+
+  // Col dettaglio accanto la pagina si stringe: «Da sapere» va via.
+  @container (max-width: 760px) {
+    grid-template-columns: 34px minmax(0, 1.5fr) 150px 100px;
+
+    > :nth-child(5) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 767px) {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+
+    > :nth-child(3),
+    > :nth-child(5) {
+      display: none;
+    }
+  }
+}
+
+.head {
+  @extend %columns;
+  padding-block: var(--space-8);
+  border-bottom: 1px solid var(--border);
+  @include type.fs(fine);
+  font-weight: 600;
+  color: var(--text-muted);
+
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  > li + li {
+    border-top: 1px solid var(--border);
+  }
+}
+
+// Un pulsante con le colonne: il reset a mano, perché `all: unset`
+// cancellerebbe anche la griglia.
+.row {
+  @extend %columns;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  padding-block: var(--space-10);
+  @include type.fs(body);
+  color: var(--text);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--brand-primary-soft);
+  }
+
+  &[aria-current="true"] {
+    background: var(--brand-primary-soft);
+    box-shadow: inset 3px 0 0 var(--brand-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: -2px;
+  }
+}
+
+.who {
+  display: grid;
   min-width: 0;
-  max-width: 100%;
+}
+
+.nameLine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  font-weight: 600;
+  min-width: 0;
 }
 
 .name {
@@ -38,36 +194,50 @@
   white-space: nowrap;
 }
 
-.rowMeta {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-12);
+// Un segno, non un'etichetta: «abituale», «nuovo».
+.sign {
+  @include type.fs(badge);
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary);
 }
 
-/* Visite sopra, ultima visita sotto, allineate a destra; sotto 768 il meta
-   scende sotto il nome (ListRow) e si legge da sinistra, in riga. */
-.stats {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+.phone {
+  @include type.fs(note);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-
-  @media (max-width: 767px) {
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--space-8);
-  }
 }
 
-.tags {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
+.year {
+  display: grid;
+  gap: 2px;
 }
 
-/* ── Scheda cliente (drawer) ───────────────────────────────────────────
-   Card del sistema, una per sezione (come il dettaglio del tavolo). */
+.yearCount {
+  @include type.fs(fine);
+  color: var(--text-muted);
+}
+
+.last {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.know {
+  @include type.fs(small);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Scheda cliente, accanto (D131, compatta D154) ──────────────────── */
 
 .drawerBody {
   display: flex;
@@ -81,27 +251,69 @@
   margin: 0;
 }
 
-.noteBlock {
+.contact {
+  display: grid;
+  gap: var(--space-2);
+  @include type.fs(body);
+
+  p {
+    margin: 0;
+  }
+}
+
+.contactLine {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: var(--space-8);
+
+  a {
+    color: var(--text);
+    font-weight: 600;
+    text-decoration: none;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.linkButton {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  @include type.fs(small);
+  font-weight: 600;
+  color: var(--brand-primary);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+}
+
+.summary {
+  color: var(--text-muted);
+}
+
+.section {
+  display: grid;
   gap: var(--space-8);
 }
 
-.subTitle {
-  margin: var(--space-8) 0 0;
+.kicker {
+  margin: 0;
+  @include type.fs(fine);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
 }
 
 .tagRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-8);
-}
-
-.tagAdd {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-6);
 }
 
 .tagAddRow {
@@ -113,4 +325,55 @@
     flex: 1 1 auto;
     min-width: 0;
   }
+}
+
+.visits {
+  width: 100%;
+  border-collapse: collapse;
+  @include type.fs(text);
+  font-variant-numeric: tabular-nums;
+
+  th {
+    text-align: left;
+    @include type.fs(fine);
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: var(--space-6);
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  tr:last-child td {
+    border-bottom: 0;
+  }
+
+  th:first-child,
+  td:first-child {
+    padding-left: 0;
+  }
+
+  th:nth-child(3),
+  td:nth-child(3) {
+    text-align: right;
+  }
+}
+
+.visitNote {
+  display: block;
+  @include type.fs(note);
+  color: var(--text-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

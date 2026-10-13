@@ -45,7 +45,7 @@ export function FeaturedPlacementCard({ appearance, activityName, businessId }: 
                     </Text>
                     <ListRow
                         to={`/business/${businessId}/scheduling`}
-                        title="Vai a Programmazione"
+                        title="Vai alle regole"
                         subtitle="Una regola «In evidenza» decide dove e quando compare."
                     />
                 </>

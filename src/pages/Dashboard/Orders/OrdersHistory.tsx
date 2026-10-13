@@ -296,7 +296,7 @@ export default function OrdersHistory() {
                                 </div>
                             </div>
                             <DataTable<HistoryRowWithStorni>
-                                ariaLabel="Storico degli ordini"
+                                ariaLabel="Storico delle comande"
                                 data={filtered}
                                 columns={columns}
                                 isLoading={isLoading}
@@ -329,8 +329,8 @@ export default function OrdersHistory() {
                                     return rowEl;
                                 }}
                                 emptyState={{
-                                    title: "Nessun ordine nello storico di oggi",
-                                    description: "Gli ordini serviti o annullati nella giornata operativa appariranno qui."
+                                    title: "Nessuna comanda nello storico di oggi",
+                                    description: "Le comande servite o annullate nella giornata operativa compaiono qui."
                                 }}
                                 loadingState={{ compact: true }}
                             />

@@ -1,6 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { sidebarLink } from "./nav";
 import { stubRest, type Row } from "./restStub";
 
 /**
@@ -36,11 +35,8 @@ async function openFirstLocation(page: Page): Promise<void> {
     const firstCard = main.getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await firstCard.getByRole("link").first().click();
-    // Entrando si atterra sulla prima voce della sede (§46.1 f): la scheda è
-    // la voce «Scheda». Si aspetta l'atterraggio prima del clic, altrimenti
-    // il redirect vincerebbe sul clic.
-    await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
-    await (await sidebarLink(page, "Scheda")).click();
+    // Chi configura entra nella sede dalla Scheda (§51.6).
+    await page.waitForURL(/\/locations\/[0-9a-f-]+\/anagrafica$/);
     await expect(tile(page, PART.orari)).toBeVisible({ timeout: 15_000 });
 }
 
@@ -50,10 +46,8 @@ const sedeBase = (page: Page) =>
 test.describe("Scheda della sede", () => {
     test("si apre dalla griglia: il cruscotto con le tessere e il telefono", async ({ page }) => {
         await openFirstLocation(page);
-        // La via di ritorno sta nella pill del contesto (§46.1 g).
-        await expect(
-            page.getByRole("navigation", { name: "Contesto" }).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ })
-        ).toBeVisible();
+        // Si torna all'elenco da «Sedi» nella sidebar (artifact v4: via «← Tutte le sedi»).
+        await expect(page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Sedi", exact: true })).toBeVisible();
         // Niente più tab nella testata: il nome della sede col suo stato.
         await expect(page.getByRole("tab")).toHaveCount(0);
         await expect(page.getByText(/^(Online|Sospesa)/).first()).toBeVisible();

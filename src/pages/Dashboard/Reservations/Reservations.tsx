@@ -33,6 +33,7 @@ import { agendaWeekRange, type DateRange } from "./loadWindow";
 import { agendaVisible } from "./agendaVisible";
 import { useReservationDesk } from "./hooks/useReservationDesk";
 import styles from "./Reservations.module.scss";
+import { useInServizioSwitch } from "@/pages/Dashboard/Servizio/useInServizioSwitch";
 
 const SEARCH_PLACEHOLDER = "Cerca per nome o telefono…";
 const SEARCH_DEBOUNCE_MS = 300;
@@ -180,19 +181,27 @@ export function ReservationsAgendaPage() {
 
     // T14 PN1: a sinistra Giorni/Settimana e le date, a destra ricerca,
     // canali e «Nuova prenotazione». In ricerca la settimana non conta.
+    // Prima l'interruttore di «In servizio» (Elenco, Mappa, Prenotazioni,
+    // Comande), poi Giorni/Settimana e le date.
+    const inServizio = useInServizioSwitch("prenotazioni");
     const pageLeading = useMemo(
         () =>
-            isPhone || isSearchActive ? undefined : (
-                <AgendaNav
-                    inline
-                    mode={agendaMode}
-                    onModeChange={setAgendaMode}
-                    weekOffset={weekOffset}
-                    onWeekOffsetChange={setWeekOffset}
-                    rangeLabel={agendaRangeLabel(today, weekOffset)}
-                />
+            isPhone || isSearchActive ? (
+                (inServizio.leading ?? undefined)
+            ) : (
+                <div className={styles.leadingRow}>
+                    {inServizio.leading}
+                    <AgendaNav
+                        inline
+                        mode={agendaMode}
+                        onModeChange={setAgendaMode}
+                        weekOffset={weekOffset}
+                        onWeekOffsetChange={setWeekOffset}
+                        rangeLabel={agendaRangeLabel(today, weekOffset)}
+                    />
+                </div>
             ),
-        [isPhone, isSearchActive, agendaMode, weekOffset, today]
+        [isPhone, isSearchActive, agendaMode, weekOffset, today, inServizio.leading]
     );
 
     // ── Ricerca: la query ─────────────────────────────────────────────
@@ -265,9 +274,12 @@ export function ReservationsAgendaPage() {
                     onChange: value => setChannelFilter(value as ChannelFilter)
                 }
             ],
-            primaryAction: canCreate ? { label: "Nuova prenotazione", onClick: handleOpenCreate } : undefined
+            primaryAction: canCreate ? { label: "Nuova prenotazione", onClick: handleOpenCreate } : undefined,
+            sections: inServizio.sections,
+            activeSection: "prenotazioni",
+            onSectionChange: inServizio.onSectionChange
         }),
-        [channelFilter, canCreate, handleOpenCreate, searchInput]
+        [channelFilter, canCreate, handleOpenCreate, searchInput, inServizio.sections, inServizio.onSectionChange]
     );
 
     const headerConfig = useMemo(

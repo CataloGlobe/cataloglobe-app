@@ -10,7 +10,7 @@ import {
 import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase/featuredScheduling";
 import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import { ruleDateToIso } from "@/utils/ruleDetailForm";
-import { autoName, priceKeys, timeFields, whenKey, whereKey, type Draft, type DraftLookups } from "./calendarDraft";
+import { autoName, draftParts, priceKeys, timeFields, whenKey, whereKey, type Draft, type DraftLookups } from "./calendarDraft";
 import { whenOfRule, whereOfRule } from "./calendarModel";
 
 const RULE_TYPE: Record<Draft["kind"], RuleType> = { menu: "layout", style: "layout", price: "price", visibility: "visibility", featured: "featured" };
@@ -145,10 +145,24 @@ async function leaveOut(r: LayoutRule, D: Draft) {
 }
 
 /**
- * Salva la bozza. In modifica di una voce sola: se tempo e sedi restano quelli,
+ * Salva la bozza. Con le ore diverse per sede (D145), una regola per ogni
+ * orario diverso: la prima è quella di partenza, le altre nascono nuove.
+ */
+export async function saveDraft(D: Draft, L: DraftLookups, tenantId: string, done?: Set<string>): Promise<void> {
+    for (const P of draftParts(D)) {
+        // riprovando dopo un errore, le parti già salvate non si rifanno (sarebbero regole doppie)
+        const key = whereKey(P.where) + "|" + whenKey(P.when);
+        if (done?.has(key)) continue;
+        await saveOne(P, L, tenantId);
+        done?.add(key);
+    }
+}
+
+/**
+ * Salva una regola. In modifica di una voce sola: se tempo e sedi restano quelli,
  * si riscrive la regola; se cambiano, la voce esce dalla regola e ne fa una sua.
  */
-export async function saveDraft(D: Draft, L: DraftLookups, tenantId: string): Promise<void> {
+async function saveOne(D: Draft, L: DraftLookups, tenantId: string): Promise<void> {
     const name = D.name?.trim() || autoName(D, L);
     const r = D.rule;
     const contentOf = (id: string, base?: LayoutRule["featured_contents"][number]) => ({

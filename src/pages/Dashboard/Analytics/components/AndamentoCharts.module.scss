@@ -1,0 +1,48 @@
+/* I grafici di Andamento (D154): colori dai token, i numeri allineati. */
+
+@use "@styles/scheda-type" as type;
+
+.spark {
+    display: block;
+    overflow: visible;
+
+    polyline {
+        fill: none;
+        stroke: var(--brand-primary);
+        stroke-width: 1.6;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+    }
+}
+
+.chart {
+    display: block;
+    font-variant-numeric: tabular-nums;
+}
+
+.grid {
+    stroke: var(--border);
+}
+
+.axis {
+    @include type.fs(p-head);
+    fill: var(--text-muted);
+}
+
+.bar {
+    fill: var(--brand-primary);
+    opacity: 0.85;
+}
+
+.previous {
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 1.4;
+    stroke-dasharray: 4 3;
+}
+
+.line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+}

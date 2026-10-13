@@ -169,19 +169,13 @@ test.describe("Menù — elenco", () => {
         await expect(page.getByRole("menuitem", { name: "Elimina", exact: true })).toBeVisible();
     });
 
-    test("crea un menù: POST con il nome", async ({ page }) => {
-        stub.onWrite("catalogs.POST", ({ body }) => ({ id: "e2e0c000-0000-4000-a000-000000000777", created_at: new Date().toISOString(), ...(body as object[])[0] }));
+    // D124: si crea nel tunnel; i salvataggi (e il nome senza spazi, #240) li prova `crea.spec.ts`.
+    test("«Crea menù» apre il tunnel di creazione", async ({ page }) => {
         await openList(page);
         await page.getByRole("button", { name: "Crea menù" }).click();
-        // Senza nome l'errore sta sul campo, e non parte niente.
-        await dialog(page).getByRole("button", { name: /^Crea/ }).click();
-        await expect(dialog(page).getByText("Scrivi un nome.")).toBeVisible();
+        await expect(page).toHaveURL(/\/crea\/menu\?da=menu$/);
+        await expect(page).toHaveTitle(/Nuovo menù/);
         expect(write(stub, "catalogs.POST")).toBeUndefined();
-        // Il nome si salva senza gli spazi ai lati (#240).
-        await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("  Cena  ");
-        await dialog(page).getByRole("button", { name: /^Crea/ }).click();
-        await expect.poll(() => write(stub, "catalogs.POST")).toBeTruthy();
-        expect(write(stub, "catalogs.POST")!.body).toEqual([expect.objectContaining({ name: "Cena" })]);
     });
 
     test("rinomina un menù: PATCH sul suo id", async ({ page }) => {
@@ -772,11 +766,11 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(rowOf("Olive ascolane")).not.toContainText("menù");
     });
 
-    test("eliminazione: lo stato delle regole è quello di Programmazione", async ({ page }) => {
+    test("eliminazione: lo stato delle regole è quello del Calendario", async ({ page }) => {
         await openList(page);
         await actionsOf(main(page).getByText("Carta e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
-        const rules = dialog(page).getByRole("list", { name: "Regole di programmazione collegate" });
+        const rules = dialog(page).getByRole("list", { name: "Regole del Calendario collegate" });
         await expect(rules.getByRole("link", { name: /Pranzo Centro e2e/ })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE.pranzoCentro}$`));
         await expect(rules.getByRole("listitem").filter({ hasText: "Pranzo Centro e2e" })).toContainText("Attiva");
         // Fuori dalla sua fascia oraria adesso: «Programmata», come in Programmazione.

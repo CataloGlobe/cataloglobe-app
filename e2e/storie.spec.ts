@@ -113,28 +113,12 @@ test.describe("Storie — elenco", () => {
         await expect(page).toHaveURL(new RegExp(`/stories/${STORY.brigata}$`));
     });
 
-    test("crea una storia in bozza e apre l'editor", async ({ page }) => {
-        stub.onWrite("stories.POST", call => {
-            const row = { id: "e2e57000-0000-4000-a000-000000000901", tenant_id: (call.body as Row).tenant_id, activity_id: null, cover_media: null, body_blocks: [], product_id: null, sort_order: 0, created_at: "2026-03-21T10:00:00.000Z", updated_at: "2026-03-21T10:00:00.000Z", ...(call.body as Row) };
-            stub.tables.stories.push(row);
-            return row;
-        });
+    // D124: si crea nel tunnel; i salvataggi li prova `crea.spec.ts`.
+    test("«Crea storia» apre il tunnel di creazione", async ({ page }) => {
         await openList(page);
         await page.getByRole("button", { name: "Crea storia" }).first().click();
-        const drawer = dialog(page);
-        // Prima l'occhiello, poi il titolo, come nella pagina.
-        await expect(drawer.getByRole("textbox")).toHaveCount(2);
-        await expect(drawer.getByRole("textbox").first()).toHaveAccessibleName(/^Occhiello/);
-        await drawer.getByRole("textbox", { name: /^Titolo/ }).fill("Le materie prime e2e");
-        await drawer.getByRole("textbox", { name: /^Occhiello/ }).fill("Il grano");
-        await drawer.getByRole("button", { name: /^Crea/ }).click();
-        await expect.poll(() => write(stub, "stories.POST")?.body).toMatchObject({
-            title: "Le materie prime e2e",
-            eyebrow: "Il grano",
-            status: "draft"
-        });
-        await expect(page).toHaveURL(/\/stories\/e2e57000-0000-4000-a000-000000000901$/);
-        await expect(titleField(page)).toHaveValue("Le materie prime e2e", { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/crea\/storia\?da=storie$/);
+        await expect(page).toHaveTitle(/Nuova storia/);
     });
 
     test("elimina una storia", async ({ page }) => {

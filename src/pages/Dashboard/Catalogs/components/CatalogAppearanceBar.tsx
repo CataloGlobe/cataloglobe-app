@@ -61,7 +61,7 @@ export function CatalogAppearanceBar({ appearance, businessId }: CatalogAppearan
                         </Menu.Item>
                     ))
                 ) : (
-                    <Menu.Item disabled description="Si assegna da Programmazione.">
+                    <Menu.Item disabled description="Si assegna dal Calendario.">
                         Nessuna regola lo porta in una sede
                     </Menu.Item>
                 )}
