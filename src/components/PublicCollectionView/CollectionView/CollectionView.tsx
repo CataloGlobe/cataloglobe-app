@@ -1659,10 +1659,9 @@ export default function CollectionView({
     const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
     const [waiterCalledAt, setWaiterCalledAt] = useState<string | null>(null);
 
-    // Redesign: momenti della visita al tavolo per l'invito al voto (D38): un ordine
-    // Servito (realtime sotto, una volta per ordine) e il conto chiesto dal foglio.
+    // Redesign: momento della visita al tavolo per l'invito al voto (D76): il conto
+    // chiesto dal foglio. «Servito» non conta più: si sta mangiando.
     const [tableMoment, setTableMoment] = useState(0);
-    const deliveredCountedRef = useRef(new Set<string>());
 
     // Realtime subscribe customer_sessions: single channel always-on quando
     // JWT presente. Propaga:
@@ -1736,10 +1735,6 @@ export default function CollectionView({
                 const prev = lastStatusById.get(order.id);
                 lastStatusById.set(order.id, order.status);
                 if (prev !== order.status) revealBottomBar();
-                if (order.status === "delivered" && !deliveredCountedRef.current.has(order.id)) {
-                    deliveredCountedRef.current.add(order.id);
-                    setTableMoment(n => n + 1);
-                }
             },
         });
         return () => {

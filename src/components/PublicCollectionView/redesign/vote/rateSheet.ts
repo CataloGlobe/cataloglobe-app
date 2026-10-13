@@ -1,5 +1,5 @@
 import i18next from "i18next";
-import { openSheet, type SheetPage } from "../sheets/sheetStack";
+import { openSheet, pushSheetPage, type SheetPage } from "../sheets/sheetStack";
 
 /**
  * Pagina del voto nel foglio unico (spec §11): `rate:<voto>`, 0 = ancora da scegliere.
@@ -9,15 +9,24 @@ import { openSheet, type SheetPage } from "../sheets/sheetStack";
  */
 export const RATE_PREFIX = "rate:";
 
-export function openRateSheet(rating?: number, growFrom?: number): void {
+function ratePage(rating?: number, growFrom?: number): SheetPage {
     const value = rating && rating >= 1 && rating <= 5 ? Math.round(rating) : 0;
-    openSheet({
+    return {
         key: `${RATE_PREFIX}${value}`,
         title: i18next.t("page_end.rate_title", { ns: "public" }),
         size: "large",
         floatingClose: true,
         growFrom
-    });
+    };
+}
+
+export function openRateSheet(rating?: number, growFrom?: number): void {
+    openSheet(ratePage(rating, growFrom));
+}
+
+/** Dal ⋯ (D77): il modulo entra a spinta sopra le opzioni, senza voto scelto. */
+export function pushRateSheet(): void {
+    pushSheetPage(ratePage());
 }
 
 /** Il voto scelto di una pagina `rate:`; undefined se non è la pagina del voto. */

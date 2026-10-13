@@ -76,10 +76,10 @@ export type BottomBarSlotContext = {
     vote?: VoteSlotContext;
 };
 
-/** Quando e come chiedere il voto (spec §11, D38). */
+/** Quando e come chiedere il voto (spec §11, D38, D76). */
 export type VoteSlotContext = {
     activityId: string;
-    /** Sale a ogni fatto della visita al tavolo: un ordine Servito, il conto chiesto. */
+    /** Sale quando al tavolo si chiede il conto (D76). */
     tableMoment: number;
     /** Voto inviato in questa visita (anche dal fondo). */
     reviewed: boolean;
