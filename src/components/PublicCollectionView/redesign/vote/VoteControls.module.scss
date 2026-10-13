@@ -1,6 +1,7 @@
 @use "../sheets/sheet-tone" as *;
 
-/* Invito al voto (spec §11). Solo telefono: sopra 640 px niente modale né pulsante.
+/* Invito al voto (spec §11). Sopra 640 px la modale è una finestra in basso al centro
+   (D77: desktop come il telefono); il pulsante sta nella barra, che lì non c'è.
    Mai backdrop-filter: la modale entra ed esce, il pulsante vola. */
 
 /* La modale piccola: nella geometria dei fogli (mockup v38), attaccata al fondo,
@@ -24,9 +25,17 @@
   touch-action: none;
   animation: entra 0.32s cubic-bezier(0.22, 1.14, 0.36, 1) backwards;
 
-  /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts): solo telefono, ≤640 px. */
+  /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts). Larga come le finestre
+     dei fogli (SheetHost .panel), staccata dal fondo. */
   @media (min-width: 641px) {
-    display: none;
+    bottom: 24px;
+    width: min(440px, calc(100% - 48px));
+    margin: 0 auto;
+    border-radius: 26px;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--pub-text) 10%, transparent),
+      0 30px 60px -24px rgb(0 0 0 / 60%);
+    padding-bottom: 0;
   }
 }
 
@@ -38,6 +47,10 @@
   margin: 8px auto 4px;
   border-radius: 3px;
   background: color-mix(in srgb, var(--pub-text) 24%, transparent);
+
+  @media (min-width: 641px) {
+    visibility: hidden;
+  }
 }
 
 /* SYNC con .closeButton e .header[data-floating] di SheetHost.module.scss */

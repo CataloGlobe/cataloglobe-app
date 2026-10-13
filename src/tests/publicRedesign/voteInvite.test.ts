@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+    AWAY_MS,
     INITIAL_VOTE,
+    MIN_VISIT_MS,
     REVIEW_MEMORY_MS,
-    TOP_ZONE_PX,
     fitsWide,
-    isTopReturn,
+    isReturnMoment,
     persistedVote,
+    restoreVisit,
     restoreVote,
     reviewedRecently,
     voteReducer,
@@ -108,10 +110,29 @@ describe("regole di contorno", () => {
         expect(reviewedRecently(String(now - REVIEW_MEMORY_MS), now)).toBe(false);
     });
 
-    it("tornare in cima conta solo dopo essere scesi di una schermata", () => {
-        expect(isTopReturn(300, 0, 800)).toBe(false);
-        expect(isTopReturn(1200, TOP_ZONE_PX, 800)).toBe(true);
-        expect(isTopReturn(1200, TOP_ZONE_PX + 1, 800)).toBe(false);
+    it("la ripresa del telefono conta dopo una pausa lunga e una visita lunga", () => {
+        const first = 1_000_000_000_000;
+        const at = (hiddenFor: number, visit: number) =>
+            isReturnMoment({ firstAt: first, hiddenAt: first + visit - hiddenFor }, first + visit);
+        expect(at(AWAY_MS, MIN_VISIT_MS)).toBe(true);
+        // Pausa corta: il telefono non è stato posato.
+        expect(at(AWAY_MS - 1, MIN_VISIT_MS)).toBe(false);
+        // Visita corta: ha appena ordinato, non ha ancora mangiato.
+        expect(at(AWAY_MS, MIN_VISIT_MS - 1)).toBe(false);
+        // Mai nascosta: niente ripresa.
+        expect(isReturnMoment({ firstAt: first, hiddenAt: null }, first + 2 * MIN_VISIT_MS)).toBe(false);
+        // Tempi di prova.
+        expect(isReturnMoment({ firstAt: 0, hiddenAt: 15_000 }, 20_000, { away: 5_000, visit: 20_000 })).toBe(true);
+    });
+
+    it("l'orologio della visita si rilegge, o riparte da adesso", () => {
+        const now = 5_000_000;
+        expect(restoreVisit(null, now)).toEqual({ firstAt: now, hiddenAt: null });
+        expect(restoreVisit("{rotto", now)).toEqual({ firstAt: now, hiddenAt: null });
+        expect(restoreVisit(JSON.stringify({ firstAt: 1_000, hiddenAt: 4_000 }), now)).toEqual({ firstAt: 1_000, hiddenAt: 4_000 });
+        // Valori nel futuro (orologio spostato): non valgono.
+        expect(restoreVisit(JSON.stringify({ firstAt: now + 1 }), now)).toEqual({ firstAt: now, hiddenAt: null });
+        expect(restoreVisit(JSON.stringify({ firstAt: 1_000, hiddenAt: now + 1 }), now)).toEqual({ firstAt: 1_000, hiddenAt: null });
     });
 
     it("il pulsante largo ci sta solo se la barra intera entra con i margini", () => {

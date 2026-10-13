@@ -16,6 +16,7 @@ import {
     Phone,
     ScrollText,
     Share,
+    Star,
     Utensils
 } from "lucide-react";
 import { useLanguage } from "@context/Language/useLanguage";
@@ -56,7 +57,7 @@ import SearchPage from "../search/SearchPage";
 import { FiltersFooter, FiltersPage } from "../search/FiltersPage";
 import { menuPreferences } from "../search/preferences";
 import { AllergensFooter, AllergensPage, CharacteristicsPage } from "./MenuInfoPages";
-import { rateOf } from "../vote/rateSheet";
+import { pushRateSheet, rateOf } from "../vote/rateSheet";
 import { loadVoteForm } from "../vote/loadVoteForm";
 import { useBooking, type BookingBinding } from "../booking/useBooking";
 import { isBookingPage, pushBookingSheet } from "../booking/bookingSheet";
@@ -421,6 +422,7 @@ function MorePage({
     shareTitle,
     menuInfo,
     story,
+    rate,
     bookingInSheet
 }: SheetsSlotContext & { bookingInSheet: boolean }) {
     const { t, i18n } = useTranslation("public");
@@ -505,6 +507,15 @@ function MorePage({
                             closeSheet();
                             onOpenReservation();
                         }}
+                    />
+                ) : null}
+                {/* Il voto sempre a portata, anche prima dell'invito (D77, deciso da Lorenzo il 2026-10-13). */}
+                {rate ? (
+                    <Row
+                        icon={<Star size={18} strokeWidth={2} />}
+                        label={t("more.rate_label")}
+                        subtitle={t("page_end.rate_subtitle")}
+                        onClick={pushRateSheet}
                     />
                 ) : null}
                 {/* Storia su desktop (deciso da Lorenzo il 2026-10-11): sul telefono sta nella barra in basso. */}

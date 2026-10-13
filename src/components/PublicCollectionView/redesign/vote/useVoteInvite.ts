@@ -1,30 +1,39 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { hasOpenSheet, subscribeSheetClose } from "../../hooks/openSheets";
-import { PUBLIC_MOBILE_QUERY } from "../../publicBreakpoints";
 import { useSheetState } from "../sheets/sheetStack";
 import type { VoteSlotContext } from "../slots";
 import {
     INITIAL_VOTE,
-    MIN_DWELL_MS,
-    PROVA_DWELL_MS,
-    isTopReturn,
+    PROVA_AWAY_MS,
+    PROVA_VISIT_MS,
+    isReturnMoment,
     persistedVote,
+    restoreVisit,
     restoreVote,
     reviewedRecently,
+    visitStorageKey,
     voteReducer,
     voteStorageKey,
+    type VisitClock,
     type VoteEvent,
     type VoteState
 } from "./voteInvite";
 
-/** Si può chiedere adesso? Solo al telefono, a pagina visibile, senza fogli aperti. */
 /** Dopo la chiusura di un foglio, il tempo di vederlo scendere prima dell'invito. */
-const TABLE_AFTER_SHEET_MS = 900;
+const AFTER_SHEET_MS = 900;
 
+/** Si può chiedere adesso? Pagina visibile e nessun foglio aperto; telefono e desktop (D77). */
 function canInviteNow(): boolean {
     if (typeof window === "undefined" || document.visibilityState !== "visible") return false;
-    if (hasOpenSheet()) return false;
-    return window.matchMedia?.(PUBLIC_MOBILE_QUERY).matches ?? false;
+    return !hasOpenSheet();
+}
+
+function saveVisit(activityId: string, clock: VisitClock): void {
+    try {
+        sessionStorage.setItem(visitStorageKey(activityId), JSON.stringify(clock));
+    } catch {
+        /* Safari privato: l'orologio vive solo in memoria */
+    }
 }
 
 function readReviewed(activityId: string): boolean {
@@ -36,10 +45,10 @@ function readReviewed(activityId: string): boolean {
 }
 
 /**
- * Quando chiedere il voto (D38): al tavolo dopo «Servito» o il conto chiesto;
- * per gli altri dopo la permanenza minima, solo tornando in cima o rientrando
- * nella pagina; mai con un foglio aperto; una volta per visita. Lo stato della
- * visita resta in sessionStorage: dopo un ricaricamento c'è il pulsante, non la modale.
+ * Quando chiedere il voto (D76): al tavolo appena chiesto il conto; per tutti alla
+ * ripresa del telefono dopo una pausa lunga (`isReturnMoment`). Un momento che
+ * cade con un foglio aperto aspetta che si chiuda; una volta per visita. Lo stato
+ * della visita resta in sessionStorage: dopo un ricaricamento c'è il pulsante, non la modale.
  */
 export function useVoteInvite(vote: VoteSlotContext | undefined) {
     const activityId = vote?.activityId;
@@ -81,28 +90,23 @@ export function useVoteInvite(vote: VoteSlotContext | undefined) {
         if (reviewed) dispatch({ type: "voted" });
     }, [reviewed]);
 
-    // Al tavolo: ogni «Servito» o conto chiesto è un momento (non il valore iniziale).
-    // Con un foglio aperto (spesso proprio «Il tuo ordine») aspetta che si chiuda.
-    const tableMoment = vote?.tableMoment ?? 0;
-    const seenTableMoment = useRef(tableMoment);
-    const pendingTable = useRef(false);
-    useEffect(() => {
-        if (!ready || tableMoment === seenTableMoment.current) return;
-        seenTableMoment.current = tableMoment;
-        if (hasOpenSheet()) pendingTable.current = true;
+    // Un momento con un foglio aperto (spesso proprio «Il tuo ordine») non si perde:
+    // aspetta che il foglio si chiuda e finisca di scendere.
+    const pending = useRef(false);
+    const momentWhenFree = useCallback(() => {
+        if (hasOpenSheet()) pending.current = true;
         else moment();
-    }, [ready, tableMoment, moment]);
+    }, [moment]);
     useEffect(() => {
         let timer = 0;
         const unsubscribe = subscribeSheetClose(() => {
-            if (!pendingTable.current) return;
+            if (!pending.current) return;
             window.clearTimeout(timer);
-            // Il foglio finisce di scendere, poi l'invito (se non se n'è aperto un altro).
             timer = window.setTimeout(() => {
                 if (hasOpenSheet()) return;
-                pendingTable.current = false;
+                pending.current = false;
                 moment();
-            }, TABLE_AFTER_SHEET_MS);
+            }, AFTER_SHEET_MS);
         });
         return () => {
             unsubscribe();
@@ -110,40 +114,44 @@ export function useVoteInvite(vote: VoteSlotContext | undefined) {
         };
     }, [moment]);
 
-    // Gli altri: permanenza minima, poi ritorno in cima o rientro nella pagina.
-    const enabled = !!vote && ready && (state.phase === "idle" || state.phase === "parked");
+    // Al tavolo: il conto chiesto è un momento (non il valore iniziale).
+    const tableMoment = vote?.tableMoment ?? 0;
+    const seenTableMoment = useRef(tableMoment);
     useEffect(() => {
-        if (!enabled) return;
-        const dwell = new URLSearchParams(window.location.search).has("prova-voto") ? PROVA_DWELL_MS : MIN_DWELL_MS;
-        const start = performance.now();
-        let maxScrollY = window.scrollY;
-        let frame = 0;
-        const onScroll = () => {
-            // Il punto più basso si segna subito: il frame dopo può già essere in cima.
-            if (!hasOpenSheet()) maxScrollY = Math.max(maxScrollY, window.scrollY);
-            if (frame) return;
-            frame = requestAnimationFrame(() => {
-                frame = 0;
-                // Col foglio aperto il body è fermo e scrollY vale 0: non è un ritorno in cima.
-                if (hasOpenSheet()) return;
-                const y = window.scrollY;
-                if (performance.now() - start < dwell || !isTopReturn(maxScrollY, y, window.innerHeight)) return;
-                // Un ritorno solo: il prossimo momento chiede di scendere di nuovo.
-                maxScrollY = y;
-                moment();
-            });
+        if (!ready || tableMoment === seenTableMoment.current) return;
+        seenTableMoment.current = tableMoment;
+        momentWhenFree();
+    }, [ready, tableMoment, momentWhenFree]);
+
+    // Per tutti: la ripresa del telefono dopo una pausa lunga, anche dopo un ricaricamento.
+    const enabled = !!activityId && ready && (state.phase === "idle" || state.phase === "parked");
+    useEffect(() => {
+        if (!enabled || !activityId) return;
+        const prova = new URLSearchParams(window.location.search).has("prova-voto");
+        const timing = prova ? { away: PROVA_AWAY_MS, visit: PROVA_VISIT_MS } : undefined;
+        let raw: string | null = null;
+        try {
+            raw = sessionStorage.getItem(visitStorageKey(activityId));
+        } catch {
+            /* Safari privato */
+        }
+        let clock = restoreVisit(raw, Date.now());
+        const check = () => {
+            const now = Date.now();
+            if (document.visibilityState === "hidden") {
+                // Il primo momento in cui si nasconde: la pausa conta da lì.
+                if (clock.hiddenAt === null) clock = { ...clock, hiddenAt: now };
+            } else {
+                const back = isReturnMoment(clock, now, timing);
+                clock = { ...clock, hiddenAt: null };
+                if (back) momentWhenFree();
+            }
+            saveVisit(activityId, clock);
         };
-        const onVisibility = () => {
-            if (document.visibilityState === "visible" && performance.now() - start >= dwell) moment();
-        };
-        window.addEventListener("scroll", onScroll, { passive: true });
-        document.addEventListener("visibilitychange", onVisibility);
-        return () => {
-            window.removeEventListener("scroll", onScroll);
-            document.removeEventListener("visibilitychange", onVisibility);
-            if (frame) cancelAnimationFrame(frame);
-        };
-    }, [enabled, moment]);
+        check();
+        document.addEventListener("visibilitychange", check);
+        return () => document.removeEventListener("visibilitychange", check);
+    }, [enabled, activityId, momentWhenFree]);
 
     // Il modulo è nel foglio: chiuso senza voto è «no grazie» (× anche lì, spec §11).
     const sheetOpen = useSheetState().pages.length > 0;

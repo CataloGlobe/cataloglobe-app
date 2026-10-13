@@ -4,10 +4,19 @@
  * `src/tests/publicRedesign/voteInvite.test.ts`.
  */
 
-/** Chi non è al tavolo: tempo minimo nella pagina prima dell'invito (da tarare). */
-export const MIN_DWELL_MS = 15 * 60_000;
-/** Con `?prova-voto=1`: il tempo del mockup, per provarlo dal telefono. */
-export const PROVA_DWELL_MS = 20_000;
+/**
+ * Il momento giusto (D76, 2026-10-13): non un tempo fisso ma la «seconda ripresa
+ * del telefono». Chi legge il menu poi posa il telefono (ordina, aspetta, mangia);
+ * quando lo riprende dopo una pausa lunga ha quasi sempre finito. Vale per tutti,
+ * ordini al tavolo o no; al tavolo conta subito anche il conto chiesto.
+ */
+/** Pausa minima a pagina nascosta (telefono in tasca, altra app). */
+export const AWAY_MS = 10 * 60_000;
+/** Visita minima dalla prima apertura: chi ha appena ordinato non ha ancora mangiato. */
+export const MIN_VISIT_MS = 25 * 60_000;
+/** Con `?prova-voto=1`: tempi corti, per provarlo dal telefono. */
+export const PROVA_AWAY_MS = 5_000;
+export const PROVA_VISIT_MS = 20_000;
 /** Invito ignorato: dopo questo tempo vola nella barra (da tarare, 8 s nel mockup). */
 export const INVITE_IGNORE_MS = 8_000;
 /** Il pulsante largo si stringe da solo dopo questo tempo (o al primo scorrimento). */
@@ -17,9 +26,6 @@ export const REVIEW_MEMORY_MS = 24 * 60 * 60 * 1000;
 /** Misure del pulsante (spec §3): largo 155, stretto 88, alto come il cerchio dell'ordine. */
 export const VOTE_WIDE_PX = 155;
 export const VOTE_NARROW_PX = 88;
-/** Distanza dalla cima entro cui si è «tornati in cima». */
-export const TOP_ZONE_PX = 120;
-
 /**
  * - `idle`: niente ancora.
  * - `invite`: la modale piccola è a vista (`again`: riaperta dal pulsante della barra).
@@ -39,7 +45,7 @@ export type VoteState = {
 };
 
 export type VoteEvent =
-    /** Un momento della visita (Servito, conto chiesto, ritorno in cima dopo la permanenza). */
+    /** Un momento della visita (conto chiesto, ripresa del telefono dopo una pausa lunga). */
     | { type: "moment"; canInvite: boolean }
     /** × della modale: «no grazie», non resta niente. */
     | { type: "dismiss" }
@@ -116,12 +122,36 @@ export function reviewedRecently(timestamp: string | null, now: number): boolean
     return Number.isFinite(at) && now - at < REVIEW_MEMORY_MS;
 }
 
+/** Prima apertura e ultima volta che la pagina si è nascosta, per la visita (sessionStorage). */
+export type VisitClock = { firstAt: number; hiddenAt: number | null };
+
+export const visitStorageKey = (activityId: string) => `pub_vote_visit_${activityId}`;
+
+/** Rilegge l'orologio della visita; un valore rotto o assente riparte da adesso. */
+export function restoreVisit(raw: string | null, now: number): VisitClock {
+    try {
+        const value = raw ? (JSON.parse(raw) as Partial<VisitClock>) : null;
+        if (value && typeof value.firstAt === "number" && value.firstAt <= now) {
+            const hiddenAt = typeof value.hiddenAt === "number" && value.hiddenAt <= now ? value.hiddenAt : null;
+            return { firstAt: value.firstAt, hiddenAt };
+        }
+    } catch {
+        /* si riparte da adesso */
+    }
+    return { firstAt: now, hiddenAt: null };
+}
+
 /**
- * «Tornare in cima»: si era scesi almeno di una schermata e ora si è vicino
- * alla cima. Chi è ancora in cima senza aver letto non conta.
+ * La pagina torna a vista: è la ripresa del telefono se è rimasta nascosta almeno
+ * `away` e la visita dura da almeno `visit`. Anche dopo un ricaricamento (Safari
+ * scarta le schede ferme): l'orologio sta in sessionStorage.
  */
-export function isTopReturn(maxScrollY: number, scrollY: number, viewportHeight: number): boolean {
-    return maxScrollY >= viewportHeight && scrollY <= TOP_ZONE_PX;
+export function isReturnMoment(
+    clock: VisitClock,
+    now: number,
+    timing: { away: number; visit: number } = { away: AWAY_MS, visit: MIN_VISIT_MS }
+): boolean {
+    return clock.hiddenAt !== null && now - clock.hiddenAt >= timing.away && now - clock.firstAt >= timing.visit;
 }
 
 /**
