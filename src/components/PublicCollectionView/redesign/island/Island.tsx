@@ -246,20 +246,23 @@ export default function Island({
                             />
                         )}
                         <div className={styles.testi}>
-                            {/* Il nome apre «Info e orari», come nel mockup v38. */}
-                            <button
-                                type="button"
-                                className={styles.nomeTasto}
-                                onClick={e => {
-                                    // Safari non dà il fuoco al bottone toccato: alla chiusura torna qui.
-                                    rememberSheetOpener(e.currentTarget);
-                                    openVenueSheet("info");
-                                }}
-                                aria-label={`${activityName}: ${t("header.info_aria")}`}
-                                aria-haspopup="dialog"
-                            >
-                                <span className={styles.nome}>{activityName}</span>
-                            </button>
+                            {/* Il nome apre «Info e orari», come nel mockup v38. È l'h1 della
+                                pagina (uno solo): il pulsante sta dentro il titolo. */}
+                            <h1 className={styles.titolo}>
+                                <button
+                                    type="button"
+                                    className={styles.nomeTasto}
+                                    onClick={e => {
+                                        // Safari non dà il fuoco al bottone toccato: alla chiusura torna qui.
+                                        rememberSheetOpener(e.currentTarget);
+                                        openVenueSheet("info");
+                                    }}
+                                    aria-label={`${activityName}: ${t("header.info_aria")}`}
+                                    aria-haspopup="dialog"
+                                >
+                                    <span className={styles.nome}>{activityName}</span>
+                                </button>
+                            </h1>
                             {/* «Menu pranzo  ● Aperto» su una riga; in Storia il menu non c'è. */}
                             <div className={styles.linea}>
                                 {menuName && !storia && <i className={styles.menu}>{menuName}</i>}

@@ -394,7 +394,12 @@ export default function PublicCollectionHeader({
                                 1 + (showAddress && activityAddress ? 1 : 0) + (showCatalogName && catalogName ? 1 : 0)
                             }
                         >
-                            <span className={styles.name}>{activityName}</span>
+                            {/* Sulla pagina il nome è l'h1 (uno solo); nell'anteprima del back office no. */}
+                            {mode === "public" ? (
+                                <h1 className={styles.name}>{activityName}</h1>
+                            ) : (
+                                <span className={styles.name}>{activityName}</span>
+                            )}
                             {showAddress && activityAddress && (
                                 <span className={styles.address}>{activityAddress}</span>
                             )}
