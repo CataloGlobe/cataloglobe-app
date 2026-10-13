@@ -787,5 +787,28 @@
     "pick_time": "Choisissez l'heure",
     "unavailable": "L'établissement n'accepte pas de réservations en ligne pour le moment.",
     "err_timeout": "L'établissement n'a pas répondu à temps. Avant de réessayer, vérifiez vos e-mails : la demande est peut-être arrivée."
-  }
+  },
+    "menus": {
+        "choose_title": "Choisissez le menu",
+        "choose_subtitle_one": "Il y en a {{count}} à cette heure-ci. Vous pourrez changer ensuite depuis le nom du menu en haut.",
+        "choose_subtitle_other": "Il y en a {{count}} à cette heure-ci. Vous pourrez changer ensuite depuis le nom du menu en haut.",
+        "card_aria": "{{name}}, {{hours}}, {{categories}}, {{products}}. Ouvrir le menu",
+        "categories_one": "{{count}} catégorie",
+        "categories_other": "{{count}} catégories",
+        "products_one": "{{count}} plat",
+        "products_other": "{{count}} plats",
+        "later": "Plus tard",
+        "not_yet": "Pas encore disponible",
+        "from": "dès {{time}}",
+        "venue_label": "L'établissement",
+        "sheet_title": "Menus disponibles maintenant",
+        "sheet_subtitle_one": "L'établissement a {{count}} menu à cette heure-ci. Touchez pour changer.",
+        "sheet_subtitle_other": "L'établissement a {{count}} menus à cette heure-ci. Touchez pour changer.",
+        "all_menus": "Tous les menus",
+        "all_menus_subtitle": "Retour à la page des menus et des horaires",
+        "change": "Changer de menu",
+        "change_subtitle": "Actuel : {{name}}",
+        "island_aria": "Menu : {{name}}, {{position}} sur {{total}}. Changer de menu",
+        "position": "{{position}} sur {{total}}"
+    }
 }

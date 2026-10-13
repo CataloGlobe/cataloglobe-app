@@ -787,5 +787,28 @@
         "pick_time": "Elige la hora",
         "unavailable": "En este momento el local no acepta reservas en línea.",
         "err_timeout": "El local no respondió a tiempo. Antes de volver a intentarlo, revisa tu correo: puede que la solicitud haya llegado."
+    },
+    "menus": {
+        "choose_title": "Elige el menú",
+        "choose_subtitle_one": "A esta hora hay {{count}} menú. Puedes cambiar después desde el nombre del menú arriba.",
+        "choose_subtitle_other": "A esta hora hay {{count}} menús. Puedes cambiar después desde el nombre del menú arriba.",
+        "card_aria": "{{name}}, {{hours}}, {{categories}}, {{products}}. Abrir el menú",
+        "categories_one": "{{count}} categoría",
+        "categories_other": "{{count}} categorías",
+        "products_one": "{{count}} plato",
+        "products_other": "{{count}} platos",
+        "later": "Más tarde",
+        "not_yet": "Aún no disponible",
+        "from": "desde las {{time}}",
+        "venue_label": "El local",
+        "sheet_title": "Menús disponibles ahora",
+        "sheet_subtitle_one": "El local tiene {{count}} menú a esta hora. Toca para cambiar.",
+        "sheet_subtitle_other": "El local tiene {{count}} menús a esta hora. Toca para cambiar.",
+        "all_menus": "Todos los menús",
+        "all_menus_subtitle": "Volver a la página con los menús y los horarios",
+        "change": "Cambiar de menú",
+        "change_subtitle": "Ahora: {{name}}",
+        "island_aria": "Menú: {{name}}, {{position}} de {{total}}. Cambiar de menú",
+        "position": "{{position}} de {{total}}"
     }
 }

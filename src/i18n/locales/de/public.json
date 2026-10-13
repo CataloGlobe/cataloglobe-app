@@ -787,5 +787,28 @@
         "pick_time": "Uhrzeit wählen",
         "unavailable": "Das Lokal nimmt gerade keine Online-Reservierungen an.",
         "err_timeout": "Das Lokal hat nicht rechtzeitig geantwortet. Bevor du es erneut versuchst, prüfe deine E-Mails: Die Anfrage ist vielleicht angekommen."
+    },
+    "menus": {
+        "choose_title": "Speisekarte wählen",
+        "choose_subtitle_one": "Zu dieser Uhrzeit gibt es {{count}} Karte. Du kannst später über den Namen der Karte oben wechseln.",
+        "choose_subtitle_other": "Zu dieser Uhrzeit gibt es {{count}} Karten. Du kannst später über den Namen der Karte oben wechseln.",
+        "card_aria": "{{name}}, {{hours}}, {{categories}}, {{products}}. Karte öffnen",
+        "categories_one": "{{count}} Kategorie",
+        "categories_other": "{{count}} Kategorien",
+        "products_one": "{{count}} Gericht",
+        "products_other": "{{count}} Gerichte",
+        "later": "Später",
+        "not_yet": "Noch nicht verfügbar",
+        "from": "ab {{time}}",
+        "venue_label": "Das Lokal",
+        "sheet_title": "Jetzt verfügbare Karten",
+        "sheet_subtitle_one": "Das Lokal hat zu dieser Uhrzeit {{count}} Karte. Tippe zum Wechseln.",
+        "sheet_subtitle_other": "Das Lokal hat zu dieser Uhrzeit {{count}} Karten. Tippe zum Wechseln.",
+        "all_menus": "Alle Karten",
+        "all_menus_subtitle": "Zurück zur Seite mit Karten und Öffnungszeiten",
+        "change": "Karte wechseln",
+        "change_subtitle": "Jetzt: {{name}}",
+        "island_aria": "Karte: {{name}}, {{position}} von {{total}}. Karte wechseln",
+        "position": "{{position}} von {{total}}"
     }
 }

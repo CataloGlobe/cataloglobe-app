@@ -10,6 +10,7 @@ import {
     PUBLIC_REDESIGN_ENABLED,
     RedesignCollectionView
 } from "@/components/PublicCollectionView/redesign";
+import type { CatalogViewProps, MenuSource } from "@/components/PublicCollectionView/redesign/menus/menuSource";
 import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
 import LanguageFallbackBanner from "@/components/PublicCollectionView/LanguageFallbackBanner/LanguageFallbackBanner";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
@@ -289,18 +290,34 @@ function mapCatalogToSectionGroups(resolved: ResolvedCollections): CollectionVie
 }
 
 /**
+ * Le props di `CollectionView` che dipendono dal menu: con «Scegli il menu»
+ * (redesign) cambiano col menu scelto, il resto della pagina resta.
+ */
+function catalogViewProps(catalog: ResolvedCollections["catalog"]): CatalogViewProps {
+    return {
+        collectionTitle: catalog?.name ?? "",
+        sectionGroups: mapCatalogToSectionGroups({ catalog }),
+        catalogCharacteristics: collectCatalogCharacteristics(catalog)
+    };
+}
+
+/**
  * Wrapper interno: vive DENTRO CustomerSessionProvider e legge isActive
  * dal context per propagarlo come prop a CollectionView. Tiene CollectionView
  * "dumb" (prop-driven) senza farle conoscere il context customer.
  */
 function CollectionViewWithCustomerSession({
     booking,
+    menus,
     ...props
-}: Omit<ComponentProps<typeof CollectionView>, "orderingActive"> & { booking: BookingConfig | null }) {
+}: Omit<ComponentProps<typeof CollectionView>, "orderingActive"> & {
+    booking: BookingConfig | null;
+    menus: MenuSource;
+}) {
     const { isActive } = useCustomerSession();
     // Redesign (VITE_PUBLIC_REDESIGN): costante di build, il ramo spento sparisce.
     return PUBLIC_REDESIGN_ENABLED ? (
-        <RedesignCollectionView {...props} orderingActive={isActive} booking={booking} />
+        <RedesignCollectionView {...props} orderingActive={isActive} booking={booking} menus={menus} />
     ) : (
         <CollectionView {...props} orderingActive={isActive} />
     );
@@ -420,8 +437,7 @@ export default function PublicCatalogReady({
         showFeaturedCta: tokens.appearance.showFeaturedCta ?? true
     } as const;
 
-    const sectionGroups = mapCatalogToSectionGroups(resolved);
-    const catalogCharacteristics = collectCatalogCharacteristics(resolved.catalog);
+    const { collectionTitle, sectionGroups, catalogCharacteristics } = catalogViewProps(resolved.catalog);
     // Menù non ancora pubblicato (comportamento storico, invariato): messaggio
     // sobrio, nessuna azione. defaultValue inline: chiavi mai state nei bundle
     // locale, pre-esistenti a questo lavoro.
@@ -472,8 +488,9 @@ export default function PublicCatalogReady({
             <CollectionViewWithCustomerSession
                 businessName={business.name}
                 businessImage={business.cover_image}
-                collectionTitle={resolved.catalog?.name ?? ""}
+                collectionTitle={collectionTitle}
                 sectionGroups={sectionGroups}
+                menus={{ list: resolved.menus, catalog: resolved.catalog, view: catalogViewProps }}
                 style={collectionStyle}
                 mode="public"
                 activityId={business.id}

@@ -106,7 +106,8 @@ export type PublicSheetName =
     | "filters"
     | "allergens"
     | "characteristics"
-    | "order";
+    | "order"
+    | "menus";
 
 /** Aspetto delle card in evidenza, dallo stile del locale. */
 export type FeaturedLook = {

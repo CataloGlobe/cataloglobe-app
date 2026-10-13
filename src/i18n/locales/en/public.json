@@ -787,5 +787,28 @@
         "pick_time": "Choose a time",
         "unavailable": "The venue is not taking online bookings right now.",
         "err_timeout": "The venue didn't answer in time. Before trying again, check your email: the request may have gone through."
+    },
+    "menus": {
+        "choose_title": "Choose a menu",
+        "choose_subtitle_one": "There's {{count}} menu at this time. You can switch later from the menu name at the top.",
+        "choose_subtitle_other": "There are {{count}} menus at this time. You can switch later from the menu name at the top.",
+        "card_aria": "{{name}}, {{hours}}, {{categories}}, {{products}}. Open the menu",
+        "categories_one": "{{count}} category",
+        "categories_other": "{{count}} categories",
+        "products_one": "{{count}} dish",
+        "products_other": "{{count}} dishes",
+        "later": "Later",
+        "not_yet": "Not available yet",
+        "from": "from {{time}}",
+        "venue_label": "The venue",
+        "sheet_title": "Menus available now",
+        "sheet_subtitle_one": "The venue has {{count}} menu at this time. Tap to switch.",
+        "sheet_subtitle_other": "The venue has {{count}} menus at this time. Tap to switch.",
+        "all_menus": "All menus",
+        "all_menus_subtitle": "Back to the page with menus and opening hours",
+        "change": "Change menu",
+        "change_subtitle": "Now: {{name}}",
+        "island_aria": "Menu: {{name}}, {{position}} of {{total}}. Change menu",
+        "position": "{{position}} of {{total}}"
     }
 }
