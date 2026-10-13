@@ -15,9 +15,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //   - Validates PURGE_SECRET header (x-purge-secret) against env var
 //   - Uses SERVICE_ROLE_KEY (bypasses RLS)
 //
-// Related tables (schedule_targets, schedule_layout, schedule_price_overrides,
+// Related tables (schedule_targets, schedule_layout, schedule_menu,
+// schedule_style, schedule_slots, schedule_price_overrides,
 // schedule_visibility_overrides, schedule_featured_contents) all have
 // ON DELETE CASCADE from schedules — deleting the schedule row auto-cleans them.
+//
+// A schedule without slots (schedule_slots) is not incomplete: it is valid
+// all day. Unknown rule types are never deleted.
 // ---------------------------------------------------------------------------
 
 const RETENTION_DAYS = 7;
@@ -78,15 +82,27 @@ Deno.serve(async req => {
     const candidateIds = candidates!.map(c => c.id);
 
     // Batch-fetch related data to determine which candidates are true drafts
-    const [layoutRes, priceRes, visibilityRes, featuredRes, targetsRes] = await Promise.all([
+    const [layoutRes, menuRes, styleRes, priceRes, visibilityRes, featuredRes, targetsRes] = await Promise.all([
         supabaseAdmin.from("schedule_layout").select("schedule_id").in("schedule_id", candidateIds),
+        supabaseAdmin.from("schedule_menu").select("schedule_id").in("schedule_id", candidateIds),
+        supabaseAdmin.from("schedule_style").select("schedule_id").in("schedule_id", candidateIds),
         supabaseAdmin.from("schedule_price_overrides").select("schedule_id").in("schedule_id", candidateIds),
         supabaseAdmin.from("schedule_visibility_overrides").select("schedule_id").in("schedule_id", candidateIds),
         supabaseAdmin.from("schedule_featured_contents").select("schedule_id").in("schedule_id", candidateIds),
         supabaseAdmin.from("schedule_targets").select("schedule_id").in("schedule_id", candidateIds),
     ]);
 
+    // A failed read would make complete schedules look incomplete: stop.
+    const relatedErr = [layoutRes, menuRes, styleRes, priceRes, visibilityRes, featuredRes, targetsRes]
+        .find(r => r.error)?.error;
+    if (relatedErr) {
+        console.error("cleanup-draft-schedules: Failed to fetch related data:", relatedErr);
+        return json(500, { error: "fetch_failed" });
+    }
+
     const hasLayout = new Set((layoutRes.data ?? []).map(r => r.schedule_id));
+    const hasMenu = new Set((menuRes.data ?? []).map(r => r.schedule_id));
+    const hasStyle = new Set((styleRes.data ?? []).map(r => r.schedule_id));
     const hasPrice = new Set((priceRes.data ?? []).map(r => r.schedule_id));
     const hasVisibility = new Set((visibilityRes.data ?? []).map(r => r.schedule_id));
     const hasFeatured = new Set((featuredRes.data ?? []).map(r => r.schedule_id));
@@ -106,6 +122,14 @@ Deno.serve(async req => {
 
         // Type-specific checks
         if (rule_type === "layout" && !hasLayout.has(id)) {
+            draftIds.push(id);
+            continue;
+        }
+        if (rule_type === "menu" && !hasMenu.has(id)) {
+            draftIds.push(id);
+            continue;
+        }
+        if (rule_type === "style" && !hasStyle.has(id)) {
             draftIds.push(id);
             continue;
         }
