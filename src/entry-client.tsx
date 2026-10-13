@@ -2,7 +2,7 @@ import { hydrateRoot } from "react-dom/client";
 import { Route, Routes } from "react-router-dom";
 
 import "@styles/global.scss";
-import "@/i18n";
+import "@/i18n/public";
 
 import PublicProviders from "@/components/public/PublicProviders";
 import NotFound from "@/pages/NotFound/NotFound";

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { usePageHead } from "@/hooks/usePageHead";
+import { loadPublicLanguage } from "@/i18n/loadLanguage";
 import { usePublicLanguageSync } from "@/hooks/usePublicLanguageSync";
 import { usePublicFontInjection } from "@/hooks/usePublicFontInjection";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -585,6 +586,25 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     useEffect(() => {
         return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
     }, []);
+
+    // I testi della lingua di destinazione si scaricano appena cambia l'URL, in
+    // parallelo al payload: il toast «Traduzione in corso» è già nella lingua
+    // nuova e LanguageProvider la applica senza altra attesa.
+    const preloadLang = isValidLangFormat(langFromUrl)
+        ? langFromUrl!.toLowerCase()
+        : state.status === "ready"
+          ? state.baseLanguage
+          : "it";
+    const [, setLoadedLang] = useState<string | null>(null);
+    useEffect(() => {
+        let alive = true;
+        loadPublicLanguage(preloadLang)
+            .then(() => alive && setLoadedLang(preloadLang))
+            .catch(() => {});
+        return () => {
+            alive = false;
+        };
+    }, [preloadLang]);
 
     // NB: nessun preload cover client-side. Il preload LCP della cover è emesso
     // UNA sola volta dalla shell SSR (api/_lib/publicShell.ts) con la variante

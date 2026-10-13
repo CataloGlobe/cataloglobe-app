@@ -340,3 +340,25 @@ describe("buildSsrShell", () => {
     });
     });
 });
+
+describe("buildClientAssets", () => {
+    it("aggiunge un modulepreload per ogni chunk chiesto che c'è nel manifest", () => {
+        const manifest: ViteManifest = {
+            ...MANIFEST,
+            "src/i18n/locales/en/public.json": { file: "assets/public-Bq1.js" }
+        };
+        const { styleTags, scriptTag } = buildClientAssets(manifest, "src/entry-client.tsx", "/public/", [
+            "src/i18n/locales/en/public.json",
+            "src/i18n/locales/en/common.json"
+        ]);
+        expect(styleTags).toContain('<link rel="stylesheet" href="/public/assets/entry-client-C00LWXyq.css" />');
+        expect(styleTags).toContain('<link rel="modulepreload" href="/public/assets/public-Bq1.js" />');
+        expect(styleTags).not.toContain("common");
+        expect(scriptTag).toBe('<script type="module" src="/public/assets/entry-client-Dx27gO3c.js"></script>');
+    });
+
+    it("senza chunk chiesti resta solo il CSS dell'entry", () => {
+        const { styleTags } = buildClientAssets(MANIFEST, "src/entry-client.tsx", "/public/");
+        expect(styleTags).toBe('<link rel="stylesheet" href="/public/assets/entry-client-C00LWXyq.css" />');
+    });
+});

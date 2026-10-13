@@ -262,7 +262,7 @@ type ViteManifestChunk = {
 export type ViteManifest = Record<string, ViteManifestChunk>;
 
 export type ClientAssets = {
-    /** <link rel="stylesheet"> dell'entry client, da mettere nell'head. */
+    /** <link rel="stylesheet"> dell'entry client (e i modulepreload), da mettere nell'head. */
     styleTags: string;
     /** <script type="module"> dell'entry client, da mettere a fine body. */
     scriptTag: string;
@@ -271,20 +271,26 @@ export type ClientAssets = {
 /**
  * Estrae i tag asset dell'entry client pubblico dal manifest Vite.
  * `base` = base path del build client (es. "/public/").
+ * `preloadKeys` = chunk lazy da scaricare subito (`<link rel="modulepreload">`),
+ * es. i testi della lingua della pagina; le chiavi assenti dal manifest si saltano.
  */
 export function buildClientAssets(
     manifest: ViteManifest,
     entryKey: string,
-    base: string
+    base: string,
+    preloadKeys: readonly string[] = []
 ): ClientAssets {
     const entry = manifest[entryKey];
     if (!entry) {
         throw new Error(`publicShell: entry "${entryKey}" assente dal manifest client`);
     }
     const href = (file: string) => escapeHtml(`${base}${file}`);
-    const styleTags = (entry.css ?? [])
-        .map(file => `<link rel="stylesheet" href="${href(file)}" />`)
-        .join("\n    ");
+    const styleTags = [
+        ...(entry.css ?? []).map(file => `<link rel="stylesheet" href="${href(file)}" />`),
+        ...preloadKeys
+            .filter(key => manifest[key])
+            .map(key => `<link rel="modulepreload" href="${href(manifest[key].file)}" />`)
+    ].join("\n    ");
     const scriptTag = `<script type="module" src="${href(entry.file)}"></script>`;
     return { styleTags, scriptTag };
 }

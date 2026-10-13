@@ -124,6 +124,21 @@ function readTemplate(): string {
     return templateCache;
 }
 
+/**
+ * Il bundle pubblico ha solo l'italiano nel JS iniziale (`src/i18n/public.ts`):
+ * i testi delle altre lingue sono chunk lazy. Per la lingua della pagina si
+ * scaricano subito, insieme all'entry, invece di aspettare l'hydration.
+ */
+function pageLanguage(payload: unknown): string | null {
+    const p = payload as { effective_language?: string | null; base_language_code?: string | null };
+    return p.effective_language ?? p.base_language_code ?? null;
+}
+
+function languagePreloadKeys(lang: string | null | undefined): string[] {
+    if (!lang || lang === "it" || !LANG_REGEX.test(lang)) return [];
+    return ["public", "common", "errors"].map(ns => `src/i18n/locales/${lang}/${ns}.json`);
+}
+
 let manifestCache: ViteManifest | null = null;
 function readClientManifest(): ViteManifest {
     if (manifestCache === null) {
@@ -340,7 +355,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             clientAssets: buildClientAssets(
                 readClientManifest(),
                 CLIENT_MANIFEST_ENTRY,
-                CLIENT_ASSET_BASE
+                CLIENT_ASSET_BASE,
+                languagePreloadKeys(pageLanguage(payload))
             ),
             supabaseUrl: process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ""
         });
