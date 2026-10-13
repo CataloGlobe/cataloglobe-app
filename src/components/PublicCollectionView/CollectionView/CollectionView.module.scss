@@ -1622,3 +1622,24 @@
 .redesignNav {
   display: none;
 }
+
+/* Pulsante nascosto che apre la riga da tastiera (ProductRow, ProductCompactRow):
+   il fuoco si vede sulla riga intera. */
+.rowOpen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+
+.productRow:has(> .rowOpen:focus-visible),
+.compactRow:has(> .rowOpen:focus-visible) {
+  outline: 2px solid var(--pub-accent, currentColor);
+  outline-offset: -2px;
+  border-radius: inherit;
+}

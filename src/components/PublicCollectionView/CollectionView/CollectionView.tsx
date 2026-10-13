@@ -363,6 +363,9 @@ function ProductRowInner({
             className={`${styles.productRow} ${imageRight ? styles.productRowImageRight : ""}`}
             onClick={handleRootClick}
         >
+            {/* Tastiera e lettori di schermo: la riga si apre da qui. Invio e spazio
+                fanno un clic che sale alla riga (stesso onClick del tocco). */}
+            <button type="button" className={styles.rowOpen} aria-label={name} />
             {showImage && (
                 <div className={styles.rowImageWrapper}>
                     {mode === "preview" || !image ? (
@@ -582,6 +585,9 @@ function ProductCompactRowInner({
 
     return (
         <div className={styles.compactRow} onClick={handleRootClick}>
+            {/* Tastiera e lettori di schermo: la riga si apre da qui. Invio e spazio
+                fanno un clic che sale alla riga (stesso onClick del tocco). */}
+            <button type="button" className={styles.rowOpen} aria-label={name} />
             <div className={styles.compactRowBody}>
                 {isDisabled && (
                     <span className={styles.unavailableBadge}>
