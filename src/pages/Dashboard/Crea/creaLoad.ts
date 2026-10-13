@@ -119,10 +119,12 @@ export async function loadTunnel(kind: CreaKind, id: string, tenantId: string, d
     else if (kind === "evid") published = await loadEvid(t, id, tenantId);
     else published = await loadStoria(t, id, tenantId);
 
-    // il quando e il dove sono quelli della sua regola, se è una sola: accesa o spenta
-    const es = allEntriesOf(kind, id, data);
+    // il quando e il dove sono quelli della sua regola, se è una sola: contano le
+    // accese; le spente solo se non ce n'è nessuna accesa (una cosa tenuta pronta)
+    const on = entriesOf(kind, id, data);
+    const es = on.length ? on : allEntriesOf(kind, id, data);
     const one = es.length === 1 ? es[0] : null;
-    const live = kind === "storia" ? published : published && entriesOf(kind, id, data).length > 0;
+    const live = kind === "storia" ? published : published && on.length > 0;
     if (one) {
         const w = cloneWhen(whenOfRule(one.rule)), where = whereOfRule(one.rule);
         t.when = w;
