@@ -400,7 +400,7 @@ export type Read = {
     path: string[];
     name: string;
     price: number | null;
-    /** È già fra i vostri prodotti: si collega a lui, col suo prezzo. */
+    /** È già fra i tuoi prodotti: si collega a lui, col suo prezzo. */
     productId: string | null;
     description: string | null;
     formats?: { name: string; price: number | null }[];
@@ -410,7 +410,7 @@ export type Read = {
 
 /**
  * I piatti letti dall'AI (D172, D180). Un piatto col nome di un solo prodotto
- * vostro si collega a lui, col suo prezzo; con più prodotti dello stesso nome,
+ * tuo si collega a lui, col suo prezzo; con più prodotti dello stesso nome,
  * senza prezzo, o se l'AI non ne era sicura, è «da controllare». L'AI scrive le
  * sottocategorie nel nome («Primi — Di terra»): qui tornano una strada.
  */
@@ -435,7 +435,7 @@ export function readFromAi(categories: readonly AiMenuCategory[], pick: readonly
                 productId: mine?.id ?? null,
                 description: mine ? null : it.description,
                 formats,
-                why: !mine && !(price !== null && price > 0) ? "il prezzo non si leggeva" : m.status === "reusable_ambiguous" ? "somiglia a più prodotti vostri" : it.confidence !== "high" ? "l'AI non ne era sicura" : null
+                why: !mine && !(price !== null && price > 0) ? "il prezzo non si leggeva" : m.status === "reusable_ambiguous" ? "somiglia a più prodotti tuoi" : it.confidence !== "high" ? "l'AI non ne era sicura" : null
             };
         });
     });

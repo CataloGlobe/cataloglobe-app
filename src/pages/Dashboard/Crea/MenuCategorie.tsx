@@ -34,7 +34,7 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 const need = (it: Item) => it.on && !it.productId && !(it.price !== null && it.price > 0);
 const EASE = "cubic-bezier(.2,.8,.2,1)";
 const still = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-const ST_LABEL: Record<Exclude<St, "dup">, string> = { new: "nuovo", lnk: "già fra i vostri prodotti: lo colleghiamo", chk: "da controllare" };
+const ST_LABEL: Record<Exclude<St, "dup">, string> = { new: "nuovo", lnk: "già fra i tuoi prodotti: lo colleghiamo", chk: "da controllare" };
 const JUMP_COLOR: Record<string, [string, string]> = {
     new: ["--k-ok-soft", "--k-ok"],
     lnk: ["--k-brand-soft", "--k-brand"],
@@ -43,7 +43,7 @@ const JUMP_COLOR: Record<string, [string, string]> = {
     dup: ["--k-sunk", "--k-muted"]
 };
 
-/** Scrivi un piatto, o cercalo fra i tuoi: preso uno che avete già, il prezzo è il suo. */
+/** Scrivi un piatto, o cercalo fra i tuoi: preso uno che hai già, il prezzo è il suo. */
 export function DishInput({ pick, taken, label, onAdd }: { pick: readonly PickProduct[]; taken: ReadonlySet<string>; label: string; onAdd: (p: PickProduct | null, name: string) => void }) {
     const [name, setName] = useState("");
     const [open, setOpen] = useState(false);
@@ -95,7 +95,7 @@ export function DishInput({ pick, taken, label, onAdd }: { pick: readonly PickPr
                 Aggiungi
             </button>
             {open && sugg.length > 0 && (
-                <div className={s.mine} role="listbox" aria-label="Prodotti che avete">
+                <div className={s.mine} role="listbox" aria-label="Prodotti che hai">
                     {sugg.map((p, i) => (
                         <button key={p.id} type="button" role="option" aria-selected={i === sel} onMouseDown={e => e.preventDefault()} onClick={() => add(p)}>
                             <span>{p.name}</span>
@@ -958,7 +958,7 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
                     </div>
                     <div className={s.stats}>
                         {pill("new", "nuovi")}
-                        {pill("lnk", "già fra i vostri prodotti")}
+                        {pill("lnk", "già fra i tuoi prodotti")}
                         {pill("chk", "da controllare")}
                         {pill("dup", c("dup") === 1 ? "lo hai già: non entra" : "li hai già: non entrano")}
                         <span className={s.note}>Tocca una pillola: ti porto lì e te li accendo.</span>
@@ -1144,7 +1144,7 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
             <div className={s.card}>
                 <div className={s.sh} aria-live="polite">
                     <b>Sto leggendo «{imp.file}»</b>
-                    <span>Leggo categorie, piatti e prezzi, e cerco quelli che avete già…</span>
+                    <span>Leggo categorie, piatti e prezzi, e cerco quelli che hai già…</span>
                 </div>
                 <div className={s.bar}>
                     <i />
