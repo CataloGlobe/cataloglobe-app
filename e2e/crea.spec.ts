@@ -434,7 +434,6 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByText("2 piatti aggiunti da «menu.png».")).toBeVisible();
         await expect(button(page, "Togli Bufalina")).toBeVisible();
         expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
-        await next(page);
         await toReady(page);
         await saveReady(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
@@ -815,12 +814,13 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
     }
     /** «Luci di Natale e2e» ancora da mettere in onda: pubblicato no, la sua regola sì. */
     async function nataleDraft(page: Page) {
+        // la riga è scritta qui: route.fetch() uscirebbe sulla rete vera invece di passare dai dati finti
+        const row = { id: FEATURED.natale, tenant_id: TENANT_ID, title: "Luci di Natale e2e", status: "draft" };
         await page.route(/\/rest\/v1\/featured_contents\?/, async route => {
-            if (route.request().method() !== "GET") return route.fallback();
-            const res = await route.fetch();
-            const body = await res.json();
-            const off = (r: Row) => (r.id === FEATURED.natale ? { ...r, status: "draft" } : r);
-            await route.fulfill({ response: res, json: Array.isArray(body) ? body.map(off) : off(body) });
+            const request = route.request();
+            if (request.method() !== "GET" || !request.url().includes(FEATURED.natale)) return route.fallback();
+            const wantsObject = (request.headers()["accept"] ?? "").includes("vnd.pgrst.object");
+            await route.fulfill({ json: wantsObject ? row : [row] });
         });
     }
 
@@ -868,6 +868,13 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
         await next(page);
         await next(page);
         await onAir(page);
+        // in tutte le sedi e sempre sarebbe a pari merito con lo stile di base, e il Calendario lo ferma:
+        // una sede e certi momenti, come il menù di «Metti in onda»
+        await main(page).getByRole("button", { name: /^Tutte le sedi · \d+, anche le nuove$/ }).click();
+        await page.getByRole("dialog", { name: "Sedi" }).getByRole("button", { name: "Solo Porto e2e" }).click();
+        await page.keyboard.press("Escape");
+        await expect(main(page).getByRole("button", { name: "Porto e2e", exact: true })).toBeVisible();
+        await button(page, /^Solo in certi momenti/).click();
         await next(page);
         await button(page, "Metti in onda").click();
         await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });

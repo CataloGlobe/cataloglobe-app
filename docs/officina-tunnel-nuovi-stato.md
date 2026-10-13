@@ -21,7 +21,11 @@ Vale la pagina: se una decisione vecchia dice altro, vale la pagina. Testi e dis
 ## Prima: le prove e2e di `officina-pronto`
 Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 - **Fatto** `039ea274`: il difetto vero. In modifica contavano anche le regole spente: un menù con una accesa e una spenta (nello stub: menù Pranzo, regole «pranzo» e «spento») perdeva «Dove e quando». Ora contano le accese, le spente solo se non ce n'è nessuna. Prova in `src/tests/creaLoad.test.ts`.
-- **Da fare**: le altre quattro prove «scritte male». I nomi non sono scritti da nessuna parte: servono i nomi o l'output di `bash scripts/e2e.sh e2e/crea.spec.ts` sul Mac (dopo `039ea274`, che dovrebbe già far passare la prova sul menù Pranzo, riga ~232). Mai cambiare una prova solo per farla passare.
+- **Fatto** (commit «test(e2e): crea, quattro prove D189 corrette»): le altre quattro, con le cause trovate sul Mac.
+  1. «da una foto (D165, D172, D180)»: tolto un «Avanti» di troppo prima di `toReady` («Dove e quando» ora chiede la scelta).
+  2. «stile: «Sì, lo metto in onda»»: regola ristretta a Porto e a certi momenti, come la prova «Metti in onda» del menù; in tutte le sedi e sempre era a pari merito con lo stile di base e il Calendario la fermava, giustamente.
+  3. e 4. «Metti in onda dall'elenco» e «riaccendere un contenuto pronto»: `nataleDraft` risponde con una riga scritta a mano (oggetto o lista secondo `Accept`) invece di `route.fetch()`, che usciva sulla rete vera.
+  Da rilanciare sul Mac: `bash scripts/e2e.sh e2e/crea.spec.ts`.
 
 ## I 27 punti
 
