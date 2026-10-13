@@ -57,6 +57,11 @@ async function prepareLanguage(): Promise<void> {
     }
 }
 
+/** Rete appesa: dopo 3 s si idrata comunque (la pagina resta interattiva). */
+function withTimeout(task: Promise<void>, ms: number): Promise<void> {
+    return Promise.race([task, new Promise<void>(resolve => setTimeout(resolve, ms))]);
+}
+
 function hydrate(root: HTMLElement): void {
     hydrateRoot(
         root,
@@ -82,4 +87,4 @@ function hydrate(root: HTMLElement): void {
     );
 }
 
-if (container) void prepareLanguage().then(() => hydrate(container));
+if (container) void withTimeout(prepareLanguage(), 3000).then(() => hydrate(container));

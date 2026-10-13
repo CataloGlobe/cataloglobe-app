@@ -132,10 +132,15 @@ function readTemplate(): string {
  * i testi delle altre lingue sono chunk lazy. Per la lingua della pagina si
  * scaricano subito, insieme all'entry, invece di aspettare l'hydration.
  */
+// Le lingue con i testi dell'interfaccia (`src/i18n/locales/*`). Un'altra
+// lingua della sede (es. "pt") si rende in italiano, con <html lang="it">:
+// altrimenti il client formatterebbe date e orari in un'altra lingua del server.
+const UI_LANGUAGES = new Set(["it", "en", "fr", "de", "es"]);
+
 function pageLanguage(payload: unknown): string {
     const p = payload as { effective_language?: string | null; base_language_code?: string | null };
     const lang = (p.effective_language ?? p.base_language_code ?? "it").toLowerCase();
-    return LANG_REGEX.test(lang) ? lang : "it";
+    return UI_LANGUAGES.has(lang) ? lang : "it";
 }
 
 function languagePreloadKeys(lang: string): string[] {
