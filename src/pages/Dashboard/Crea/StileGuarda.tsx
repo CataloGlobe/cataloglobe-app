@@ -14,7 +14,13 @@ import s from "./StileAspetto.module.scss";
 const FONT_ALL = Object.keys(FONTS) as FontFamily[];
 const nothing = () => undefined;
 
-export function StileGuarda({ style, tenantId, business, menu, back }: { style: V2Style; tenantId: string; business: string; menu: string; back: () => void }) {
+/** Perché si guarda e basta: il permesso che manca, o l'abbonamento fermo. */
+const WHY = {
+    permesso: "Puoi guardare questo stile, non cambiarlo: per modificarlo serve il permesso. Chiedilo al proprietario.",
+    abbonamento: "Puoi guardare questo stile, non cambiarlo: l'abbonamento non è attivo. Riattivalo dalla pagina Abbonamento per modificarlo."
+} as const;
+
+export function StileGuarda({ style, tenantId, business, menu, back, why = "permesso" }: { style: V2Style; tenantId: string; business: string; menu: string; back: () => void; why?: keyof typeof WHY }) {
     const t = useMemo(() => ({ ...newTunnel("stile", { all: true, activityIds: [], groupIds: [] }), name: style.name, look: structuredClone(tokensOf(style)) }), [style]);
     useFonts(FONT_ALL);
     return (
@@ -27,7 +33,7 @@ export function StileGuarda({ style, tenantId, business, menu, back }: { style: 
             </div>
             <p className={s.gnote} role="status">
                 <Lock size={15} aria-hidden />
-                Puoi guardare questo stile, non cambiarlo: per modificarlo serve il permesso. Chiedilo al proprietario.
+                {WHY[why]}
             </p>
             <div className={s.ggrid}>
                 <fieldset className={s.gset} disabled>

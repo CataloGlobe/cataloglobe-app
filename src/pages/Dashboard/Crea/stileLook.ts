@@ -36,13 +36,25 @@ export const contrast = (a: string, b: string) => {
 export const READABLE = 3;
 export const hardToRead = (l: StyleTokenModel) => contrast(l.colors.primary, l.colors.pageBackground) < READABLE;
 
-/** Il tono più vicino che si legge sullo sfondo: più chiaro sugli sfondi scuri, più scuro sui chiari. */
+/**
+ * Il tono più vicino che si legge sullo sfondo. Prima verso il bianco o il nero,
+ * quello che sullo sfondo si legge meglio; se non basta, dall'altra parte. Su
+ * uno sfondo a metà (#9c9c9c) la soglia «scuro sotto 0,35» schiariva fino al
+ * bianco e l'avviso restava (review #443).
+ */
 export function readable(color: string, bg: string): string {
-    let c = rgb(color);
+    const c = rgb(color);
     if (!c) return color;
-    const up = lum(bg) < 0.35;
-    for (let n = 0; n < 40 && contrast(hex(c), bg) < 4.5; n++) c = c.map(v => (up ? v + (255 - v) * 0.12 : v * 0.88)) as [number, number, number];
-    return hex(c);
+    const walk = (up: boolean) => {
+        let x = c;
+        for (let n = 0; n < 40 && contrast(hex(x), bg) < 4.5; n++) x = x.map(v => (up ? v + (255 - v) * 0.12 : v * 0.88)) as [number, number, number];
+        return hex(x);
+    };
+    const first = contrast("#ffffff", bg) >= contrast("#000000", bg);
+    const a = walk(first);
+    if (contrast(a, bg) >= 4.5) return a;
+    const b = walk(!first);
+    return contrast(b, bg) > contrast(a, bg) ? b : a;
 }
 
 function hsl(h: number, s: number, l: number): string {

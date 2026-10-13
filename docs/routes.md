@@ -11,10 +11,10 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
 /onboarding/create-business, /onboarding/activate-trial → Onboarding (no TenantProvider)
 /business/:businessId/     → MainLayout + TenantProvider
   (indice)                 → chi configura: overview; staff/viewer con una sede la prima voce di
-                             Operatività usabile, con più sedi locations (BusinessHomeRedirect, §51.6)
+                             Servizio usabile, con più sedi locations (BusinessHomeRedirect, §51.6)
   overview
   locations                → con una sede leggibile → locations/:id/anagrafica (SingleSedeRoute, §51.3)
-  locations/:activityId    → chi gestisce la sede: anagrafica; staff/viewer la prima voce di Operatività
+  locations/:activityId    → chi gestisce la sede: anagrafica; staff/viewer la prima voce di Servizio
                              usabile (SedeHomeRedirect; i vecchi ?tab= vincono)
   locations/:activityId/   servizio (?modo=elenco|mappa|gestisci) | prenotazioni | comande | storico | cosa-vedono
                            analitiche | recensioni (Andamento della sede, §51.10: stesse pagine d'azienda, sede dal path)
@@ -31,10 +31,12 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
                              (Calendario e Regole d'azienda; con una sede leggibile → locations/:id/programmazione,
                               SingleSedeRoute; un vecchio ?sede=<id> → locations/<id>/programmazione, T9b)
   catalogs | catalogs/:id
-  crea/:kind               → i tunnel di creazione (CreaPage): menu | stile | evidenza | storia; `?da=` dice dove tornare
+  crea/:kind | crea/:kind/:id → i tunnel di creazione e di modifica (CreaPage): menu | stile | evidenza | storia;
+                             `?da=` dice dove tornare
   products | products/:productId
   featured | featured/:featuredId
-  styles | styles/:styleId
+  styles | styles/:styleId  → elenco; uno stile si apre in crea/stile/:id (D186); styles/:styleId porta lì
+                             (StyleTunnelRedirect, il vecchio editor non c'è più)
   stories | stories/:storyId
   languages
   analytics | reviews       → totale delle sedi leggibili; con una sede → locations/:id/analitiche|recensioni

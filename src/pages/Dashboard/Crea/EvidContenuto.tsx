@@ -5,7 +5,7 @@ import { useId, type ReactNode } from "react";
 import { CalendarHeart, ChefHat, Megaphone, MousePointerClick, Plus, Tag, UtensilsCrossed } from "lucide-react";
 import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { hasDishes, type Tunnel } from "./creaModel";
-import { IDEE, dropIdea, ideaOf, pickIdea, type IdeaId } from "./evidIdee";
+import { IDEE, dropDishes, dropIdea, ideaOf, pickIdea, type IdeaId } from "./evidIdee";
 import { EvidPiatti, type U } from "./CreaSteps";
 import { Chip, Field, Sh } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
@@ -129,7 +129,7 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                         <div className={s.f}>
                             <label htmlFor={ids.inner}>Nome interno</label>
                             <input className={s.in} id={ids.inner} value={t.inner} placeholder="Se vuoto, il titolo" autoComplete="off" onChange={ev => u(x => void (x.inner = ev.target.value))} />
-                            <p className={s.hint}>Lo vedete solo voi.</p>
+                            <p className={s.hint}>Lo vedi solo tu.</p>
                         </div>
                     </div>
                     {owner && !t.edit && (
@@ -151,7 +151,7 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                         icon={<UtensilsCrossed size={17} />}
                         title="I piatti"
                         now={`${t.dishes.length} ${t.dishes.length === 1 ? "piatto" : "piatti"} · ${t.evType === "bundle" ? "a prezzo unico" : "coi loro prezzi"}`}
-                        onRemove={() => u(x => void (x.evType = null))}
+                        onRemove={() => u(dropDishes)}
                     >
                         <EvidPiatti t={t} u={u} pick={pick} L={L} />
                     </EvidParte>
@@ -166,7 +166,7 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                             <div className={s.f}>
                                 <label htmlFor={ids.link}>Dove porta</label>
                                 <input className={s.in} id={ids.link} value={t.ctaLink} placeholder="https://" inputMode="url" autoComplete="off" onChange={ev => u(x => void (x.ctaLink = ev.target.value))} />
-                                <p className={s.hint}>Un link: le prenotazioni, i biglietti, una pagina vostra.</p>
+                                <p className={s.hint}>Un link: le prenotazioni, i biglietti, una pagina tua.</p>
                             </div>
                         </div>
                     </EvidParte>

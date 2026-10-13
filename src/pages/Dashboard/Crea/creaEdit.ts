@@ -52,8 +52,12 @@ async function savePiatti(t: Tunnel, orig: Tunnel, tenantId: string) {
     const id = t.edit!.id;
     // i piatti aggiunti o tolti cambiano come il contenuto si salva: il tipo lo decidono loro (D187)
     const dishes = hasDishes(t) ? t.dishes : [];
-    if ((t.evType ?? "annuncio") !== (orig.evType ?? "annuncio"))
-        await updateFeaturedContent(id, tenantId, deriveTypeFields({ type: EV[t.evType ?? "annuncio"].type, bundlePrice: t.bundle, showOriginalTotal: t.showOrig, showImages: false }));
+    if ((t.evType ?? "annuncio") !== (orig.evType ?? "annuncio")) {
+        // l'aspetto (`layout_style`) il tunnel non lo sceglie: cambiando tipo resta quello che c'era
+        const fields: Partial<FeaturedContent> = deriveTypeFields({ type: EV[t.evType ?? "annuncio"].type, bundlePrice: t.bundle, showOriginalTotal: t.showOrig, showImages: false });
+        delete fields.layout_style;
+        await updateFeaturedContent(id, tenantId, fields);
+    }
     const rows = await listFeaturedContentProducts(id, tenantId);
     const have = new Set(rows.map(r => r.product_id));
     await syncFeaturedContentProducts(

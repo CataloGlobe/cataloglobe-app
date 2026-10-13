@@ -1,6 +1,6 @@
 // Modificare una cosa già creata (D140): la si legge dal database e la si mette
 // nel tunnel com'è oggi. Quello che il tunnel non sa mostrare (le varianti dei
-// prodotti che avete già, i token fini dello stile, l'inquadratura delle foto) non si tocca:
+// prodotti che hai già, i token fini dello stile, l'inquadratura delle foto) non si tocca:
 // `saveEdit` scrive solo le differenze.
 import { getCatalog, listCategories, listCategoryProducts } from "@/services/supabase/catalogs";
 import { getFeaturedContentById, listFeaturedContentProducts } from "@/services/supabase/featuredContents";

@@ -108,7 +108,7 @@ export interface NavEntry {
     /** `NavLink end`: la voce si accende solo sul suo indirizzo esatto. */
     end?: boolean;
     signal?: NavSignal;
-    /** La parte sceglie le sedi diversamente dalla sua sezione (Storico: anche tutte). */
+    /** La parte sceglie le sedi diversamente dalla sua sezione. */
     seat?: NavSeatKind;
     /** Qui «Confronta con» vale (D152): Calendario, Andamento. */
     confronto?: boolean;
@@ -141,7 +141,8 @@ export interface NavGroup {
 /**
  * Le sedi in alto a destra per la parte aperta (D152): il tipo di scelta
  * della sezione, o quello della parte, e se «Confronta con» vale. In
- * Servizio una sede sola, ma lo Storico anche tutte (Alex 2026-10-09).
+ * Servizio una sede sola, Storico compreso: «anche tutte» per lo Storico
+ * torna quando la pagina sa leggerle (Alex 2026-10-13).
  */
 export function seatOf(group: NavGroup, entry?: NavEntry | null): { seat: NavSeatKind; confronto: boolean } {
     const seat = entry?.seat ?? group.seat;
@@ -323,7 +324,6 @@ const COMANDE: NavEntry = {
 };
 
 const STORICO: NavEntry = {
-    seat: "multi",
     key: "storico",
     label: "Storico",
     level: "sede",
@@ -574,7 +574,7 @@ export function isConfigurator(permissions: UserPermissions): boolean {
 
 /**
  * Entrando in una sede. Chi la gestisce parte dalla Scheda; staff e viewer
- * dalla prima voce di Operatività che possono usare (chi legge i tavoli ha
+ * dalla prima voce di Servizio che possono usare (chi legge i tavoli ha
  * almeno la Sala di Servizio, su ogni piano), altrimenti la Scheda.
  */
 export function sedeLandingSegment(permissions: UserPermissions, hasFeature: HasFeature, activityId: string): string {
@@ -587,7 +587,7 @@ export function sedeLandingSegment(permissions: UserPermissions, hasFeature: Has
 
 /**
  * L'ingresso nell'azienda (`/business/:businessId`). Chi configura: la
- * Panoramica. Gli altri: con una sede, la sua prima voce di Operatività; con
+ * Panoramica. Gli altri: con una sede, la sua prima voce di Servizio; con
  * più sedi, Sedi per scegliere il locale. Nessuna sede: la Panoramica.
  */
 export function businessHomePath(

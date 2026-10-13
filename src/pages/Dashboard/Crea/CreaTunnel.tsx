@@ -9,6 +9,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { usePermissions } from "@/context/usePermissions";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { canDoOnAnyActivity, canDoOnTenant, isTenantWide } from "@/lib/permissions";
 import { peekAside } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
@@ -43,6 +44,7 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
     const { showToast } = useToast();
     const { selectedTenant } = useTenant();
     const { permissions } = usePermissions();
+    const { canEdit } = useSubscriptionGuard();
     const { data, failed, reload } = useCreaData(tenantId);
     const b = `/business/${tenantId}`;
 
@@ -95,9 +97,11 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
             />
         );
     if (!data || !tenantId) return <Skeleton height={420} />;
-    // chi non può modificare uno stile lo guarda: le stesse parti e lo stesso telefono, spenti
-    const look = !canWrite && kind === "stile" && editId ? data.styles.find(x => x.id === editId) : null;
-    if (look) return <StileGuarda style={look} tenantId={tenantId} business={selectedTenant?.name ?? ""} menu="" back={() => navigate(`${b}/${path}`)} />;
+    // chi non può modificare uno stile lo guarda: le stesse parti e lo stesso telefono, spenti.
+    // Così anche con l'abbonamento fermo: si guarda, e non si arriva a un Salva che si ferma.
+    const paused = !!selectedTenant && !canEdit;
+    const look = (!canWrite || paused) && kind === "stile" && editId ? data.styles.find(x => x.id === editId) : null;
+    if (look) return <StileGuarda style={look} tenantId={tenantId} business={selectedTenant?.name ?? ""} menu="" why={canWrite ? "abbonamento" : "permesso"} back={() => navigate(`${b}/${path}`)} />;
     if (!canWrite) return <EmptyState title={editId ? "Non puoi modificarlo" : "Non puoi crearlo"} description={`Per ${editId ? "modificare" : "creare"} ${UN[kind]} serve il permesso di modifica. Chiedilo al proprietario.`} />;
     if (editId && loaded === "failed") return <EmptyState title="Non si è aperto" description="Non siamo riusciti a leggerlo: forse non c'è più. Torna all'elenco e riprova." />;
     if (editId && !loaded) return <Skeleton height={420} />;
