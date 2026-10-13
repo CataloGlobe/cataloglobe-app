@@ -22,6 +22,14 @@ vi.mock("@/services/supabase/catalogs", async orig => ({ ...(await orig<object>(
 vi.mock("@/services/supabase/products", async orig => ({ ...(await orig<object>()), createProduct: fake("createProduct", (_t, p) => ({ id: "p-" + (p as { name: string }).name })) }));
 vi.mock("@/services/supabase/styles", async orig => ({ ...(await orig<object>()), updateStyle: fake("updateStyle") }));
 vi.mock("@/services/supabase/productOptions", async orig => ({ ...(await orig<object>()), createPrimaryPriceFormat: fake("createPrimaryPriceFormat") }));
+vi.mock("@/services/supabase/featuredContents", async orig => ({
+    ...(await orig<object>()),
+    updateFeaturedContent: fake("updateFeaturedContent"),
+    listFeaturedContentProducts: fake("listFeaturedContentProducts", () => []),
+    syncFeaturedContentProducts: fake("syncFeaturedContentProducts"),
+    updateFeaturedContentProductNote: fake("updateFeaturedContentProductNote"),
+    updateFeaturedContentProductsSortOrder: fake("updateFeaturedContentProductsSortOrder")
+}));
 import { asEdit, asInside, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
@@ -219,6 +227,15 @@ describe("modifica nel tunnel: i piatti del contenuto in evidenza (D187)", () =>
         expect(changedSteps(t, OWNER)).toEqual(["contenuto"]);
         expect(strays(t, OWNER)).toEqual(["contenuto"]);
         expect(isDirty(t)).toBe(true);
+    });
+
+    it("cambiare il tipo tiene l'aspetto che c'era: il salvataggio non tocca layout_style (review #444)", async () => {
+        const t = upd(evid("annuncio"), x => void ((x.evType = "promo"), (x.dishes = ["p1"])));
+        calls.length = 0;
+        await saveEdit(t, { tenantId: "T", L: {}, names: {}, blockFiles: {}, done: new Map() } as unknown as EditCtx);
+        const type = calls.find(c => c[0] === "updateFeaturedContent" && "content_type" in (c[3] as object));
+        expect(type?.[3]).toMatchObject({ content_type: "promo" });
+        expect(type?.[3]).not.toHaveProperty("layout_style");
     });
 
     it("toccati solo i piatti, scattano i controlli del contenuto", () => {
