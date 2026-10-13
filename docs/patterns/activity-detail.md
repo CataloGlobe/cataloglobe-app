@@ -4,26 +4,27 @@ Rifatto col lotto navigazione B-b (03/10/2026, §50.23) e con la Navigazione v2 
 
 ## Contesto di sede
 
-Si conta sulle sedi **che chi guarda può leggere** (§51.2). Con **una** sede non c'è un contesto in cui entrare: la sidebar è una sola (`TenantSidebar`, contesto `unica`) e le voci di sede portano a quella sede anche da una pagina d'azienda; `/locations` porta alla Scheda. Con **più** sedi, entrando in una sede (`/business/:businessId/locations/:activityId/…`) la sidebar diventa quella della sede (`SedeSidebar`): in testa solo «← Tutte le sedi»; nome e stato («Sospesa») stanno nel selettore di sede dell'header (`HeaderSedeSwitcher`, §51.7).
+Si conta sulle sedi **che chi guarda può leggere** (§51.2). La sidebar è una sola in ogni contesto (`TenantSidebar`, voci da `useNavGroups`): con **una** sede le voci di sede portano a quella sede anche da una pagina d'azienda e `/locations` porta alla Scheda (al posto di Sedi c'è «Il locale»); con **più** sedi le sezioni sono le stesse fuori e dentro una sede, e la sede si sceglie in alto a destra nella pagina (`SediInAlto` in `PageTitleBar`, D152), con «Sospesa» accanto al nome. Non c'è più una sidebar della sede né «← Tutte le sedi».
 
-Voci, ordine e gruppi dei tre contesti stanno **solo** in `NAV_MODELS` (`src/utils/navModel.ts`), letti dalle sidebar (via `navSidebarGroups`), dall'header e dall'atterraggio. Dentro la sede (§51.5):
+Voci, ordine e sezioni stanno **solo** in `NAV_MODELS` (`src/utils/navModel.ts`), letti dalla sidebar, da `SediInAlto` e dall'atterraggio. Le pagine che vivono sotto una sede (`SEDE_ENTRIES`):
 
-| Gruppo | Voce | Rotta | Lettura | Piano |
+| Sezione in sidebar | Voce | Rotta | Lettura | Piano |
 |---|---|---|---|---|
-| Il locale | Scheda | `anagrafica` (+ `orari`, `ordini-prenotazioni`, `pubblicazione`) | `activity.read` | — |
-| Il locale | Cosa vedono i clienti | `cosa-vedono` | `activity.read` | — |
-| Operatività | Servizio | `servizio` | `tables.read` **o** `seatings.read` | — (un modo è sempre aperto) |
-| Operatività | Prenotazioni | `prenotazioni` | `reservations.read` | `table_reservation` |
-| Operatività | Comande | `comande` | `orders.read` | `table_ordering` |
-| Operatività | Storico | `storico` | `orders.read` | `table_ordering` |
-| Andamento | Analitiche | `analitiche` | `analytics.read` | — |
-| Andamento | Recensioni | `recensioni` | `reviews.read` | — |
+| Sedi («Il locale» con una sede) | Scheda | `anagrafica` (+ `orari`, `ordini-prenotazioni`, `pubblicazione`) | `activity.read` | — |
+| Servizio | Cosa vedono i clienti | `cosa-vedono` | `activity.read` | — |
+| Calendario | Programmazione della sede | `programmazione` | `scheduling.read` | — |
+| Servizio | In servizio | `servizio` | `tables.read` **o** `seatings.read` | — (un modo è sempre aperto) |
+| Servizio (dentro «In servizio») | Prenotazioni | `prenotazioni` | `reservations.read` | `table_reservation` |
+| Servizio (dentro «In servizio») | Comande | `comande` | `orders.read` | `table_ordering` |
+| Servizio | Storico | `storico` | `orders.read` | `table_ordering` |
+| Clienti e numeri | Andamento | `analitiche` | `analytics.read` | — |
+| Clienti e numeri | Recensioni | `recensioni` | `reviews.read` | — |
 
-Il piede ha Assistenza in tutti i contesti, e sopra Impostazioni fuori dalla sede (sidebar unica e d'azienda). I permessi si chiedono **su questa sede** (`canDoOnActivity`). Una voce senza piano resta visibile col lucchetto; una senza permesso sparisce.
+Il piede è il menù dell'account (`SidebarAccount`: Impostazioni · Team · Abbonamento · Lingue · Assistenza, filtrati per permessi), uguale in tutti i contesti. I permessi si chiedono **su questa sede** (`canDoOnActivity`). Una voce senza piano resta visibile col lucchetto; una senza permesso sparisce.
 
-**Atterraggio** (`SedeHomeRedirect`, `sedeLandingSegment`, §51.6): chi gestisce la sede (owner, admin, `activity.manage` sulla sede) entra dalla Scheda; staff e viewer dalla prima voce di Operatività usabile (permesso + piano; per Servizio almeno un modo usabile, `NavEntry.usable`). Nessuna voce usabile: la Scheda, che dice il perché.
+**Atterraggio** (`SedeHomeRedirect`, `sedeLandingSegment`, §51.6): chi gestisce la sede (owner, admin, `activity.manage` sulla sede) entra dalla Scheda; staff e viewer dalla prima voce di Servizio usabile (`OPERATIVE_ENTRIES`: In servizio · Sala · Prenotazioni · Comande · Storico; permesso + piano, per In servizio almeno un modo usabile, `NavEntry.usable`). Nessuna voce usabile: la Scheda, che dice il perché.
 
-**Cambio sede** dal selettore dell'header (`switchSedePath`): resta sulla stessa pagina se nella sede nuova si può usare, altrimenti si atterra come entrando.
+**Cambio sede** da «Sede» in alto a destra (`switchSedePath`): resta sulla stessa pagina se nella sede nuova si può usare, altrimenti si atterra come entrando.
 
 ## Servizio
 

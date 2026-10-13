@@ -9,7 +9,7 @@ import { businessHomePath } from "@/utils/navModel";
 /**
  * `/business/:businessId` senza pagina: l'ingresso nell'azienda (§51.6). Chi
  * configura apre la Panoramica; staff e viewer con una sede la loro prima
- * voce di Operatività, con più sedi Sedi per scegliere il locale.
+ * voce di Servizio, con più sedi Sedi per scegliere il locale.
  * Workspace, cambio azienda, logo e inviti puntano qui, non a `/overview`:
  * la scelta si fa una volta sola.
  */
