@@ -104,7 +104,7 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                 {!t.edit && <EvidIdee t={t} u={u} />}
                 <EvidParte title="Cosa dici" now={t.title.trim() ? `«${t.title.trim()}»` : "ancora vuoto"}>
                     <Field label="Titolo" id={ids.title}>
-                        <input className={s.in} id={ids.title} value={t.title} placeholder={ex[0]} autoComplete="off" onChange={ev => u(x => void (x.title = ev.target.value))} />
+                        <input className={s.in} id={ids.title} data-bad="title" value={t.title} placeholder={ex[0]} autoComplete="off" onChange={ev => u(x => void (x.title = ev.target.value))} />
                     </Field>
                     <Field label="Sottotitolo" id={ids.sub}>
                         <input className={s.in} id={ids.sub} value={t.sub} placeholder={ex[1]} autoComplete="off" onChange={ev => u(x => void (x.sub = ev.target.value))} />
@@ -161,11 +161,11 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                         <div className={s.row2}>
                             <div className={s.f}>
                                 <label htmlFor={ids.cta}>La scritta sul pulsante</label>
-                                <input className={s.in} id={ids.cta} value={t.ctaText} autoComplete="off" onChange={ev => u(x => void (x.ctaText = ev.target.value))} />
+                                <input className={s.in} id={ids.cta} data-bad="cta" value={t.ctaText} autoComplete="off" onChange={ev => u(x => void (x.ctaText = ev.target.value))} />
                             </div>
                             <div className={s.f}>
                                 <label htmlFor={ids.link}>Dove porta</label>
-                                <input className={s.in} id={ids.link} value={t.ctaLink} placeholder="https://" inputMode="url" autoComplete="off" onChange={ev => u(x => void (x.ctaLink = ev.target.value))} />
+                                <input className={s.in} id={ids.link} data-bad="link" value={t.ctaLink} placeholder="https://" inputMode="url" autoComplete="off" onChange={ev => u(x => void (x.ctaLink = ev.target.value))} />
                                 <p className={s.hint}>Un link: le prenotazioni, i biglietti, una pagina tua.</p>
                             </div>
                         </div>

@@ -30,6 +30,12 @@ function main(page: Page) {
 }
 const button = (page: Page, name: string | RegExp) => main(page).getByRole("button", { name, exact: typeof name === "string" });
 const next = (page: Page) => button(page, "Avanti").click();
+/** «Avanti» con qualcosa che manca: resta acceso, non va avanti e lo dice sotto l'elemento da sistemare. */
+const stuck = async (page: Page, why: string) => {
+    await expect(button(page, "Avanti")).toBeEnabled();
+    await next(page);
+    await expect(main(page).getByRole("alert").filter({ hasText: why })).toBeVisible();
+};
 /** «Dove» (D189): prima la domanda, «Sì, lo metto in onda». */
 const onAir = (page: Page) => button(page, /^Sì, (lo|la) metto in onda/).click();
 /** «In quali sedi?»: il riquadro delle sedi del passo «Dove», sempre aperto. */
@@ -159,8 +165,7 @@ test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
     });
 
     test("il passo 0: «Avanti» va solo ai passi scelti, e senza modifiche non si salva", async ({ page }) => {
-        await expect(button(page, "Avanti")).toBeDisabled();
-        await expect(main(page).getByText("Scegli almeno una cosa")).toBeVisible();
+        await stuck(page, "Scegli almeno una cosa");
         await main(page).getByRole("checkbox", { name: /^Categorie e piatti/ }).click();
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Categorie e piatti" })).toBeVisible();
@@ -168,6 +173,24 @@ test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(button(page, "Salva le modifiche")).toBeDisabled();
         await expect(main(page).getByText("Non hai cambiato niente")).toBeVisible();
+    });
+
+    test("da «Controlla», se manca qualcosa «Salva le modifiche» porta al passo e al campo", async ({ page }) => {
+        await main(page).getByRole("checkbox", { name: /^Il nome/ }).click();
+        await next(page);
+        await main(page).getByLabel("Nome del menù").fill("");
+        await rail(page).getByRole("button", { name: /Controlla$/ }).click();
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+        await button(page, "Salva le modifiche").click();
+        // niente si salva: si torna al nome, segnato e col fuoco
+        await expect(main(page).getByRole("alert").filter({ hasText: "Manca il nome del menù" })).toBeVisible();
+        await expect(main(page).getByLabel("Nome del menù")).toBeFocused();
+        await expect(main(page).getByLabel("Nome del menù")).toHaveClass(/bad/);
+        // sistemato, il segno va via
+        await main(page).getByLabel("Nome del menù").fill("Carta d'autunno");
+        await expect(main(page).getByRole("alert").filter({ hasText: "Manca il nome del menù" })).toHaveCount(0);
+        await expect(main(page).getByLabel("Nome del menù")).not.toHaveClass(/bad/);
+        expect(stub.writes).toEqual([]);
     });
 
     test("si salva solo quello che è cambiato; un passo grigio toccato lo chiede Controlla", async ({ page }) => {
@@ -294,7 +317,8 @@ test.describe("Tunnel di creazione — menù", () => {
         await open(page, "menu");
         await main(page).getByLabel("Nome del menù").fill("Cena");
         await button(page, /^Copia da un altro menù/).click();
-        await expect(main(page).getByText("Scegli da quale menù copiare")).toBeVisible();
+        await stuck(page, "Scegli da quale menù copiare");
+        await expect(main(page).getByRole("radiogroup", { name: "Menù da copiare" })).toHaveClass(/bad/);
         await main(page).getByLabel("Nome del menù").fill("");
         const list = main(page).getByRole("radiogroup", { name: "Menù da copiare" });
         await expect(main(page).getByRole("heading", { name: "Quale menù copi?" })).toBeVisible();
@@ -313,8 +337,11 @@ test.describe("Tunnel di creazione — menù", () => {
         await open(page, "menu");
         const steps = rail(page);
         await expect(steps.getByRole("button")).toHaveText(["1Da dove parti", "2Categorie e piatti", "3Dove", "4Quando", "5Controlla", "E adesso?"]);
-        await expect(button(page, "Avanti")).toBeDisabled();
-        await expect(main(page).getByText("Manca il nome del menù")).toBeVisible();
+        // senza nome «Avanti» non va avanti: segna il campo, ci mette il fuoco e dice cosa manca
+        await stuck(page, "Manca il nome del menù");
+        await expect(main(page).getByLabel("Nome del menù")).toBeFocused();
+        await expect(main(page).getByLabel("Nome del menù")).toHaveClass(/bad/);
+        await expect(main(page).getByRole("heading", { name: "Da dove parti" })).toBeVisible();
         // il passo «Che menù è» non c'è più: il multi menù non si crea da qui
         await expect(button(page, /^Multi menù/)).toHaveCount(0);
         await expect(main(page).getByRole("heading", { level: 2 })).toHaveText("Nuovo menù");
@@ -406,13 +433,14 @@ test.describe("Tunnel di creazione — menù", () => {
         // il Dove viene prima del Quando: se va in onda, e in quali sedi
         await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
         // prima la domanda (D189): finché non si sceglie, niente sedi né ore e non si va avanti
-        await expect(button(page, "Avanti")).toBeDisabled();
+        await stuck(page, "Scegli una delle due per andare avanti");
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
         await expect(sediBox(page)).toHaveCount(0);
         await onAir(page);
         // le sedi si scelgono apposta: si parte da nessuna
         await expect(main(page).getByText("Nessuna sede scelta")).toBeVisible();
-        await expect(main(page).getByText("Scegli almeno una sede")).toBeVisible();
-        await expect(button(page, "Avanti")).toBeDisabled();
+        await stuck(page, "Scegli almeno una sede");
+        await expect(main(page).locator("[data-sbox]")).toHaveClass(/bad/);
         await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
         await expect(main(page).getByText(/^1 di \d+ scelte$/)).toBeVisible();
         await expect(main(page).getByText("Le ore si scelgono nel passo dopo, «Quando».")).toBeVisible();
@@ -433,8 +461,8 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByText("Come li mostri ai clienti?")).toBeVisible();
         await expect(main(page).getByText("A Porto e2e, dal lunedì al venerdì dalle 12 alle 15, c'è già «Carta e2e».")).toBeVisible();
         // finché non si sceglie non si va avanti
-        await expect(main(page).getByText("Scegli: insieme o al posto degli altri")).toBeVisible();
-        await expect(button(page, "Avanti")).toBeDisabled();
+        await stuck(page, "Scegli: insieme o al posto degli altri");
+        await expect(main(page).getByRole("group", { name: "Insieme o al posto" })).toHaveClass(/bad/);
         // «Cambia» riporta alle ore, e la scelta si fa dopo
         await button(page, "Cambia").click();
         await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
@@ -570,8 +598,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(button(page, /^1 già fra i tuoi prodotti/)).toBeVisible();
         await expect(button(page, /^1 da controllare/)).toBeVisible();
         // con l'import aperto non si va avanti
-        await expect(button(page, "Avanti")).toBeDisabled();
-        await expect(main(page).getByText("Hai un import aperto: aggiungi i piatti o butta via l'import")).toBeVisible();
+        await stuck(page, "Hai un import aperto: aggiungi i piatti o butta via l'import");
         await button(page, "Aggiungi 2 piatti al menù").click();
         await expect(main(page).getByText("2 piatti aggiunti da «menu.png».")).toBeVisible();
         await expect(button(page, "Togli Bufalina")).toBeVisible();
@@ -782,7 +809,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await button(page, /^Dei piatti/).click();
         await main(page).getByLabel("Titolo", { exact: true }).fill("Pizza del giorno");
         // coi piatti aperti e nessuno scelto non si va avanti
-        await expect(button(page, "Avanti")).toBeDisabled();
+        await stuck(page, "Aggiungi almeno un piatto");
         await piatti.getByRole("checkbox", { name: /Margherita e2e/ }).click();
         await next(page);
         await onAir(page);
@@ -972,8 +999,7 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
         await expect(main(page).getByText("Due scelte: se i clienti lo vedono e in quali sedi. Si cambia quando vuoi.")).toBeVisible();
         await expect(main(page).getByText("Vuoi che i clienti lo vedano appena salvi?")).toBeVisible();
-        await expect(main(page).getByText("Scegli una delle due per andare avanti")).toBeVisible();
-        await expect(button(page, "Avanti")).toBeDisabled();
+        await stuck(page, "Scegli una delle due per andare avanti");
         // niente sedi finché non si sceglie
         await expect(sediBox(page)).toHaveCount(0);
         await button(page, /^No, per ora lo tengo pronto/).click();
@@ -1022,7 +1048,7 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         // in quelle ore c'è già lo stile di base: la seconda parte, «Con gli altri stili»
         await button(page, "Avanti: con gli altri stili").click();
         await expect(main(page).getByText("Che stile prende la pagina in quelle ore?")).toBeVisible();
-        await expect(main(page).getByText("Scegli: prende il posto dell'altro o lo lascia")).toBeVisible();
+        await stuck(page, "Scegli: prende il posto dell'altro o lo lascia");
         // «Lascia gli altri» il database di oggi non lo sa tenere: si vede, il salvataggio aspetta
         await insieme(page, "Lascia gli altri");
         await next(page);

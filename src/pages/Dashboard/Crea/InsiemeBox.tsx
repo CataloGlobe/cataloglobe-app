@@ -33,7 +33,7 @@ export function InsiemeBox({ t, u, scontri, multi }: { t: Tunnel; u: (fn: (x: Tu
             </p>
             <div className={s.qq}>
                 <b>{stile ? "Che stile prende la pagina in quelle ore?" : "Come li mostri ai clienti?"}</b>
-                <div className={s.hpick} role="group" aria-label={stile ? "Prende il posto o lascia l'altro" : "Insieme o al posto"}>
+                <div className={s.hpick} data-bad="insieme" role="group" aria-label={stile ? "Prende il posto o lascia l'altro" : "Insieme o al posto"}>
                     {stile ? (
                         <>
                             {pk(false, "Prende il posto degli altri", `In quelle ore tutta la pagina prende ${name}.`)}

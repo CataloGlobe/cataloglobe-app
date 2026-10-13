@@ -359,7 +359,7 @@ export function DoveQuandoPasso({ draft: d, upd, sedi, groups, L, bad, durs, axi
     const who = ids.length > 3 ? `Le ${ids.length} sedi` : listIt(ids.map(name));
     return (
         <>
-            <div className={s.ifl}>
+            <div className={s.ifl} data-bad="sedi">
                 <h4 id={hid}>Dove</h4>
                 <SediBottone className={s.dqsedi} sedi={sedi} gruppi={gruppi} value={ids} onChange={pick} future>
                     {label}

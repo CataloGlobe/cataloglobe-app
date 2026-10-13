@@ -20,6 +20,7 @@ import type { V2Style } from "@/services/supabase/styles";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { DB_WAIT, NEW_MODEL, NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { rebase, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, skipped, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { badSel, useBad, type Bad } from "./creaBad";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
 import { allEntriesOf, copySections, entriesOf, loadTunnel, type Loaded } from "./creaLoad";
@@ -160,7 +161,16 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     // il «Quando» in due parti (più sedi): dalla prima «Avanti» porta alla seconda, non a «Controlla»
     const oreOnly = step === "quando" && L.multi && clash && t.qPart !== 2;
     const nothing = !!t.edit && !isDirty(t);
-    const stepWhy = showAfter ? "" : last ? fb?.why ?? (nothing ? "Non hai cambiato niente" : "") : t.edit && step !== "modifica" && !touched(t, step) ? "" : blocker(t, step, oreOnly ? { ...c, clash: false } : c);
+    // ciò che manca: «Avanti» resta acceso e ci porta (creaBad)
+    const missing = showAfter ? "" : last ? fb?.why ?? "" : t.edit && step !== "modifica" && !touched(t, step) ? "" : blocker(t, step, oreOnly ? { ...c, clash: false } : c);
+    const [bad, setBad] = useState<Bad | null>(null);
+    const formRef = useRef<HTMLDivElement>(null);
+    // il segno resta finché manca la stessa cosa
+    const badNow = bad && !showAfter && bad.why === blocker(t, step, c) ? bad : null;
+    useEffect(() => {
+        if (bad && !badNow) setBad(null);
+    }, [bad, badNow]);
+    useBad(formRef, badNow, badNow ? badSel(step, badNow.why, t) : "");
 
     /* ---------- lo stile del telefono ---------- */
     const styleById = useMemo(() => new Map(data.styles.map(x => [x.id, x])), [data.styles]);
@@ -235,7 +245,8 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const calTouched = t.onda === "on" && (!t.edit || changed(t, "dove") || changed(t, "quando"));
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
     const calWhy = owner && draft && calTouched ? waitsForDb(draft) || (clash && kind === "stile" && t.insieme ? "Lascia gli altri stili: " + DB_WAIT : scontriWait(draft, effect.scontri)) : "";
-    const why = stepWhy || (last && !showAfter ? calWhy : "");
+    // i blocchi che «Avanti» non sa sistemare: lì il bottone resta spento, col motivo accanto
+    const why = showAfter || !last ? "" : nothing ? "Non hai cambiato niente" : calWhy;
     const updDraft = (fn: (d: Draft) => void) =>
         u(x => {
             const D = draftFor(x, calKind ?? "featured", FAKE, pair);
@@ -300,15 +311,25 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
 
     /* ---------- le azioni ---------- */
     const toTop = () => document.querySelector("main [class*='content']")?.scrollTo({ top: 0 });
-    const go = (n: number) =>
+    const jump = (n: number) =>
         u(x => {
             x.i = Math.max(0, Math.min(n, st.length - 1));
             // manca la scelta «insieme o al posto»: si torna alla seconda parte del «Quando»
             if (st[x.i] === "quando" && fb?.why.startsWith("Scegli: ")) x.qPart = 2;
         });
+    const go = (n: number) => {
+        setBad(null);
+        jump(n);
+    };
     const next = () => {
         if (why) return;
+        if (last && fb) {
+            setBad({ why: fb.why, n: Date.now() });
+            return jump(fb.i);
+        }
         if (last) return void finish();
+        if (missing) return setBad({ why: missing, n: Date.now() });
+        setBad(null);
         if (oreOnly) return u(x => void (x.qPart = 2));
         u(x => {
             x.i = stepFrom(x, c, i, 1);
@@ -316,7 +337,10 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         });
         toTop();
     };
-    const back = () => u(x => void (x.i = stepFrom(x, c, i, -1)));
+    const back = () => {
+        setBad(null);
+        u(x => void (x.i = stepFrom(x, c, i, -1)));
+    };
 
     // lo stile non ha una pagina sua: il suo editor è questo tunnel, e si torna all'elenco
     const landing = (k: CreaKind, id: string) => (k === "stile" ? `${b}/${PAGE_OF[k]}` : `${b}/${PAGE_OF[k]}/${id}`);
@@ -627,7 +651,9 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 </div>
             )}
             <div className={cx(s.igrid, week && s.wide, full && s.full)}>
-                <div className={s.iform}>{body}</div>
+                <div className={s.iform} ref={formRef}>
+                    {body}
+                </div>
                 {!full && right}
             </div>
             {/* in «Controlla» le righe di cosa cambia: la settimana c'è, non si vede */}

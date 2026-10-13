@@ -57,7 +57,7 @@ export function Modifica({ t, u, c, L, styleName }: { t: Tunnel; u: U; c: Ctx; L
     return (
         <>
             <Sh title="Cosa vuoi modificare?">Scegli una cosa o più: «Avanti» ti porta solo lì. Il resto resta com'è.</Sh>
-            <div className={s.whats}>
+            <div className={s.whats} data-bad="whats">
                 {parts.map(x => {
                     const on = e.picked.includes(x);
                     return (
@@ -106,7 +106,7 @@ export function MenuParti({ t, u, menus, tenantId, onCopy }: { t: Tunnel; u: U; 
         <>
             <Sh title={t.edit ? "Il nome" : "Da dove parti"}>Il nome lo legge anche il cliente, in cima al menù.</Sh>
             <Field label="Nome del menù" id={id}>
-                <input className={s.in} id={id} value={t.name} placeholder="Menù pranzo" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
+                <input className={s.in} id={id} data-bad="name" value={t.name} placeholder="Menù pranzo" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
             <div className={s.opts} hidden={!!t.edit}>
                 <Opt on={t.source === "zero"} icon={<Plus size={16} />} title="Da zero" text="Prendi i piatti che hai o scrivine di nuovi." onClick={() => u(x => void ((x.source = "zero"), (x.copyFrom = null)))} />
@@ -116,7 +116,7 @@ export function MenuParti({ t, u, menus, tenantId, onCopy }: { t: Tunnel; u: U; 
             {copying && (
                 <div className={s.blk}>
                     <h4>Quale menù copi?</h4>
-                    <div className={s.list} role="radiogroup" aria-label="Menù da copiare">
+                    <div className={s.list} role="radiogroup" aria-label="Menù da copiare" data-bad="copy">
                         {menus.map(m => {
                             const on = t.copyFrom === m.id;
                             return (
@@ -159,14 +159,14 @@ export function StileNome({ t, u, styles, onBase }: { t: Tunnel; u: U; styles: r
         <>
             <Sh title="Il nome">Lo vedi solo tu, nell'elenco degli stili e nel Calendario.</Sh>
             <Field label="Nome dello stile" id={id}>
-                <input className={s.in} id={id} value={t.name} placeholder="Natale" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
+                <input className={s.in} id={id} data-bad="name" value={t.name} placeholder="Natale" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
             <div className={s.opts} hidden={!!t.edit}>
                 <Opt on={t.base === "zero"} icon={<Plus size={16} />} title="Da zero" text="Parti dai colori di CataloGlobe." onClick={() => onBase(null)} />
                 <Opt on={t.base === "copy"} icon={<Copy size={16} />} title="Parti da uno stile che hai" text="Ne fai una copia e la cambi." onClick={() => onBase(t.baseStyleId ?? styles[0]?.id ?? null)} disabled={!styles.length} />
             </div>
             {t.base === "copy" && !t.edit && (
-                <div className={s.chips}>
+                <div className={s.chips} data-bad="copy">
                     {styles.map(st => (
                         <Chip key={st.id} on={t.baseStyleId === st.id} onClick={() => onBase(st.id)}>
                             {st.name}
@@ -206,7 +206,7 @@ export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly 
             </div>
             <p className={s.hint}>{promo ? "Accanto a ogni piatto puoi scrivere una nota: «-20% a pranzo», «solo il giovedì»." : "Il cliente vede i piatti e un prezzo solo."} Si prendono dai prodotti che hai.</p>
             {t.from && only && <Inherited>I piatti del menù {q(t.from.name)}, a portata di mano.</Inherited>}
-            <div className={s.list} style={{ maxHeight: 330, overflow: "auto" }}>
+            <div className={s.list} style={{ maxHeight: 330, overflow: "auto" }} data-bad="dishes">
                 {cats.map(([c, ps]) => (
                     <div key={c}>
                         <div className={s.lcat}>{c}</div>
@@ -259,7 +259,7 @@ export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly 
                     <div className={cx(s.f, s.blk)}>
                         <label htmlFor={bid}>Prezzo unico</label>
                         <span className={s.rng}>
-                            <input className={cx(s.in, s.num)} id={bid} value={t.bundle} placeholder="45" inputMode="decimal" onChange={e => u(x => void (x.bundle = e.target.value))} /> €
+                            <input className={cx(s.in, s.num)} id={bid} data-bad="price" value={t.bundle} placeholder="45" inputMode="decimal" onChange={e => u(x => void (x.bundle = e.target.value))} /> €
                         </span>
                     </div>
                     <div className={s.blk}>
@@ -283,7 +283,7 @@ export function StoriaRacconto({ t, u, pick, coverUrl }: { t: Tunnel; u: U; pick
                 <input className={s.in} id={ids.k} value={t.kicker} placeholder="La nostra cucina" autoComplete="off" onChange={e => u(x => void (x.kicker = e.target.value))} />
             </Field>
             <Field label="Titolo" id={ids.t}>
-                <input className={s.in} id={ids.t} value={t.title} placeholder="Il riso, prima di tutto" autoComplete="off" onChange={e => u(x => void (x.title = e.target.value))} />
+                <input className={s.in} id={ids.t} data-bad="title" value={t.title} placeholder="Il riso, prima di tutto" autoComplete="off" onChange={e => u(x => void (x.title = e.target.value))} />
             </Field>
             <div className={s.blk}>
                 <span className={s.lab}>Copertina</span>
@@ -388,7 +388,7 @@ export function OndaAsk({ t, u, small }: { t: Tunnel; u: U; small?: boolean }) {
     // uno stile in onda non si «tiene pronto»: si spegne, e torna lo stile di prima (D192)
     const spegni = t.kind === "stile" && t.edit?.orig.onda === "on";
     return (
-        <div className={cx(s.ask, small && s.ondaS)}>
+        <div className={cx(s.ask, small && s.ondaS)} data-bad="ask">
             <p>{`Vuoi che i clienti ${o.lo} vedano${t.edit ? "" : " appena salvi"}?`}</p>
             <div className={cx(s.ondaPick, chosen ? s.made : s.fresh)}>
                 <Pick
@@ -466,7 +466,7 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri
                 (bare ? (
                     <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} />
                 ) : (
-                    <div className={cx(cal.root, s.calwrap)}>
+                    <div className={cx(cal.root, s.calwrap)} data-bad="ore">
                         <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} />
                     </div>
                 ))}
@@ -626,7 +626,7 @@ export function QuandoOre({
                 )}
             </div>
             {sel !== "sempre" && (
-                <div className={cx(cal.root, s.calwrap)}>
+                <div className={cx(cal.root, s.calwrap)} data-bad="ore">
                     {sel === "momenti" ? <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} /> : <OreSedi draft={draft} upd={updDraft} sedi={sedi} durs={durs} axis={axis} />}
                 </div>
             )}
@@ -667,7 +667,7 @@ export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; se
                     {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
                     {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
                     {t.edit?.ruleId && !storia && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
-                    <div className={cx(cal.root, s.calwrap)}>
+                    <div className={cx(cal.root, s.calwrap)} data-bad="ore">
                         <DoveQuandoPasso
                             draft={draft}
                             upd={p.updDraft}
