@@ -2,6 +2,7 @@ import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleToken
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { EV, bundlePrice, bundleTotal, euro, type StepId, type Tunnel } from "./creaModel";
 import { phoneVars } from "./creaStyle";
+import { allSecs } from "./menuTree";
 import s from "./Crea.module.scss";
 import { DishRow, MenuSample, type SampleSection } from "./MenuSample";
 
@@ -32,7 +33,8 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
     );
     let body;
     if (t.kind === "menu") {
-        const secs = t.sections;
+        // sul telefono le sottocategorie stanno sotto la loro categoria, una dopo l'altra
+        const secs = allSecs(t.sections).map(x => x.sec);
         body = (
             <>
                 {head}
@@ -55,7 +57,7 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
                                 </div>
                             ))
                         ) : (
-                            <div className={s.pEmpty}>Nessuna sezione</div>
+                            <div className={s.pEmpty}>Nessuna categoria</div>
                         )}
                     </div>
                 )}

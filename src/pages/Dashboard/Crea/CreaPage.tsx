@@ -10,8 +10,8 @@ import { CreaTunnel } from "./CreaTunnel";
 const READ: Record<CreaKind, string> = { menu: "catalogs.read", stile: "styles.read", evid: "featured.read", storia: "stories.read" };
 
 export default function CreaPage() {
-    const { kind: slug } = useParams<{ kind: string }>();
+    const { kind: slug, id } = useParams<{ kind: string; id?: string }>();
     const kind = kindOfSlug(slug);
     if (!kind) return <Navigate to="../overview" replace />;
-    return <PageGate readPermission={READ[kind]}>{() => <CreaTunnel key={kind} kind={kind} />}</PageGate>;
+    return <PageGate readPermission={READ[kind]}>{() => <CreaTunnel key={kind + (id ?? "")} kind={kind} editId={id} />}</PageGate>;
 }

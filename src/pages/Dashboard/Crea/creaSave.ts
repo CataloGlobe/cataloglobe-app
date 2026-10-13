@@ -1,10 +1,7 @@
 // Salvare quello che esce dal tunnel, con le funzioni che usano già le pagine
 // (Menù, Stili, In evidenza, Storie) e, per la messa in onda, quelle del
 // Calendario (`saveDraft`): la regola nasce come se la si aggiungesse da lì.
-import { addProductToCategory, createCatalog, createCategory } from "@/services/supabase/catalogs";
-import { createProduct } from "@/services/supabase/products";
-import { enqueueImportSideEffects, importProductsIntoCatalog } from "@/services/supabase/aiImport";
-import { buildImportManifest, type ProductImportDecision } from "@/pages/Dashboard/Catalogs/AiMenuImport/buildImportManifest";
+import { createCatalog } from "@/services/supabase/catalogs";
 import { createStyle } from "@/services/supabase/styles";
 import {
     createFeaturedContent,
@@ -27,6 +24,7 @@ import { whenOfRule, whereOfRule, type CalKind, type CalWhere } from "@/pages/Da
 import { deriveTypeFields } from "@/pages/Dashboard/Highlights/featuredContentTypes";
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { EV, clonePer, cloneWhen, effWhen, thingName, type Tunnel } from "./creaModel";
+import { writeSections } from "./menuSave";
 import { styleConfig } from "./creaStyle";
 
 export const CAL_KIND: Record<"menu" | "stile" | "evid", CalKind> = { menu: "menu", stile: "style", evid: "featured" };
@@ -93,69 +91,15 @@ async function findRule(tenantId: string, match: (r: LayoutRule) => boolean): Pr
 /* ---------- il menù ---------- */
 type Written = { catalogId: string; productIds: string[] };
 
-/** Il menù scritto a mano: menù, sezioni e piatti uno alla volta; ogni passo riuscito non si rifà al «Riprova». */
+/** Il menù: categorie, sottocategorie e piatti uno alla volta; ogni passo riuscito non si rifà al «Riprova». */
 async function writeMenu(t: Tunnel, c: SaveCtx, name: string): Promise<Written> {
     const catalogId = await once(c, "catalog:" + name, async () => (await createCatalog(c.tenantId, name)).id);
-    const productIds: string[] = [];
-    for (const [i, sec] of t.sections.entries()) {
-        const secName = sec.name.trim() || "Piatti";
-        const catId = await once(c, `cat:${catalogId}:${i}:${secName}`, async () => (await createCategory(c.tenantId, catalogId, secName, 1, null, i)).id);
-        for (const [j, d] of sec.dishes.entries()) {
-            const productId =
-                d.productId ??
-                (await once(c, `prod:${catId}:${j}:${d.name.trim()}:${d.price}`, async () => (await createProduct(c.tenantId, { name: d.name.trim(), base_price: d.price })).id));
-            await once(c, `link:${catId}:${j}:${productId}`, () => addProductToCategory(c.tenantId, catalogId, catId, productId, j));
-            productIds.push(productId);
-        }
-    }
-    return { catalogId, productIds };
-}
-
-/**
- * Il menù letto dalla foto (D172): con la scrittura dell'import di oggi, tutta
- * insieme (`import_products_into_catalog`), così i prodotti nuovi hanno
- * descrizione e formati dell'AI e un errore non lascia mezzo menù.
- */
-async function writeImportedMenu(t: Tunnel, tenantId: string, name: string): Promise<Written> {
-    const aiCategories: string[] = [];
-    const decisions: ProductImportDecision[] = [];
-    const sort = new Map<string, number>();
-    for (const sec of t.sections) {
-        const categoryKey = sec.name.trim() || "Piatti";
-        if (!aiCategories.includes(categoryKey)) aiCategories.push(categoryKey);
-        for (const d of sec.dishes) {
-            const sortOrder = sort.get(categoryKey) ?? 0;
-            sort.set(categoryKey, sortOrder + 1);
-            decisions.push(
-                d.productId
-                    ? { kind: "reuse", categoryKey, sortOrder, productId: d.productId }
-                    : {
-                          kind: "create",
-                          categoryKey,
-                          sortOrder,
-                          product: { name: d.name.trim(), description: d.description ?? null, base_price: d.formats ? null : d.price, formats: d.formats }
-                      }
-            );
-        }
-    }
-    const manifest = await buildImportManifest({ aiCategories, existingCategories: [], decisions });
-    const summary = await importProductsIntoCatalog(tenantId, {
-        catalogId: null,
-        newCatalogName: name,
-        categories: manifest.categories,
-        products: manifest.products
-    });
-    // traduzioni e cache pubblica: un errore qui non tocca il menù, già scritto
-    await enqueueImportSideEffects(tenantId, manifest, summary);
-    // gli id dei prodotti nuovi arrivano nell'ordine dei «create»
-    let n = 0;
-    const productIds = manifest.products.map(p => (p.action === "reuse" ? p.product_id : summary.product_ids[n++])).filter((v): v is string => !!v);
-    return { catalogId: summary.catalog_id, productIds };
+    return { catalogId, productIds: await writeSections(t.sections, catalogId, c.tenantId, (key, run) => once(c, key, run)) };
 }
 
 async function saveMenu(t: Tunnel, c: SaveCtx): Promise<Saved> {
     const name = thingName(t);
-    const { catalogId, productIds } = t.imported ? await once(c, "imported:" + name, () => writeImportedMenu(t, c.tenantId, name)) : await writeMenu(t, c, name);
+    const { catalogId, productIds } = await writeMenu(t, c, name);
     if (!c.live || !c.pair) return { id: catalogId, name, live: false, ruleId: null, productIds };
     await saveDraft(draftFor(t, "menu", catalogId, c.pair), withThing(c.L, "menu", catalogId, name), c.tenantId, parts(c, "rule:" + catalogId));
     const ruleId = await findRule(c.tenantId, r => r.layout?.catalog_id === catalogId);

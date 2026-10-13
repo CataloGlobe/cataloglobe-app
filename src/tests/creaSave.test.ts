@@ -3,10 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/services/supabase/catalogs", () => ({
     createCatalog: vi.fn(async () => ({ id: "cat1" })),
     createCategory: vi.fn(async () => ({ id: "sec1" })),
-    addProductToCategory: vi.fn(async () => undefined)
+    addProductToCategory: vi.fn(async () => undefined),
+    deleteCategory: vi.fn(),
+    removeProductFromCategory: vi.fn(),
+    updateCategory: vi.fn(),
+    updateProductSortOrder: vi.fn()
 }));
 vi.mock("@/services/supabase/products", () => ({ createProduct: vi.fn() }));
-vi.mock("@/services/supabase/aiImport", () => ({ importProductsIntoCatalog: vi.fn(), enqueueImportSideEffects: vi.fn() }));
+vi.mock("@/services/supabase/productOptions", () => ({ createPrimaryPriceFormat: vi.fn() }));
 vi.mock("@/services/supabase/styles", () => ({ createStyle: vi.fn(async () => ({ id: "st1" })) }));
 vi.mock("@/services/supabase/featuredContents", () => ({
     createFeaturedContent: vi.fn(async () => ({ id: "ev1" })),
@@ -35,7 +39,6 @@ vi.mock("@/utils/compressImage", () => ({ compressImage: vi.fn(), COMPRESS_PROFI
 
 import { addProductToCategory, createCatalog, createCategory } from "@/services/supabase/catalogs";
 import { createProduct } from "@/services/supabase/products";
-import { importProductsIntoCatalog } from "@/services/supabase/aiImport";
 import { listLayoutRules } from "@/services/supabase/layoutScheduling";
 import { createFeaturedContent, updateFeaturedContent } from "@/services/supabase/featuredContents";
 import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase/featuredScheduling";
@@ -64,7 +67,7 @@ describe("salvare il tunnel: riprovare dopo un errore (#360.2)", () => {
             .mockResolvedValueOnce({ id: "p2" } as never);
         const t = newTunnel("menu", ALL);
         t.name = "Pranzo";
-        t.sections = [{ key: "s", name: "Primi", dishes: [{ key: "a", productId: null, name: "Carbonara", price: 12 }, { key: "b", productId: null, name: "Gricia", price: 11 }] }];
+        t.sections = [{ key: "s", name: "Primi", dishes: [{ key: "a", productId: null, name: "Carbonara", price: 12 }, { key: "b", productId: null, name: "Gricia", price: 11 }], subs: [] }];
         const c = ctx();
         await expect(saveTunnel(t, c)).rejects.toThrow("rete");
         const saved = await saveTunnel(t, c);
@@ -80,25 +83,29 @@ describe("salvare il tunnel: riprovare dopo un errore (#360.2)", () => {
         vi.mocked(createCategory).mockRejectedValueOnce(new Error("rete")).mockResolvedValue({ id: "sec1" } as never);
         vi.mocked(createProduct).mockResolvedValue({ id: "p1" } as never);
         const t = newTunnel("menu", ALL);
-        t.sections = [{ key: "s", name: "Primi", dishes: [{ key: "a", productId: null, name: "Carbonara", price: 12 }] }];
+        t.sections = [{ key: "s", name: "Primi", dishes: [{ key: "a", productId: null, name: "Carbonara", price: 12 }], subs: [] }];
         const c = ctx({ done: undefined });
         await expect(saveTunnel(t, c)).rejects.toThrow();
         await saveTunnel(t, c);
         expect(createCatalog).toHaveBeenCalledTimes(2);
     });
 
-    it("menù da foto: la regola fallisce; riprovando l'import non riparte (un menù solo)", async () => {
-        vi.mocked(importProductsIntoCatalog).mockResolvedValue({ catalog_id: "cat1", product_ids: ["p1"] } as never);
+    it("menù letto da una foto (D180): la regola fallisce; riprovando menù, categorie e piatti non si riscrivono", async () => {
+        vi.mocked(createCatalog).mockResolvedValue({ id: "cat1" } as never);
+        vi.mocked(createCategory).mockResolvedValueOnce({ id: "sec1" } as never).mockResolvedValueOnce({ id: "sec2" } as never);
+        vi.mocked(createProduct).mockResolvedValue({ id: "p1" } as never);
         vi.mocked(listLayoutRules).mockRejectedValueOnce(new Error("rete")).mockResolvedValue([] as never);
         const t = newTunnel("menu", ALL);
         t.name = "Carta";
-        t.imported = { sections: 1, dishes: 1 };
-        t.sections = [{ name: "Pizze", dishes: [{ name: "Bufalina", price: 10 }] }] as never;
+        t.sections = [{ key: "s", name: "Pizze", dishes: [], subs: [{ key: "r", name: "Rosse", dishes: [{ key: "a", productId: null, name: "Bufalina", price: 10, imp: true }], subs: [] }] }];
         const c = ctx({ live: true, pair: "stile1" });
         await expect(saveTunnel(t, c)).rejects.toThrow();
         const saved = await saveTunnel(t, c);
         expect(saved.id).toBe("cat1");
-        expect(importProductsIntoCatalog).toHaveBeenCalledTimes(1);
+        expect(createCatalog).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(createCategory).mock.calls.map(x => [x[2], x[3], x[4]])).toEqual([["Pizze", 1, null], ["Rosse", 2, "sec1"]]);
+        expect(createProduct).toHaveBeenCalledTimes(1);
+        expect(addProductToCategory).toHaveBeenCalledTimes(1);
     });
 
     it("storia: se l'ultima scrittura fallisce, riprovando la storia è la stessa", async () => {

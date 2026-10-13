@@ -368,6 +368,7 @@ export default function App() {
                 </Route>
 
                 <Route path="crea/:kind" element={<CreaPage />} />
+                <Route path="crea/:kind/:id" element={<CreaPage />} />
 
                 <Route path="languages" element={<SettingsLanguages />} />
 
