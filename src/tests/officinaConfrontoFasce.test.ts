@@ -49,7 +49,7 @@ function rome(day: number, hh: number, mm = 0) {
 }
 
 describe("simulaM1", () => {
-    it("riempie le fasce come scritto nel pacchetto", () => {
+    it("riempie le fasce come la migrazione, col giudice di oggi", () => {
         const sim = simulaM1(
             snapshot([
                 rule({ id: "sempre" }),
@@ -57,7 +57,9 @@ describe("simulaM1", () => {
                 rule({ id: "pranzo", time_mode: "window", time_from: "12:15:00", time_to: "15:15:00" }),
                 rule({ id: "sera", time_mode: "window", time_from: "19:00:00", time_to: "23:59:00" }),
                 rule({ id: "notte", time_mode: "window", days_of_week: [5], time_from: "19:00:00", time_to: "02:00:00" }),
-                rule({ id: "sempre-giorni", days_of_week: [6, 0] })
+                rule({ id: "sempre-giorni", days_of_week: [6, 0] }),
+                rule({ id: "senza-ore", time_mode: "window" }),
+                rule({ id: "uguali", time_mode: "window", time_from: "12:00:00", time_to: "12:00:00" })
             ])
         );
         const bySchedule = Object.fromEntries(sim.slots.map(s => [s.schedule_id, s]));
@@ -65,8 +67,10 @@ describe("simulaM1", () => {
         expect(bySchedule.giorni).toMatchObject({ days_of_week: [1, 2], start_minute: 0, end_minute: 1440 });
         expect(bySchedule.pranzo).toMatchObject({ days_of_week: null, start_minute: 735, end_minute: 915 });
         expect(bySchedule.sera).toMatchObject({ start_minute: 1140, end_minute: 1440 });
-        expect(bySchedule.notte).toMatchObject({ days_of_week: [5], start_minute: 1140, end_minute: 1560 });
-        expect(bySchedule["sempre-giorni"]).toMatchObject({ days_of_week: [6, 0], start_minute: 0, end_minute: 1440 });
+        expect(bySchedule.notte).toMatchObject({ days_of_week: [], start_minute: 0, end_minute: 1440 });
+        expect(bySchedule["sempre-giorni"]).toBeUndefined();
+        expect(bySchedule["senza-ore"]).toBeUndefined();
+        expect(bySchedule.uguali).toMatchObject({ days_of_week: [], start_minute: 0, end_minute: 1440 });
     });
 
     it("non riempie due volte una regola che ha già le fasce", () => {
@@ -114,7 +118,7 @@ describe("giudice con le fasce", () => {
         expect(confronta(prima, dopo)).toEqual([]);
     });
 
-    it("la fascia oltre la mezzanotte è l'unica differenza attesa", () => {
+    it("una fine prima dell'inizio resta mai attiva, come oggi", () => {
         const snap = snapshot([
             rule({ id: "sempre" }),
             rule({ id: "notte", time_mode: "window", days_of_week: [5], time_from: "22:00:00", time_to: "02:00:00" })
@@ -123,8 +127,7 @@ describe("giudice con le fasce", () => {
             calcolaEsito(snap, MONDAY),
             calcolaEsito(simulaM1(snap), MONDAY, { giudice: giudiceConFasce })
         ).filter(d => d.sede === "Sede 1");
-        expect(diffs.map(d => [d.quando, d.regola_prima, d.regola_dopo])).toEqual([["ven 22:00", "sempre", "notte"]]);
-        expect(diffs[0].a).toBe("2026-10-17T00:00:00.000Z"); // sabato 02:00 a Roma
+        expect(diffs).toEqual([]);
     });
 
     it("una fascia con le sue sedi vale solo lì (M2)", () => {
