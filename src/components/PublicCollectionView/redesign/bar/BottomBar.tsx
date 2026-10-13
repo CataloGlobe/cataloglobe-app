@@ -217,22 +217,27 @@ export default function BottomBar({
                 )}
             </div>
             {/* Desktop (≥641 px, via CSS): l'ordine è un pulsante fisso in basso a destra
-                che apre la finestra al centro (mockup v38 `.d-ofab`, D39). Solo con piatti
-                scelti (deciso da Lorenzo il 2026-10-13). Coi fogli aperti è sotto la pagina
-                `inert`; l'invito al voto è solo da telefono, ma se la finestra si
-                allarga con l'invito a vista il pulsante resta via, come la barra. */}
-            {orderVisible && selectionCount > 0 && !inviteShown && (
+                che apre la finestra al centro (mockup v38 `.d-ofab`, D39). C'è sempre in modo
+                ordine, il numero solo coi piatti scelti: senza, porta agli ordini inviati, al
+                cameriere e al conto (D74, deciso da Lorenzo il 2026-10-13). Coi fogli aperti
+                è sotto la pagina `inert`; l'invito al voto è solo da telefono, ma se la
+                finestra si allarga con l'invito a vista il pulsante resta via, come la barra. */}
+            {orderVisible && !inviteShown && (
                 <button
                     type="button"
                     className={styles.ordineDesktop}
-                    aria-label={t("fab.cart_aria_count", { count: selectionCount })}
+                    aria-label={
+                        selectionCount > 0 ? t("fab.cart_aria_count", { count: selectionCount }) : t("fab.cart_aria")
+                    }
                     onClick={onOpenOrder}
                 >
                     <ReceiptText size={19} strokeWidth={1.9} aria-hidden />
                     <span>{t("fab.cart_aria")}</span>
-                    <span className={styles.conto} aria-hidden="true">
-                        {selectionCount}
-                    </span>
+                    {selectionCount > 0 && (
+                        <span className={styles.conto} aria-hidden="true">
+                            {selectionCount}
+                        </span>
+                    )}
                 </button>
             )}
         </>
