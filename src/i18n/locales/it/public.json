@@ -25,14 +25,23 @@
         "menu": "Menu",
         "events": "In evidenza",
         "reviews": "Dicci la tua",
-        "storia": "Storia"
+        "storia": "Storia",
+        "menu_retap_aria": "Menu. Tocca di nuovo per tutte le categorie"
     },
     "header": {
         "info_aria": "Informazioni sede",
         "search_aria": "Cerca nel catalogo",
         "info_sheet_aria": "Informazioni sede",
         "more_aria": "Altre opzioni",
-        "logo_alt": "Logo {{name}}"
+        "logo_alt": "Logo {{name}}",
+        "search_field": "Cerca un piatto o un ingrediente",
+        "filters_count_one": "Filtri · {{count}}",
+        "filters_count_other": "Filtri · {{count}}",
+        "all_categories": "Tutte le categorie",
+        "categories_prev": "Categorie precedenti",
+        "categories_next": "Categorie successive",
+        "search_filters_aria_one": "Cerca nel catalogo, 1 filtro attivo",
+        "search_filters_aria_other": "Cerca nel catalogo, {{count}} filtri attivi"
     },
     "venue": {
         "open": "Aperto",
@@ -40,7 +49,11 @@
         "closed": "Chiuso",
         "closed_opens_today": "Chiuso · apre alle {{time}}",
         "closed_opens_tomorrow": "Chiuso · apre domani alle {{time}}",
-        "closed_opens_day": "Chiuso · apre {{day}} alle {{time}}"
+        "closed_opens_day": "Chiuso · apre {{day}} alle {{time}}",
+        "closed_opens_today_short": "Chiuso · oggi {{time}}",
+        "closed_opens_tomorrow_short": "Chiuso · domani {{time}}",
+        "closed_opens_day_short": "Chiuso · {{day}} {{time}}",
+        "open_until": "Aperto · chiude alle {{time}}"
     },
     "nav": {
         "bottom_aria": "Navigazione",
@@ -61,7 +74,12 @@
         "share_label": "Condividi",
         "share_subtitle": "Invia il link di questa pagina",
         "share_copied": "Link copiato",
-        "share_error": "Impossibile copiare il link"
+        "share_error": "Impossibile copiare il link",
+        "story_label": "La nostra storia",
+        "story_subtitle": "Chi siamo, da dove vengono i piatti",
+        "menu_label": "Torna al menu",
+        "sheet_title": "Altro",
+        "info_hours_label": "Info e orari"
     },
     "search": {
         "placeholder": "Cerca prodotto…",
@@ -82,7 +100,24 @@
         "clear_aria": "Cancella testo",
         "close_aria": "Chiudi ricerca",
         "close_label": "Annulla",
-        "dialog_aria": "Ricerca nel catalogo"
+        "dialog_aria": "Ricerca nel catalogo",
+        "recent_title": "Recenti",
+        "reset": "Azzera",
+        "show_count_one": "Mostra {{count}} piatto",
+        "show_count_other": "Mostra {{count}} piatti",
+        "preferences_title": "Preferenze",
+        "preferences_intro": "Mostra solo i piatti indicati così dal locale.",
+        "preference": {
+            "vegetarian": "Vegetariano",
+            "vegan": "Vegano",
+            "gluten_free": "Senza glutine",
+            "spicy": "Piccante"
+        },
+        "recent_heading": "Ricerche recenti",
+        "filters_hint": "Allergeni e preferenze",
+        "filters_hidden": "Alcuni piatti sono nascosti",
+        "filters_title_active_one": "Filtri · {{count}} attivo",
+        "filters_title_active_other": "Filtri · {{count}} attivi"
     },
     "filters": {
         "hidden_count_one": "{{count}} piatto nascosto dai filtri",
@@ -283,7 +318,15 @@
         "see_all": "Vedi tutti",
         "see_all_label_one": "contenuto in evidenza",
         "see_all_label_other": "contenuti in evidenza",
-        "see_all_aria": "Vedi tutti i contenuti in evidenza ({{count}})"
+        "see_all_aria": "Vedi tutti i contenuti in evidenza ({{count}})",
+        "more_count_one": "Un altro",
+        "more_count_other": "Altri {{count}}",
+        "see_all_count": "Vedi tutti ({{count}})",
+        "list_count_one": "{{count}} contenuto",
+        "list_count_other": "{{count}} contenuti",
+        "prev_aria": "Contenuti precedenti",
+        "next_aria": "Contenuti successivi",
+        "position": "{{index}} di {{count}}"
     },
     "events": {
         "list_aria": "In evidenza",
@@ -310,7 +353,13 @@
         "close_aria": "Chiudi",
         "close_label": "Chiudi",
         "back_to_top": "Torna in cima",
-        "toggle_aria": "Espandi/collassa categoria"
+        "toggle_aria": "Espandi/collassa categoria",
+        "summary_categories_one": "{{count}} categoria",
+        "summary_categories_other": "{{count}} categorie",
+        "summary_dishes_one": "{{count}} piatto",
+        "summary_dishes_other": "{{count}} piatti",
+        "summary_filters_one": "con {{count}} filtro",
+        "summary_filters_other": "con {{count}} filtri"
     },
     "brand": {
         "logo_alt_default": "Logo",
@@ -322,7 +371,14 @@
         "payment_methods": "Metodi di pagamento",
         "services": "Servizi",
         "contacts": "Contatti",
-        "address": "Indirizzo"
+        "address": "Indirizzo",
+        "hours_today": "Oggi {{hours}}",
+        "hours_today_closed": "Oggi chiuso",
+        "open_maps": "Apri nelle mappe",
+        "call": "Chiama il locale",
+        "website": "Il sito del locale",
+        "email": "Scrivi al locale",
+        "sheet_title": "Info e orari"
     },
     "opening_hours": {
         "title": "Orari di apertura",
@@ -351,7 +407,9 @@
             "10": "ott",
             "11": "nov",
             "12": "dic"
-        }
+        },
+        "week_title": "Orari della settimana",
+        "today": "oggi"
     },
     "fees": {
         "labels": {
@@ -379,6 +437,8 @@
         "back_to_list": "Torna alle storie",
         "product_link": "Dal menu → {{name}}",
         "product_link_label": "Dal menu",
+        "pairs_with_label": "Si abbina a",
+        "pairs_with": "Si abbina a {{name}}",
         "video_unavailable": "Video non disponibile",
         "video_aria": "Video della storia",
         "video_play": "Guarda il video",
@@ -578,5 +638,152 @@
             "not_confirmable_title": "Prenotazione non attiva",
             "not_confirmable_text": "Questa prenotazione non risulta più attiva, quindi non c'è nulla da confermare. Se pensi ci sia un errore, contatta direttamente la sede."
         }
+    },
+    "sheet": {
+        "back_to": "Torna a {{title}}",
+        "close": "Chiudi",
+        "back": "Indietro"
+    },
+    "order_sheet": {
+        "add": "Aggiungi · {{price}}",
+        "choose_format": "Scegli il formato",
+        "choose_group": "Scegli: {{name}}",
+        "missing_hint": "Scegline una per continuare",
+        "too_many": "Hai scelto {{count}}: togline una per cambiare",
+        "quantity": "Quantità",
+        "add_note": "Aggiungi una nota",
+        "note_label": "Nota per la cucina",
+        "note_placeholder": "Es. senza cipolla",
+        "added": "Aggiunto · {{name}}",
+        "undo": "Annulla",
+        "undo_aria": "Annulla l'aggiunta di {{name}}",
+        "update": "Aggiorna · {{price}}",
+        "table": "Tavolo {{label}}",
+        "to_send": "Da inviare",
+        "sent_title": "Inviati",
+        "orders_count_one": "{{count}} ordine",
+        "orders_count_other": "{{count}} ordini",
+        "sent_at": "Ordine delle {{time}}",
+        "step_served": "Servito",
+        "cancelled": "Annullato",
+        "status_aria": "Stato dell'ordine",
+        "pay_hint": "Paghi al tavolo o in cassa",
+        "at_table": "Al tavolo",
+        "send": "Invia alla cucina",
+        "sent": "Ordine inviato alla cucina",
+        "unavailable": "Non più disponibile",
+        "remove": "Rimuovi",
+        "remove_aria": "Rimuovi {{name}}",
+        "remove_unavailable": "Togli i piatti non più disponibili",
+        "edit_aria": "Modifica {{name}}",
+        "qty_aria": "Quantità di {{name}}",
+        "order_note_add": "Aggiungi una nota per tutto l'ordine",
+        "order_note_placeholder": "Es. portate tutto insieme, senza fretta",
+        "order_note_aria": "Note per la cucina, per tutto l'ordine",
+        "order_title": "Ordine {{number}}",
+        "sent_ok": "Inviato alla cucina",
+        "sent_summary_one": "{{count}} piatto · {{total}}",
+        "sent_summary_other": "{{count}} piatti · {{total}}",
+        "add_more": "Aggiungi altro",
+        "in_kitchen": "È già in cucina: per cambiare qualcosa chiedi al cameriere.",
+        "enjoy": "Buon appetito!",
+        "cancelled_note": "Ordine annullato: non arriva in cucina."
+    },
+    "product_sheet": {
+        "details": "Dettagli",
+        "characteristics": "Caratteristiche",
+        "allergens": "Allergeni",
+        "no_allergens": "Nessun allergene indicato",
+        "allergy_note": "Per allergie o intolleranze chiedi al personale.",
+        "story": "La storia",
+        "show_all": "Mostra tutti ({{count}})",
+        "rule_pick_one": "scegli 1",
+        "rule_up_to_required": "fino a {{count}} · obbligatoria",
+        "rule_required": "obbligatoria",
+        "rule_up_to_optional": "fino a {{count}} · facoltativa",
+        "rule_optional": "facoltativa",
+        "unavailable": "Questo piatto non è più disponibile."
+    },
+    "vote": {
+        "button": "Vota",
+        "dismiss_aria": "No grazie",
+        "helps": "Il tuo parere aiuta {{name}}",
+        "summary": "{{label}} · {{count}} su 5",
+        "labels": {
+            "1": "Male",
+            "2": "Così così",
+            "3": "Bene",
+            "4": "Molto bene",
+            "5": "Ottimo"
+        },
+        "topics_aria": "Di cosa vuoi parlare",
+        "topics": {
+            "service": "Servizio",
+            "dishes": "Piatti",
+            "atmosphere": "Atmosfera",
+            "wait": "Attesa"
+        },
+        "comment_placeholder": "Vuoi aggiungere qualcosa?",
+        "comment_aria": "Vuoi aggiungere qualcosa? Facoltativo",
+        "send": "Invia",
+        "thanks_high": "Grazie!",
+        "thanks_high_text": "Il tuo parere è arrivato a {{name}}.",
+        "thanks_low": "Grazie, lo diremo al locale",
+        "thanks_low_text": "{{name}} legge ogni parere e lo usa per migliorare. Resta tra te e il locale.",
+        "share_title": "Ti è piaciuto? Raccontalo anche agli altri",
+        "share_text": "Una recensione pubblica aiuta {{name}} a farsi trovare.",
+        "google_hint": "La vede chi cerca su Google Maps",
+        "google_aria": "Lascia una recensione su Google: si apre in una nuova scheda",
+        "copy": "Copia il tuo commento",
+        "copied": "Copiato: incollalo nella recensione",
+        "copy_hint": "Le piattaforme non si possono precompilare: così non lo riscrivi.",
+        "later": "Non ora",
+        "close": "Chiudi"
+    },
+    "page_end": {
+        "end_of_menu": "Fine del menu",
+        "rate_title": "Com'è andata?",
+        "rate_subtitle": "Il tuo parere arriva solo al locale",
+        "rated_title": "Grazie, hai votato",
+        "rated_subtitle": "Il tuo parere è arrivato al locale",
+        "today": "Oggi {{hours}}",
+        "today_closed": "Oggi chiuso",
+        "all_hours": "Tutti gli orari",
+        "hours": "Orari",
+        "useful_info": "Informazioni utili",
+        "allergens_help_one": "L'allergene di legge e in quali piatti è",
+        "allergens_help_other": "I {{count}} allergeni di legge e in quali piatti sono",
+        "characteristics_help": "Le indicazioni sui piatti di questo menu",
+        "allergens_intro": "Quanti piatti di questo menu contengono ciascun allergene.",
+        "in_dishes_one": "In {{count}} piatto",
+        "in_dishes_other": "In {{count}} piatti",
+        "not_in_menu": "Non presente in questo menu",
+        "call": "Chiama",
+        "directions": "Indicazioni",
+        "new_window": "(si apre in una nuova finestra)",
+        "privacy": "Privacy",
+        "terms": "Termini"
+    },
+    "booking": {
+        "title_who": "I tuoi dati",
+        "title_recap": "Riepilogo",
+        "title_done": "Prenotazione inviata",
+        "continue": "Continua",
+        "day": "Giorno",
+        "today": "oggi",
+        "closed": "chiuso",
+        "full": "pieno",
+        "pick_one": "Scegline uno",
+        "party_less": "Una persona in meno",
+        "party_more": "Una persona in più",
+        "people_word_one": "persona",
+        "people_word_other": "persone",
+        "party_note": "Il numero esatto aiuta il locale a preparare il tavolo.",
+        "party_note_confirm": "Il locale conferma la richiesta.",
+        "party_note_over": "Oltre {{max}} persone scrivilo nelle richieste particolari: il locale conferma la richiesta.",
+        "progress": "{{n}} di {{total}} · {{label}}",
+        "pick_time": "Scegli l'orario",
+        "unavailable": "In questo momento il locale non accetta prenotazioni online.",
+        "err_timeout": "Il locale non ha risposto in tempo. Prima di riprovare controlla la tua email: la richiesta potrebbe essere arrivata."
     }
 }

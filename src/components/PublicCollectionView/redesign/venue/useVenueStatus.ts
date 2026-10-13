@@ -10,6 +10,7 @@ function msToNextMinute(): number {
 function sameStatus(a: VenueStatus, b: VenueStatus): boolean {
     if (a.kind !== b.kind) return false;
     if (a.kind === "closing-soon" && b.kind === "closing-soon") return a.minutes === b.minutes;
+    if (a.kind === "open" && b.kind === "open") return a.closesAt === b.closesAt;
     if (a.kind === "closed" && b.kind === "closed") {
         return a.opensAt?.dayOffset === b.opensAt?.dayOffset && a.opensAt?.time === b.opensAt?.time;
     }

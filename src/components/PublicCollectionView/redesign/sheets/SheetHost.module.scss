@@ -12,11 +12,14 @@
   justify-content: center;
 }
 
-/* Velo unico per tutti i fogli: scuro al 34%, fermo (solo opacity), un tocco chiude. */
+/* Velo unico per tutti i fogli: scuro al 34% e sfocato di 3 px come nel mockup v38.
+   Fermo (si anima solo l'opacity), quindi il blur qui è ammesso: non trasla. */
 .backdrop {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, black 34%, transparent);
+  background: rgb(8 8 10 / 34%);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
   touch-action: none;
 }
 
@@ -31,6 +34,7 @@
   background: var(--pub-surface);
   color: var(--pub-text);
   border-radius: 26px 26px 0 0;
+  box-shadow: 0 -14px 40px -18px rgb(0 0 0 / 50%);
   /* la superficie arriva al bordo e tiene dentro la safe area: le barre di
      Safari e Chrome non aprono spazi sotto il foglio */
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -54,44 +58,162 @@
 .handle {
   display: block;
   width: 36px;
-  height: 4px;
-  margin: 10px auto 4px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--pub-text) 22%, transparent);
+  height: 5px;
+  margin: 8px auto 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--pub-text) 24%, transparent);
 }
 
+/* Testata del mockup v38: titolo a sinistra, × in un cerchio pieno a destra. */
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 16px 8px;
+  gap: 6px;
+  min-height: 46px;
+  padding: 2px 12px 8px 20px;
 }
 
 .title {
   flex: 1;
   margin: 0;
   min-width: 0;
+  /* il colore dei titoli dell'app non vale qui: quello del locale */
+  color: inherit;
   font: inherit;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  /* il corpo mostra il titolo da sé (scheda prodotto): qui tiene il posto e il nome accessibile */
+  &[data-hidden] {
+    opacity: 0;
+  }
 }
 
-.iconButton {
+/* × sospesa in alto a destra, senza riga di testata (modale del voto, mockup v38). */
+.header[data-floating] {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  min-height: 0;
+  padding: 0;
+}
+
+/* Titolo della pagina con testata su misura: solo per i lettori di schermo. */
+.hiddenTitle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* × : cerchio pieno da 32 px dentro un bersaglio di tocco da 44 px. */
+.closeButton {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  /* bersaglio di tocco da 44px */
   width: 44px;
   height: 44px;
+  margin: -6px -6px -6px 0;
   padding: 0;
   border: 0;
-  border-radius: 50%;
   background: transparent;
   color: inherit;
   cursor: pointer;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--pub-text) 9%, transparent);
+  }
+
+  svg {
+    position: relative;
+  }
+}
+
+/* «‹» (o «‹ Madre» se la madre è `named`): mai più largo di metà testata. */
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: -12px;
+  padding: 0;
+  border: 0;
+  border-radius: 22px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &[data-named] {
+    flex-shrink: 1;
+    max-width: 45%;
+    padding-right: 8px;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+/* Testata a più righe (scheda prodotto, mockup v38 .mx-hd2): nome che va a capo,
+   «‹ Madre» sopra il nome, prezzo sotto. */
+.header[data-stacked] {
+  align-items: flex-start;
+  padding-top: 4px;
+
+  .title {
+    font-size: 19px;
+    line-height: 1.22;
+    white-space: normal;
+    text-wrap: balance;
+  }
+
+  .closeButton {
+    margin-top: -4px;
+  }
+}
+
+.headText {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 0 2px;
+
+  .backButton[data-named] {
+    max-width: 100%;
+    min-height: 32px;
+    margin: -2px 0 4px -10px;
+    font-size: 14px;
+  }
+
+  .backLabel {
+    max-width: 220px;
+  }
+}
+
+.backLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Altezza impostata da SheetHost (segue la pagina attiva); il tetto sta sul pannello. */
@@ -113,10 +235,42 @@
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
+
+  /* Sfumatura di 32 px in fondo finché c'è altro sotto (`data-more`, da SheetHost).
+     Appiccicata al fondo della parte visibile, sopra il contenuto, senza aggiungere spazio. */
+  &::after {
+    content: "";
+    position: sticky;
+    bottom: 0;
+    display: block;
+    height: 32px;
+    margin-top: -32px;
+    background: linear-gradient(to bottom, transparent, var(--pub-surface));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  &[data-more="true"]::after {
+    opacity: 1;
+  }
 }
 
 .pageContent {
-  padding: 0 16px 16px;
+  padding: 4px 20px 18px;
+}
+
+/* Piede della pagina in cima (pulsante d'azione): fuori dall'area che scorre.
+   Cambia con la pagina: compare in dissolvenza, mai in movimento. */
+.footer {
+  flex-shrink: 0;
+  animation: footer-in 180ms ease both;
+}
+
+@keyframes footer-in {
+  from {
+    opacity: 0;
+  }
 }
 
 @media (min-width: 641px) {
@@ -125,8 +279,12 @@
   }
 
   .panel {
-    width: min(560px, calc(100% - 48px));
+    /* Finestra al centro fino a 440 px (spec §13); le tendine e i popover hanno la loro misura. */
+    width: min(440px, calc(100% - 48px));
     border-radius: 26px;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--pub-text) 10%, transparent),
+      0 30px 60px -24px rgb(0 0 0 / 60%);
 
     &[data-size="medium"],
     &[data-size="large"] {
@@ -136,6 +294,87 @@
 
   .handle {
     display: none;
+  }
+
+  .header,
+  .header[data-stacked] {
+    padding: 14px 14px 8px 22px;
+  }
+
+  .header[data-floating] {
+    padding: 0;
+  }
+
+  /* A tendina sotto l'isola (la ricerca): posizione e larghezza misurate da SheetHost. */
+  .root[data-anchored] {
+    align-items: flex-start;
+    justify-content: flex-start;
+
+    .backdrop {
+      background: color-mix(in srgb, black 18%, transparent);
+    }
+
+    .panel[data-size] {
+      --sheet-max-height: min(560px, calc(100dvh - var(--sheet-anchor-top) - 24px));
+
+      position: absolute;
+      top: var(--sheet-anchor-top);
+      left: var(--sheet-anchor-left);
+      width: var(--sheet-anchor-width);
+      border-radius: 20px;
+      transform-origin: top center;
+    }
+  }
+
+  .root[data-anchored="end"] .panel[data-size] {
+    transform-origin: top right;
+  }
+
+  /* La ricerca sotto il campo dell'isola (mockup v38). La testata col campo si
+     posa sul campo dell'isola (posizione da SheetHost): il pannello non taglia
+     più, taglia la viewport. Il velo ha un buco sull'isola, che resta nitida. */
+  .root[data-anchored="field"] {
+    .backdrop {
+      background: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+
+      &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: color-mix(in srgb, black 18%, transparent);
+        -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: blur(3px);
+        clip-path: var(--sheet-veil-clip, none);
+      }
+    }
+
+    .panel[data-custom] {
+      overflow: visible;
+
+      > .dragZone {
+        position: absolute;
+        top: var(--sheet-field-top);
+        right: 0;
+        left: 0;
+        height: var(--sheet-field-height);
+      }
+
+      > .dragZone > .header {
+        height: 100%;
+        min-height: 0;
+        padding: 0;
+      }
+
+      .viewport {
+        border-radius: 20px;
+      }
+
+      .pageContent {
+        padding-top: 14px;
+      }
+    }
   }
 }
 

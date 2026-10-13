@@ -14,7 +14,9 @@ scheduler esterno (cron-job.org, ogni 5 min, Bearer CRON_SECRET)
 
 - **Chiavi Redis** (`api/_lib/statusRedis.ts`, namespace `cataloglobe:{env}:status:v1`): `current` (ultimo controllo, TTL 7 giorni) · `uptime:{servizio}:{YYYY-MM-DD}` (hash `up|degraded|down`, giorni UTC, TTL 91 giorni) · `alert:{servizio}` (`lastObserved`, `lastNotified`, TTL 7 giorni) · `history` (riepilogo dei giorni chiusi, TTL 2 giorni).
 - **Lettura dell'uptime a pochi comandi**: `readUptime` legge `history` + i 4 contatori di oggi (5 comandi). I giorni chiusi (4 × 89 HGETALL) si ricalcolano solo alla prima lettura del giorno UTC. Prima si rileggevano a ogni richiesta: a ottobre 2026 una pagina `/status` lasciata aperta ha esaurito la quota mensile del piano gratuito di Upstash. Mai tornare a leggere la finestra intera a ogni richiesta, e le pagine che si aggiornano da sole non leggono a scheda nascosta (`document.hidden`).
-- **Uptime a 90 giorni solo da Redis**: in produzione `purge-status-checks` cancella `status_checks` oltre 7 giorni. Lo storico precedente al passaggio a Redis non è stato ricopiato.
+- **Uptime a 90 giorni solo da Redis**: lo storico della pagina viene solo dai contatori `uptime:*`. Lo storico precedente al passaggio a Redis non è stato ricopiato.
+- **`status_checks` è solo per il server**: la scrive `status-check` e la legge il ripiego degli avvisi, entrambi col service role. Nessuna policy per anon/authenticated (tolta con `get_daily_uptime` dalla mig `20261013170000`): il browser non legge il DB per la pagina, solo `GET /api/status`. Righe oltre 7 giorni cancellate dal pg_cron `purge-status-checks` (03:15 UTC); il vecchio `api/cron/status-prune.ts` non c'è più.
+- **Incidenti** (`status_incidents`): restano nel DB, letti da `GET /api/status` col service role e scritti da `api/admin/status-incidents.ts`.
 - **Servizi**:
   - `public-menu`: `/api/public-catalog?slug=<canary>`. Una risposta con `X-Cataloglobe-Source: stale` (snapshot Redis, edge o DB non raggiungibili) vale `degraded`.
   - `dashboard`: il peggiore tra HTML statico, `database` e `GET /auth/v1/health` (`combineDashboard`). Serve `SUPABASE_ANON_KEY` nell'ambiente Vercel.
@@ -24,4 +26,3 @@ scheduler esterno (cron-job.org, ogni 5 min, Bearer CRON_SECRET)
 - **Ripiego degli avvisi sul DB** (`loadAlertInputs`): se la lettura di `status:alert` fallisce o la chiave manca, l'isteresi legge `status_checks` + `status_service_state`. Mai trattarla come «nessun precedente», che spegnerebbe l'isteresi.
 - **`pgrest`** (`api/_lib/statusSupabase.ts`) non lancia su timeout o errori di rete: restituisce `ok: false`, `status: 0`. Chi lo usa per una risposta HTTP mappa lo 0 a 502.
 - **`GET /api/status`**: 503 se Redis non risponde (la pagina tiene gli ultimi dati con «dati non aggiornati»). Incidenti dal DB con tetto di 3 s; se il DB non risponde, `incidentsAvailable: false` e il resto della pagina resta in piedi.
-- **Da togliere dopo una settimana di funzionamento**: la funzione SQL `get_daily_uptime`, la policy di lettura anonima su `status_checks`, `api/cron/status-prune.ts`.

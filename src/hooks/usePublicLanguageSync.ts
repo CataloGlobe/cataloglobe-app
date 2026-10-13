@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
+import { changePublicLanguage } from "@/i18n/loadLanguage";
 import { isValidLangFormat } from "@/utils/lang";
 
 /**
@@ -37,7 +38,7 @@ export function usePublicLanguageSync(enabled: boolean = true): void {
         if (!enabled) return;
         const target = isValidLangFormat(lang) ? lang!.toLowerCase() : "it";
         if (i18n.language !== target) {
-            i18n.changeLanguage(target);
+            void changePublicLanguage(target);
         }
     }, [enabled, lang, i18n]);
 }

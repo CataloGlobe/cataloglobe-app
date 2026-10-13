@@ -32,6 +32,8 @@ import type {
 } from "@/types/resolvedCollections";
 
 import type { CatalogRenderData } from "./derivePageState";
+import { RESERVATION_HORIZON_DAYS, RESERVATION_MIN_NOTICE_MINUTES } from "@/pages/ReservationPage/utils/reservationSlots";
+import type { BookingConfig } from "@/components/PublicCollectionView/redesign/booking/bookingForm";
 import { randomUuid } from "@/utils/randomUuid";
 import pageStyles from "./PublicCollectionPage.module.scss";
 
@@ -291,13 +293,17 @@ function mapCatalogToSectionGroups(resolved: ResolvedCollections): CollectionVie
  * dal context per propagarlo come prop a CollectionView. Tiene CollectionView
  * "dumb" (prop-driven) senza farle conoscere il context customer.
  */
-function CollectionViewWithCustomerSession(
-    props: Omit<ComponentProps<typeof CollectionView>, "orderingActive">
-) {
+function CollectionViewWithCustomerSession({
+    booking,
+    ...props
+}: Omit<ComponentProps<typeof CollectionView>, "orderingActive"> & { booking: BookingConfig | null }) {
     const { isActive } = useCustomerSession();
     // Redesign (VITE_PUBLIC_REDESIGN): costante di build, il ramo spento sparisce.
-    const View = PUBLIC_REDESIGN_ENABLED ? RedesignCollectionView : CollectionView;
-    return <View {...props} orderingActive={isActive} />;
+    return PUBLIC_REDESIGN_ENABLED ? (
+        <RedesignCollectionView {...props} orderingActive={isActive} booking={booking} />
+    ) : (
+        <CollectionView {...props} orderingActive={isActive} />
+    );
 }
 
 /* ===============================================
@@ -341,6 +347,7 @@ export default function PublicCatalogReady({
         openingHours,
         upcomingClosures,
         hasReservationHours,
+        reservationSchedule,
         allergens,
         effectiveLanguage,
         baseLanguage,
@@ -358,6 +365,23 @@ export default function PublicCatalogReady({
     // dire "non si può" — meglio non offrire la strada.
     const reservationsCtaVisible =
         business.enable_reservations && hasReservationHours;
+    // Redesign: la prenotazione a passi nel foglio, coi dati della pagina /prenota.
+    const booking = useMemo<BookingConfig | null>(
+        () =>
+            reservationSchedule && business.slug && business.reservation_pacing_slot_minutes
+                ? {
+                      slug: business.slug,
+                      venueName: business.name,
+                      hours: reservationSchedule.hours,
+                      closures: reservationSchedule.closures,
+                      pacingSlotMinutes: business.reservation_pacing_slot_minutes,
+                      horizonDays: business.reservation_horizon_days ?? RESERVATION_HORIZON_DAYS,
+                      minNoticeMinutes: business.reservation_min_notice_minutes ?? RESERVATION_MIN_NOTICE_MINUTES,
+                      phone: business.phone_public ? business.phone : null
+                  }
+                : null,
+        [reservationSchedule, business]
+    );
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
@@ -455,6 +479,7 @@ export default function PublicCatalogReady({
                 activityId={business.id}
                 slug={business.slug}
                 enableReservations={reservationsCtaVisible}
+                booking={booking}
                 tenantLogoUrl={tenantLogoUrl}
                 activityAddress={(() => {
                     const street = [business.address, business.street_number]
