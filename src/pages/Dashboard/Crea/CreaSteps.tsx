@@ -2,7 +2,7 @@
 // e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight, CalendarClock, Check, CircleCheck, CirclePause, Copy, Info, Infinity as InfinityIcon, Layers, Link2, Lock, MapPinned, Megaphone, Palette, Plus, Radio, ScanText, ScrollText, TriangleAlert } from "lucide-react";
+import { ArrowRight, CalendarClock, Check, CircleCheck, CirclePause, Copy, Info, Infinity as InfinityIcon, Layers, Link2, Lock, MapPinned, Megaphone, Palette, Plus, PowerOff, Radio, ScanText, ScrollText, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import type { StoryBlock } from "@/services/supabase/stories";
 import { MAX_STORY_IMAGES } from "@/services/supabase/stories";
@@ -385,6 +385,8 @@ type Upd = (fn: (d: Draft) => void) => void;
 /** La domanda in cima a «Dove e quando» (D189): in onda o pronto. Creando nessuna è scelta. */
 export function OndaAsk({ t, u, small }: { t: Tunnel; u: U; small?: boolean }) {
     const o = ONDA[t.kind], chosen = t.onda !== null;
+    // uno stile in onda non si «tiene pronto»: si spegne, e torna lo stile di prima (D192)
+    const spegni = t.kind === "stile" && t.edit?.orig.onda === "on";
     return (
         <div className={cx(s.ask, small && s.ondaS)}>
             <p>{`Vuoi che i clienti ${o.lo} vedano${t.edit ? "" : " appena salvi"}?`}</p>
@@ -399,9 +401,9 @@ export function OndaAsk({ t, u, small }: { t: Tunnel; u: U; small?: boolean }) {
                 />
                 <Pick
                     on={t.onda === "off"}
-                    icon={<CirclePause size={18} />}
-                    title={keepReady(t.kind)}
-                    text={`${t.kind === "storia" ? "La salvi completa" : "Lo salvi completo"}, ma nessun cliente ${o.lo} vede.`}
+                    icon={spegni ? <PowerOff size={18} /> : <CirclePause size={18} />}
+                    title={spegni ? "No, lo spengo" : keepReady(t.kind)}
+                    text={spegni ? "Resta salvato, ma nessun cliente lo vede: nelle sue ore torna lo stile di prima." : `${t.kind === "storia" ? "La salvi completa" : "Lo salvi completo"}, ma nessun cliente ${o.lo} vede.`}
                     disabled={offLater(t)}
                     later={offLater(t) ? "Arriva col database nuovo" : undefined}
                     onClick={() => u(x => void (x.onda = "off"))}

@@ -40,8 +40,8 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 8. In modifica, la casella «Dove e Quando» separati. **Fatto**: due caselle, «Dove» (le sedi) e «Quando» (le ore), ognuna con «In onda · …» o «Non in onda»; in «Controlla» ognuna ha il suo «Prima / Adesso». Rimesso in onda dal «Dove», «Avanti» passa anche dal «Quando».
 
 ### Tunnel Stile
-9. «Prende il posto» oppure «lascia l'altro». **Da fare**
-10. «No, lo spengo» su uno stile in onda [int.]. **Da fare**
+9. «Prende il posto» oppure «lascia l'altro». **In parte**: è la seconda parte del «Quando» dello stile, «Con gli altri stili» (`InsiemeBox.tsx`, vedi punto 3): «Che stile prende la pagina in quelle ore?» con «Prende il posto degli altri» / «Lascia gli altri»; la frase di «Controlla» lo dice («…ma dove c'è già un altro stile resta quello»). «Lascia gli altri» non si salva ancora: aspetta il database nuovo. **Da fare**: «uguale in tutte le sedi salvo No, cambia» (D192), insieme al sede per sede del punto 3.
+10. «No, lo spengo» su uno stile in onda [int.]. **Fatto**: modificando uno stile in onda il «No» è «No, lo spengo» / «Resta salvato, ma nessun cliente lo vede: nelle sue ore torna lo stile di prima.» (`OndaAsk`). Resta spento con «Arriva col database nuovo» (`offLater`): oggi la sua voce è la regola del menù, e spegnerla spegnerebbe anche il menù. Prova: `creaOnda.test.ts`.
 
 ### Tunnel In evidenza
 11. Testo: si vede in un posto solo, in cima al menù (D187). **Da fare**
