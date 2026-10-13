@@ -10,7 +10,7 @@ import { MAX_LEVEL, allSecs } from "./menuTree";
 export type Once = <T>(key: string, run: () => Promise<T>) => Promise<T>;
 const always: Once = (_key, run) => run();
 
-/** Il prodotto di un piatto: quello che avete già, o uno nuovo con descrizione e varianti. */
+/** Il prodotto di un piatto: quello che hai già, o uno nuovo con descrizione e varianti. */
 export async function productOf(d: Dish, tenantId: string, once: Once = always, at = ""): Promise<string> {
     if (d.productId) return d.productId;
     const formats = (d.formats ?? []).filter((f): f is { name: string; price: number } => !!f.name.trim() && f.price !== null);
