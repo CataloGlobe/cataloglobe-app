@@ -281,7 +281,7 @@ export default function App() {
                 />
                 <Route path="locations/:activityId">
                     {/* Entrando nella sede (§51.6): la Scheda per chi la
-                        gestisce, Operatività per gli altri; i vecchi `?tab=`
+                        gestisce, Servizio per gli altri; i vecchi `?tab=`
                         portano alla loro sezione. */}
                     <Route index element={<SedeHomeRedirect />} />
                     {/* Le voci della sede che non sono la scheda: montate

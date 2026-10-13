@@ -11,10 +11,10 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
 /onboarding/create-business, /onboarding/activate-trial → Onboarding (no TenantProvider)
 /business/:businessId/     → MainLayout + TenantProvider
   (indice)                 → chi configura: overview; staff/viewer con una sede la prima voce di
-                             Operatività usabile, con più sedi locations (BusinessHomeRedirect, §51.6)
+                             Servizio usabile, con più sedi locations (BusinessHomeRedirect, §51.6)
   overview
   locations                → con una sede leggibile → locations/:id/anagrafica (SingleSedeRoute, §51.3)
-  locations/:activityId    → chi gestisce la sede: anagrafica; staff/viewer la prima voce di Operatività
+  locations/:activityId    → chi gestisce la sede: anagrafica; staff/viewer la prima voce di Servizio
                              usabile (SedeHomeRedirect; i vecchi ?tab= vincono)
   locations/:activityId/   servizio (?modo=elenco|mappa|gestisci) | prenotazioni | comande | storico | cosa-vedono
                            analitiche | recensioni (Andamento della sede, §51.10: stesse pagine d'azienda, sede dal path)
