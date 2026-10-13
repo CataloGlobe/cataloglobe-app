@@ -3,8 +3,8 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
 
 /**
  * L'ordine su desktop (mockup v38 `.d-ofab`, D39): «Il tuo ordine · N» fisso in
- * basso a destra, solo in modo ordine e con piatti scelti (deciso da Lorenzo il
- * 2026-10-13), apre la finestra «Il tuo ordine» al centro. Sul telefono resta il
+ * basso a destra, sempre in modo ordine, col numero solo coi piatti scelti (D74,
+ * deciso da Lorenzo il 2026-10-13), apre la finestra «Il tuo ordine» al centro. Sul telefono resta il
  * cerchio nella barra in basso. Stub senza login, `get-orders-for-session` finto.
  *
  * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
@@ -37,14 +37,15 @@ async function openPage(page: Page, width: number, height: number) {
 
 const order = (page: Page) => page.getByRole("button", { name: /^Il tuo ordine/ });
 
-test("desktop: compare coi piatti scelti, in basso a destra, e apre la finestra al centro", async ({ page }) => {
+test("desktop: c'è in modo ordine, il numero coi piatti scelti, apre la finestra al centro", async ({ page }) => {
     await openPage(page, 1440, 900);
-    // Modo ordine ma nessun piatto: nessun pulsante.
-    await expect(order(page)).toHaveCount(0);
-
-    await page.getByRole("button", { name: "Aggiungi alla selezione" }).first().click();
+    // Modo ordine senza piatti: c'è, senza numero (porta agli ordini inviati, al cameriere, al conto).
     const button = order(page);
     await expect(button).toHaveCount(1);
+    await expect(button).toHaveAccessibleName("Il tuo ordine");
+    await expect(button).toHaveText("Il tuo ordine");
+
+    await page.getByRole("button", { name: "Aggiungi alla selezione" }).first().click();
     await expect(button).toHaveAccessibleName("Il tuo ordine (1)");
     await expect(button).toContainText("Il tuo ordine");
     await expect(button).toContainText("1");
