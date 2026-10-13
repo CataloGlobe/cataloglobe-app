@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MoreHorizontal, Search } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Search } from "lucide-react";
 import { SEARCH_TRIGGER_ID } from "@components/PublicCollectionView/PublicCollectionHeader/PublicCollectionHeader";
 import { useLanguage } from "@context/Language/useLanguage";
 import { buildCoverImageSet } from "@/utils/imageTransform";
@@ -8,7 +8,7 @@ import lensStyles from "./LensDot.module.scss";
 import type { HeaderSlotContext } from "../slots";
 import { rememberSheetOpener } from "../sheets/sheetStack";
 import VenuePill from "../venue/VenuePill";
-import { ISLAND_ID, LANGUAGE_BUTTON_ID, MORE_BUTTON_ID, SEARCH_FIELD_ID } from "./anchors";
+import { ISLAND_ID, LANGUAGE_BUTTON_ID, MENU_BUTTON_ID, MORE_BUTTON_ID, SEARCH_FIELD_ID } from "./anchors";
 import IslandCategories from "./IslandCategories";
 import LanguageButton from "./LanguageButton";
 import { openVenueSheet } from "../sheets/venueSheetPages";
@@ -65,6 +65,9 @@ function useCompatta() {
  * le categorie; compatta su una riga sola. Menu e Storia non stanno qui: sul
  * telefono nella barra in basso, su desktop nel ⋯.
  */
+/** Con più menu adesso il nome del menu diventa un selettore: «Menu pranzo · 1 di 2 ⌄» (mockup v38, `menuLine`). */
+export type MenuSwitch = { position: number; total: number };
+
 export default function Island({
     logoUrl,
     coverImageUrl,
@@ -83,8 +86,9 @@ export default function Island({
     onSelectSection,
     onSelectSubSection,
     onOpenCategories,
-    onOpenFilters
-}: HeaderSlotContext) {
+    onOpenFilters,
+    menuSwitch
+}: HeaderSlotContext & { menuSwitch?: MenuSwitch }) {
     const { t } = useTranslation("public");
     const { compatta, alta, bassa } = useCompatta();
     const slotRef = useRef<HTMLDivElement>(null);
@@ -265,7 +269,31 @@ export default function Island({
                             </h1>
                             {/* «Menu pranzo  ● Aperto» su una riga; in Storia il menu non c'è. */}
                             <div className={styles.linea}>
-                                {menuName && !storia && <i className={styles.menu}>{menuName}</i>}
+                                {menuName && !storia && menuSwitch ? (
+                                    <button
+                                        id={MENU_BUTTON_ID}
+                                        type="button"
+                                        className={`${styles.menu} ${styles.menuTasto}`}
+                                        onClick={e => {
+                                            rememberSheetOpener(e.currentTarget);
+                                            openVenueSheet("menus");
+                                        }}
+                                        aria-haspopup="dialog"
+                                        aria-label={t("menus.island_aria", {
+                                            name: menuName,
+                                            position: menuSwitch.position,
+                                            total: menuSwitch.total
+                                        })}
+                                    >
+                                        <i>{menuName}</i>
+                                        <span className={styles.menuConto} aria-hidden>
+                                            · {t("menus.position", { position: menuSwitch.position, total: menuSwitch.total })}
+                                        </span>
+                                        <ChevronDown size={13} strokeWidth={2.2} aria-hidden />
+                                    </button>
+                                ) : menuName && !storia ? (
+                                    <i className={styles.menu}>{menuName}</i>
+                                ) : null}
                                 <VenuePill hours={openingHours} closures={upcomingClosures} onOpenHours={onOpenHours} />
                             </div>
                         </div>

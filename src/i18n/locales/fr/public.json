@@ -802,10 +802,13 @@
         "from": "dès {{time}}",
         "venue_label": "L'établissement",
         "sheet_title": "Menus disponibles maintenant",
+        "sheet_subtitle_one": "L'établissement a {{count}} menu à cette heure-ci. Touchez pour changer.",
+        "sheet_subtitle_other": "L'établissement a {{count}} menus à cette heure-ci. Touchez pour changer.",
         "all_menus": "Tous les menus",
         "all_menus_subtitle": "Retour à la page des menus et des horaires",
         "change": "Changer de menu",
         "change_subtitle": "Actuel : {{name}}",
-        "island_aria": "{{name}} : changer de menu"
+        "island_aria": "Menu : {{name}}, {{position}} sur {{total}}. Changer de menu",
+        "position": "{{position}} sur {{total}}"
     }
 }

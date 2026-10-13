@@ -801,10 +801,13 @@
         "from": "dalle {{time}}",
         "venue_label": "Il locale",
         "sheet_title": "Menu disponibili ora",
+        "sheet_subtitle_one": "A quest'ora il locale ha {{count}} menu. Tocca per cambiare.",
+        "sheet_subtitle_other": "A quest'ora il locale ha {{count}} menu. Tocca per cambiare.",
         "all_menus": "Tutti i menu",
         "all_menus_subtitle": "Torna alla pagina con i menu e gli orari",
         "change": "Cambia menu",
         "change_subtitle": "Ora: {{name}}",
-        "island_aria": "{{name}}: cambia menu"
+        "island_aria": "Menu: {{name}}, {{position}} di {{total}}. Cambia menu",
+        "position": "{{position}} di {{total}}"
     }
 }

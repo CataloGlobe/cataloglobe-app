@@ -13,7 +13,7 @@ import {
     type ReactNode
 } from "react";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
-import Island from "./island/Island";
+import Island, { type MenuSwitch } from "./island/Island";
 import BottomBar from "./bar/BottomBar";
 import FeaturedStrip from "./featured/FeaturedStrip";
 import VenueFooter from "./footer/VenueFooter";
@@ -29,7 +29,10 @@ import { showAdded } from "./order/addedNoticeStore";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
 import type { MenuSource } from "./menus/menuSource";
 import { useMenuChoice } from "./menus/useMenuChoice";
-import { runMenuPassage } from "./menus/menuPassage";
+import { reducedMotion, runMenuPassage } from "./menus/menuPassage";
+import { nowMenus, shouldChoose } from "./menus/menuList";
+import type { MenuSheetBinding } from "./menus/menuSheet";
+import { EXIT_DURATION_MS } from "./sheets/sheetMotion";
 import { useDemoMenus } from "./menus/provaMenu";
 import type { PublicMenu } from "@/types/resolvedCollections";
 
@@ -75,7 +78,11 @@ class SheetsBoundary extends Component<{ children: ReactNode; onError: () => voi
     }
 }
 
-function LazyVenueSheets({ booking, ...context }: SheetsSlotContext & { booking: BookingConfig | null }) {
+function LazyVenueSheets({
+    booking,
+    menus,
+    ...context
+}: SheetsSlotContext & { booking: BookingConfig | null; menus: MenuSheetBinding | undefined }) {
     const isOpen = useSheetState().pages.length > 0;
     const [needed, setNeeded] = useState(false);
     // Dopo un errore un `lazy` nuovo: quello vecchio tiene la promessa fallita.
@@ -106,7 +113,7 @@ function LazyVenueSheets({ booking, ...context }: SheetsSlotContext & { booking:
                     }}
                 >
                     <Suspense fallback={null}>
-                        <Sheets {...context} booking={booking} />
+                        <Sheets {...context} booking={booking} menus={menus} />
                     </Suspense>
                 </SheetsBoundary>
             ) : null}
@@ -114,7 +121,6 @@ function LazyVenueSheets({ booking, ...context }: SheetsSlotContext & { booking:
     );
 }
 
-const renderIsland: HeaderSlot = context => <Island {...context} />;
 const renderBottomBar: BottomBarSlot = context => <BottomBar {...context} />;
 const renderFeatured: FeaturedSlot = context => <FeaturedStrip {...context} />;
 const renderFooter: FooterSlot = context => <VenueFooter {...context} />;
@@ -143,7 +149,8 @@ export default function RedesignCollectionView({
         () => (chosenCatalog && menus ? menus.view(chosenCatalog) : null),
         [chosenCatalog, menus]
     );
-    const { choosing, choose } = menuChoice;
+    const { choosing, choose, backToChooser } = menuChoice;
+    const preview = props.mode !== "public";
     const chosenId = menuChoice.menu?.catalogId;
     const shownId = useRef(chosenId);
     // Chi aspetta il disegno del menu (o della scelta) per il passaggio animato.
@@ -169,6 +176,36 @@ export default function RedesignCollectionView({
         (menu: PublicMenu) => runMenuPassage("go", () => choose(menu.slug, "chooser"), whenDrawn),
         [choose, whenDrawn]
     );
+    // «Tutti i menu» dal foglio: prima il foglio si chiude, poi il menu esce a destra e scopre la scelta.
+    const showAllMenus = useCallback(() => {
+        closeSheet();
+        const chunk = loadMenuChooser().catch(() => undefined);
+        window.setTimeout(
+            () => void chunk.then(() => runMenuPassage("back", backToChooser, whenDrawn)),
+            reducedMotion() ? 0 : EXIT_DURATION_MS + 20
+        );
+    }, [backToChooser, whenDrawn]);
+    // Foglio «Menu disponibili ora», «Cambia menu» nel ⋯ e selettore nell'isola: solo con più menu adesso.
+    const currentMenu = menuChoice.menu;
+    const switchable = shouldChoose(menuList, { preview });
+    const menuSheet = useMemo<MenuSheetBinding | undefined>(() => {
+        if (!switchable) return undefined;
+        return {
+            menus: nowMenus(menuList),
+            current: currentMenu,
+            choose: menu => {
+                closeSheet();
+                if (menu.catalogId !== currentMenu?.catalogId) choose(menu.slug, "sheet");
+            },
+            showAll: showAllMenus
+        };
+    }, [switchable, menuList, currentMenu, choose, showAllMenus]);
+    const menuSwitch = useMemo<MenuSwitch | undefined>(() => {
+        if (!menuSheet) return undefined;
+        const index = menuSheet.menus.findIndex(menu => menu.catalogId === currentMenu?.catalogId);
+        return { position: index + 1, total: menuSheet.menus.length };
+    }, [menuSheet, currentMenu]);
+    const renderIsland = useCallback<HeaderSlot>(context => <Island {...context} menuSwitch={menuSwitch} />, [menuSwitch]);
     // Le card salgono in cascata solo la prima volta; tornando alla scelta restano ferme.
     const chooserSeen = useRef(false);
     const chooserEntrance = chooserSeen.current ? "still" : "rise";
@@ -180,7 +217,7 @@ export default function RedesignCollectionView({
     const sheetsSlot = useMemo<SheetsSlot>(
         () => ({
             ...baseSheetsSlot,
-            render: context => <LazyVenueSheets {...context} booking={booking} />,
+            render: context => <LazyVenueSheets {...context} booking={booking} menus={menuSheet} />,
             openBooking: booking ? openBookingSheet : undefined,
             preferenceFilter: {
                 count: preferences.length,
@@ -188,7 +225,7 @@ export default function RedesignCollectionView({
                 clear: clearPreferences
             }
         }),
-        [booking, preferences]
+        [booking, preferences, menuSheet]
     );
     // Pagina di prova della PR 1: `?prova-tecnica=1` su una sede, solo con il flag.
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("prova-tecnica")) {

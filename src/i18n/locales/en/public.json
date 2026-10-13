@@ -802,10 +802,13 @@
         "from": "from {{time}}",
         "venue_label": "The venue",
         "sheet_title": "Menus available now",
+        "sheet_subtitle_one": "The venue has {{count}} menu at this time. Tap to switch.",
+        "sheet_subtitle_other": "The venue has {{count}} menus at this time. Tap to switch.",
         "all_menus": "All menus",
         "all_menus_subtitle": "Back to the page with menus and opening hours",
         "change": "Change menu",
         "change_subtitle": "Now: {{name}}",
-        "island_aria": "{{name}}: change menu"
+        "island_aria": "Menu: {{name}}, {{position}} of {{total}}. Change menu",
+        "position": "{{position}} of {{total}}"
     }
 }

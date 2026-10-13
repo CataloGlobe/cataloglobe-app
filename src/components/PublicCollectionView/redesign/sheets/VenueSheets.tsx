@@ -9,6 +9,7 @@ import {
     Globe,
     Info,
     Instagram,
+    LayoutGrid,
     ListFilter,
     Mail,
     MapPin,
@@ -62,6 +63,8 @@ import { loadVoteForm } from "../vote/loadVoteForm";
 import { useBooking, type BookingBinding } from "../booking/useBooking";
 import { isBookingPage, pushBookingSheet } from "../booking/bookingSheet";
 import { isOwnBookingUrl, type BookingConfig } from "../booking/bookingForm";
+import type { MenuSheetBinding } from "../menus/menuSheet";
+import MenusPage from "../menus/MenusPage";
 import styles from "./VenueSheets.module.scss";
 
 // Lo stesso modulo del voto di oggi, nel suo chunk (lo stesso di CollectionView).
@@ -80,7 +83,10 @@ const BookingCtaFooter = lazy(() => loadBooking().then(module => ({ default: mod
  * di oggi (niente più chiudi-e-riapri dopo 300 ms). Montato una volta da
  * `CollectionView` tramite `sheetsSlot`.
  */
-export default function VenueSheets({ booking: bookingConfig, ...props }: SheetsSlotContext & { booking: BookingConfig | null }) {
+export default function VenueSheets({
+    booking: bookingConfig,
+    ...props
+}: SheetsSlotContext & { booking: BookingConfig | null; menus?: MenuSheetBinding }) {
     // Il testo della ricerca vive qui: testata (campo) e pagina (risultati) lo
     // condividono, e sopravvive al giro nei Filtri. Si svuota quando «Cerca» rientra
     // nella pila, non quando esce: durante la discesa il foglio tiene i risultati.
@@ -259,6 +265,7 @@ function VenuePage({
     booking,
     ...props
 }: SheetsSlotContext & {
+    menus?: MenuSheetBinding;
     page: SheetPage;
     orderFor: (pageKey: string, item: CollectionViewSectionItem, initial?: OrderDraft) => OrderBinding | undefined;
     sendState: OrderSendState;
@@ -309,6 +316,8 @@ function VenuePage({
             return <CharacteristicsPage {...props.menuInfo} />;
         case "featured":
             return <FeaturedPage featured={props.featured} onOpen={pushFeaturedDetail} />;
+        case "menus":
+            return props.menus ? <MenusPage {...props.menus} /> : null;
         default: {
             const sentId = orderSentIdOf(page.key);
             if (sentId) {
@@ -423,8 +432,9 @@ function MorePage({
     menuInfo,
     story,
     rate,
-    bookingInSheet
-}: SheetsSlotContext & { bookingInSheet: boolean }) {
+    bookingInSheet,
+    menus
+}: SheetsSlotContext & { bookingInSheet: boolean; menus?: MenuSheetBinding }) {
     const { t, i18n } = useTranslation("public");
     // Feedback sulla riga Condividi (copia del link): due secondi, niente toast.
     const [shareFeedback, setShareFeedback] = useState<null | "copied" | "error">(null);
@@ -467,6 +477,17 @@ function MorePage({
     // Gli orari stanno dentro «Info e orari» (una riga sola, lo stato come sottotitolo).
     return (
         <div className={styles.list}>
+            {/* Con più menu adesso: cambiare menu viene prima di tutto (mockup v38). */}
+            {menus ? (
+                <div className={styles.group}>
+                    <Row
+                        icon={<LayoutGrid size={18} strokeWidth={2} />}
+                        label={t("menus.change")}
+                        subtitle={menus.current ? t("menus.change_subtitle", { name: menus.current.name }) : null}
+                        onClick={() => pushVenueSheet("menus")}
+                    />
+                </div>
+            ) : null}
             <div className={styles.group}>
                 {availableLanguages.length > 1 ? (
                     <Row

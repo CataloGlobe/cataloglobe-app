@@ -802,10 +802,13 @@
         "from": "ab {{time}}",
         "venue_label": "Das Lokal",
         "sheet_title": "Jetzt verfügbare Karten",
+        "sheet_subtitle_one": "Das Lokal hat zu dieser Uhrzeit {{count}} Karte. Tippe zum Wechseln.",
+        "sheet_subtitle_other": "Das Lokal hat zu dieser Uhrzeit {{count}} Karten. Tippe zum Wechseln.",
         "all_menus": "Alle Karten",
         "all_menus_subtitle": "Zurück zur Seite mit Karten und Öffnungszeiten",
         "change": "Karte wechseln",
         "change_subtitle": "Jetzt: {{name}}",
-        "island_aria": "{{name}}: Karte wechseln"
+        "island_aria": "Karte: {{name}}, {{position}} von {{total}}. Karte wechseln",
+        "position": "{{position}} von {{total}}"
     }
 }

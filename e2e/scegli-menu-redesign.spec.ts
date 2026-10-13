@@ -99,3 +99,38 @@ test("il carrello resta cambiando menu", async ({ page }) => {
     await expect(page.getByText("Secondi 1", { exact: true })).toBeVisible();
     await expect(cart).toContainText("1");
 });
+
+test("dal menu: il nome nell'isola apre «Menu disponibili ora», si cambia menu; «Tutti i menu» torna alla scelta", async ({ page }) => {
+    await openPage(page);
+    await card(page, "Carta dei vini").click();
+    await expect(page.getByText("Secondi 1", { exact: true })).toBeVisible();
+
+    const dialog = page.getByRole("dialog");
+    await page.getByRole("button", { name: "Menu: Carta dei vini, 2 di 2. Cambia menu" }).click();
+    await expect(dialog.getByRole("heading", { name: "Menu disponibili ora" })).toBeVisible();
+    await expect(dialog.getByRole("radio", { name: /Carta dei vini/ })).toHaveAttribute("aria-checked", "true");
+    await dialog.getByRole("radio", { name: /Menu pranzo/ }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(/[?&]menu=menu-pranzo/);
+    await expect(page.getByText("Antipasti 1", { exact: true })).toBeVisible();
+    await expect(page.getByText("Secondi 1", { exact: true })).toHaveCount(0);
+
+    // Dal ⋯: «Cambia menu · Ora: Menu pranzo» porta allo stesso elenco, poi «Tutti i menu».
+    await page.getByRole("button", { name: "Altre opzioni" }).click();
+    await dialog.getByRole("button", { name: /^Cambia menu/ }).click();
+    await expect(dialog.getByRole("heading", { name: "Menu disponibili ora" })).toBeVisible();
+    await dialog.getByRole("button", { name: /^Tutti i menu/ }).click();
+    await expect(chooser(page)).toBeVisible();
+    await expect(page).not.toHaveURL(/menu=/);
+    await expect(dialog).toHaveCount(0);
+});
+
+test("il cambio dal foglio non si accumula nella cronologia: indietro torna alla scelta", async ({ page }) => {
+    await openPage(page);
+    await card(page, "Carta dei vini").click();
+    await page.getByRole("button", { name: /^Menu: Carta dei vini/ }).click();
+    await page.getByRole("dialog").getByRole("radio", { name: /Menu pranzo/ }).click();
+    await expect(page.getByText("Antipasti 1", { exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(chooser(page)).toBeVisible();
+});

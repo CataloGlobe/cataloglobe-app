@@ -5,7 +5,7 @@ import type { PublicMenu } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import { COMPANY } from "@/config/company";
 import { useSheetBodyLock } from "../../hooks/useSheetBodyLock";
-import { rememberSheetOpener } from "../sheets/sheetStack";
+import { rememberSheetOpener, useSheetState } from "../sheets/sheetStack";
 import { openVenueSheet } from "../sheets/venueSheetPages";
 import LanguageButton from "../island/LanguageButton";
 import VenuePill from "../venue/VenuePill";
@@ -57,6 +57,8 @@ export default function MenuChooser({
     const { t, i18n } = useTranslation("public");
     const translate = t as (key: string, o?: Record<string, unknown>) => string;
     useSheetBodyLock(true);
+    // Con un foglio aperto sopra (Info, Prenota, Lingua) la scelta sta ferma come il menu.
+    const sheetOpen = useSheetState().pages.length > 0;
     const status = useVenueStatus(openingHours, upcomingClosures);
     const statusLabel = venueStatusLabel(status, translate, i18n.language);
     const titleRef = useRef<HTMLHeadingElement>(null);
@@ -89,6 +91,7 @@ export default function MenuChooser({
             aria-label={t("menus.choose_title")}
             data-entrance={entrance}
             data-cover={coverImageUrl ? true : undefined}
+            inert={sheetOpen}
         >
             {coverImageUrl ? (
                 <div className={styles.copertina}>
