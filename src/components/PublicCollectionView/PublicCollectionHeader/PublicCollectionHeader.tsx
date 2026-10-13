@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { BookOpenText, ImageIcon, MessageCircle, MoreHorizontal, ReceiptText, Search, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { hasOpenSheet } from "../hooks/openSheets";
@@ -472,13 +472,13 @@ export default function PublicCollectionHeader({
                                     aria-label={t("hub.reviews")}
                                     tabIndex={mode === "preview" ? -1 : undefined}
                                 >
-                                    <motion.span
+                                    <m.span
                                         className={styles.iconBtnIcon}
                                         animate={reviewIconAnimate}
                                         transition={reviewIconTransition}
                                     >
                                         <MessageCircle size={15} strokeWidth={2} />
-                                    </motion.span>
+                                    </m.span>
                                 </button>
                             </div>
                         )}

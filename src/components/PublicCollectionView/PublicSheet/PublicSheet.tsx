@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, animate, motion, useMotionValue, useTransform, useDragControls, useReducedMotion } from "framer-motion";
+import { AnimatePresence, animate, m, useMotionValue, useTransform, useDragControls, useReducedMotion } from "framer-motion";
 import { useSheetBodyLock } from "../hooks/useSheetBodyLock";
 import { PublicPortalContext } from "@/features/public/components/PublicPortalContext";
 import { PUBLIC_MOBILE_QUERY } from "../publicBreakpoints";
@@ -434,7 +434,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         const desktopTree = (
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div
+                    <m.div
                         ref={overlayRef}
                         className={styles.overlay}
                         initial={{ opacity: 0 }}
@@ -444,7 +444,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                         onClick={() => triggerClose()}
                         role="presentation"
                     >
-                        <motion.div
+                        <m.div
                             ref={panelRef}
                             className={styles.panel}
                             role="dialog"
@@ -469,8 +469,8 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                                     {footerContent}
                                 </div>
                             )}
-                        </motion.div>
-                    </motion.div>
+                        </m.div>
+                    </m.div>
                 )}
             </AnimatePresence>
         );
@@ -483,7 +483,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     const mobileTree = (
         <div className={styles.mobileRoot}>
             {/* Backdrop: opacity derivata da y in tempo reale — fade sincronizzato col drag */}
-            <motion.div
+            <m.div
                 ref={backdropRef}
                 className={styles.backdrop}
                 style={{ opacity: backdropOpacity }}
@@ -491,7 +491,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                 role="presentation"
             />
             {/* Panel: style={{ y }} — drag e animate() scrivono sullo stesso motion value */}
-            <motion.div
+            <m.div
                 ref={panelRef}
                 className={styles.panel}
                 role="dialog"
@@ -542,7 +542,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                         {footerContent}
                     </div>
                 )}
-            </motion.div>
+            </m.div>
         </div>
     );
 

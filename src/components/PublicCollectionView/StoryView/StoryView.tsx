@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { ScrollText, ArrowRight } from "lucide-react";
 import { fetchPublicStories } from "@/services/supabase/stories";
 import type { PublicStoryListResult } from "@/services/supabase/stories";
@@ -163,7 +163,7 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
         <div className={styles.viewport}>
             <AnimatePresence mode="wait" initial={false}>
                 {selectedStoryId ? (
-                    <motion.div
+                    <m.div
                         key="reader"
                         className={styles.view}
                         initial={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
@@ -178,9 +178,9 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
                             onOpenProduct={onOpenProduct}
                             resolveProduct={resolveProduct}
                         />
-                    </motion.div>
+                    </m.div>
                 ) : (
-                    <motion.div
+                    <m.div
                         key="feed"
                         className={styles.view}
                         initial={prefersReducedMotion ? { opacity: 0 } : { x: "-100%" }}
@@ -189,7 +189,7 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
                         transition={SLIDE_TRANSITION}
                     >
                         {feedContent}
-                    </motion.div>
+                    </m.div>
                 )}
             </AnimatePresence>
         </div>
