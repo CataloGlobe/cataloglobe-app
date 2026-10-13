@@ -269,6 +269,13 @@ export type ClientAssets = {
 };
 
 /**
+ * Le feature di framer-motion (domMax) sono un chunk lazy che MotionProvider
+ * chiede dopo il primo disegno: senza preload, su rete lenta il download parte
+ * solo a entry finita e i primi fogli aperti non si animano.
+ */
+export const MOTION_FEATURES_KEY = "src/components/motion/motionFeatures.ts";
+
+/**
  * Estrae i tag asset dell'entry client pubblico dal manifest Vite.
  * `base` = base path del build client (es. "/public/").
  * `preloadKeys` = chunk lazy da scaricare subito (`<link rel="modulepreload">`),
@@ -287,7 +294,7 @@ export function buildClientAssets(
     const href = (file: string) => escapeHtml(`${base}${file}`);
     const styleTags = [
         ...(entry.css ?? []).map(file => `<link rel="stylesheet" href="${href(file)}" />`),
-        ...preloadKeys
+        ...[MOTION_FEATURES_KEY, ...preloadKeys]
             .filter(key => manifest[key])
             .map(key => `<link rel="modulepreload" href="${href(manifest[key].file)}" />`)
     ].join("\n    ");
