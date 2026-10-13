@@ -30,9 +30,12 @@ function main(page: Page) {
 }
 const button = (page: Page, name: string | RegExp) => main(page).getByRole("button", { name, exact: typeof name === "string" });
 const next = (page: Page) => button(page, "Avanti").click();
-/** «Dove e quando» (D189): prima la domanda, «Sì, lo metto in onda». */
+/** «Dove» (D189): prima la domanda, «Sì, lo metto in onda». */
 const onAir = (page: Page) => button(page, /^Sì, (lo|la) metto in onda/).click();
-/** Dal passo prima di «Dove e quando» fino a «Controlla», tenendolo pronto: niente sedi né orari. */
+/** «In quali sedi?»: il riquadro delle sedi del passo «Dove», sempre aperto. */
+const sediBox = (page: Page) => main(page).getByRole("group", { name: "Sedi" });
+const allSedi = (page: Page) => sediBox(page).getByRole("checkbox", { name: /^Tutte le sedi, anche le nuove/ });
+/** Dal passo prima di «Dove» fino a «Controlla», tenendolo pronto: niente sedi né orari, e il «Quando» si salta. */
 async function toReady(page: Page) {
     await next(page);
     await button(page, /^No, per ora (lo|la) tengo pront/).click();
@@ -227,17 +230,19 @@ test.describe("Tunnel: «Salva le modifiche ed esci» passa gli stessi controlli
         // «Pranzo e2e» va in onda a Centro, dal lunedì al venerdì: portato a tutte le sedi e sempre, pari merito con «carta»
         await openBusinessPageByUrl(page, `crea/menu/${MENU.pranzo}?da=menu`);
         await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
-        await main(page).getByRole("checkbox", { name: /^Dove e quando/ }).click();
+        await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
+        await main(page).getByRole("checkbox", { name: /^Quando/ }).click();
         await next(page);
-        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
-        await button(page, "Centro e2e").click();
-        await page.getByRole("dialog", { name: "Sedi" }).getByRole("checkbox", { name: /^Tutte le sedi/ }).check();
-        await page.keyboard.press("Escape");
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
+        await allSedi(page).click();
+        await expect(main(page).getByText("Tutte, anche quelle che aprirai")).toBeVisible();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await button(page, /^Sempre/).click();
         await button(page, "Esci").click();
         await page.getByRole("alertdialog", { name: "Uscire dal tunnel?" }).getByRole("button", { name: "Salva le modifiche ed esci" }).click();
         await expect(page.getByText("Prende il posto di un altro a pari merito: si salva col database nuovo")).toBeVisible();
-        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await expect(page).not.toHaveURL(/\/catalogs$/);
         expect(stub.writes).toEqual([]);
     });
@@ -302,7 +307,7 @@ test.describe("Tunnel di creazione — menù", () => {
     test("i passi: Avanti si accende quando il passo è fatto, i fatti si riaprono", async ({ page }) => {
         await open(page, "menu");
         const steps = rail(page);
-        await expect(steps.getByRole("button")).toHaveText(["1Da dove parti", "2Categorie e piatti", "3Dove e quando", "4Controlla", "E adesso?"]);
+        await expect(steps.getByRole("button")).toHaveText(["1Da dove parti", "2Categorie e piatti", "3Dove", "4Quando", "5Controlla", "E adesso?"]);
         await expect(button(page, "Avanti")).toBeDisabled();
         await expect(main(page).getByText("Manca il nome del menù")).toBeVisible();
         // il passo «Che menù è» non c'è più: il multi menù non si crea da qui
@@ -339,17 +344,25 @@ test.describe("Tunnel di creazione — menù", () => {
         await open(page, "menu");
         await walkMenu(page, "Pranzo veloce");
         await next(page);
-        // Dove e quando, un passo solo (D145): le sedi col bottone del Calendario, poi solo Porto
-        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
+        // il Dove viene prima del Quando: se va in onda, e in quali sedi
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
         // prima la domanda (D189): finché non si sceglie, niente sedi né ore e non si va avanti
         await expect(button(page, "Avanti")).toBeDisabled();
+        await expect(sediBox(page)).toHaveCount(0);
         await onAir(page);
-        await main(page).getByRole("button", { name: /^Tutte le sedi · \d+, anche le nuove$/ }).click();
-        await page.getByRole("dialog", { name: "Sedi" }).getByRole("button", { name: "Solo Porto e2e" }).click();
-        await page.keyboard.press("Escape");
-        await expect(main(page).getByRole("button", { name: "Porto e2e", exact: true })).toBeVisible();
-        // sotto, il quando: prima la domanda, poi il modulo del Calendario
+        // le sedi si scelgono apposta: si parte da nessuna
+        await expect(main(page).getByText("Nessuna sede scelta")).toBeVisible();
+        await expect(main(page).getByText("Scegli almeno una sede")).toBeVisible();
+        await expect(button(page, "Avanti")).toBeDisabled();
+        await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
+        await expect(main(page).getByText(/^1 di \d+ scelte$/)).toBeVisible();
+        await expect(main(page).getByText("Le ore si scelgono nel passo dopo, «Quando».")).toBeVisible();
+        await next(page);
+        // il Quando: le ore, col modulo del Calendario
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await expect(button(page, /^Sempre/)).toHaveAttribute("aria-pressed", "true");
+        // con una sede sola scelta non c'è «Dipende dalla sede»
+        await expect(button(page, /^Dipende dalla sede/)).toHaveCount(0);
         await button(page, /^Solo in certi momenti/).click();
         await expect(main(page).getByText("Anteprima · Menù")).toBeVisible();
         await next(page);
@@ -371,6 +384,40 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`));
     });
 
+    test("il Quando con più sedi: «Dipende dalla sede», una sede «diversa» e «Torna come le altre»", async ({ page }) => {
+        await open(page, "menu");
+        await walkMenu(page, "Pranzo veloce");
+        await next(page);
+        await onAir(page);
+        // con alcune sedi scelte c'è «Togli tutte»; con tutte, vale anche per quelle che aprirai
+        await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
+        await expect(main(page).getByText("Quello che vale per una sede vince su quello che vale per tutte.")).toBeVisible();
+        await button(page, "Togli tutte").click();
+        await expect(main(page).getByText("Nessuna sede scelta")).toBeVisible();
+        await allSedi(page).click();
+        await expect(main(page).getByText("Vale anche per le sedi che aprirai.")).toBeVisible();
+        await expect(button(page, "Togli tutte")).toHaveCount(0);
+        await next(page);
+        await expect(main(page).getByText("Le ore in cui i clienti lo vedono. A destra la settimana della sede che scegli sopra.")).toBeVisible();
+        await expect(button(page, /^Sempre/)).toContainText(/In tutte (e due le|e tre le|le \d+) sedi, tutti i giorni, a tutte le ore\./);
+        await button(page, /^Solo in certi momenti/).click();
+        await button(page, /^Dipende dalla sede/).click();
+        await expect(button(page, /^Dipende dalla sede/)).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByText("Le ore di ogni sede: la settimana a destra segue la sede che scegli sopra.")).toBeVisible();
+        await expect(main(page).getByText(/^Tutte partono da .+\. Apri una sede per cambiarla\.$/)).toBeVisible();
+        const porto = main(page).getByRole("button", { name: /^Porto e2e/ });
+        await expect(porto).toContainText("come le altre");
+        await porto.click();
+        await expect(main(page).getByText("Cambiando qui, cambia solo Porto e2e.")).toBeVisible();
+        await main(page).getByRole("button", { name: "Sab e Dom", exact: true }).click();
+        await expect(porto).toContainText("diversa");
+        await button(page, "Torna come le altre").click();
+        await expect(porto).toContainText("come le altre");
+        // una sola risposta alla volta: «Solo in certi momenti» rimette le stesse ore a tutte
+        await button(page, /^Solo in certi momenti/).click();
+        await expect(main(page).getByRole("button", { name: /^Porto e2e/ })).toHaveCount(0);
+    });
+
     test("da «E adesso?»: lo stile ha il quando e il dove del menù, finito si torna lì", async ({ page }) => {
         wireMenu(stub);
         wireRule(stub);
@@ -381,6 +428,8 @@ test.describe("Tunnel di creazione — menù", () => {
         await walkMenu(page, "Pranzo veloce");
         await next(page);
         await onAir(page);
+        await allSedi(page).click();
+        await next(page);
         await button(page, /^Solo in certi momenti/).click();
         await next(page);
         await button(page, "Metti in onda").click();
@@ -392,8 +441,10 @@ test.describe("Tunnel di creazione — menù", () => {
         await button(page, "Blu").click();
         await next(page);
         await onAir(page);
-        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
         await expect(main(page).getByText("Già compilato dal menù «Pranzo veloce»: puoi cambiarlo.")).toBeVisible();
+        await expect(allSedi(page)).toHaveAttribute("aria-checked", "true");
+        await next(page);
+        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
         await next(page);
         await button(page, "Metti in onda").click();
         await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce è in onda" })).toBeVisible({ timeout: 15_000 });
@@ -575,13 +626,11 @@ test.describe("Tunnel di creazione — menù", () => {
         await walkMenu(page);
         await next(page);
         await onAir(page);
-        await main(page).getByRole("button", { name: "Porto e2e", exact: true }).click();
-        const pop = page.getByRole("dialog", { name: "Sedi" });
-        await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toBeChecked();
-        await expect(pop.getByRole("checkbox", { name: "Centro e2e" })).not.toBeChecked();
-        await page.keyboard.press("Escape");
-        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
+        await expect(sediBox(page).getByRole("checkbox", { name: "Porto e2e" })).toBeChecked();
+        await expect(sediBox(page).getByRole("checkbox", { name: "Centro e2e" })).not.toBeChecked();
         await expect(main(page).getByText("Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.")).toBeVisible();
+        await next(page);
+        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
         // uscire senza salvare lascia la bozza dov'è
         await button(page, "Esci").click();
         await page.getByRole("alertdialog").getByRole("button", { name: "Esci senza salvare" }).click();
@@ -661,6 +710,9 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await piatti.getByRole("checkbox", { name: /Margherita e2e/ }).click();
         await next(page);
         await onAir(page);
+        await allSedi(page).click();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await next(page);
         await button(page, "Metti in onda").click();
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
@@ -808,7 +860,7 @@ test.describe("Tunnel dello stile: modificare (D186)", () => {
     });
 });
 
-test.describe("Dove e quando: in onda o pronto (D189)", () => {
+test.describe("Dove e Quando: in onda o pronto (D189)", () => {
     test.beforeEach(async ({ page }) => {
         stub = await stubProgrammazione(page);
     });
@@ -841,20 +893,25 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
         await open(page, "menu", "menu");
         await walkMenu(page);
         await next(page);
-        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
+        await expect(main(page).getByText("Due scelte: se i clienti lo vedono e in quali sedi. Si cambia quando vuoi.")).toBeVisible();
         await expect(main(page).getByText("Vuoi che i clienti lo vedano appena salvi?")).toBeVisible();
         await expect(main(page).getByText("Scegli una delle due per andare avanti")).toBeVisible();
         await expect(button(page, "Avanti")).toBeDisabled();
-        // niente sedi né ore finché non si sceglie
-        await expect(main(page).getByRole("button", { name: /^Tutte le sedi/ })).toHaveCount(0);
+        // niente sedi finché non si sceglie
+        await expect(sediBox(page)).toHaveCount(0);
         await button(page, /^No, per ora lo tengo pronto/).click();
         await expect(button(page, /^No, per ora lo tengo pronto/)).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByText("Lo salvi completo, ma nessun cliente lo vede.")).toBeVisible();
         await expect(main(page).getByText("Nessuna sede e nessun orario. Il menù resta in «Menù» come «Pronto, non in onda». Quando vuoi, lo metti in onda da lì con «Metti in onda».")).toBeVisible();
-        await expect(rail(page).getByRole("button", { name: /Dove e quando\s*· non in onda/ })).toBeVisible();
-        // si cambia idea con un clic: tornano sedi e ore
+        await expect(rail(page).getByRole("button", { name: /Dove\s*· non in onda/ })).toBeVisible();
+        // tenuto pronto, il «Quando» si salta: nella fila è spento
+        await expect(rail(page).getByRole("button", { name: /Quando/ })).toBeDisabled();
+        // si cambia idea con un clic: tornano le sedi, tutte da scegliere
         await onAir(page);
-        await expect(main(page).getByRole("button", { name: /^Tutte le sedi/ })).toBeVisible();
-        await expect(rail(page).getByRole("button", { name: /Dove e quando\s*· in onda/ })).toBeVisible();
+        await expect(sediBox(page)).toBeVisible();
+        await expect(allSedi(page)).toHaveAttribute("aria-checked", "false");
+        await expect(rail(page).getByRole("button", { name: /Dove\s*· in onda/ })).toBeVisible();
     });
 
     test("menù tenuto pronto: in Controlla la frase, il Calendario non cambia e i controlli fatti", async ({ page }) => {
@@ -883,10 +940,8 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
         await onAir(page);
         // in tutte le sedi e sempre sarebbe a pari merito con lo stile di base, e il Calendario lo ferma:
         // una sede e certi momenti, come il menù di «Metti in onda»
-        await main(page).getByRole("button", { name: /^Tutte le sedi · \d+, anche le nuove$/ }).click();
-        await page.getByRole("dialog", { name: "Sedi" }).getByRole("button", { name: "Solo Porto e2e" }).click();
-        await page.keyboard.press("Escape");
-        await expect(main(page).getByRole("button", { name: "Porto e2e", exact: true })).toBeVisible();
+        await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
+        await next(page);
         await button(page, /^Solo in certi momenti/).click();
         await next(page);
         await button(page, "Metti in onda").click();
@@ -924,15 +979,21 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
         expect(bodyOf(stub, "stories.PATCH")).toMatchObject({ status: "draft" });
     });
 
-    test("«Metti in onda» dall'elenco: si apre la modifica già sul «Dove e quando», con «Sì» scelto", async ({ page }) => {
+    test("«Metti in onda» dall'elenco: si apre la modifica già sul «Dove», con «Sì» scelto; poi il «Quando»", async ({ page }) => {
         wireEvid();
         await nataleDraft(page);
         await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza&metti=1`);
-        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible({ timeout: 20_000 });
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible({ timeout: 20_000 });
         await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
+        // le sedi sono quelle della sua voce
+        await expect(allSedi(page)).toHaveAttribute("aria-checked", "true");
         await next(page);
-        await expect(main(page).getByText("Prima: non in onda")).toBeVisible();
-        await expect(main(page).getByText(/^Adesso: in onda, /)).toBeVisible();
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
+        await expect(main(page).getByText("È la sua voce nel Calendario: cambiandola qui, cambia anche lì.")).toBeVisible();
+        await next(page);
+        // il Dove e il Quando, ciascuno col suo «Prima» e «Adesso»
+        await expect(main(page).getByText("Prima: non in onda")).toHaveCount(2);
+        await expect(main(page).getByText(/^Adesso: in onda, /)).toHaveCount(2);
         await button(page, "Salva le modifiche").click();
         await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
         expect(writesOf(stub, "featured_contents.PATCH").map(w => first(w.body))).toContainEqual(expect.objectContaining({ status: "published" }));
@@ -944,14 +1005,18 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
         wireEvid();
         await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
         await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
-        await expect(main(page).getByText(/^In onda · /)).toBeVisible();
-        await main(page).getByRole("checkbox", { name: /^Dove e quando/ }).click();
+        // punto 8: il Dove e il Quando sono due caselle
+        await expect(main(page).getByRole("checkbox", { name: /^Dove In onda · Tutte le sedi/ })).toBeVisible();
+        await expect(main(page).getByRole("checkbox", { name: /^Quando In onda · / })).toBeVisible();
+        await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
         await next(page);
         // modificando si parte da com'è: in onda
         await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
         await button(page, /^No, per ora lo tengo pronto/).click();
         await expect(main(page).getByText(/^Salvando, questo contenuto esce da tutte le sedi: da quel momento nessun cliente lo vede\. La sua voce nel Calendario resta, spenta/)).toBeVisible();
+        // spento, il «Quando» si salta: «Avanti» porta a «Controlla»
         await next(page);
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(main(page).getByText(/^Prima: in onda, /)).toBeVisible();
         await expect(main(page).getByText(/esce da tutte le sedi: da quando salvi nessun cliente lo vede\./)).toBeVisible();
         await expect(main(page).getByText(/si spegne e resta lì, pronta per tornare in onda\./)).toBeVisible();
@@ -966,11 +1031,15 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
         wireEvid();
         await nataleDraft(page);
         await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
-        await expect(main(page).getByText("Non in onda", { exact: true })).toBeVisible({ timeout: 20_000 });
-        await main(page).getByRole("checkbox", { name: /^Dove e quando/ }).click();
+        await expect(main(page).getByRole("checkbox", { name: /^Dove Non in onda/ })).toBeVisible({ timeout: 20_000 });
+        await expect(main(page).getByRole("checkbox", { name: /^Quando Non in onda/ })).toBeVisible();
+        await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
         await next(page);
         await expect(button(page, /^No, per ora lo tengo pronto/)).toHaveAttribute("aria-pressed", "true");
         await onAir(page);
+        // rimesso in onda, «Avanti» passa dal «Quando» anche se non era scelto
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await next(page);
         await button(page, "Salva le modifiche").click();
         await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
@@ -982,7 +1051,7 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
         wireEvid();
         await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.jazz}?da=evidenza`);
         await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
-        await main(page).getByRole("checkbox", { name: /^Dove e quando/ }).click();
+        await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
         await next(page);
         await button(page, /^No, per ora lo tengo pronto/).click();
         await next(page);
@@ -996,11 +1065,11 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
         expect(shared).not.toContainEqual(expect.objectContaining({ enabled: false }));
     });
 
-    test("chi non gestisce il Calendario non sceglie, nemmeno modificando: niente «Dove e quando»", async ({ page }) => {
+    test("chi non gestisce il Calendario non sceglie, nemmeno modificando: niente «Dove» né «Quando»", async ({ page }) => {
         await stub.revoke("scheduling.write");
         await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
         await stub.revoked;
         await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
-        await expect(main(page).getByRole("checkbox", { name: /^Dove e quando/ })).toHaveCount(0);
+        await expect(main(page).getByRole("checkbox", { name: /^(Dove|Quando)/ })).toHaveCount(0);
     });
 });

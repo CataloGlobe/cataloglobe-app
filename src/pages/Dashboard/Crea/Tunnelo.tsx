@@ -19,7 +19,7 @@ import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Edito
 import type { V2Style } from "@/services/supabase/styles";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { rebase, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { rebase, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, skipped, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
 import { allEntriesOf, copySections, entriesOf, loadTunnel, type Loaded } from "./creaLoad";
@@ -31,7 +31,7 @@ import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
 import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
 import { EvidContenuto } from "./EvidContenuto";
-import { Adesso, Controlla, DoveQuando, Modifica, MenuParti, Quando, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { Adesso, Controlla, Dove, DoveQuando, Modifica, MenuParti, Quando, QuandoOre, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -84,7 +84,8 @@ type After = { t: Tunnel; saved: Saved; kids: CreaKind[] };
 export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, origin, business, reload, navigate, showToast, b }: TunnelProps) {
     const L = data.L;
     const { ensureActive } = useEnsureActive();
-    const allWhere = { all: true, activityIds: [], groupIds: [] };
+    // con più sedi le sedi si scelgono apposta: si parte da nessuna (la storia ha ancora tutte)
+    const allWhere = { all: !L.multi || kind === "storia", activityIds: [], groupIds: [] };
     const [t, setT] = useState<Tunnel>(() => (edit ? edit.t : aside ? withAside(newTunnel(kind, allWhere), aside) : fromSystem(newTunnel(kind, allWhere), data.styles.find(x => x.id === fromStyle))));
     const [after, setAfter] = useState<After | null>(null);
     /** «E adesso?» aperto (dopo il menù), o un tunnel aperto da lì. */
@@ -471,11 +472,12 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 );
                 break;
             case "quando":
-                body = <Quando t={t} u={u} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} />;
+                // con più sedi il Dove è già stato scelto: qui solo le ore
+                body = L.multi && draft ? <QuandoOre t={t} u={u} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} /> : <Quando t={t} u={u} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} />;
                 break;
             case "dove": {
                 const D = draft ?? draftFor(t, "featured", FAKE, null);
-                body = <DoveQuando t={t} u={u} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} L={L} durs={durs} axis={axis} />;
+                body = t.kind !== "storia" ? <Dove t={t} u={u} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} /> : <DoveQuando t={t} u={u} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} L={L} durs={durs} axis={axis} />;
                 break;
             }
             default:
@@ -561,8 +563,10 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                         {st.map((n, j) => {
                             // modificando ci si sposta dove si vuole: viola i passi scelti o toccati, grigi gli altri (D140)
                             const part = !!t.edit && n !== "modifica" && n !== "controlla";
-                            const can = t.edit ? true : !showAfter && j <= t.seen && (!fb || j <= fb.i || j <= i);
-                            const done = !t.edit && (showAfter || j < i);
+                            // tenuto pronto, il «Quando» si salta
+                            const skip = skipped(t, n, c);
+                            const can = !skip && (t.edit ? true : !showAfter && j <= t.seen && (!fb || j <= fb.i || j <= i));
+                            const done = !skip && !t.edit && (showAfter || j < i);
                             return (
                                 <li key={n}>
                                     <button

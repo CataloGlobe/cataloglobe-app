@@ -305,15 +305,21 @@ export const STEP_LABEL: Record<StepId, string> = {
     racconto: "Il racconto",
     blocchi: "I blocchi",
     quando: "Quando",
-    dove: "Dove e quando",
+    dove: "Dove",
     controlla: "Controlla"
 };
 
 /** Chi crea e dove: `owner` gestisce il Calendario (Dove e quando), `multi` ha più sedi. */
 export type Ctx = { owner: boolean; multi: boolean };
 
-/** Il nome del passo: modificando un menù «Da dove parti» è solo il nome. */
-export const stepLabel = (t: Tunnel, s: StepId): string => (t.edit && s === "parti" ? "Il nome" : STEP_LABEL[s]);
+/** Il nome del passo: modificando un menù «Da dove parti» è solo il nome; la storia ha ancora «Dove e quando» insieme. */
+export const stepLabel = (t: Tunnel, s: StepId): string => (t.edit && s === "parti" ? "Il nome" : s === "dove" && t.kind === "storia" ? "Dove e quando" : STEP_LABEL[s]);
+
+/** Con più sedi il Dove viene prima del Quando, in due passi; con una sola c'è solo il Quando. */
+const calSteps = (t: Tunnel, c: Ctx): StepId[] => (!c.multi ? ["quando"] : t.kind === "storia" ? ["dove"] : ["dove", "quando"]);
+
+/** Tenuto pronto nel «Dove»: il «Quando» non serve, si salta. */
+export const skipped = (t: Tunnel, s: StepId, c: Ctx): boolean => s === "quando" && c.multi && t.kind !== "storia" && t.onda === "off";
 
 export function steps(t: Tunnel, c: Ctx): StepId[] {
     if (t.edit) return editSteps(t, c);
@@ -325,8 +331,7 @@ export function steps(t: Tunnel, c: Ctx): StepId[] {
               : t.kind === "evid"
                 ? ["contenuto"]
                 : ["serve", "racconto", "blocchi"];
-    // con più sedi un passo solo, «Dove e quando» (D145); con una, il Quando
-    const when: StepId[] = c.owner ? [c.multi ? "dove" : "quando"] : [];
+    const when: StepId[] = c.owner ? calSteps(t, c) : [];
     return [...content, ...when, "controlla"];
 }
 
@@ -386,12 +391,19 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
             return t.title.trim() ? "" : "Manca il titolo";
         case "quando":
             if (!t.onda) return CHOOSE;
-            return t.onda === "off" ? "" : whenProblem(effWhen(t));
+            if (t.onda === "off") return "";
+            for (const w of t.per ? Object.values(t.per) : [effWhen(t)]) {
+                const why = whenProblem(w);
+                if (why) return why;
+            }
+            return "";
         case "dove":
             if (!t.onda) return CHOOSE;
             if (t.onda === "off" || !c.multi) return "";
             if (!t.where.all && !t.where.activityIds.length && !t.where.groupIds.length) return "Scegli almeno una sede";
-            if (t.kind === "storia" && !STORIA_WHEN && !t.where.all && (t.where.groupIds.length || t.where.activityIds.length > 1))
+            // le ore sono nel passo dopo, «Quando»
+            if (t.kind !== "storia") return "";
+            if (!STORIA_WHEN && !t.where.all && (t.where.groupIds.length || t.where.activityIds.length > 1))
                 return "Una storia in più sedi " + DB_LATER;
             for (const w of t.per ? Object.values(t.per) : [effWhen(t)]) {
                 const why = whenProblem(w);
@@ -412,6 +424,7 @@ export function firstBlock(t: Tunnel, c: Ctx): { i: number; why: string } | null
     for (let i = 0; i < st.length - 1; i++) {
         // modificando conta solo quello che si è cambiato: il resto era già così
         if (t.edit && !touched(t, st[i])) continue;
+        if (skipped(t, st[i], c)) continue;
         const why = blocker(t, st[i], c);
         if (why) return { i, why };
     }
@@ -499,7 +512,7 @@ function editSteps(t: Tunnel, c: Ctx): StepId[] {
     // il «Dove e quando» cambia la sua regola del Calendario: c'è se è una sola, o nessuna
     // (allora la si crea mettendolo in onda); la storia non ha regole
     const one = t.kind === "storia" || (t.edit?.rules ?? 0) <= 1;
-    const when: StepId[] = c.owner && one ? [c.multi ? "dove" : "quando"] : [];
+    const when: StepId[] = c.owner && one ? calSteps(t, c) : [];
     return ["modifica", ...content, ...when, "controlla"];
 }
 
@@ -529,10 +542,13 @@ function partOf(t: Tunnel, s: StepId): unknown {
             return [t.kicker.trim(), t.title.trim(), !!t.cover, t.coverUrl, t.linked];
         case "blocchi":
             return [t.blocks, t.pending];
-        case "quando":
+        // spento, sedi e orari non contano: restano quelli della sua voce
         case "dove":
-            // spento, sedi e orari non contano: restano quelli della sua voce
-            return t.onda !== "on" ? t.onda : [t.onda, cloneWhen(effWhen(t)), t.where.all, sorted(t.where.activityIds), sorted(t.where.groupIds), t.per];
+            if (t.onda !== "on") return t.onda;
+            // la storia ha ancora le ore nello stesso passo
+            return [t.onda, t.where.all, sorted(t.where.activityIds), sorted(t.where.groupIds), ...(t.kind === "storia" ? [cloneWhen(effWhen(t)), t.per] : [])];
+        case "quando":
+            return t.onda !== "on" ? t.onda : [t.onda, cloneWhen(effWhen(t)), t.per];
         default:
             return null;
     }
@@ -541,7 +557,7 @@ function partOf(t: Tunnel, s: StepId): unknown {
 /** Modificando: in questo passo è cambiato qualcosa. */
 export const changed = (t: Tunnel, s: StepId): boolean => !!t.edit && JSON.stringify(partOf(t, s)) !== JSON.stringify(partOf(t.edit.orig, s));
 
-export const changedSteps = (t: Tunnel, c: Ctx): StepId[] => steps(t, c).filter(s => changed(t, s));
+export const changedSteps = (t: Tunnel, c: Ctx): StepId[] => steps(t, c).filter(s => changed(t, s) && !skipped(t, s, c));
 
 /** Viola nella fila dei passi: scelto nel passo 0, o grigio ma poi toccato. */
 export const lit = (t: Tunnel, s: StepId): boolean => !!t.edit && (t.edit.picked.includes(s) || changed(t, s));
@@ -552,8 +568,12 @@ export const strays = (t: Tunnel, c: Ctx): StepId[] => changedSteps(t, c).filter
 /** Dove porta «Avanti» (dir 1) o «Indietro» (dir -1): modificando, solo fra i passi viola. */
 export function stepFrom(t: Tunnel, c: Ctx, i: number, dir: 1 | -1): number {
     const st = steps(t, c);
-    if (!t.edit || (t.edit.free && !t.edit.picked.length)) return Math.max(0, Math.min(i + dir, st.length - 1));
-    for (let j = i + dir; j > 0 && j < st.length - 1; j += dir) if (lit(t, st[j])) return j;
+    if (!t.edit || (t.edit.free && !t.edit.picked.length)) {
+        let j = i + dir;
+        while (j > 0 && j < st.length - 1 && skipped(t, st[j], c)) j += dir;
+        return Math.max(0, Math.min(j, st.length - 1));
+    }
+    for (let j = i + dir; j > 0 && j < st.length - 1; j += dir) if (lit(t, st[j]) && !skipped(t, st[j], c)) return j;
     return dir > 0 ? st.length - 1 : 0;
 }
 
@@ -581,14 +601,14 @@ export function asInside(t: Tunnel): Tunnel {
 }
 
 /**
- * «Metti in onda» dall'elenco (D189): la stessa modifica, già sul «Dove e quando»
- * scelto e con «Sì» acceso. Senza quel passo (chi non gestisce il Calendario,
+ * «Metti in onda» dall'elenco (D189): la stessa modifica, già sul «Dove» (con una
+ * sede sola, sul «Quando») scelto e con «Sì» acceso. Senza quel passo (chi non gestisce il Calendario,
  * o più voci), resta la modifica di sempre.
  */
 export function asMetti(t: Tunnel, c: Ctx): Tunnel {
     if (!t.edit) return t;
-    const s: StepId = c.multi ? "dove" : "quando";
-    const x: Tunnel = { ...t, onda: "on", edit: { ...t.edit, picked: [s] } };
+    const cal = calSteps(t, c), s = cal[0];
+    const x: Tunnel = { ...t, onda: "on", edit: { ...t.edit, picked: cal } };
     const i = steps(x, c).indexOf(s);
     return i < 0 ? t : { ...x, i, seen: Math.max(t.seen, i) };
 }
@@ -687,9 +707,10 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
             return [...n].map(([k, c]) => `${c} ${BLOCK_NAME[k][c === 1 ? 0 : 1]}`).join(", ");
         }
         case "quando":
-            return t.onda === "off" ? keepReady(t.kind) : durLabel(effWhen(t));
+            return t.onda === "off" ? keepReady(t.kind) : t.per ? perText(t.per, L) : durLabel(effWhen(t));
         case "dove":
             if (t.onda === "off") return keepReady(t.kind);
+            if (t.kind !== "storia") return whereText(t.where, L);
             return t.per ? perText(t.per, L) : whereText(t.where, L) + " · " + durLabel(effWhen(t));
         default:
             return "";

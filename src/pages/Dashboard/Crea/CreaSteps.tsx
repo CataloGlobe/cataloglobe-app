@@ -2,7 +2,7 @@
 // e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { CalendarClock, Check, CirclePause, Copy, Info, Infinity as InfinityIcon, Link2, Lock, Megaphone, Palette, Plus, Radio, ScanText, ScrollText, TriangleAlert } from "lucide-react";
+import { CalendarClock, Check, CirclePause, Copy, Info, Infinity as InfinityIcon, Link2, Lock, MapPinned, Megaphone, Palette, Plus, Radio, ScanText, ScrollText, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import type { StoryBlock } from "@/services/supabase/stories";
 import { MAX_STORY_IMAGES } from "@/services/supabase/stories";
@@ -12,11 +12,11 @@ import { StoryBlockEditor } from "@/pages/Dashboard/Stories/components/StoryBloc
 import { BLOCK_TYPE_META, BLOCK_TYPE_ORDER } from "@/pages/Dashboard/Stories/components/blocks/blockTypeMeta";
 import { createBlock } from "@/pages/Dashboard/Stories/components/createBlock";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
-import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
-import { DB_LATER, invalid, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { DoveQuandoPasso, OreSedi, QuandoPasso, ScontriAvviso, SediPasso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
+import { DB_LATER, invalid, sediOf, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { KIND, ONDA, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, goesLive, keepReady, offLater, ondaChange, priceText, sentence, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel } from "./creaModel";
+import { KIND, ONDA, STORIA_WHEN, blocker, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, offLater, ondaChange, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel } from "./creaModel";
 import { hidFeatured } from "./stileLook";
 import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Pick, Sh, Toggle, Warnish } from "./CreaUi";
@@ -382,10 +382,10 @@ const KIND_TXT: Record<Tunnel["kind"], string> = {
 type Upd = (fn: (d: Draft) => void) => void;
 
 /** La domanda in cima a «Dove e quando» (D189): in onda o pronto. Creando nessuna è scelta. */
-export function OndaAsk({ t, u }: { t: Tunnel; u: U }) {
+export function OndaAsk({ t, u, small }: { t: Tunnel; u: U; small?: boolean }) {
     const o = ONDA[t.kind], chosen = t.onda !== null;
     return (
-        <div className={s.ask}>
+        <div className={cx(s.ask, small && s.ondaS)}>
             <p>{`Vuoi che i clienti ${o.lo} vedano${t.edit ? "" : " appena salvi"}?`}</p>
             <div className={cx(s.ondaPick, chosen ? s.made : s.fresh)}>
                 <Pick
@@ -400,7 +400,7 @@ export function OndaAsk({ t, u }: { t: Tunnel; u: U }) {
                     on={t.onda === "off"}
                     icon={<CirclePause size={18} />}
                     title={keepReady(t.kind)}
-                    text={`Salvi ${o.q} ${o.completo}, ma nessun cliente ${o.lo} vede.`}
+                    text={`${t.kind === "storia" ? "La salvi completa" : "Lo salvi completo"}, ma nessun cliente ${o.lo} vede.`}
                     disabled={offLater(t)}
                     later={offLater(t) ? "Arriva col database nuovo" : undefined}
                     onClick={() => u(x => void (x.onda = "off"))}
@@ -488,7 +488,89 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel;
     );
 }
 
-/** Dove e quando, con più sedi (D145): il passo del Calendario, col «Sempre» del tunnel dentro. */
+/** «tutte e due le sedi», «tutte e tre le sedi», «tutte le 12 sedi». */
+const nTutte = (n: number) => (n === 2 ? "tutte e due le sedi" : n === 3 ? "tutte e tre le sedi" : `tutte le ${n} sedi`);
+
+/** Dove, con più sedi: prima se va in onda, poi in quali sedi. Le ore sono nel passo dopo. */
+export function Dove({ t, u, draft, updDraft, sedi, groups }: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[] }) {
+    return (
+        <>
+            <Sh title="Dove">{`Due scelte: se i clienti ${ONDA[t.kind].lo} vedono e in quali sedi. Si cambia quando vuoi.`}</Sh>
+            <OndaAsk t={t} u={u} small />
+            {t.onda === "off" && <OndaOff t={t} />}
+            {t.onda === "on" && (
+                <>
+                    {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
+                    {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+                    <div className={cx(cal.root, s.calwrap)}>
+                        <SediPasso draft={draft} upd={updDraft} sedi={sedi} groups={groups} />
+                    </div>
+                    <p className={s.hint}>Le ore si scelgono nel passo dopo, «Quando».</p>
+                </>
+            )}
+        </>
+    );
+}
+
+/** Quando, con più sedi: le ore, uguali per tutte o sede per sede. */
+export function QuandoOre({ t, u, draft, updDraft, sedi, groups, durs, axis }: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[]; durs: readonly CalWhen[]; axis: Axis }) {
+    const n = sediOf(t.where, sedi, groups).length;
+    const sel = t.per ? "diverse" : t.qmode;
+    return (
+        <>
+            <Sh title="Quando">
+                {t.per ? "Le ore di ogni sede: la settimana a destra segue la sede che scegli sopra." : `Le ore in cui i clienti ${ONDA[t.kind].lo} vedono. A destra la settimana della sede che scegli sopra.`}
+            </Sh>
+            <div className={s.opts}>
+                <Opt
+                    on={sel === "sempre"}
+                    icon={<InfinityIcon size={16} />}
+                    title="Sempre"
+                    text={n > 1 ? `In ${nTutte(n)}, tutti i giorni, a tutte le ore.` : "Da subito, tutti i giorni, a tutte le ore."}
+                    onClick={() => u(x => void ((x.per = null), (x.qmode = "sempre")))}
+                />
+                <Opt
+                    on={sel === "momenti"}
+                    icon={<CalendarClock size={16} />}
+                    title="Solo in certi momenti"
+                    text={n > 1 ? `Le stesse ore in ${nTutte(n)}.` : "Un periodo, alcuni giorni o alcune ore: il pranzo, il weekend, Natale."}
+                    onClick={() =>
+                        u(x => {
+                            x.per = null;
+                            x.qmode = "momenti";
+                            if (!x.when.days && !x.when.ranges && !x.when.period) x.when = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] };
+                        })
+                    }
+                />
+                {n > 1 && (
+                    <Opt
+                        on={sel === "diverse"}
+                        icon={<MapPinned size={16} />}
+                        title="Dipende dalla sede"
+                        text="Ogni sede ha le sue ore."
+                        onClick={() =>
+                            u(x => {
+                                if (x.per) return;
+                                // tutte partono dalle ore scelte fin qui
+                                x.when = cloneWhen(effWhen(x));
+                                x.qmode = "momenti";
+                                x.per = Object.fromEntries(sediOf(x.where, sedi, groups).map(id => [id, cloneWhen(x.when)]));
+                            })
+                        }
+                    />
+                )}
+            </div>
+            {sel !== "sempre" && (
+                <div className={cx(cal.root, s.calwrap)}>
+                    {sel === "momenti" ? <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} /> : <OreSedi draft={draft} upd={updDraft} sedi={sedi} durs={durs} axis={axis} />}
+                </div>
+            )}
+            {t.edit?.ruleId && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
+        </>
+    );
+}
+
+/** Dove e quando della storia (D145): il passo del Calendario, col «Sempre» del tunnel dentro. */
 export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[]; L: DraftLookups; durs: readonly CalWhen[]; axis: Axis }) {
     const { t, draft } = p;
     const storia = t.kind === "storia";
@@ -566,7 +648,7 @@ export function Controlla({
     onInsieme: (v: boolean) => void;
 }) {
     const all = steps(t, c);
-    const st = all.filter(x => x !== "controlla" && x !== "serve" && x !== "modifica");
+    const st = all.filter(x => x !== "controlla" && x !== "serve" && x !== "modifica" && !skipped(t, x, c));
     const fb = firstBlock(t, c);
     if (t.edit) {
         const ch = st.filter(x => changed(t, x));
@@ -630,7 +712,7 @@ export function Controlla({
                     <div className={s.blk}>
                         <h4>Cosa cambia nel calendario</h4>
                         {spegni ? (
-                            <p>{`La sua voce (${stepSummary(t.edit.orig, st.includes("dove") ? "dove" : "quando", L, styleName)}) si spegne e resta lì, pronta per tornare in onda.`}</p>
+                            <p>{`La sua voce (${all.filter(x => x === "dove" || x === "quando").map(x => stepSummary(t.edit!.orig, x, L, styleName)).join(" · ")}) si spegne e resta lì, pronta per tornare in onda.`}</p>
                         ) : (
                             <ul className={s.ieff}>
                                 {effect.lines.map((x, i) => (
@@ -675,7 +757,7 @@ export function Controlla({
                 <dl className={s.isum}>
                     {st.map(x => (
                         <div key={x}>
-                            <dt>{STEP_LABEL[x]}</dt>
+                            <dt>{stepLabel(t, x)}</dt>
                             <dd>{stepSummary(t, x, L, styleName)}</dd>
                             <Button variant="ghost" size="sm" onClick={() => onGo(all.indexOf(x))}>
                                 Cambia
@@ -703,7 +785,7 @@ export function Controlla({
                 <div className={s.callout}>
                     <TriangleAlert size={16} aria-hidden />
                     <span>
-                        {fb.why}: torna a «{STEP_LABEL[all[fb.i]]}».
+                        {fb.why}: torna a «{stepLabel(t, all[fb.i])}».
                     </span>
                 </div>
             )}

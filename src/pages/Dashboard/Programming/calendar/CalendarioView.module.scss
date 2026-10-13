@@ -188,6 +188,51 @@ button.dqsedi {
         white-space: nowrap;
     }
 }
+// «In quali sedi?»: il pannello delle sedi sempre aperto, nel passo «Dove»
+.sbox {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    max-width: 460px;
+    max-height: 330px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    background: var(--surface);
+    @include type.fs(text);
+}
+.sft {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 28px;
+    font-variant-numeric: tabular-nums;
+}
+.dqsrch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    align-self: stretch;
+    max-width: 460px;
+    padding: 5px 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text-muted);
+    input {
+        width: 100%;
+        border: 0;
+        outline: none;
+        background: none;
+        font: inherit;
+        @include type.fs(text);
+        color: var(--text);
+    }
+    &:focus-within {
+        box-shadow: var(--shadow-focus);
+    }
+}
 .dqrows {
     display: flex;
     flex-direction: column;
@@ -201,6 +246,10 @@ button.dqsedi {
     overflow: hidden;
     &[data-open] {
         border-color: var(--brand-primary);
+    }
+    // la sede con ore sue
+    &[data-dif] {
+        background: var(--brand-primary-soft);
     }
 }
 .dqhd {
@@ -219,6 +268,16 @@ button.dqsedi {
     b {
         @include type.fs(text);
         min-width: 90px;
+        small {
+            margin-left: 6px;
+            @include type.fs(small);
+            font-weight: 400;
+            color: var(--text-muted);
+            &[data-dif] {
+                font-weight: 600;
+                color: var(--brand-primary);
+            }
+        }
     }
     span {
         flex: 1 1 180px;

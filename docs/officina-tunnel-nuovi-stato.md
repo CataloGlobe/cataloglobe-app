@@ -31,13 +31,13 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 
 ### Tunnel Menù
 1. Via «Che menù è»: niente più multi menù da qui; al suo posto «Da dove parti» e «Quale menù copi?». **Fatto**: il passo e il campo `menuType` non ci sono più; «Copia da un altro menù» (si vede se c'è almeno un menù) porta categorie, piatti e varianti con `copySections`; salvando nascono righe nuove. Della nota sotto l'elenco resta «Ci sono tutti, anche quelli non in onda.» (la prima frase era una nota per chi guarda la pagina). Prove: `creaModel.test.ts`, `creaLoad.test.ts`, e2e «copia da un altro menù».
-2. Dove prima del Quando; si parte da nessuna sede; nel Dove «In onda?». **Da fare**
-3. Quando in due parti: «Le ore» («Hanno le stesse ore?», ora scritta 22 / 2230 / 22:30 o dall'orologio con ↑ ↓, «Giorno dopo» [int.], più fasce [int.]); poi «In onda insieme / al posto» [int.] («È uguale in tutte le sedi?», una sede alla volta con «N di M sedi viste», spunta, etichetta «diversa»). **Da fare**
+2. Dove prima del Quando; si parte da nessuna sede; nel Dove «In onda?». **Fatto** (menù, stile, in evidenza; la storia tiene «Dove e quando» insieme fino al punto 17): con più sedi i passi sono «Dove» e «Quando» (`calSteps` in `creaModel.ts`); tenuto pronto, il «Quando» si salta (`skipped`). Il riquadro «In quali sedi?» è `SediPasso` in `CalendarioPassi.tsx`: il pannello delle sedi di casa (`SediPannello`) sempre aperto, quindi con la tab dei gruppi e «solo questa», che la pagina non disegna. Per i gruppi resta la nota di oggi («Vale anche per le sedi che entreranno nel gruppo…»). Non ancora: la conferma di sedi e ore ereditate (punto 7).
+3. Quando in due parti: «Le ore» («Hanno le stesse ore?», ora scritta 22 / 2230 / 22:30 o dall'orologio con ↑ ↓, «Giorno dopo» [int.], più fasce [int.]); poi «In onda insieme / al posto» [int.] («È uguale in tutte le sedi?», una sede alla volta con «N di M sedi viste», spunta, etichetta «diversa»). **In parte**: fatte le tre risposte di «Le ore» con più sedi («Sempre», «Solo in certi momenti», «Dipende dalla sede» con `OreSedi`: «diversa» / «come le altre», «Torna come le altre», ricerca sopra le 5 sedi). **Da fare**: l'ora scritta e l'orologio, «Giorno dopo», più fasce, e la seconda parte «In onda insieme».
 4. Menù che stanno da soli (soloBox) [int.]. **Da fare**
 5. Controlla: «Cosa cambia nel calendario» (versione Claude), settimana a destra, pallino colore, frecce delle sedi, fumetto. **Da fare**
 6. «Avanti» porta a ciò che manca: bordo rosso, scossa, messaggio. **Da fare**
 7. «E adesso?» dopo ogni creazione: eredita sedi e ore e chiede di confermarle. **Da fare**
-8. In modifica, la casella «Dove e Quando» separati. **Da fare**
+8. In modifica, la casella «Dove e Quando» separati. **Fatto**: due caselle, «Dove» (le sedi) e «Quando» (le ore), ognuna con «In onda · …» o «Non in onda»; in «Controlla» ognuna ha il suo «Prima / Adesso». Rimesso in onda dal «Dove», «Avanti» passa anche dal «Quando».
 
 ### Tunnel Stile
 9. «Prende il posto» oppure «lascia l'altro». **Da fare**

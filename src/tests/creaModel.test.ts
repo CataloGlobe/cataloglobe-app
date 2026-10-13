@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 // i moduli del tunnel arrivano fino al client: qui non serve, e senza `.env` non partirebbe
 vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
 import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { CHOOSE, blocker, effWhen, firstBlock, goesLive, isDirty, keepReady, kindOfSlug, newTunnel, readFromAi, sentence, stepSummary, steps, tunnelTitle, whenProblem, withAside, type FromMenu, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import { CHOOSE, blocker, effWhen, firstBlock, goesLive, isDirty, keepReady, kindOfSlug, newTunnel, readFromAi, sentence, skipped, stepFrom, stepLabel, stepSummary, steps, tunnelTitle, whenProblem, withAside, type FromMenu, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, logoColors, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
@@ -14,17 +14,44 @@ const ALL = { all: true, activityIds: [], groupIds: [] };
 const OWNER = { owner: true, multi: true };
 
 describe("tunnel di creazione: i passi", () => {
-    it("ogni tipo ha i suoi passi, poi «Dove e quando» e Controlla (D134, D145)", () => {
-        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["parti", "sezioni", "dove", "controlla"]);
-        expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "controlla"]);
+    it("ogni tipo ha i suoi passi, poi «Dove», «Quando» e Controlla; la storia ha ancora «Dove e quando» insieme", () => {
+        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["parti", "sezioni", "dove", "quando", "controlla"]);
+        expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "quando", "controlla"]);
+        expect(stepLabel(newTunnel("menu", ALL), "dove")).toBe("Dove");
+        expect(stepLabel(newTunnel("storia", ALL), "dove")).toBe("Dove e quando");
         expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "dove", "controlla"]);
         const ev = newTunnel("evid", ALL);
         // D187: niente «Che cosa?»; i piatti sono una parte del contenuto, non un passo
-        expect(steps(ev, OWNER)).toEqual(["contenuto", "dove", "controlla"]);
-        expect(steps({ ...ev, evType: "promo" }, OWNER)).toEqual(["contenuto", "dove", "controlla"]);
+        expect(steps(ev, OWNER)).toEqual(["contenuto", "dove", "quando", "controlla"]);
+        expect(steps({ ...ev, evType: "promo" }, OWNER)).toEqual(["contenuto", "dove", "quando", "controlla"]);
         expect(blocker({ ...ev, title: "Lo chef consiglia", evType: "promo" }, "contenuto", OWNER)).toBe("Aggiungi almeno un piatto");
         expect(blocker({ ...ev, title: "Lo chef consiglia", evType: "promo", dishes: ["p1"] }, "contenuto", OWNER)).toBe("");
         expect(blocker({ ...ev, title: "Chiusi per ferie" }, "contenuto", OWNER)).toBe("");
+    });
+
+    it("il Dove viene prima del Quando: si parte da nessuna sede, e tenuto pronto il Quando si salta", () => {
+        const NONE = { all: false, activityIds: [], groupIds: [] };
+        const t = { ...newTunnel("menu", NONE), name: "Pranzo", seen: 9 };
+        expect(blocker(t, "dove", OWNER)).toBe("Scegli una delle due per andare avanti");
+        expect(blocker({ ...t, onda: "on" }, "dove", OWNER)).toBe("Scegli almeno una sede");
+        const on: typeof t = { ...t, onda: "on", where: { all: false, activityIds: ["a"], groupIds: [] } };
+        expect(blocker(on, "dove", OWNER)).toBe("");
+        // le ore sbagliate fermano il Quando, non il Dove
+        const bad: typeof t = { ...on, qmode: "momenti", when: { days: [] } };
+        expect(blocker(bad, "dove", OWNER)).toBe("");
+        expect(blocker(bad, "quando", OWNER)).toBe("Scegli almeno un giorno");
+        expect(blocker({ ...on, qmode: "momenti", when: {}, per: { a: {}, b: { days: [] } } }, "quando", OWNER)).toBe("Scegli almeno un giorno");
+        // «Avanti» dal Dove: in onda va al Quando, tenuto pronto lo salta
+        expect(skipped(on, "quando", OWNER)).toBe(false);
+        expect(stepFrom(on, OWNER, 2, 1)).toBe(3);
+        const off: typeof t = { ...t, onda: "off" };
+        expect(blocker(off, "dove", OWNER)).toBe("");
+        expect(skipped(off, "quando", OWNER)).toBe(true);
+        expect(stepFrom(off, OWNER, 2, 1)).toBe(4);
+        expect(stepFrom(off, OWNER, 4, -1)).toBe(2);
+        expect(firstBlock({ ...off, sections: [{ key: "s", name: "Primi", dishes: [{ key: "d", productId: "p1", name: "Risotto", price: 9 }], subs: [] }], qmode: "momenti", when: { days: [] } }, OWNER)).toBeNull();
+        // con una sede sola non si salta niente: la scelta è nel Quando
+        expect(skipped(off, "quando", { owner: true, multi: false })).toBe(false);
     });
 
     it("chi non gestisce il Calendario non ha Dove e quando; con una sede sola solo il Quando", () => {

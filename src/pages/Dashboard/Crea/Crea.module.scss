@@ -514,6 +514,23 @@ select.in {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
     gap: 10px;
 }
+// nel passo «Dove» la domanda è una delle due scelte: più raccolta
+.ask.ondaS {
+    padding: 14px;
+    gap: 10px;
+    .ondaPick {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+        gap: 8px;
+    }
+    .opt.pk {
+        padding: 10px 12px;
+        gap: 10px;
+        .oi {
+            width: 28px;
+            height: 28px;
+        }
+    }
+}
 .opt.pk {
     position: relative;
     flex-direction: row;

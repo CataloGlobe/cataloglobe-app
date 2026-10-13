@@ -66,14 +66,14 @@ const upd = (t: Tunnel, fn: (x: Tunnel) => void) => {
 
 describe("modifica nel tunnel: i passi", () => {
     it("il passo 0, poi solo i passi che cambiano la cosa, poi Controlla", () => {
-        expect(steps(menu(), OWNER)).toEqual(["modifica", "parti", "sezioni", "dove", "controlla"]);
+        expect(steps(menu(), OWNER)).toEqual(["modifica", "parti", "sezioni", "dove", "quando", "controlla"]);
         expect(stepLabel(menu(), "parti")).toBe("Il nome");
         expect(tunnelTitle(menu())).toBe("Modifica il menù · Pranzo");
     });
 
-    it("il «Dove e quando» c'è con una voce sola o nessuna (lo si mette in onda), e solo per chi gestisce il Calendario", () => {
+    it("il Dove e il Quando ci sono con una voce sola o nessuna (lo si mette in onda), e solo per chi gestisce il Calendario", () => {
         // D189: senza voce si può metterlo in onda dal tunnel
-        expect(steps(menu(null), OWNER)).toEqual(["modifica", "parti", "sezioni", "dove", "controlla"]);
+        expect(steps(menu(null), OWNER)).toEqual(["modifica", "parti", "sezioni", "dove", "quando", "controlla"]);
         expect(steps({ ...menu(), edit: { ...menu().edit!, rules: 2 } }, OWNER)).toEqual(["modifica", "parti", "sezioni", "controlla"]);
         expect(steps(menu(), { owner: false, multi: true })).toEqual(["modifica", "parti", "sezioni", "controlla"]);
         expect(steps(menu(), { owner: true, multi: false })).toContain("quando");
@@ -103,10 +103,22 @@ describe("modifica nel tunnel: in onda o pronto (D189)", () => {
         expect(changed(upd(menu(null), x => void (x.onda = "on")), "dove")).toBe(true);
     });
 
+    it("le sedi sono il Dove, le ore il Quando: cambiare le une non tocca le altre", () => {
+        const sedi = upd(menu(), x => void (x.where = { all: false, activityIds: ["a"], groupIds: [] }));
+        expect([changed(sedi, "dove"), changed(sedi, "quando")]).toEqual([true, false]);
+        const ore = upd(menu(), x => void ((x.qmode = "momenti"), (x.when = { days: [5, 6] })));
+        expect([changed(ore, "dove"), changed(ore, "quando")]).toEqual([false, true]);
+        const per = upd(menu(), x => void (x.per = { a: {}, b: { days: [5, 6] } }));
+        expect([changed(per, "dove"), changed(per, "quando")]).toEqual([false, true]);
+    });
+
     it("spegnerlo: la frase dice che esce da tutte le sedi, «Le tue modifiche» com'era e com'è", () => {
         const t = upd(menu(), x => void (x.onda = "off"));
         expect(sentence(t, L)).toBe("Il menù «Pranzo» esce da tutte le sedi: da quando salvi nessun cliente lo vede.");
-        expect(ondaChange(t, "dove", L)).toEqual(["Prima: in onda, Tutte le sedi · Sempre, tutto il giorno", "Adesso: no, per ora lo tengo pronto"]);
+        expect(ondaChange(t, "dove", L)).toEqual(["Prima: in onda, Tutte le sedi", "Adesso: no, per ora lo tengo pronto"]);
+        // tenuto pronto, il Quando si salta: fra le modifiche resta solo il Dove
+        expect(changedSteps(t, OWNER)).toEqual(["dove"]);
+        expect(ondaChange(upd(menu(null), x => void (x.onda = "on")), "quando", L)).toEqual(["Prima: non in onda", "Adesso: in onda, Sempre, tutto il giorno"]);
         expect(ondaChange(upd(menu(null), x => void (x.onda = "on")), "dove", L)[0]).toBe("Prima: non in onda");
     });
 
@@ -124,8 +136,8 @@ describe("modifica nel tunnel: viola e grigi", () => {
         expect(lit(t, "sezioni")).toBe(true);
         expect(lit(t, "parti")).toBe(false);
         expect(stepFrom(t, OWNER, 0, 1)).toBe(2);
-        expect(stepFrom(t, OWNER, 2, 1)).toBe(4);
-        expect(stepFrom(t, OWNER, 4, -1)).toBe(2);
+        expect(stepFrom(t, OWNER, 2, 1)).toBe(5);
+        expect(stepFrom(t, OWNER, 5, -1)).toBe(2);
         expect(stepFrom(t, OWNER, 2, -1)).toBe(0);
     });
 
@@ -446,11 +458,12 @@ describe("modifica nel tunnel: salvare «in onda» o «pronto» (D189)", () => {
 describe("«Metti in onda» dall'elenco (D189)", () => {
     const pronto = (rules = 0) => asEdit({ ...newTunnel("evid", ALL), name: "Aperitivo" }, "e1", { id: rules === 1 ? "r1" : null, count: rules, live: false });
 
-    it("apre la modifica sul «Dove e quando», scelto e con «Sì» acceso", () => {
+    it("apre la modifica sul «Dove», con «Sì» acceso; scelti il Dove e il Quando", () => {
         const t = asMetti(pronto(), OWNER);
         expect(steps(t, OWNER)[t.i]).toBe("dove");
         expect(t.onda).toBe("on");
-        expect(t.edit!.picked).toEqual(["dove"]);
+        expect(t.edit!.picked).toEqual(["dove", "quando"]);
+        expect(stepFrom(t, OWNER, t.i, 1)).toBe(t.i + 1);
         expect(changed(t, "dove")).toBe(true);
     });
 
