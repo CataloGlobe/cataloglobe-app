@@ -14,7 +14,7 @@ test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], o
 test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 test("una riga del menu si apre da tastiera e il fuoco torna alla riga", async ({ page }) => {
-    await stubPublicPage(page, { details: true });
+    await stubPublicPage(page, { ordering: false, details: true });
     await page.goto(`/${SLUG}`);
     await page.getByText("Antipasti 1", { exact: true }).waitFor();
     test.skip((await page.getByRole("button", { name: "Altre opzioni" }).count()) === 0, "pagina senza redesign");
