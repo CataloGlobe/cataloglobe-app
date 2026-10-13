@@ -1,10 +1,9 @@
 // Prova a secco di M1 (fasce) e M2 (ore per sede), solo in memoria.
 //
-// `simulaM1` riempie le fasce come scritto nel pacchetto (parte 2, «Dati di
-// oggi» di M1): una fascia per ogni regola `window`; una fascia 0-1440 coi
-// giorni per le regole `always` che hanno dei giorni; nessuna fascia per le
-// `always` senza giorni. `giudiceConFasce` è il giudice di oggi con il solo
-// controllo dell'ora sostituito dalle fasce (anche quelle di ieri che passano
+// `simulaM1` riempie le fasce come la migrazione del passo 1 (20261014090000),
+// che segue il giudice di oggi anche dove il pacchetto diceva altro («Sempre»
+// coi giorni, fine prima dell'inizio). `giudiceConFasce` è il giudice di oggi
+// con il solo controllo dell'ora sostituito dalle fasce (anche quelle di ieri che passano
 // la mezzanotte) e dalle sedi delle fasce (M2). L'ordine resta quello di
 // `compareCandidates`: il giudice nuovo di M5 non è qui.
 //
@@ -36,10 +35,14 @@ function toMinutes(hhmm: string | null): number | null {
 }
 
 /**
- * Le fasce di M1 dalle colonne di oggi. 23:59 vale 1440. Una fascia con la fine
- * prima dell'inizio passa la mezzanotte (fine + 1440): oggi una regola così non
- * è mai attiva, dopo M1 sì. Le fasce già presenti si tengono e la regola non
- * si riempie due volte.
+ * Le fasce di M1 dalle colonne di oggi, uguali a quelle che scrive la
+ * migrazione 20261014090000 (⚠️ SYNC: cambiare insieme). Danno lo stesso esito
+ * del giudice di oggi (scelta di Lorenzo del 2026-10-14):
+ * - «Sempre»: nessuna fascia, anche coi giorni (oggi il giudice li ignora);
+ * - «Fascia» senza una delle due ore: 0-1440 coi giorni, nessuna senza giorni;
+ * - «Fascia» con le ore: 23:59 vale 1440; una fine non dopo l'inizio (oggi mai
+ *   attiva) dà una fascia senza giorni, cioè mai.
+ * Le fasce già presenti si tengono e la regola non si riempie due volte.
  */
 export function simulaM1(snapshot: Snapshot): SnapshotConFasce {
     const existing = snapshot.slots ?? [];
@@ -47,37 +50,19 @@ export function simulaM1(snapshot: Snapshot): SnapshotConFasce {
     const slots: SnapshotSlot[] = [...existing];
 
     for (const s of snapshot.schedules) {
-        if (filled.has(s.id)) continue;
-        if (s.time_mode === "window") {
-            const from = toMinutes(s.time_from);
-            const rawTo = toMinutes(s.time_to);
-            const to = rawTo === 23 * 60 + 59 ? 1440 : rawTo;
-            let start = 0;
-            let end = 1440;
-            let days = s.days_of_week;
-            if (from !== null && to !== null) {
-                start = from;
-                end = to < from ? to + 1440 : to;
-                // Inizio uguale alla fine: oggi la regola non è mai attiva; una
-                // fascia di durata zero non è ammessa, quindi nessun giorno.
-                if (to === from) days = [];
-            }
-            slots.push({
-                id: `sim-${s.id}`,
-                schedule_id: s.id,
-                days_of_week: days,
-                start_minute: start,
-                end_minute: end === start ? start + 1 : end
-            });
-        } else if (s.days_of_week !== null) {
-            slots.push({
-                id: `sim-${s.id}`,
-                schedule_id: s.id,
-                days_of_week: s.days_of_week,
-                start_minute: 0,
-                end_minute: 1440
-            });
+        if (filled.has(s.id) || s.time_mode !== "window") continue;
+        const from = toMinutes(s.time_from);
+        const rawTo = toMinutes(s.time_to);
+        const slot = (days: number[] | null, start: number, end: number) =>
+            slots.push({ id: `sim-${s.id}`, schedule_id: s.id, days_of_week: days, start_minute: start, end_minute: end });
+
+        if (from === null || rawTo === null) {
+            if (s.days_of_week !== null) slot(s.days_of_week, 0, 1440);
+            continue;
         }
+        const to = rawTo === 1439 && from < 1439 ? 1440 : rawTo;
+        if (to <= from) slot([], 0, 1440);
+        else slot(s.days_of_week, from, to);
     }
     return { ...snapshot, slots };
 }
