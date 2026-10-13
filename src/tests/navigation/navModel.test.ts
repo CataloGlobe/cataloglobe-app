@@ -319,7 +319,7 @@ describe("seatOf: le sedi in alto per la parte aperta (D152)", () => {
     const parts = (ctx: NavContext) =>
         NAV_MODELS[ctx].groups.flatMap(g => g.entries.map(e => [g.key, e.label, seatOf(g, e).seat, seatOf(g, e).confronto]));
 
-    it("confronto in Calendario, Andamento e Recensioni (D159); Storico anche tutte, Clienti dell'azienda", () => {
+    it("confronto in Calendario, Andamento e Recensioni (D159); Storico una sede, Clienti dell'azienda", () => {
         expect(parts("azienda")).toEqual([
             ["overview", "Panoramica", "multi", false],
             ...NAV_MODELS.azienda.groups[1].entries.map(e => ["crea", e.label, "none", false]),
@@ -328,7 +328,7 @@ describe("seatOf: le sedi in alto per la parte aperta (D152)", () => {
             ["servizio", "In servizio", "one", false],
             ["servizio", "Cosa vedono i clienti", "one", false],
             ["servizio", "Sala", "one", false],
-            ["servizio", "Storico", "multi", false],
+            ["servizio", "Storico", "one", false],
             ["numeri", "Andamento", "multi", true],
             ["numeri", "Recensioni", "multi", true],
             ["numeri", "Clienti", "none", false],

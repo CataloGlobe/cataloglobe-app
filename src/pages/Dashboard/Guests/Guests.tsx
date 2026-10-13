@@ -253,6 +253,8 @@ export default function Guests() {
         (g: ReservationGuestSummary) => !sedeFilter || (activityByGuest.get(g.id)?.sedi.some(s => s.id === sedeFilter) ?? false),
         [sedeFilter, activityByGuest]
     );
+    // La rubrica letta si ferma ai più recenti (C2): i conteggi valgono per loro.
+    const capped = guests.length >= DIRECTORY_LIMIT;
     const counts = useMemo(() => {
         const c: Record<GuestFilter, number> = { all: 0, regular: 0, new: 0, lost: 0, absent: 0 };
         for (const g of guests) {
@@ -369,6 +371,7 @@ export default function Guests() {
                                     : `${lostRegulars} clienti abituali non tornano da più di 3 mesi.`}
                             </b>{" "}
                             Venivano spesso: una telefonata li riporta.
+                            {capped && ` Contati tra i ${DIRECTORY_LIMIT} clienti più recenti.`}
                         </span>
                         <Chip
                             label="Vedi chi"
@@ -404,6 +407,13 @@ export default function Guests() {
                         )}
                     </div>
                 )}
+                {/* I conteggi si fanno sulla lista letta (C2): finché il conto
+                    non si fa nel database, la pagina dice su quanti. */}
+                {showTools && capped && (
+                    <Text as="p" variant="caption" colorVariant="muted">
+                        I numeri contano i primi {DIRECTORY_LIMIT} clienti, i più recenti.
+                    </Text>
+                )}
 
                 {loadError ? (
                     <EmptyState
@@ -436,7 +446,7 @@ export default function Guests() {
 
                 {/* Il tetto della lista, detto (C2): oltre i 200 più recenti
                     i clienti non spariscono, si trovano cercando. */}
-                {!loadError && guests.length >= DIRECTORY_LIMIT && (
+                {!loadError && capped && (
                     <Text as="p" variant="caption" colorVariant="muted">
                         Mostrati i {DIRECTORY_LIMIT} clienti più recenti: cerca per trovare gli altri.
                     </Text>

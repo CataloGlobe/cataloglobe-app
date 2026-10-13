@@ -33,6 +33,7 @@ import { readSedeScopeLocal, rememberLastSede } from "@/hooks/sedeScopeStore";
 import { resolveNavContext } from "@/utils/navModel";
 import type { BusinessOutletContext } from "./outletContext";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
+import { useSediVista } from "@/hooks/useSediVista";
 
 import { DetailPaneHostContext, type DetailPaneHost } from "@/components/layout/DetailPane/DetailPaneContext";
 import styles from "./MainLayout.module.scss";
@@ -301,10 +302,15 @@ export default function MainLayout() {
     const defaultActivityId =
         viewedActivityId ??
         (lastSede && readableActivities.some(a => a.id === lastSede) ? lastSede : (readableActivities[0]?.id ?? null));
+    // La sede scelta in alto senza indirizzo di sede (Calendario dell'azienda, D152).
+    const vistaSede = useSediVista(tenantId).sede;
+    const chosenActivityId =
+        vistaSede?.kind === "sede" && readableActivities.some(a => a.id === vistaSede.id) ? vistaSede.id : null;
     const nav = useNavGroups({
         context: navContext,
         activityId: viewedActivityId,
         defaultActivityId,
+        chosenActivityId,
         loading: !sediLoaded,
         signals: { translationPendingCount, importInProgress, supportUnread },
         translationWaiting
