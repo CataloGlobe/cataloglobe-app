@@ -953,7 +953,7 @@ test.describe("Dove e quando: in onda o pronto (D189)", () => {
         wireEvid();
         await nataleDraft(page);
         await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
-        await expect(main(page).getByText("Non in onda")).toBeVisible({ timeout: 20_000 });
+        await expect(main(page).getByText("Non in onda", { exact: true })).toBeVisible({ timeout: 20_000 });
         await main(page).getByRole("checkbox", { name: /^Dove e quando/ }).click();
         await next(page);
         await expect(button(page, /^No, per ora lo tengo pronto/)).toHaveAttribute("aria-pressed", "true");
