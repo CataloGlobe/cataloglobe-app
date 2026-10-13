@@ -1409,6 +1409,18 @@ export default function CollectionView({
             return true;
         });
     }, [featuredBeforeCatalog, featuredAfterCatalog]);
+    // "Prenota un tavolo" (e «Prenota» di un contenuto in evidenza): solo con le prenotazioni accese e lo slug (⋯ di oggi e foglio unico).
+    // Redesign: i passi nel foglio quando lo slot li offre, altrimenti la pagina /prenota.
+    const openBooking = mode === "public" ? sheetsSlot?.openBooking : undefined;
+    const openReservation =
+        enableReservations && slug
+            ? (openBooking ?? (() => {
+                  const lang = langCtx?.currentLang;
+                  const base = langCtx?.baseLanguage;
+                  navigate(lang && lang !== base ? `/${slug}/${lang}/prenota` : `/${slug}/prenota`);
+              }))
+            : undefined;
+
     const featuredLook = {
         layout: style.featuredStyle ?? "card",
         showSubtitle: style.showFeaturedSubtitle ?? true,
@@ -1417,7 +1429,7 @@ export default function CollectionView({
     };
     const renderFeaturedBlock = (slot: "before_catalog" | "after_catalog", blocks: V2FeaturedContent[]) =>
         blocks.length === 0 ? null : mode === "public" && featuredSlot ? (
-            featuredSlot({ ...featuredLook, blocks, slot, totalCount: featuredContents.length, activityId })
+            featuredSlot({ ...featuredLook, blocks, slot, totalCount: featuredContents.length, activityId, onOpenReservation: openReservation })
         ) : (
             <FeaturedBlock
                 blocks={blocks}
@@ -1432,6 +1444,7 @@ export default function CollectionView({
                 showCta={style.showFeaturedCta ?? true}
                 // Style Editor: card e «Vedi tutti» visibili ma inerti.
                 interactive={mode === "public"}
+                onOpenReservation={openReservation}
             />
         );
     // Nessuna surface preview per "storia": has_story assente nei mock StylePreview
@@ -2919,17 +2932,6 @@ export default function CollectionView({
         );
     }
 
-    // "Prenota un tavolo": solo con le prenotazioni accese e lo slug (⋯ di oggi e foglio unico).
-    // Redesign: i passi nel foglio quando lo slot li offre, altrimenti la pagina /prenota.
-    const openBooking = mode === "public" ? sheetsSlot?.openBooking : undefined;
-    const openReservation =
-        enableReservations && slug
-            ? (openBooking ?? (() => {
-                  const lang = langCtx?.currentLang;
-                  const base = langCtx?.baseLanguage;
-                  navigate(lang && lang !== base ? `/${slug}/${lang}/prenota` : `/${slug}/prenota`);
-              }))
-            : undefined;
     // SSR-safe: window assente nel render server (entry-server); shareUrl si
     // popola al primo render client — il bottone condividi è dietro
     // interazione utente, undefined in SSR ok.
@@ -3503,8 +3505,8 @@ export default function CollectionView({
                         </div>
                     }
                     footerContent={
-                        selectedEvent && hasFeaturedCta(selectedEvent)
-                            ? <FeaturedCtaFooter block={selectedEvent} />
+                        selectedEvent && hasFeaturedCta(selectedEvent, !!openReservation)
+                            ? <FeaturedCtaFooter block={selectedEvent} onOpenReservation={openReservation} />
                             : undefined
                     }
                 >

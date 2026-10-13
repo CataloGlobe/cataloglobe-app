@@ -28,7 +28,7 @@ import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import type { CollectionViewSectionItem } from "@components/PublicCollectionView/CollectionView/CollectionView";
 import EventsView from "@components/PublicCollectionView/EventsView/EventsView";
 import { FeaturedContentDetail, FeaturedCtaFooter } from "@components/PublicCollectionView/FeaturedBlock/FeaturedContentDetail";
-import { hasFeaturedCta } from "@components/PublicCollectionView/FeaturedBlock/featuredCta";
+import { hasFeaturedCta, isReservationCta } from "@components/PublicCollectionView/FeaturedBlock/featuredCta";
 import type { SheetsSlotContext } from "../slots";
 import { useVenueStatus } from "../venue/useVenueStatus";
 import { venueStatusSheetLabel } from "../venue/venueLabel";
@@ -188,16 +188,16 @@ export default function VenueSheets({ booking: bookingConfig, ...props }: Sheets
                     );
                 }
                 const block = featuredOf(page, props.featured.contents);
-                if (!block || !hasFeaturedCta(block)) return null;
-                // Il pulsante porta alla prenotazione di questa sede: i passi nel foglio, senza lasciare il menu.
-                if (booking && block.cta_text && isOwnBookingUrl(block.cta_url, booking.config.slug)) {
+                if (!block || !hasFeaturedCta(block, !!props.onOpenReservation)) return null;
+                // «Prenota», o un link alla prenotazione di questa sede: i passi nel foglio, senza lasciare il menu.
+                if (booking && block.cta_text && (isReservationCta(block) || isOwnBookingUrl(block.cta_url, booking.config.slug))) {
                     return (
                         <Suspense fallback={null}>
                             <BookingCtaFooter label={block.cta_text} />
                         </Suspense>
                     );
                 }
-                return <FeaturedCtaFooter block={block} />;
+                return <FeaturedCtaFooter block={block} onOpenReservation={props.onOpenReservation} />;
             }}
         />
     );

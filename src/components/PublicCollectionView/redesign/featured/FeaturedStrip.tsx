@@ -17,7 +17,7 @@ import styles from "./FeaturedStrip.module.scss";
  * larghezza, senza indicatori. La card apre il dettaglio nel foglio unico,
  * «Vedi tutti» l'elenco.
  */
-export default function FeaturedStrip({ blocks, slot, totalCount, activityId, layout, showSubtitle, showTitle, showCta }: FeaturedSlotContext) {
+export default function FeaturedStrip({ blocks, slot, totalCount, activityId, layout, showSubtitle, showTitle, showCta, onOpenReservation }: FeaturedSlotContext) {
     const { t } = useTranslation("public");
     const { visible, moreCount } = featuredStripItems(blocks, totalCount);
     const trackRef = useRef<HTMLDivElement>(null);
@@ -105,6 +105,7 @@ export default function FeaturedStrip({ blocks, slot, totalCount, activityId, la
             block={block}
             onClick={() => openDetail(block)}
             onCtaClick={() => trackCta(block)}
+            onOpenReservation={onOpenReservation}
             className={className}
             variant={layout}
             showSubtitle={showSubtitle}

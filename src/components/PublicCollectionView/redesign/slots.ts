@@ -124,6 +124,8 @@ export type FeaturedSlotContext = FeaturedLook & {
     totalCount: number;
     /** Solo nella pagina pubblica: le analitiche dei tocchi. */
     activityId?: string;
+    /** Il pulsante «Prenota» (cta_action = reservation); assente senza prenotazioni: niente pulsante. */
+    onOpenReservation?: () => void;
 };
 
 export type FeaturedSlot = (context: FeaturedSlotContext) => ReactNode;
