@@ -12,6 +12,14 @@
   justify-content: center;
 }
 
+/* La tipografia globale dell'app (_typography.scss) dà un colore proprio a `p` e ai
+   titoli: sugli stili scuri del locale diventavano illeggibili. `html` + `:where()`
+   portano la specificità a (0,0,2): vince sul selettore globale (0,0,1) in qualsiasi
+   ordine di caricamento e perde contro ogni classe di modulo, che resta libera. */
+html :where(.root) :is(p, h1, h2, h3, h4, h5, h6) {
+  color: inherit;
+}
+
 /* Velo unico per tutti i fogli: scuro al 34% e sfocato di 3 px come nel mockup v38.
    Fermo (si anima solo l'opacity), quindi il blur qui è ammesso: non trasla. */
 .backdrop {
@@ -34,7 +42,14 @@
   background: var(--pub-surface);
   color: var(--pub-text);
   border-radius: 26px 26px 0 0;
-  box-shadow: 0 -14px 40px -18px rgb(0 0 0 / 50%);
+  /* Le due copie piene sotto il pannello: Chrome su iPhone, nascondendo le sue barre
+     mentre si scorre, non allunga i `fixed` fino al bordo e sotto il foglio restava
+     una striscia vuota. Stanno fuori dal viewport negli altri browser e non toccano
+     misure né animazioni (seguono il transform del pannello). */
+  box-shadow:
+    0 -14px 40px -18px rgb(0 0 0 / 50%),
+    0 60px 0 0 var(--pub-surface),
+    0 120px 0 0 var(--pub-surface);
   /* la superficie arriva al bordo e tiene dentro la safe area: le barre di
      Safari e Chrome non aprono spazi sotto il foglio */
   padding-bottom: env(safe-area-inset-bottom, 0px);

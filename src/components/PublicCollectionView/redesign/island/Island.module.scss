@@ -7,6 +7,7 @@
 $passaggio: 220ms;
 $curva: cubic-bezier(0.65, 0, 0.35, 1);
 $altezza-compatta: 52px;
+$rientro-compatta: 5px; /* padding dell'isola 14 − (52 − pill 34) / 2 */
 $scia: 50px; /* logo 40 + gap 10 */
 
 .primer {
@@ -104,7 +105,7 @@ $scia: 50px; /* logo 40 + gap 10 */
   border: 1px solid rgb(255 255 255 / 8%);
   background: rgb(20 20 20 / 90%);
   pointer-events: auto;
-  transition: height $passaggio $curva;
+  transition: height $passaggio $curva, left $passaggio $curva, right $passaggio $curva;
 
   .isola:not([data-cover]) & {
     border-radius: 0;
@@ -315,6 +316,16 @@ $scia: 50px; /* logo 40 + gap 10 */
 .isola[data-compact="true"] {
   > .guscio {
     height: $altezza-compatta;
+    /* Le pill (34 px) restano a 9 px dal bordo anche ai lati, come sopra e sotto:
+       il guscio si stringe del resto del padding dell'isola (14 px). */
+    left: $rientro-compatta;
+    right: $rientro-compatta;
+  }
+
+  /* Senza copertina il guscio è una barra da bordo a bordo: resta larga. */
+  &:not([data-cover]) > .guscio {
+    left: 0;
+    right: 0;
   }
 
   .riga {
@@ -405,6 +416,8 @@ $scia: 50px; /* logo 40 + gap 10 */
   .isola[data-compact="true"] > .guscio,
   .isola:not([data-cover]) > .guscio {
     height: 100%;
+    left: 0;
+    right: 0;
     border-width: 1px;
     border-radius: 22px;
   }

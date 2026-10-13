@@ -519,23 +519,29 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
         observer.observe(content);
         // Fuori da `play`: un'altra entrata o un trascinamento non lo annullano a metà
         // (resta sul contenuto, non tocca pannello né binario).
-        if (
-            hasMore(page) &&
-            !nudgedPages.has(activePage.key) &&
-            !env.current.reducedMotion &&
-            typeof content.animate === "function"
-        ) {
-            nudgedPages.add(activePage.key);
-            content.animate(
-                [{ transform: "translateY(0)" }, { transform: `translateY(-${NUDGE_PX}px)` }, { transform: "translateY(0)" }],
-                {
-                    duration: NUDGE_DURATION_MS,
-                    delay: state.move === "open" ? ENTER_DURATION_MS : PUSH_DURATION_MS,
-                    easing: "ease-in-out"
-                }
+        // «C'è altro sotto» si guarda quando il movimento parte, non adesso: durante
+        // l'entrata o la spinta l'altezza del foglio è ancora quella di partenza
+        // (animata) e il contenuto sembrava scorrere anche quando ci stava tutto.
+        let nudge: number | undefined;
+        if (!nudgedPages.has(activePage.key) && !env.current.reducedMotion && typeof content.animate === "function") {
+            const key = activePage.key;
+            nudge = window.setTimeout(
+                () => {
+                    if (nudgedPages.has(key) || !hasMore(page)) return;
+                    nudgedPages.add(key);
+                    content.animate(
+                        [{ transform: "translateY(0)" }, { transform: `translateY(-${NUDGE_PX}px)` }, { transform: "translateY(0)" }],
+                        { duration: NUDGE_DURATION_MS, easing: "ease-in-out" }
+                    );
+                },
+                // qualche ms in più: l'altezza animata deve aver chiuso il suo ultimo fotogramma
+                (state.move === "open" ? ENTER_DURATION_MS : PUSH_DURATION_MS) + 50
             );
         }
-        return () => observer.disconnect();
+        return () => {
+            window.clearTimeout(nudge);
+            observer.disconnect();
+        };
         // `state.move` si legge al momento della pagina nuova, non è un motivo per rifare il giro.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [present, index, activePage]);
