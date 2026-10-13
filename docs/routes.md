@@ -31,10 +31,12 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
                              (Calendario e Regole d'azienda; con una sede leggibile → locations/:id/programmazione,
                               SingleSedeRoute; un vecchio ?sede=<id> → locations/<id>/programmazione, T9b)
   catalogs | catalogs/:id
-  crea/:kind               → i tunnel di creazione (CreaPage): menu | stile | evidenza | storia; `?da=` dice dove tornare
+  crea/:kind | crea/:kind/:id → i tunnel di creazione e di modifica (CreaPage): menu | stile | evidenza | storia;
+                             `?da=` dice dove tornare
   products | products/:productId
   featured | featured/:featuredId
-  styles | styles/:styleId
+  styles | styles/:styleId  → elenco; uno stile si apre in crea/stile/:id (D186); styles/:styleId porta lì
+                             (StyleTunnelRedirect, il vecchio editor non c'è più)
   stories | stories/:storyId
   languages
   analytics | reviews       → totale delle sedi leggibili; con una sede → locations/:id/analitiche|recensioni
