@@ -2,6 +2,8 @@
 
 Ramo `officina-tunnel-nuovi`, nato da `officina-pronto` (che contiene `officina-stile-pulizia`). Si aggiorna a ogni push.
 
+PR in bozza: #472 (`officina-stile-pulizia` → `officina-evidenza`), #473 (questo ramo → `officina-stile-pulizia`). Ordine: #444, #472, #473, sempre con merge commit.
+
 Pagine da portare nel codice, versione «proposte + Claude» (segno viola), così come sono:
 - Tunnel di Officina: https://claude.ai/artifact/FYt9Zg4UaAkGRx8wqfRkEV
 - Calendario di Officina: https://claude.ai/artifact/BwMntrgzqmuGs6P8j7vL1D
