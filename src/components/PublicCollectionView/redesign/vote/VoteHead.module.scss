@@ -1,0 +1,92 @@
+/* Testata del voto (mockup v38): logo 52, domanda 20/700, riga grigia, stelle da 52. */
+
+.head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.logo {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.title {
+  margin: 0 0 2px;
+  /* il colore dei titoli dell'app non vale qui: quello del locale */
+  color: inherit;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: 0;
+  color: color-mix(in srgb, var(--pub-text) 58%, transparent);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.stars {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: color-mix(in srgb, var(--pub-text) 58%, transparent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+
+  &[data-on] {
+    color: var(--pub-star, #f2b33d);
+
+    svg {
+      fill: currentColor;
+      animation: accende 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--i, 0) * 45ms) both;
+    }
+  }
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.94));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, var(--pub-primary));
+    outline-offset: -2px;
+  }
+}
+
+@keyframes accende {
+  40% {
+    scale: 1.22;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star[data-on] svg {
+    animation: none;
+  }
+}
+
+.stars[data-quiet] .star[data-on] svg {
+  animation: none;
+}

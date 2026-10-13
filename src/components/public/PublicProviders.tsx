@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BrowserRouter, StaticRouter } from "react-router-dom";
+import MotionProvider from "@/components/motion/MotionProvider";
 
 /**
  * Stack provider per la route pubblica /:slug (SSR stage 4a).
@@ -15,7 +16,8 @@ import { BrowserRouter, StaticRouter } from "react-router-dom";
  *   - TooltipProvider / AuthProvider / NotificationsProvider: consumer solo
  *     admin/workspace (il check auth del ramo ?simulate usa supabase.auth
  *     direttamente, non AuthProvider).
- * → resta SOLO il router. Se in futuro un componente pubblico adotta un
+ * → resta il router, più MotionProvider (LazyMotion per i componenti `m`).
+ * Se in futuro un componente pubblico adotta un
  * provider globale, va aggiunto qui (server E client insieme).
  *
  * Parametrizzato sul router: "static" per il render server (StaticRouter,
@@ -32,7 +34,15 @@ export type PublicProvidersProps = {
 
 export default function PublicProviders({ router, location, children }: PublicProvidersProps) {
     if (router === "static") {
-        return <StaticRouter location={location ?? "/"}>{children}</StaticRouter>;
+        return (
+            <StaticRouter location={location ?? "/"}>
+                <MotionProvider>{children}</MotionProvider>
+            </StaticRouter>
+        );
     }
-    return <BrowserRouter>{children}</BrowserRouter>;
+    return (
+        <BrowserRouter>
+            <MotionProvider>{children}</MotionProvider>
+        </BrowserRouter>
+    );
 }

@@ -1,0 +1,253 @@
+/* Scheda in modo ordine (spec §7): scelte da toccare, quantità, nota e
+   pulsante in fondo al foglio. Colori del locale (--pub-*). */
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  scroll-margin: 24px;
+}
+
+.legend {
+  margin-bottom: 4px;
+  padding: 0;
+  font-weight: 700;
+}
+
+.rule {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-weight: 400;
+}
+
+.group[data-missing] .rule {
+  color: var(--pub-accent, var(--pub-primary));
+  font-weight: 600;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+}
+
+.choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &[data-disabled] {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+/* L'input vero resta sotto il segno: fuoco e lettori di schermo come un controllo nativo. */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.mark {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid color-mix(in srgb, var(--pub-text) 35%, transparent);
+  border-radius: 50%;
+
+  &[data-type="checkbox"] {
+    border-radius: 6px;
+  }
+}
+
+.input:checked + .mark {
+  border-color: var(--pub-accent, var(--pub-primary));
+  background: var(--pub-accent, var(--pub-primary));
+  box-shadow: inset 0 0 0 3px var(--pub-surface, #fff);
+}
+
+.input:checked + .mark[data-type="checkbox"] {
+  box-shadow: inset 0 0 0 4px var(--pub-accent, var(--pub-primary));
+  background: var(--pub-surface, #fff);
+}
+
+.input:focus-visible + .mark {
+  outline: 2px solid var(--pub-accent, var(--pub-primary));
+  outline-offset: 2px;
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+}
+
+.price {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Regione viva sempre presente (vuota non occupa spazio): un testo che
+   compare insieme alla regione molti lettori di schermo non lo annunciano. */
+.hint {
+  margin: 0;
+  color: var(--pub-accent, var(--pub-primary));
+  font-size: 0.875em;
+  font-weight: 600;
+
+  &:not(:empty) {
+    margin-top: 4px;
+  }
+}
+
+.showAll {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ── Quantità e nota ─────────────────────────────────── */
+
+.extra {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qtyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  .legend {
+    margin: 0;
+  }
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+}
+
+.step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 22px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+
+  &[aria-disabled="true"] {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, var(--pub-primary));
+    outline-offset: -2px;
+  }
+}
+
+.qty {
+  min-width: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.note {
+  display: flex;
+  flex-direction: column;
+}
+
+.textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--pub-text) 18%, transparent);
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, var(--pub-primary));
+    outline-offset: 1px;
+  }
+}
+
+.counter {
+  align-self: flex-end;
+  margin-top: 4px;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-size: 0.8125em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Pulsante in fondo al foglio ─────────────────────── */
+
+.footer {
+  display: flex;
+  padding: 10px 16px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, transparent);
+}
+
+.add {
+  flex: 1;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--pub-primary);
+  color: var(--pub-primary-text);
+  font: inherit;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+
+  /* Manca una scelta: il pulsante porta lì, non è un errore. */
+  &[data-missing] {
+    background: color-mix(in srgb, var(--pub-text) 10%, transparent);
+    color: inherit;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-text);
+    outline-offset: 2px;
+  }
+}

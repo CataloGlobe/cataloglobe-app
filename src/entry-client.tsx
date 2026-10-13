@@ -2,7 +2,8 @@ import { hydrateRoot } from "react-dom/client";
 import { Route, Routes } from "react-router-dom";
 
 import "@styles/global.scss";
-import "@/i18n";
+import i18n from "@/i18n/public";
+import { loadPublicLanguage } from "@/i18n/loadLanguage";
 
 import PublicProviders from "@/components/public/PublicProviders";
 import NotFound from "@/pages/NotFound/NotFound";
@@ -37,9 +38,33 @@ declare global {
 const container = document.getElementById("root");
 const initialPayload = window.__PUBLIC_CATALOG__;
 
-if (container) {
+/**
+ * Il server rende l'interfaccia nella lingua della pagina e la scrive in
+ * `<html lang>`. Se non è l'italiano (l'unica nel JS iniziale) la si carica
+ * prima dell'hydration, così il primo render del client coincide col markup;
+ * il chunk è già in `modulepreload` nella shell. Se il download fallisce si
+ * idrata lo stesso: React ridisegna dove il markup differisce e la pagina
+ * riprova la lingua da sola (`changePublicLanguage`).
+ */
+async function prepareLanguage(): Promise<void> {
+    const lng = document.documentElement.lang;
+    if (!lng || lng === "it" || i18n.language === lng) return;
+    try {
+        await loadPublicLanguage(lng);
+        await i18n.changeLanguage(lng);
+    } catch {
+        // resta l'italiano: vedi sopra
+    }
+}
+
+/** Rete appesa: dopo 3 s si idrata comunque (la pagina resta interattiva). */
+function withTimeout(task: Promise<void>, ms: number): Promise<void> {
+    return Promise.race([task, new Promise<void>(resolve => setTimeout(resolve, ms))]);
+}
+
+function hydrate(root: HTMLElement): void {
     hydrateRoot(
-        container,
+        root,
         <PublicProviders router="browser">
             <Routes>
                 {publicRoutes({ initialPayload })}
@@ -61,3 +86,5 @@ if (container) {
         }
     );
 }
+
+if (container) void withTimeout(prepareLanguage(), 3000).then(() => hydrate(container));

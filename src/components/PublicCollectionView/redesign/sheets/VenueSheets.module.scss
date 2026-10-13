@@ -1,0 +1,275 @@
+/* Pagine del foglio del locale (⋯, Informazioni, Orari). Colori dallo stile
+   del locale (`--pub-*`); niente animazioni qui: la spinta la fa SheetHost. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts). */
+/* `.row.soloDesktop`: deve battere il `display: flex` di `.row`, che viene dopo. */
+@media (max-width: 640px) {
+  .row.soloDesktop {
+    display: none;
+  }
+}
+
+/* Riquadro del mockup v38: righe su un fondo appena più chiaro, angoli da 18 px. */
+.group {
+  margin: 0 0 10px;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+
+  &:empty {
+    display: none;
+  }
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  /* bersaglio di tocco ≥ 44px */
+  min-height: 44px;
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14.5px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  /* i link del riquadro (mappe, telefono) non si sottolineano al passaggio */
+  &:hover {
+    text-decoration: none;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-primary, currentColor);
+    outline-offset: 2px;
+    border-radius: 12px;
+  }
+}
+
+/* Con `.soloDesktop` nascosta, l'ultima riga visibile del riquadro non ha la linea sotto. */
+@media (max-width: 640px) {
+  .group .row:has(+ .row.soloDesktop:last-child) {
+    border-bottom: 0;
+  }
+}
+
+.rowIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--pub-text) 8%, transparent);
+}
+
+.rowText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowLabel {
+  font-weight: 600;
+}
+
+/* Indirizzi e mail lunghi vanno a capo invece di uscire dal riquadro. */
+.rowLabelWrap {
+  overflow-wrap: anywhere;
+}
+
+.rowSubtitle {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--pub-text) 64%, transparent);
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--pub-text) 45%, transparent);
+}
+
+.check {
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.flag {
+  flex-shrink: 0;
+  width: 26px;
+  font-size: 20px;
+  line-height: 1;
+  text-align: center;
+}
+
+/* Stato del locale col pallino: verde aperto, ambra chiude tra poco, grigio chiuso. */
+.status {
+  --status-dot: #3faa66;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--status-dot) 75%, var(--pub-text));
+
+  &::before {
+    content: "";
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--status-dot);
+  }
+
+  &[data-kind="closing-soon"] {
+    --status-dot: #e8a33d;
+
+    color: color-mix(in srgb, var(--status-dot) 52%, var(--pub-text));
+  }
+
+  &[data-kind="closed"] {
+    --status-dot: color-mix(in srgb, var(--pub-text) 45%, transparent);
+
+    color: color-mix(in srgb, var(--pub-text) 80%, transparent);
+  }
+}
+
+.sectionLabel {
+  margin: 16px 0 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--pub-text) 64%, transparent);
+}
+
+/* Orari: giorno a sinistra, fasce a destra, oggi in grassetto. */
+.hours {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+.hoursRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, transparent);
+  font-weight: 500;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  dt {
+    flex-shrink: 0;
+  }
+
+  dd {
+    margin: 0;
+    text-align: right;
+    color: color-mix(in srgb, var(--pub-text) 64%, transparent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &[data-today] {
+    font-weight: 700;
+
+    dd {
+      color: inherit;
+    }
+  }
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.875em;
+  background: color-mix(in srgb, var(--pub-text) 7%, transparent);
+}
+
+/* Solo per i lettori di schermo: annuncia «Link copiato». */
+.liveRegion {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+
+/* Foglio «Categorie»: menu, quante categorie e quanti piatti, sopra i riquadri. */
+.summary {
+  margin: 0 0 12px;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* Allergeni e Caratteristiche dal fondo: righe da leggere, non da toccare. */
+.intro {
+  margin: 0 0 4px;
+  color: color-mix(in srgb, var(--pub-text) 62%, transparent);
+}
+
+.plainList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 0;
+
+  &[data-absent] {
+    opacity: 0.55;
+  }
+}
+
+.note {
+  margin: 12px 0 0;
+  font-size: 0.8125em;
+  color: color-mix(in srgb, var(--pub-text) 62%, transparent);
+}

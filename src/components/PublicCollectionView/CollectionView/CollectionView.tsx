@@ -34,7 +34,9 @@ import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
-import type { BottomBarSlot, HeaderSlot } from "../redesign/slots";
+import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
+import { addLine, lineQty, replaceLine, undoLine } from "../redesign/order/orderDraft";
+import { orderRequest, sendFailure, type SendResult } from "../redesign/order/orderSend";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
 import { hasOrderablePrice } from "../itemPricing";
@@ -361,6 +363,9 @@ function ProductRowInner({
             className={`${styles.productRow} ${imageRight ? styles.productRowImageRight : ""}`}
             onClick={handleRootClick}
         >
+            {/* Tastiera e lettori di schermo: la riga si apre da qui. Invio e spazio
+                fanno un clic che sale alla riga (stesso onClick del tocco). */}
+            {mode !== "preview" && <button type="button" className={styles.rowOpen} aria-label={name} />}
             {showImage && (
                 <div className={styles.rowImageWrapper}>
                     {mode === "preview" || !image ? (
@@ -387,7 +392,7 @@ function ProductRowInner({
                                 source={image}
                                 framing={item.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
                                 aspectRatio={null}
-                                alt={name}
+                                alt=""
                             />
                         </div>
                     )}
@@ -401,7 +406,15 @@ function ProductRowInner({
                 )}
                 <div className={styles.titleRow}>
                     <div className={styles.titleRowLeft}>
-                        <Text variant="body" weight={700} className={styles.title} color="var(--pub-surface-text)">
+                        {/* Il nome lo legge già il pulsante della riga: qui solo a vista,
+                            altrimenti il lettore di schermo lo ripete. */}
+                        <Text
+                            variant="body"
+                            weight={700}
+                            className={styles.title}
+                            color="var(--pub-surface-text)"
+                            aria-hidden={mode !== "preview" || undefined}
+                        >
                             {name}
                         </Text>
                         {dp.type !== "none" && dp.originalPrice != null && (
@@ -519,6 +532,8 @@ const ProductRow = memo(ProductRowInner);
 // ─── ProductCompactRow — text-only compact-style product row ─────────────────
 
 type ProductCompactRowProps = {
+    /** Anteprima: la riga non si apre, quindi niente pulsante per la tastiera. */
+    canOpen?: boolean;
     item: CollectionViewSectionItem;
     onClick: (item: CollectionViewSectionItem) => void;
     onAdd: (item: CollectionViewSectionItem) => void;
@@ -537,6 +552,7 @@ function ProductCompactRowInner({
     orderingEnabled,
     selectionQty = 0,
     iconChip = false,
+    canOpen = true,
     compactLayoutStyle = "modern",
     contentDensity = "full",
     isDisabled = false
@@ -580,6 +596,9 @@ function ProductCompactRowInner({
 
     return (
         <div className={styles.compactRow} onClick={handleRootClick}>
+            {/* Tastiera e lettori di schermo: la riga si apre da qui. Invio e spazio
+                fanno un clic che sale alla riga (stesso onClick del tocco). */}
+            {canOpen && <button type="button" className={styles.rowOpen} aria-label={name} />}
             <div className={styles.compactRowBody}>
                 {isDisabled && (
                     <span className={styles.unavailableBadge}>
@@ -591,7 +610,9 @@ function ProductCompactRowInner({
                         compactLayoutStyle === "editorial" ? ` ${styles.compactNameRowEditorial}` : ""
                     }`}
                 >
-                    <span className={styles.compactName}>{name}</span>
+                    <span className={styles.compactName} aria-hidden={canOpen || undefined}>
+                        {name}
+                    </span>
                     {compactLayoutStyle === "editorial" && (
                         <span className={styles.compactLeader} aria-hidden="true" />
                     )}
@@ -829,6 +850,15 @@ type Props = {
      */
     headerSlot?: HeaderSlot;
     bottomBarSlot?: BottomBarSlot;
+    /**
+     * Redesign (PR 3): Informazioni, Orari e ⋯ nel foglio unico, aperti per
+     * nome. Solo mode "public"; assente → i `PublicSheet` di oggi.
+     */
+    sheetsSlot?: SheetsSlot;
+    /** Redesign: carosello «In evidenza» di uno slot (solo modo pubblico). */
+    featuredSlot?: FeaturedSlot;
+    /** Redesign: fondo pagina al posto di `PublicFooter` (solo modo pubblico). */
+    footerSlot?: FooterSlot;
 };
 
 export default function CollectionView({
@@ -866,7 +896,10 @@ export default function CollectionView({
     previewDevice,
     initialSelection,
     headerSlot,
-    bottomBarSlot
+    bottomBarSlot,
+    sheetsSlot,
+    featuredSlot,
+    footerSlot
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -977,14 +1010,17 @@ export default function CollectionView({
     // «Filtri» dentro «…» apre direttamente i filtri. Il valore viene sempre
     // riscritto all'apertura, quindi non resta incollato fra due aperture.
     const [searchRootView, setSearchRootView] = useState<"search" | "filters">("search");
+    // Redesign: ricerca e Filtri sono pagine del foglio unico (spec §4).
     const handleOpenSearch = useCallback(() => {
+        if (mode === "public" && sheetsSlot) return sheetsSlot.open("search");
         setSearchRootView("search");
         setIsSearchOpen(true);
-    }, []);
+    }, [mode, sheetsSlot]);
     const handleOpenFilters = useCallback(() => {
+        if (mode === "public" && sheetsSlot) return sheetsSlot.open("filters");
         setSearchRootView("filters");
         setIsSearchOpen(true);
-    }, []);
+    }, [mode, sheetsSlot]);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
     // Prefetch del chunk SearchOverlay su pointerdown del bottone header:
     // il pointerdown precede il click, il chunk arriva prima del tap-up.
@@ -1024,6 +1060,8 @@ export default function CollectionView({
 
             if (!isFindShortcut) return;
             if (isSearchOpen) return;
+            // Redesign: col foglio unico aperto (anche sulla ricerca) resta la find del browser.
+            if (mode === "public" && sheetsSlot?.isOpen()) return;
 
             e.preventDefault();
             handleOpenSearch();
@@ -1031,7 +1069,7 @@ export default function CollectionView({
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [mode, isSearchOpen, handleOpenSearch]);
+    }, [mode, isSearchOpen, handleOpenSearch, sheetsSlot]);
 
     // ── Info sheet ──────────────────────────────────────────────────────────
     const [isInfoSheetOpen, setIsInfoSheetOpen] = useState(false);
@@ -1051,6 +1089,9 @@ export default function CollectionView({
 
     // ── More sheet ──────────────────────────────────────────────────────────
     const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
+    // Redesign: col foglio unico il ⋯ e lo stato del locale lo aprono per nome.
+    const sheets = mode === "public" ? sheetsSlot : undefined;
+    const openMoreSheet = () => (sheets ? sheets.open("more") : setIsMoreSheetOpen(true));
 
     // ── In evidenza / Recensioni: modali (PublicSheet), non tab a pagina intera ──
     // "menu" resta l'unica vista primaria di activeTab; le sheet si
@@ -1098,6 +1139,10 @@ export default function CollectionView({
         setIsReviewsSheetOpen(true);
     }, [mode, activityId, activeTab]);
     const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
+    // Redesign: il voto inviato in questa visita trasforma il blocco del fondo in «Grazie».
+    const [reviewSent, setReviewSent] = useState(false);
+    // Redesign: il voto vive nel foglio unico (stesso modulo, stessi effetti del voto inviato).
+    const openRate = mode === "public" && reviewsProps ? sheetsSlot?.openRate : undefined;
 
     // ── Indice categorie (sheet): trigger = retap sul tab "Menu" già attivo,
     // sostituisce lo scroll-to-top diretto (vedi handleHubTabTap più sotto).
@@ -1199,11 +1244,17 @@ export default function CollectionView({
 
     // Filtra item per allergens. Prodotti senza allergens taggati: sempre
     // visibili (no match possibile, disclaimer nel sheet copre il caso).
+    // Redesign: le preferenze dei Filtri (Vegetariano, Vegano, Piccante) tengono
+    // solo i piatti che le portano, insieme agli allergeni in esclusione.
+    const preferenceFilter = mode === "public" ? sheetsSlot?.preferenceFilter : undefined;
+    const preferenceCount = preferenceFilter?.count ?? 0;
+    const filterCount = allergenFilterIds.length + preferenceCount;
     const displaySectionGroups = useMemo<CollectionViewSectionGroup[]>(() => {
-        if (allergenFilterIds.length === 0) return sectionGroups;
+        if (filterCount === 0) return sectionGroups;
         const blocked = new Set(allergenFilterIds);
         const filterItems = (items: CollectionViewSectionItem[]) =>
             items.filter(item => {
+                if (preferenceFilter && preferenceFilter.count > 0 && !preferenceFilter.test(item)) return false;
                 if (!item.allergens || item.allergens.length === 0) return true;
                 return !item.allergens.some(a => blocked.has(a.id));
             });
@@ -1220,10 +1271,10 @@ export default function CollectionView({
             });
         }
         return result;
-    }, [sectionGroups, allergenFilterIds]);
+    }, [sectionGroups, allergenFilterIds, filterCount, preferenceFilter]);
 
     const allFiltered =
-        allergenFilterIds.length > 0 && displaySectionGroups.length === 0;
+        filterCount > 0 && displaySectionGroups.length === 0;
 
     const visibleProductCount = useMemo(
         () => countDistinctProducts(displaySectionGroups),
@@ -1237,7 +1288,7 @@ export default function CollectionView({
     // Gate esplicito sui segnali di stato filtro (badge sulla lente, riga
     // «N nascosti»): in preview il filtro non gira mai — gli effect sono già
     // gated su mode — ma dirlo qui rende l'intenzione leggibile sul posto.
-    const showFilterState = mode === "public" && allergenFilterIds.length > 0;
+    const showFilterState = mode === "public" && filterCount > 0;
 
     // ── Chiusura della riga «N nascosti» ────────────────────────────────────
     // Hydration-safe come le preferenze allergeni: default false in render,
@@ -1252,10 +1303,10 @@ export default function CollectionView({
     // perché è un avviso nuovo su uno stato nuovo.
     useEffect(() => {
         if (!activityId || mode !== "public") return;
-        if (allergenFilterIds.length > 0) return;
+        if (filterCount > 0) return;
         clearHiddenNoticeDismissed(activityId);
         setHiddenNoticeDismissedState(false);
-    }, [activityId, mode, allergenFilterIds.length]);
+    }, [activityId, mode, filterCount]);
 
     const dismissHiddenNotice = useCallback(() => {
         setHiddenNoticeDismissedState(true);
@@ -1266,7 +1317,12 @@ export default function CollectionView({
     // sopra: il suo guard è un flag one-shot di sequenza (consumato al mount),
     // NON un test su ids.length → con [] scrive davvero "[]" in sessionStorage.
     // Nessuna scrittura diretta qui, nessun clearAllergenPreferences necessario.
-    const clearAllergenFilter = useCallback(() => setAllergenFilterIds([]), []);
+    // Col redesign toglie anche le preferenze («Mostra tutto», «Togli i filtri»).
+    const clearPreferences = preferenceFilter?.clear;
+    const clearAllergenFilter = useCallback(() => {
+        setAllergenFilterIds([]);
+        clearPreferences?.();
+    }, [clearPreferences]);
 
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
@@ -1353,8 +1409,16 @@ export default function CollectionView({
             return true;
         });
     }, [featuredBeforeCatalog, featuredAfterCatalog]);
+    const featuredLook = {
+        layout: style.featuredStyle ?? "card",
+        showSubtitle: style.showFeaturedSubtitle ?? true,
+        showTitle: style.showFeaturedTitle ?? true,
+        showCta: style.showFeaturedCta ?? true
+    };
     const renderFeaturedBlock = (slot: "before_catalog" | "after_catalog", blocks: V2FeaturedContent[]) =>
-        blocks.length > 0 ? (
+        blocks.length === 0 ? null : mode === "public" && featuredSlot ? (
+            featuredSlot({ ...featuredLook, blocks, slot, totalCount: featuredContents.length, activityId })
+        ) : (
             <FeaturedBlock
                 blocks={blocks}
                 activityId={mode === "public" ? activityId : undefined}
@@ -1369,7 +1433,7 @@ export default function CollectionView({
                 // Style Editor: card e «Vedi tutti» visibili ma inerti.
                 interactive={mode === "public"}
             />
-        ) : null;
+        );
     // Nessuna surface preview per "storia": has_story assente nei mock StylePreview
     // (sub-fase 7 introdurrà l'anteprima) → tab semplicemente nascosto in preview.
     const showStoryTab = hasStory === true;
@@ -1419,22 +1483,35 @@ export default function CollectionView({
     // keepPairingBackStack: SOLO la catena abbinato→abbinato (ordinazioni
     // OFF) preserva lo stack "Torna a". Ogni altra apertura (menu, storia,
     // edit selezione, upsell) è "fresca" → stack azzerato.
-    const openItemDetail = useCallback(
-        (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
-            if (!opts?.keepPairingBackStack) setPairingBackStack([]);
-            setSelectedItem(item);
-            setOpenSeq(s => s + 1);
-            if (mode === "public" && activityId) {
-                const section = sections.find(s => s.items.some(i => i.id === item.id));
-                trackEvent(activityId, "product_detail_open", {
-                    product_id: item.id,
-                    product_name: item.name,
-                    category: section?.name,
-                    price: item.effective_price ?? item.price ?? undefined
-                });
-            }
+    const trackProductOpen = useCallback(
+        (item: CollectionViewSectionItem) => {
+            if (mode !== "public" || !activityId) return;
+            const section = sections.find(s => s.items.some(i => i.id === item.id));
+            trackEvent(activityId, "product_detail_open", {
+                product_id: item.id,
+                product_name: item.name,
+                category: section?.name,
+                price: item.effective_price ?? item.price ?? undefined
+            });
         },
         [mode, activityId, sections]
+    );
+
+    const openItemDetail = useCallback(
+        (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
+            // Redesign: la scheda è una pagina del foglio unico (spec §6), anche
+            // in modo ordine col QR del tavolo (spec §7). Resta ItemDetail con
+            // l'ordine sospeso e fuori dalla tab Menu.
+            if (mode === "public" && sheetsSlot && !itemDetailOrderingDisabled && (!orderingActive || canOrderInDetail)) {
+                sheetsSlot.openProduct(item);
+            } else {
+                if (!opts?.keepPairingBackStack) setPairingBackStack([]);
+                setSelectedItem(item);
+                setOpenSeq(s => s + 1);
+            }
+            trackProductOpen(item);
+        },
+        [mode, sheetsSlot, orderingActive, itemDetailOrderingDisabled, canOrderInDetail, trackProductOpen]
     );
 
     const addToSelection = useCallback((
@@ -1482,6 +1559,38 @@ export default function CollectionView({
                 note: null,
             }];
         });
+    }, [mode, activityId]);
+
+    // Redesign (spec §7): la scheda del foglio e il + della lista aggiungono una
+    // riga intera (quantità e nota comprese) e tengono il suo «Annulla».
+    // Come addToSelection: l'evento parte dall'updater, così il callback resta
+    // stabile (le righe sono memo) e qty è quella della riga dopo l'aggiunta.
+    const addLineFromRedesign = useCallback((line: SelectionItem) => {
+        setSelection(prev => {
+            const next = addLine(prev, line);
+            if (mode === "public" && activityId) {
+                trackEvent(activityId, "selection_add", {
+                    product_id: line.id,
+                    product_name: line.name,
+                    price: line.unitPrice,
+                    base_price: line.basePrice,
+                    format: line.selectedFormat?.name ?? null,
+                    addons: (line.selectedAddons ?? []).map(a => a.name),
+                    qty: lineQty(next, line),
+                    total_selection_count: next.reduce((s, i) => s + i.qty, 0)
+                });
+            }
+            return next;
+        });
+        return () => {
+            setSelection(prev => {
+                const next = undoLine(prev, line);
+                if (next !== prev && mode === "public" && activityId) {
+                    trackEvent(activityId, "selection_remove", { product_id: line.id, product_name: line.name });
+                }
+                return next;
+            });
+        };
     }, [mode, activityId]);
 
     const updateSelectionNote = useCallback((index: number, value: string | null) => {
@@ -1537,6 +1646,11 @@ export default function CollectionView({
     const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
     const [waiterCalledAt, setWaiterCalledAt] = useState<string | null>(null);
 
+    // Redesign: momenti della visita al tavolo per l'invito al voto (D38): un ordine
+    // Servito (realtime sotto, una volta per ordine) e il conto chiesto dal foglio.
+    const [tableMoment, setTableMoment] = useState(0);
+    const deliveredCountedRef = useRef(new Set<string>());
+
     // Realtime subscribe customer_sessions: single channel always-on quando
     // JWT presente. Propaga:
     //   - bill_requested_at (admin "Risposto" / close-table clear implicit)
@@ -1563,9 +1677,14 @@ export default function CollectionView({
     }, [customerSession?.session?.jwt]);
 
     const openOrdering = useCallback(() => {
+        // Redesign: «Il tuo ordine» è una pagina del foglio unico (spec §7).
+        if (mode === "public" && sheetsSlot) {
+            sheetsSlot.open("order");
+            return;
+        }
         setActiveOrderingTab(selectionCount > 0 ? "cart" : "orders");
         setIsOrderingOpen(true);
-    }, [selectionCount]);
+    }, [selectionCount, mode, sheetsSlot]);
 
     // ── Bottom bar: nascondi/mostra tutto o niente (regole in bottomBarVisibility.ts) ──
     // Barra del redesign (solo pubblico): senza Storia e senza ordini non c'è nessuna barra.
@@ -1604,6 +1723,10 @@ export default function CollectionView({
                 const prev = lastStatusById.get(order.id);
                 lastStatusById.set(order.id, order.status);
                 if (prev !== order.status) revealBottomBar();
+                if (order.status === "delivered" && !deliveredCountedRef.current.has(order.id)) {
+                    deliveredCountedRef.current.add(order.id);
+                    setTableMoment(n => n + 1);
+                }
             },
         });
         return () => {
@@ -1727,6 +1850,33 @@ export default function CollectionView({
         }
     }, [customerSession, selection, orderNote, clearSelection]);
 
+    // Invio dal foglio del redesign: stesse righe e stessi casi di `handleSubmitOrder`,
+    // ma l'esito resta nel foglio (la conferma è una sua pagina, niente avviso in pagina).
+    const sendFromRedesign = useCallback(async (): Promise<SendResult> => {
+        const jwt = customerSession?.session?.jwt;
+        if (!jwt) return { kind: "session" };
+        const { items, notes } = orderRequest(selection, orderNote);
+        if (items.length === 0) return { kind: "empty" };
+        try {
+            const sent = await submitOrder(jwt, items, notes);
+            clearSelection();
+            setOrdersRefreshKey(k => k + 1);
+            return { kind: "sent", orderId: sent.order_id };
+        } catch (err) {
+            const failure = sendFailure(err);
+            if (failure.kind === "maintenance") {
+                setDiscoveredMaintenance({ reason: failure.reason, message: failure.message });
+            } else if (failure.kind === "session") {
+                customerSession?.clear();
+            }
+            return failure;
+        }
+    }, [customerSession, selection, orderNote, clearSelection]);
+
+    const replaceSelectionLine = useCallback((index: number, line: SelectionItem) => {
+        setSelection(prev => replaceLine(prev, index, line));
+    }, []);
+
     const findProductById = useCallback((productId: string): CollectionViewSectionItem | null => {
         for (const group of sectionGroups) {
             for (const section of [group.root, ...group.children]) {
@@ -1786,6 +1936,22 @@ export default function CollectionView({
         onTabChange?.("storia");
         setSelectedStoryId(storyId);
     }, [onTabChange]);
+
+    // Redesign: `?prodotto=<id>` apre la pagina con la scheda già sul prodotto
+    // (spec §6, v26). Una volta sola, al primo render col menu pronto; poi il
+    // parametro esce dall'indirizzo, così ricaricare o rimontare non la riapre.
+    const deepLinkHandledRef = useRef(false);
+    useEffect(() => {
+        if (deepLinkHandledRef.current || mode !== "public" || !sheetsSlot) return;
+        deepLinkHandledRef.current = true;
+        const url = new URL(window.location.href);
+        const productId = url.searchParams.get("prodotto");
+        if (!productId) return;
+        url.searchParams.delete("prodotto");
+        window.history.replaceState(window.history.state, "", url);
+        const item = findProductById(productId);
+        if (item) openItemDetail(item);
+    }, [mode, sheetsSlot, findProductById, openItemDetail]);
 
     // Aggiunge un abbinato per id (upsell D3). Add DIRETTO: non passa dal
     // detail né riapre l'upsell → un solo livello, nessuna ricorsione.
@@ -1925,10 +2091,22 @@ export default function CollectionView({
     ) => {
         if ((optionGroups?.length ?? 0) > 0) {
             openDetail();
+        } else if (mode === "public" && sheetsSlot?.notifyAdded) {
+            const undo = addLineFromRedesign({
+                id,
+                name,
+                basePrice,
+                qty: 1,
+                selectedFormat: null,
+                selectedAddons: [],
+                unitPrice: basePrice,
+                note: null
+            });
+            sheetsSlot.notifyAdded(name, undo);
         } else {
             addToSelection(id, name, basePrice);
         }
-    }, [addToSelection]);
+    }, [addToSelection, addLineFromRedesign, mode, sheetsSlot]);
 
     // Stable row handlers. Both rows (parent and variant) receive a synthetic
     // CollectionViewSectionItem and route through these two callbacks. Stable
@@ -2176,6 +2354,19 @@ export default function CollectionView({
     const [valutaVisible, setValutaVisible] = useState(false);
     // true = visitatore di ritorno entro 4h, senza review recente → FAB idoneo
     const valutaEligibleRef = useRef(false);
+
+    // Voto inviato (foglio di oggi o foglio del redesign): fondo in «Grazie»,
+    // niente FAB, e per 24 ore il voto non si richiede.
+    const markReviewed = useCallback(() => {
+        setReviewSent(true);
+        setValutaVisible(false);
+        valutaEligibleRef.current = false;
+        if (activityId) {
+            try {
+                localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
+            } catch { /* Safari private mode */ }
+        }
+    }, [activityId]);
     // Chiavi fab_visit_<id> già scritte in QUESTO mount (StrictMode dev rimonta
     // l'effect 2x, o un futuro dep-change potrebbe rirunnarlo): evita di rileggere
     // un timestamp appena scritto da noi stessi nella stessa execution, che
@@ -2474,7 +2665,8 @@ export default function CollectionView({
         (tab: HubTab) => {
             if (tab === activeTab) {
                 if (tab === "menu" && displaySectionGroups.length > 0) {
-                    setIsCategoriesSheetOpen(true);
+                    if (sheets) sheets.open("categories");
+                    else setIsCategoriesSheetOpen(true);
                     return;
                 }
                 scrollContainerToTop();
@@ -2482,7 +2674,7 @@ export default function CollectionView({
             }
             onTabChange?.(tab);
         },
-        [activeTab, onTabChange, scrollContainerToTop, displaySectionGroups]
+        [activeTab, onTabChange, scrollContainerToTop, displaySectionGroups, sheets]
     );
 
     // ── Subsection margin — distanza dipende dal contesto (child precedente) ──
@@ -2648,6 +2840,7 @@ export default function CollectionView({
                             {item.parentSelected &&
                                 (style.productStyle === "compact" ? (
                                     <ProductCompactRow
+                                        canOpen={mode !== "preview"}
                                         item={item}
                                         onClick={handleRowClick}
                                         onAdd={handleRowAdd}
@@ -2690,6 +2883,7 @@ export default function CollectionView({
                                         if (!variantItem) return null;
                                         return style.productStyle === "compact" ? (
                                             <ProductCompactRow
+                                                canOpen={mode !== "preview"}
                                                 key={v.id}
                                                 item={variantItem}
                                                 onClick={handleRowClick}
@@ -2724,6 +2918,22 @@ export default function CollectionView({
             </div>
         );
     }
+
+    // "Prenota un tavolo": solo con le prenotazioni accese e lo slug (⋯ di oggi e foglio unico).
+    // Redesign: i passi nel foglio quando lo slot li offre, altrimenti la pagina /prenota.
+    const openBooking = mode === "public" ? sheetsSlot?.openBooking : undefined;
+    const openReservation =
+        enableReservations && slug
+            ? (openBooking ?? (() => {
+                  const lang = langCtx?.currentLang;
+                  const base = langCtx?.baseLanguage;
+                  navigate(lang && lang !== base ? `/${slug}/${lang}/prenota` : `/${slug}/prenota`);
+              }))
+            : undefined;
+    // SSR-safe: window assente nel render server (entry-server); shareUrl si
+    // popola al primo render client — il bottone condividi è dietro
+    // interazione utente, undefined in SSR ok.
+    const shareUrl = slug && typeof window !== "undefined" ? `${window.location.origin}/${slug}` : undefined;
 
     return (
         <main
@@ -2761,14 +2971,20 @@ export default function CollectionView({
                       menuName: style.showCatalogName ? collectionTitle || null : null,
                       onSearchOpen: handleOpenSearch,
                       onSearchPointerDown: handleSearchPrefetch,
-                      allergensCount: allergenFilterIds.length,
-                      onOpenMore: () => setIsMoreSheetOpen(true),
+                      allergensCount: filterCount,
+                      onOpenMore: openMoreSheet,
                       activeTab,
                       onTabChange: handleHubTabTap,
                       showStoryTab,
                       openingHours: openingHours ?? [],
                       upcomingClosures: upcomingClosures ?? [],
-                      onOpenHours: () => setIsInfoSheetOpen(true)
+                      onOpenHours: () => (sheets ? sheets.open("hours") : setIsInfoSheetOpen(true)),
+                      categoryGroups: activeTab === "menu" && !emptyState && !allFiltered ? displaySectionGroups : [],
+                      activeSectionId,
+                      onSelectSection: scrollToSection,
+                      onSelectSubSection: scrollToSubSection,
+                      onOpenCategories: () => (sheets ? sheets.open("categories") : setIsCategoriesSheetOpen(true)),
+                      onOpenFilters: handleOpenFilters
                   })
                 : hasHeader && (
                 <PublicCollectionHeader
@@ -2846,7 +3062,7 @@ export default function CollectionView({
             )}
 
             {/* ── INFO SHEET ── */}
-            {hasAnyInfo && (
+            {hasAnyInfo && !sheets && (
                 <PublicSheet
                     isOpen={isInfoSheetOpen}
                     onClose={() => setIsInfoSheetOpen(false)}
@@ -2976,19 +3192,29 @@ export default function CollectionView({
             {activeTab === "menu" && (
                 <>
                     {/* ── NAV – sticky, topOffset dinamico ── */}
-                    {!emptyState && !allFiltered && (
-                        <CollectionSectionNav
-                            navRef={navRef}
-                            sections={navItems}
-                            activeSectionId={activeSectionId}
-                            onSelect={scrollToSection}
-                            onChildSelect={scrollToSubSection}
-                            variant={mode === "public" ? "public" : "preview"}
-                            style={{
-                                navStyle: style.sectionNavStyle
-                            }}
-                        />
-                    )}
+                    {!emptyState && !allFiltered && (() => {
+                        const sectionNav = (
+                            <CollectionSectionNav
+                                navRef={navRef}
+                                sections={navItems}
+                                activeSectionId={activeSectionId}
+                                onSelect={scrollToSection}
+                                onChildSelect={scrollToSubSection}
+                                variant={mode === "public" ? "public" : "preview"}
+                                style={{
+                                    navStyle: style.sectionNavStyle
+                                }}
+                            />
+                        );
+                        // Redesign: le categorie stanno nell'isola (spec §2, §13), la barra
+                        // vecchia resta montata ma nascosta (offsetHeight 0 nell'offset di scroll).
+                        // Senza isola (stile con testata spenta) la barra resta.
+                        return mode === "public" && headerSlot && hasHeader ? (
+                            <div className={styles.redesignNav}>{sectionNav}</div>
+                        ) : (
+                            sectionNav
+                        );
+                    })()}
 
                     {/* ── FRAME – contenuto centrato e max-width responsivo ── */}
                     <div className={styles.frame}>
@@ -3210,7 +3436,21 @@ export default function CollectionView({
                     </div>
 
                     {/* ── FOOTER — in preview solo branding/legal, niente dati sede ── */}
-                    {!emptyState && (
+                    {!emptyState && mode === "public" && footerSlot
+                        ? footerSlot({
+                              activityId,
+                              openingHours: openingHours ?? [],
+                              upcomingClosures: upcomingClosures ?? [],
+                              socialLinks,
+                              address: activityAddress ?? null,
+                              allergensCount: allergens?.length ?? 0,
+                              hasCharacteristics: (catalogCharacteristics?.length ?? 0) > 0,
+                              onOpenReservation: openReservation,
+                              onRate: reviewsProps ? (openRate ?? openReviewsSheet) : undefined,
+                              reviewed: reviewSent
+                          })
+                        : null}
+                    {!emptyState && !(mode === "public" && footerSlot) && (
                         <PublicFooter
                             socialLinks={mode !== "preview" ? socialLinks : undefined}
                             activityId={mode !== "preview" ? activityId : undefined}
@@ -3295,16 +3535,7 @@ export default function CollectionView({
                                 key={initialReviewRating ?? "default"}
                                 {...reviewsProps}
                                 initialRating={initialReviewRating}
-                                onReviewSubmitted={() => {
-                                    // Nascondi FAB e salva timestamp per sopprimerlo per 24h
-                                    setValutaVisible(false);
-                                    valutaEligibleRef.current = false;
-                                    if (activityId) {
-                                        try {
-                                            localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
-                                        } catch { /* Safari private mode */ }
-                                    }
-                                }}
+                                onReviewSubmitted={markReviewed}
                             />
                         </div>
                     </Suspense>
@@ -3348,14 +3579,26 @@ export default function CollectionView({
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
             {/* Preview mobile: barra montata SOLO per fedeltà di layout, completamente
                 inerte (props no-op, ordering OFF). Runtime (useBottomBar) invariato. */}
-            {isBottomBarMounted && useBarSlot && barSlotShown && bottomBarSlot?.({
+            {isBottomBarMounted && useBarSlot && (barSlotShown || !!openRate) && bottomBarSlot?.({
                 activeTab,
                 onTabChange: handleHubTabTap,
                 showStoryTab,
                 orderVisible: !shouldHideOrderingEntry,
                 selectionCount,
                 onOpenOrder: openOrdering,
-                hidden: isBottomBarHidden
+                hidden: isBottomBarHidden,
+                // Senza Storia e senza ordini la barra c'è solo per il voto (spec §11).
+                vote: openRate && activityId
+                    ? {
+                          activityId,
+                          tableMoment,
+                          reviewed: reviewSent,
+                          onRate: openRate,
+                          reveal: revealBottomBar,
+                          logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
+                          venueName: businessName
+                      }
+                    : undefined
             })}
             {isBottomBarMounted && !useBarSlot && (
                 <PublicBottomBar
@@ -3429,39 +3672,104 @@ export default function CollectionView({
                 </Suspense>
             )}
 
-            {mode === "public" && (
+            {mode === "public" && !sheets && (
                 <MoreSheet
                     isOpen={isMoreSheetOpen}
                     onClose={() => setIsMoreSheetOpen(false)}
                     onOpenFilters={handleOpenFilters}
                     onOpenInfo={() => setIsInfoSheetOpen(true)}
-                    onOpenReservation={
-                        enableReservations && slug
-                            ? () => {
-                                  const lang = langCtx?.currentLang;
-                                  const base = langCtx?.baseLanguage;
-                                  navigate(
-                                      lang && lang !== base
-                                          ? `/${slug}/${lang}/prenota`
-                                          : `/${slug}/prenota`
-                                  );
-                              }
-                            : undefined
-                    }
+                    onOpenReservation={openReservation}
                     activeFilterCount={allergenFilterIds.length}
                     hasAllergensInCatalog={allergensInCatalog.length > 0}
                     hasInfo={hasAnyInfo}
-                    // SSR-safe: window assente nel render server (entry-server);
-                    // shareUrl si popola al primo render client — il bottone
-                    // condividi è dietro interazione utente, undefined in SSR ok.
-                    shareUrl={
-                        slug && typeof window !== "undefined"
-                            ? `${window.location.origin}/${slug}`
-                            : undefined
-                    }
+                    shareUrl={shareUrl}
                     shareTitle={businessName}
                 />
             )}
+
+            {sheets?.render({
+                pageRef,
+                openingHours: openingHours ?? [],
+                upcomingClosures: upcomingClosures ?? [],
+                fees: fees ?? [],
+                paymentMethods: paymentMethods ?? [],
+                activityServices: activityServices ?? [],
+                socialLinks,
+                address: activityAddress ?? null,
+                hasInfo: hasAnyInfo,
+                activeFilterCount: filterCount,
+                hasAllergensInCatalog: allergensInCatalog.length > 0,
+                onOpenReservation: openReservation,
+                shareUrl,
+                shareTitle: businessName,
+                featured: { ...featuredLook, contents: featuredContents },
+                story: showStoryTab
+                    ? { active: activeTab === "storia", onToggle: () => handleHubTabTap(activeTab === "storia" ? "menu" : "storia") }
+                    : undefined,
+                categories: {
+                    groups: displaySectionGroups,
+                    menuName: style.showCatalogName ? collectionTitle || null : null,
+                    activeSectionId,
+                    onSelectSection: scrollToSection,
+                    onSelectSubSection: scrollToSubSection
+                },
+                search: {
+                    sections: searchableSections,
+                    allergens: allergensByFrequency,
+                    appliedFilterIds: allergenFilterIds,
+                    onApplyFilters: setAllergenFilterIds,
+                    visibleProductCount,
+                    onSelectProduct: scrollToProductAndHighlight,
+                    activityId
+                },
+                menuInfo: {
+                    allergens: allergens ?? [],
+                    characteristics: catalogCharacteristics ?? [],
+                    groups: sectionGroups
+                },
+                product: {
+                    findProduct: findProductById,
+                    showImage: style.productStyle !== "compact" && style.cardTemplate !== "no-image",
+                    slug: slug ?? null,
+                    onTrackOpen: trackProductOpen,
+                    order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined
+                },
+                ordering: orderingActive && !shouldHideOrderingEntry
+                    ? {
+                        selection,
+                        tableLabel: customerSession?.session?.tableLabel ?? null,
+                        jwt: customerSession?.session?.jwt ?? null,
+                        blockedMessage: effectiveMaintenance?.message ?? null,
+                        setQty: updateSelectionQty,
+                        remove: removeFromSelection,
+                        replaceLine: replaceSelectionLine,
+                        note: orderNote,
+                        setNote: setOrderNote,
+                        send: sendFromRedesign,
+                        onSessionExpired: () => customerSession?.clear(),
+                        refreshKey: ordersRefreshKey,
+                        billRequestedAt,
+                        onBillRequestedAtChange: next => {
+                            // Conto chiesto adesso (non riletto da una sessione già aperta): momento del voto.
+                            if (next && !billRequestedAt) {
+                                setTableMoment(n => n + 1);
+                                revealBottomBar();
+                            }
+                            setBillRequestedAt(next);
+                        },
+                        waiterCalledAt,
+                        onWaiterCalledAtChange: setWaiterCalledAt
+                    }
+                    : undefined,
+                rate: reviewsProps
+                    ? {
+                          props: reviewsProps,
+                          onSubmitted: markReviewed,
+                          logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
+                          venueName: businessName
+                      }
+                    : undefined
+            })}
 
             {isOrderingOpen && (
                 <Suspense fallback={null}>

@@ -49,6 +49,12 @@ export type PublicBusiness = {
      * il consumer ricade su `RESERVATION_MIN_NOTICE_MINUTES` (0, il DEFAULT di colonna).
      */
     reservation_min_notice_minutes?: number;
+    /**
+     * Passo della griglia oraria pubblica (minuti) = `activities.reservation_pacing_slot_minutes`.
+     * NOT NULL a schema; opzionale qui solo per i payload in cache che non lo portano:
+     * senza, il foglio della prenotazione non si offre e resta la pagina `/:slug/prenota`.
+     */
+    reservation_pacing_slot_minutes?: number;
     address: string | null;
     street_number: string | null;
     postal_code: string | null;

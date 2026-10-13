@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import StarRating from "../StarRating/StarRating";
+import { submitReview } from "./submitReview";
 import styles from "./ReviewsView.module.scss";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
 
@@ -32,12 +33,6 @@ const RATING_CONFIG: Record<number, RatingConfig> = {
     4: { colorClass: "ratingGreen" },
     5: { colorClass: "ratingGreenDark" },
 };
-
-function ratingCategory(rating: number): "positive" | "neutral" | "negative" {
-    if (rating >= 4) return "positive";
-    if (rating === 3) return "neutral";
-    return "negative";
-}
 
 type Phase = "stars" | "feedback" | "submitting" | "thanks";
 
@@ -114,54 +109,21 @@ export default function ReviewsView({
         setSubmitError(null);
         setPhase("submitting");
 
-        try {
-            const res = await fetch(`${supabaseUrl}/functions/v1/submit-review`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    activity_id: activityId,
-                    rating: selectedStars,
-                    comment: feedback.trim() || undefined,
-                    session_id: sessionId,
-                    website: website || undefined,
-                }),
-            });
-
-            if (res.ok) {
-                const body = await res.json();
-                if (body.success) {
-                    trackEvent(activityId, "review_submitted", {
-                        rating: selectedStars,
-                        rating_category: ratingCategory(selectedStars),
-                        has_feedback_text: feedback.trim().length > 0
-                    });
-                    setPhase("thanks");
-                    onReviewSubmitted?.();
-                    return;
-                }
-            }
-
-            // Read structured error from edge (Prompt 12: error_code + error legacy).
-            let errorCode = "SERVER_ERROR";
-            let legacyMessage: string | undefined;
-            try {
-                const errBody = await res.json();
-                if (typeof errBody?.error_code === "string") errorCode = errBody.error_code;
-                if (typeof errBody?.error === "string") legacyMessage = errBody.error;
-            } catch {
-                // body not JSON → keep defaults
-            }
-
-            const i18nMessage = t(`reviews.${errorCode}`, {
-                ns: "errors",
-                defaultValue: legacyMessage ?? t("error_generic", { ns: "common" })
-            });
-            setSubmitError(i18nMessage);
-            setPhase("feedback");
-        } catch {
-            setSubmitError(t("error_generic", { ns: "common" }));
-            setPhase("feedback");
+        const result = await submitReview({
+            supabaseUrl,
+            activityId,
+            sessionId,
+            rating: selectedStars,
+            comment: feedback,
+            website
+        });
+        if (result.ok) {
+            setPhase("thanks");
+            onReviewSubmitted?.();
+            return;
         }
+        setSubmitError(result.message);
+        setPhase("feedback");
     }
 
     /* ── Show Google card with delay ────────────────── */

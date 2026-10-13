@@ -200,9 +200,11 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     const bgText = contrastText(tokens.colors.pageBackground);
     const surfaceText = contrastText(surface);
     const surfaceTextSecondary = surfaceLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
-    const surfaceTextMuted = surfaceLight ? "rgba(0, 0, 0, 0.38)" : "rgba(255, 255, 255, 0.45)";
+    // Muted su chiaro al 55% come il secondary: al 38% era ~2,7:1 su bianco, sotto
+    // WCAG AA (D75, deciso da Lorenzo il 2026-10-13). Su scuro il 45% passa già.
+    const surfaceTextMuted = surfaceLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.45)";
     const bgTextSecondary = bgLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
-    const bgTextMuted = bgLight ? "rgba(0, 0, 0, 0.38)" : "rgba(255, 255, 255, 0.45)";
+    const bgTextMuted = bgLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.45)";
 
     // Border colors — 10% contrast text blended into background
     const borderOnBg = mixHex(tokens.colors.pageBackground, bgText, 0.1);

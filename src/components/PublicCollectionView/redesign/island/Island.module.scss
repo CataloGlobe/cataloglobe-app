@@ -1,8 +1,13 @@
-/* Isola della pagina pubblica (redesign). Si anima solo transform/opacity; la
-   seconda riga si chiude con una transizione di righe di griglia, dentro un
-   elemento fuori flusso (nessun reflow sulla pagina). */
+/* Isola della pagina pubblica (redesign, spec §2 e §13, mockup v38).
+   Telefono: il contenuto non cambia mai misura. Compattando la prima riga sfuma
+   (opacity) e la riga delle pill sale (transform); cambia altezza solo il guscio,
+   un elemento senza figli fuori flusso che porta il vetro. Niente blur: costa un
+   ri-rasterizzo per fotogramma su WebKit. */
 
 $passaggio: 220ms;
+$curva: cubic-bezier(0.65, 0, 0.35, 1);
+$altezza-compatta: 52px;
+$scia: 50px; /* logo 40 + gap 10 */
 
 .primer {
   position: fixed;
@@ -51,7 +56,7 @@ $passaggio: 220ms;
   position: sticky;
   top: 10px;
   z-index: 30;
-  height: 108px;
+  height: 120px;
   margin-inline: 10px;
   pointer-events: none;
 
@@ -71,31 +76,47 @@ $passaggio: 220ms;
   inset: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 13px;
   max-width: 820px;
   margin-inline: auto;
   padding: 14px;
-  border-radius: 22px;
-  border: 1px solid rgb(255 255 255 / 8%);
-  background: rgb(20 20 20 / 62%);
   color: #fff;
   font-family: var(--pub-font-family, inherit);
-  pointer-events: auto;
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  pointer-events: none;
 
-  /* Senza foto: vetro scuro a tutta larghezza, senza raggio. */
   &:not([data-cover]) {
     max-width: none;
+  }
+
+  > * {
+    position: relative;
+  }
+}
+
+/* Il vetro: l'unico pezzo che cambia altezza (foglia fuori flusso, nessun testo dentro).
+   Eccezione voluta alla regola «solo transform/opacity»: con scaleY gli angoli
+   arrotondati si deformerebbero; il layout costa poco (nessun figlio). */
+.isola > .guscio {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 100%;
+  border-radius: 22px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(20 20 20 / 90%);
+  pointer-events: auto;
+  transition: height $passaggio $curva;
+
+  .isola:not([data-cover]) & {
     border-radius: 0;
     border-width: 0 0 1px;
   }
+}
 
-  /* Durante il passaggio il vetro è pieno: su WebKit un blur che cambia sfarfalla. */
-  &[data-moving] {
-    background: rgb(20 20 20 / 94%);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+/* Ai tocchi solo i pezzi veri: il vuoto lo prende il guscio. */
+.riga,
+.fila {
+  > * {
+    pointer-events: auto;
   }
 }
 
@@ -103,16 +124,26 @@ $passaggio: 220ms;
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
+  min-height: 40px;
+  transition: opacity $passaggio $curva, visibility 0s;
+
+  > .testi {
+    pointer-events: none;
+  }
+
+  /* Il nome sì (largo quanto il testo): da compatta la riga è nascosta e non lo prende. */
+  .nomeTasto {
+    pointer-events: auto;
+  }
 }
 
 .logo {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   object-fit: cover;
-  transition: opacity $passaggio ease, width $passaggio ease, margin $passaggio ease;
+  transition: opacity $passaggio $curva, visibility 0s;
 }
 
 .testi {
@@ -120,142 +151,449 @@ $passaggio: 220ms;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  transition: transform $passaggio $curva;
+}
+
+/* L'h1 della pagina: solo un contenitore, l'aspetto è del nome (niente stile globale dei titoli). */
+.titolo {
+  margin: 0;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+/* Nome lungo: completo fino a due righe, poi puntini (spec §2). */
+/* Il nome è un pulsante (apre «Info e orari»): nessun aspetto da pulsante. */
+.nomeTasto {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nome {
-  display: block;
+  display: -webkit-box;
   overflow: hidden;
   font-size: 17px;
   font-weight: 700;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 22px;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* «Menu pranzo  ● Aperto»: se manca posto si accorcia il menu, mai lo stato. */
+.linea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 18px;
+  margin-top: 5px;
+  transition: opacity $passaggio $curva, visibility 0s;
+
+  > :not(.menu) {
+    flex-shrink: 0;
+    pointer-events: auto;
+  }
+
+  &:empty {
+    display: none;
+  }
 }
 
 .menu {
+  min-width: 0;
   overflow: hidden;
-  font-size: 13px;
-  line-height: 1.2;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.72;
-  transition: opacity $passaggio ease;
 }
 
-/* Riga dello stato del locale: si chiude con la compattazione, come la seconda riga. */
-.stato {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows $passaggio ease, opacity $passaggio ease;
-
-  > * {
-    min-height: 0;
-    overflow: hidden;
-  }
-}
-
-.icona {
-  position: relative;
+/* Capsula dei pulsanti: un solo fondo, divisori tra i segmenti (mockup v38). */
+.capsula {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  border: 1px solid rgb(255 255 255 / 20%);
+  align-items: stretch;
+  height: 34px;
   border-radius: 999px;
   background: rgb(255 255 255 / 12%);
-  color: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
+  transition: transform $passaggio $curva, opacity $passaggio $curva;
 
-  &:active {
-    transform: scale(var(--pub-press-scale, 0.96));
+  /* In riga 1, accanto al nome: più bassa, in alto (spec §2, «lingua riga 1 a destra»). */
+  &[data-alta] {
+    align-self: flex-start;
+    height: 30px;
+    margin-top: -4px;
   }
 }
 
-.conto {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--pub-accent, #fff);
-  color: var(--pub-cta-text, #111);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 18px;
-  text-align: center;
-}
-
-.secondaRiga {
+.tasto {
+  position: relative;
   display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows $passaggio ease, opacity $passaggio ease;
-
-  > * {
-    min-height: 0;
-    overflow: hidden;
-  }
-}
-
-.capsula {
-  display: inline-flex;
-  align-self: flex-start;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 10%);
-}
-
-.voce {
-  min-height: 36px;
-  padding: 0 16px;
+  place-items: center;
+  width: 40px;
+  padding: 0;
   border: 0;
-  border-radius: 999px;
-  background: transparent;
+  border-radius: 0;
+  background: none;
   color: inherit;
   font: inherit;
-  font-size: 14px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 
-  &[data-active] {
-    background: #fff;
-    color: #111;
-    font-weight: 600;
+  &:first-child {
+    border-radius: 999px 0 0 999px;
+  }
+
+  &:last-child {
+    border-radius: 0 999px 999px 0;
+  }
+
+  &:only-child {
+    border-radius: 999px;
+  }
+
+  &:active {
+    background: rgb(255 255 255 / 14%);
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
   }
 }
 
-/* Compatta: sparisce il nome del menu, il logo e la capsula; restano nome, lingua, lente e ⋯. */
+.lingua {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  padding: 0 10px 0 9px;
+}
+
+.divisore {
+  flex: none;
+  align-self: center;
+  width: 1px;
+  height: 16px;
+  background: rgb(255 255 255 / 22%);
+}
+
+.fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform $passaggio $curva;
+}
+
+.categorie {
+  flex: 1 1 auto;
+}
+
+/* Campo di ricerca: solo desktop. In Storia la lente sta nella prima riga, ma sul
+   telefono no (mockup: «lingua · ⋯»); su desktop torna nell'isola compatta. */
+.campo,
+.isola[data-tab="storia"] .lente {
+  display: none;
+}
+
+/* Compatta (telefono): resta la riga delle pill, che sale al centro del guscio. */
 .isola[data-compact="true"] {
-  gap: 0;
+  > .guscio {
+    height: $altezza-compatta;
+  }
 
-  .menu,
-  .logo {
+  .riga {
+    visibility: hidden;
     opacity: 0;
+    transition: opacity $passaggio $curva, visibility 0s linear $passaggio;
   }
 
-  .logo {
-    width: 0;
-    margin-right: -10px;
+  .fila {
+    transform: translateY(calc(-1 * var(--sali, 0px)));
+  }
+}
+
+/* Storia: niente pill. Compattando la prima riga resta: il logo sfuma e il nome ne prende
+   il posto, lo stato sfuma; nome e capsula «lingua · ⋯» stanno già al centro del guscio. */
+.isola[data-tab="storia"][data-compact="true"] {
+  .riga {
+    visibility: visible;
+    opacity: 1;
   }
 
-  .secondaRiga,
-  .stato {
-    grid-template-rows: 0fr;
+  .logo,
+  .linea {
+    visibility: hidden;
     opacity: 0;
+    transition: opacity $passaggio $curva, visibility 0s linear $passaggio;
   }
+
+  .testi {
+    transform: translateX(-$scia);
+  }
+
+}
+
+.isola[data-tab="storia"][data-compact="true"]:not([data-logo]) .testi {
+  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .guscio,
+  .riga,
   .logo,
-  .menu,
-  .stato,
-  .secondaRiga {
-    transition-duration: 1ms;
+  .testi,
+  .linea,
+  .capsula,
+  .fila {
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ── Desktop (spec §13) ─────────────────────────────────────────────────────
+   Estesa: riga 1 logo, nome e stato, campo di ricerca, lingua, ⋯; riga 2 solo le
+   categorie. Compatta: una riga sola, logo, nome, categorie, lente, lingua, ⋯.
+   Righe e capsule diventano `display: contents` e l'isola una griglia: ogni pezzo
+   sta in un'area, e le aree cambiano tra estesa e compatta. */
+
+/* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts) e DESKTOP_QUERY (Island.tsx). */
+@media (min-width: 641px) {
+  .slot,
+  .slot:not([data-cover]) {
+    top: 14px;
+    margin-inline: 24px;
+  }
+
+  .slot[data-cover] {
+    margin-top: -58px;
+  }
+
+  .slot:not([data-cover]) {
+    margin-top: 14px;
+  }
+
+  .isola,
+  .isola:not([data-cover]) {
+    display: grid;
+    grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto auto;
+    grid-template-rows: 58px auto;
+    grid-template-areas:
+      "logo testi campo lingua piu"
+      "fila fila fila fila fila";
+    column-gap: 12px;
+    row-gap: 0;
+    max-width: 1248px;
+    padding: 0 12px 12px;
+  }
+
+  .isola > .guscio,
+  .isola[data-compact="true"] > .guscio,
+  .isola:not([data-cover]) > .guscio {
+    height: 100%;
+    border-width: 1px;
+    border-radius: 22px;
+  }
+
+  .riga,
+  .fila,
+  .capsula {
+    display: contents;
+  }
+
+  /* Con le righe `contents` i pezzi diventano figli della griglia: vanno posizionati
+     anche loro, o il guscio (assoluto) li dipinge sopra. */
+  .logo,
+  .testi,
+  .campo {
+    position: relative;
+  }
+
+  .divisore {
+    display: none;
+  }
+
+  .logo {
+    grid-area: logo;
+    align-self: center;
+  }
+
+  .testi {
+    grid-area: testi;
+    align-self: center;
+    max-width: 320px;
+  }
+
+  .lingua,
+  .piu,
+  .lente {
+    align-self: center;
+    height: 40px;
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 12%);
+
+    &:first-child,
+    &:last-child,
+    &:only-child {
+      border-radius: 999px;
+    }
+  }
+
+  .lingua {
+    grid-area: lingua;
+    padding: 0 14px 0 12px;
+  }
+
+  .piu {
+    grid-area: piu;
+    width: 40px;
+  }
+
+  .lente {
+    grid-area: lente;
+    display: none;
+    width: 40px;
+  }
+
+  .categorie {
+    grid-area: fila;
+    align-self: center;
+  }
+
+  .campo {
+    grid-area: campo;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 44px;
+    padding-right: 6px;
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 12%);
+    pointer-events: auto;
+  }
+
+  /* Ricerca aperta a tendina: il campo vero della pagina «Cerca» si posa qui sopra (SearchHeader).
+     Opacity, non visibility: alla chiusura il fuoco torna qui prima che il flag vada via. */
+  :global(html[data-search-header]) .campo {
+    opacity: 0;
+  }
+
+  .campoTesto {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 42px;
+    padding: 0 0 0 16px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 15px;
+    text-align: left;
+    cursor: text;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0.72;
+    }
+  }
+
+  /* «Filtri» quieto; con filtri attivi una pillola piena «Filtri · 2». */
+  .campoFiltri {
+    flex-shrink: 0;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0.82;
+
+    &[data-active] {
+      background: #fff;
+      color: #111;
+      font-weight: 600;
+      opacity: 1;
+    }
+  }
+
+  /* Niente categorie (Storia, menu vuoto): una riga sola, nessuno spazio sotto. */
+  .isola:not(:has(.categorie)) {
+    grid-template-rows: 58px;
+    padding-bottom: 0;
+  }
+
+  /* Compatta: una riga sola. Logo, lingua e ⋯ restano dove sono; lo stato si chiude,
+     il campo lascia il posto alla lente, le categorie salgono accanto al nome. */
+  .isola[data-compact="true"],
+  .isola[data-tab="storia"][data-compact="true"] {
+    grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto auto auto;
+    grid-template-rows: 58px;
+    grid-template-areas: "logo testi fila lente lingua piu";
+    padding-bottom: 0;
+
+    .riga,
+    .logo {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .testi {
+      max-width: 220px;
+      transform: none;
+    }
+
+    .nome {
+      -webkit-line-clamp: 1;
+    }
+
+    .linea,
+    .campo {
+      display: none;
+    }
+
+    .lente {
+      display: grid;
+    }
+  }
+
+  /* Senza logo: niente colonna vuota (il suo spazio sposterebbe il nome dal filo delle categorie). */
+  .isola:not([data-logo]) {
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "testi campo lingua piu"
+      "fila fila fila fila";
+  }
+
+  .isola[data-compact="true"]:not([data-logo]) {
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto auto auto;
+    grid-template-areas: "testi fila lente lingua piu";
   }
 }

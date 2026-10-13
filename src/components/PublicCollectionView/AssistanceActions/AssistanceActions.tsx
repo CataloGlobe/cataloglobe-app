@@ -17,6 +17,8 @@ type Props = {
     onWaiterCalledAtChange: (next: string | null) => void;
     /** Bump esterno (submit ordine riuscito) → ricalcola il gating "ordini in corso". */
     ordersRefreshKey?: number;
+    /** «tiles»: due riquadri nel corpo del foglio (redesign, mockup v38); di default il piede fisso. */
+    layout?: "bar" | "tiles";
 };
 
 export default function AssistanceActions({
@@ -25,6 +27,7 @@ export default function AssistanceActions({
     waiterCalledAt,
     onWaiterCalledAtChange,
     ordersRefreshKey,
+    layout = "bar"
 }: Props) {
     const { t } = useTranslation("public");
     const { session } = useCustomerSession();
@@ -112,7 +115,7 @@ export default function AssistanceActions({
     const inCooldown = cooldownLeft > 0;
 
     return (
-        <div className={styles.footer}>
+        <div className={styles.footer} data-layout={layout}>
             {waiterError && <span className={styles.error}>{waiterError}</span>}
             {billError && <span className={styles.error}>{billError}</span>}
             <div className={styles.actions}>
