@@ -1,0 +1,489 @@
+/* «Scegli il menu» (mockup v38, `.mpk*`). Sopra il menu e la barra (150), sotto i fogli (900).
+   Colori del locale: fondo e testi della pagina, card come le superfici del menu. */
+
+$curva: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+.scelta {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  background: var(--pub-bg);
+  color: var(--pub-bg-text);
+  font-family: var(--pub-font-family, inherit);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Identità: foto e isola, come in cima al menu ─────────────────── */
+
+.copertina {
+  height: 208px;
+  overflow: hidden;
+  background: var(--pub-header-bg, #1a1a1a);
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.isola {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 12px 0;
+  padding: 12px;
+  border-radius: 26px;
+  background: rgb(20 20 20 / 90%);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%), 0 14px 32px -18px rgb(0 0 0 / 55%);
+
+  .scelta[data-cover] & {
+    margin-top: -46px;
+  }
+}
+
+.logo {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.testi {
+  flex: 1;
+  min-width: 0;
+}
+
+.nome {
+  display: -webkit-box;
+  margin: 0;
+  color: inherit;
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.lingua {
+  flex: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 10px 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 12%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+}
+
+/* ── Titolo e card ────────────────────────────────────────────────── */
+
+.corpo {
+  padding: 28px 16px 0;
+}
+
+.titolo {
+  margin: 0 4px;
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.sottotitolo {
+  margin: 7px 4px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--pub-bg-text-muted);
+}
+
+.elenco {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card,
+.dopo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border-radius: 22px;
+  font-family: inherit;
+  text-align: left;
+}
+
+.card {
+  min-height: 80px;
+  padding: 14px 12px 14px 14px;
+  border: 0;
+  background: var(--pub-surface);
+  color: var(--pub-surface-text);
+  box-shadow: inset 0 0 0 1px var(--pub-surface-border), 0 12px 26px -20px rgb(0 0 0 / 50%);
+  cursor: pointer;
+  transition: scale 0.16s $curva, box-shadow 0.16s, background-color 0.16s;
+  -webkit-tap-highlight-color: transparent;
+
+  @media (hover: hover) {
+    &:hover {
+      background: color-mix(in srgb, var(--pub-surface-text) 3%, var(--pub-surface));
+    }
+  }
+
+  &:active {
+    scale: 0.98;
+  }
+
+  &[data-pick] {
+    scale: 0.98;
+    box-shadow: inset 0 0 0 2px var(--pub-accent), 0 12px 26px -20px rgb(0 0 0 / 50%);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, currentColor);
+    outline-offset: 2px;
+  }
+}
+
+.testoCard {
+  flex: 1;
+  min-width: 0;
+
+  b {
+    display: block;
+    font-size: 17.5px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+  }
+
+  small {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--pub-surface-text-muted);
+  }
+}
+
+.ora {
+  font-weight: 700;
+  color: var(--pub-surface-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.icona {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pub-accent) 14%, var(--pub-surface));
+  color: var(--pub-accent);
+}
+
+.vai {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pub-surface-text) 7%, transparent);
+}
+
+/* «Più tardi»: più quieti, senza fondo, non si toccano */
+.dopo {
+  min-height: 64px;
+  padding: 10px 12px 10px 14px;
+  box-shadow: inset 0 0 0 1px var(--pub-border);
+  color: var(--pub-bg-text-muted);
+
+  .testoCard b {
+    font-size: 15.5px;
+    color: color-mix(in srgb, var(--pub-bg-text) 62%, var(--pub-bg));
+  }
+
+  .testoCard small {
+    margin-top: 2px;
+    color: var(--pub-bg-text-muted);
+  }
+
+  .icona {
+    width: 40px;
+    height: 40px;
+    background: color-mix(in srgb, var(--pub-bg-text) 6%, transparent);
+    color: var(--pub-bg-text-muted);
+  }
+}
+
+.quando {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pub-bg-text) 6%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.etichetta {
+  margin: 28px 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pub-bg-text-muted);
+}
+
+/* ── Il locale (come le righe del fondo del menu) ─────────────────── */
+
+.righe {
+  padding: 0 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--pub-bg-text) 6%, transparent);
+}
+
+.riga {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  & + & {
+    border-top: 1px solid color-mix(in srgb, var(--pub-bg-text) 10%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, currentColor);
+    outline-offset: 2px;
+    border-radius: 12px;
+  }
+
+  > svg {
+    flex-shrink: 0;
+    color: var(--pub-bg-text-muted);
+  }
+}
+
+.rigaIcona {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--pub-bg-text) 7%, transparent);
+}
+
+.rigaTesto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-weight: 600;
+
+  small {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--pub-bg-text-muted);
+  }
+}
+
+.firma {
+  margin: 22px 0 0;
+  font-size: 12px;
+  text-align: center;
+  color: var(--pub-bg-text-muted);
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+/* ── Entrata: card in cascata alla prima apertura ─────────────────── */
+
+@keyframes sale {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes appare {
+  from {
+    opacity: 0;
+  }
+}
+
+.scelta[data-entrance="rise"] {
+  .isola,
+  .titolo,
+  .sottotitolo,
+  .elenco > li {
+    animation: sale 0.44s $curva both;
+    animation-delay: calc(var(--i, 0) * 45ms + 60ms);
+  }
+
+  .titolo,
+  .sottotitolo {
+    animation-delay: 30ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .isola,
+    .titolo,
+    .sottotitolo,
+    .elenco > li {
+      animation: appare 0.2s both;
+    }
+  }
+}
+
+/* ── Passaggio tra scelta e menu (View Transitions, `menuPassage.ts`) ──
+   Verso il menu: il menu entra da destra, la scelta scivola a sinistra e si scurisce.
+   «Tutti i menu»: il menu esce a destra e scopre la scelta. Movimento ridotto: dissolvenza. */
+:global {
+  @keyframes :global(cg-menu-in) {
+    from {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes :global(cg-menu-under) {
+    to {
+      transform: translateX(-28%);
+      filter: brightness(0.82);
+    }
+  }
+
+  @keyframes :global(cg-menu-out) {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes :global(cg-menu-uncover) {
+    from {
+      transform: translateX(-28%);
+      filter: brightness(0.82);
+    }
+  }
+
+  @keyframes :global(cg-menu-fade-out) {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes :global(cg-menu-fade-in) {
+    from {
+      opacity: 0;
+    }
+  }
+
+  html[data-menu-passage]::view-transition-group(root) {
+    animation-duration: 0.38s;
+    animation-timing-function: $curva;
+  }
+
+  html[data-menu-passage]::view-transition-old(root),
+  html[data-menu-passage]::view-transition-new(root) {
+    mix-blend-mode: normal;
+    animation-duration: 0.38s;
+    animation-timing-function: $curva;
+    animation-fill-mode: both;
+  }
+
+  html[data-menu-passage="go"]::view-transition-old(root) {
+    animation-name: cg-menu-under;
+  }
+
+  html[data-menu-passage="go"]::view-transition-new(root) {
+    animation-name: cg-menu-in;
+    box-shadow: -18px 0 40px -24px rgb(0 0 0 / 45%);
+  }
+
+  html[data-menu-passage="back"]::view-transition-old(root) {
+    z-index: 1;
+    animation-name: cg-menu-out;
+    box-shadow: -18px 0 40px -24px rgb(0 0 0 / 45%);
+  }
+
+  html[data-menu-passage="back"]::view-transition-new(root) {
+    animation-name: cg-menu-uncover;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html[data-menu-passage]::view-transition-old(root),
+    html[data-menu-passage]::view-transition-new(root) {
+      animation-duration: 0.2s;
+      animation-timing-function: ease;
+      box-shadow: none;
+    }
+
+    html[data-menu-passage]::view-transition-old(root) {
+      animation-name: cg-menu-fade-out;
+    }
+
+    html[data-menu-passage]::view-transition-new(root) {
+      animation-name: cg-menu-fade-in;
+    }
+  }
+}

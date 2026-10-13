@@ -1,4 +1,17 @@
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import {
+    Component,
+    lazy,
+    Suspense,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    type ComponentProps,
+    type CSSProperties,
+    type ReactNode
+} from "react";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import Island from "./island/Island";
 import BottomBar from "./bar/BottomBar";
@@ -16,6 +29,9 @@ import { showAdded } from "./order/addedNoticeStore";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
 import type { MenuSource } from "./menus/menuSource";
 import { useMenuChoice } from "./menus/useMenuChoice";
+import { runMenuPassage } from "./menus/menuPassage";
+import { useDemoMenus } from "./menus/provaMenu";
+import type { PublicMenu } from "@/types/resolvedCollections";
 
 /**
  * Radice del redesign della pagina pubblica, scelta da `PublicCatalogReady`
@@ -33,6 +49,12 @@ const ProvaTecnica = /*#__PURE__*/ lazy(() => import("./prova/ProvaTecnica"));
 // quando il telefono è libero e comunque caricato al primo tocco che lo apre.
 const loadVenueSheets = () => import("./sheets/VenueSheets");
 const VenueSheets = /*#__PURE__*/ lazy(loadVenueSheets);
+
+// «Scegli il menu»: chunk a parte, serve solo alle sedi con più menu adesso.
+const loadMenuChooser = () => import("./menus/MenuChooser");
+const MenuChooser = /*#__PURE__*/ lazy(loadMenuChooser);
+// Finché il chunk arriva, un fondo pieno copre il menu che sta sotto (niente lampo).
+const CHOOSER_PLACEHOLDER: CSSProperties = { position: "fixed", inset: 0, zIndex: 200, background: "var(--pub-bg)" };
 
 /**
  * Il chunk del foglio che non arriva (rete giù, file vecchi dopo un deploy) non
@@ -112,20 +134,47 @@ export default function RedesignCollectionView({
     const preferences = usePreferences();
     // «Scegli il menu» (spec §12): il menu scelto cambia solo le props del catalogo;
     // `CollectionView` non si rimonta, così il carrello (suo stato) resta.
-    const menuChoice = useMenuChoice(menus?.list, { preview: props.mode !== "public" });
+    // Finché il giudice non manda l'elenco, `?prova-menu=1` ne costruisce uno finto.
+    const demoMenus = useDemoMenus(menus?.catalog, !menus?.list);
+    const menuList = menus?.list ?? demoMenus;
+    const menuChoice = useMenuChoice(menuList, { preview: props.mode !== "public" });
     const chosenCatalog = menuChoice.menu?.catalog;
     const menuView = useMemo(
         () => (chosenCatalog && menus ? menus.view(chosenCatalog) : null),
         [chosenCatalog, menus]
     );
+    const { choosing, choose } = menuChoice;
     const chosenId = menuChoice.menu?.catalogId;
     const shownId = useRef(chosenId);
+    // Chi aspetta il disegno del menu (o della scelta) per il passaggio animato.
+    const drawnWaiters = useRef<Array<() => void>>([]);
+    useLayoutEffect(() => {
+        if (shownId.current !== chosenId) {
+            shownId.current = chosenId;
+            // Menu nuovo: si parte dalla cima (prima della fotografia d'arrivo del passaggio).
+            window.scrollTo(0, 0);
+        }
+        drawnWaiters.current.splice(0).forEach(resolve => resolve());
+    }, [chosenId, choosing]);
+    const whenDrawn = useCallback(
+        () =>
+            new Promise<void>(resolve => {
+                drawnWaiters.current.push(resolve);
+                // Rete di sicurezza: il browser non resta fermo se il disegno non arriva.
+                window.setTimeout(resolve, 600);
+            }),
+        []
+    );
+    const chooseFromChooser = useCallback(
+        (menu: PublicMenu) => runMenuPassage("go", () => choose(menu.slug, "chooser"), whenDrawn),
+        [choose, whenDrawn]
+    );
+    // Le card salgono in cascata solo la prima volta; tornando alla scelta restano ferme.
+    const chooserSeen = useRef(false);
+    const chooserEntrance = chooserSeen.current ? "still" : "rise";
     useEffect(() => {
-        if (shownId.current === chosenId) return;
-        shownId.current = chosenId;
-        // Menu nuovo: si parte dalla cima.
-        window.scrollTo(0, 0);
-    }, [chosenId]);
+        if (choosing) chooserSeen.current = true;
+    }, [choosing]);
     useEffect(() => keepPreferencesFor(props.activityId), [props.activityId]);
     // Con la sede che prenota, «Prenota» apre i passi nel foglio invece della pagina /prenota.
     const sheetsSlot = useMemo<SheetsSlot>(
@@ -150,14 +199,35 @@ export default function RedesignCollectionView({
         );
     }
     return (
-        <CollectionView
-            {...props}
-            {...menuView}
-            headerSlot={renderIsland}
-            bottomBarSlot={renderBottomBar}
-            sheetsSlot={sheetsSlot}
-            featuredSlot={renderFeatured}
-            footerSlot={renderFooter}
-        />
+        <>
+            {choosing && menuList ? (
+                <Suspense fallback={<div style={CHOOSER_PLACEHOLDER} />}>
+                    <MenuChooser
+                        menus={menuList}
+                        onChoose={chooseFromChooser}
+                        entrance={chooserEntrance}
+                        activityName={props.businessName}
+                        logoUrl={props.style.showLogo ? (props.tenantLogoUrl ?? null) : null}
+                        coverImageUrl={props.style.showCoverImage ? props.businessImage : null}
+                        openingHours={props.openingHours ?? []}
+                        upcomingClosures={props.upcomingClosures ?? []}
+                        onOpenBooking={booking ? openBookingSheet : undefined}
+                    />
+                </Suspense>
+            ) : null}
+            {/* Il menu resta montato sotto la scelta, inerte (il contenitore non ha box:
+                la pagina si dispone come prima). I fogli stanno nel portale, fuori. */}
+            <div style={{ display: "contents" }} inert={choosing}>
+                <CollectionView
+                    {...props}
+                    {...menuView}
+                    headerSlot={renderIsland}
+                    bottomBarSlot={renderBottomBar}
+                    sheetsSlot={sheetsSlot}
+                    featuredSlot={renderFeatured}
+                    footerSlot={renderFooter}
+                />
+            </div>
+        </>
     );
 }
