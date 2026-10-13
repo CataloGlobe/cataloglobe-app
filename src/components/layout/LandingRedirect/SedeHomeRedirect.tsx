@@ -9,7 +9,7 @@ import { sedeLandingSegment } from "@/utils/navModel";
 /**
  * `/locations/:activityId` senza pagina: l'ingresso nella sede (§51.6). Chi
  * la gestisce parte dalla Scheda; staff e viewer dalla prima voce di
- * Operatività che possono usare, saltando quelle col lucchetto del piano.
+ * Servizio che possono usare, saltando quelle col lucchetto del piano.
  * I vecchi `?tab=` della scheda vincono: un link vecchio porta ancora alla
  * sua sezione.
  */
