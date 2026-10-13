@@ -26,7 +26,7 @@ type ProdW = { id: string; name: string; description: string | null; price: numb
 type CatW = { id: string; name: string; parent: string | null; level: number; sort: number };
 type LinkW = { id: string | undefined; catId: string; productId: string; sort: number };
 
-/** Il prodotto di un piatto: quello che avete già, o uno nuovo con descrizione e varianti. */
+/** Il prodotto di un piatto: quello che hai già, o uno nuovo con descrizione e varianti. */
 export async function productOf(d: Dish, tenantId: string, m: Memo = new Map()): Promise<string> {
     if (d.productId) return d.productId;
     const formats = (d.formats ?? []).filter((f): f is { name: string; price: number } => !!f.name.trim() && f.price !== null);

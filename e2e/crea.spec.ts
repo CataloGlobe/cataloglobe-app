@@ -407,7 +407,7 @@ test.describe("Tunnel di creazione — menù", () => {
         // ancora niente scritto: la lettura non crea il menù
         expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
         // il piatto che c'è già si collega, l'altro è da controllare
-        await expect(button(page, /^1 già fra i vostri prodotti/)).toBeVisible();
+        await expect(button(page, /^1 già fra i tuoi prodotti/)).toBeVisible();
         await expect(button(page, /^1 da controllare/)).toBeVisible();
         // con l'import aperto non si va avanti
         await expect(button(page, "Avanti")).toBeDisabled();
