@@ -108,7 +108,7 @@ export interface NavEntry {
     /** `NavLink end`: la voce si accende solo sul suo indirizzo esatto. */
     end?: boolean;
     signal?: NavSignal;
-    /** La parte sceglie le sedi diversamente dalla sua sezione (Storico: anche tutte). */
+    /** La parte sceglie le sedi diversamente dalla sua sezione. */
     seat?: NavSeatKind;
     /** Qui «Confronta con» vale (D152): Calendario, Andamento. */
     confronto?: boolean;
@@ -141,7 +141,8 @@ export interface NavGroup {
 /**
  * Le sedi in alto a destra per la parte aperta (D152): il tipo di scelta
  * della sezione, o quello della parte, e se «Confronta con» vale. In
- * Servizio una sede sola, ma lo Storico anche tutte (Alex 2026-10-09).
+ * Servizio una sede sola, Storico compreso: «anche tutte» per lo Storico
+ * torna quando la pagina sa leggerle (Alex 2026-10-13).
  */
 export function seatOf(group: NavGroup, entry?: NavEntry | null): { seat: NavSeatKind; confronto: boolean } {
     const seat = entry?.seat ?? group.seat;
@@ -323,7 +324,6 @@ const COMANDE: NavEntry = {
 };
 
 const STORICO: NavEntry = {
-    seat: "multi",
     key: "storico",
     label: "Storico",
     level: "sede",
