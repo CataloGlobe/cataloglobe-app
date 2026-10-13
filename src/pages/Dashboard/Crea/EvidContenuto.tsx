@@ -129,7 +129,7 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                         <div className={s.f}>
                             <label htmlFor={ids.inner}>Nome interno</label>
                             <input className={s.in} id={ids.inner} value={t.inner} placeholder="Se vuoto, il titolo" autoComplete="off" onChange={ev => u(x => void (x.inner = ev.target.value))} />
-                            <p className={s.hint}>Lo vedete solo voi.</p>
+                            <p className={s.hint}>Lo vedi solo tu.</p>
                         </div>
                     </div>
                     {owner && !t.edit && (
@@ -166,7 +166,7 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                             <div className={s.f}>
                                 <label htmlFor={ids.link}>Dove porta</label>
                                 <input className={s.in} id={ids.link} value={t.ctaLink} placeholder="https://" inputMode="url" autoComplete="off" onChange={ev => u(x => void (x.ctaLink = ev.target.value))} />
-                                <p className={s.hint}>Un link: le prenotazioni, i biglietti, una pagina vostra.</p>
+                                <p className={s.hint}>Un link: le prenotazioni, i biglietti, una pagina tua.</p>
                             </div>
                         </div>
                     </EvidParte>

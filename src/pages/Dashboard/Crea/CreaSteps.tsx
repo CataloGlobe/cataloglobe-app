@@ -113,7 +113,7 @@ export function Serve({ t, example, business }: { t: Tunnel; example: string | n
         </>
     ) : (
         <>
-            <Sh title="Racconta una storia">Chi siete, da dove vengono gli ingredienti, il piatto del mese. Compare sotto il menù, con testo e foto, e si legge toccandola.</Sh>
+            <Sh title="Racconta una storia">Chi sei, da dove vengono gli ingredienti, il piatto del mese. Compare sotto il menù, con testo e foto, e si legge toccandola.</Sh>
             <p className={s.hint}>Nel telefono a destra vedi dove compare: sotto il menù, nelle storie.</p>
         </>
     );
@@ -124,7 +124,7 @@ export function StileNome({ t, u, styles, onBase }: { t: Tunnel; u: U; styles: r
     const id = useId();
     return (
         <>
-            <Sh title="Il nome">Lo vedete solo voi, nell'elenco degli stili e nel Calendario.</Sh>
+            <Sh title="Il nome">Lo vedi solo tu, nell'elenco degli stili e nel Calendario.</Sh>
             <Field label="Nome dello stile" id={id}>
                 <input className={s.in} id={id} value={t.name} placeholder="Natale" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
@@ -171,7 +171,7 @@ export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly 
                     Tutti insieme a un prezzo unico
                 </Chip>
             </div>
-            <p className={s.hint}>{promo ? "Accanto a ogni piatto puoi scrivere una nota: «-20% a pranzo», «solo il giovedì»." : "Il cliente vede i piatti e un prezzo solo."} Si prendono dai prodotti che avete.</p>
+            <p className={s.hint}>{promo ? "Accanto a ogni piatto puoi scrivere una nota: «-20% a pranzo», «solo il giovedì»." : "Il cliente vede i piatti e un prezzo solo."} Si prendono dai prodotti che hai.</p>
             {t.from && only && <Inherited>I piatti del menù {q(t.from.name)}, a portata di mano.</Inherited>}
             <div className={s.list} style={{ maxHeight: 330, overflow: "auto" }}>
                 {cats.map(([c, ps]) => (

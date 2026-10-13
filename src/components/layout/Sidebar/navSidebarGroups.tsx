@@ -94,16 +94,34 @@ export interface NavSidebarOptions {
      * clienti) quando nessuna è in vista: l'ultima usata, o la prima.
      */
     defaultActivityId?: string | null;
+    /**
+     * La sede scelta in alto (D152) quando nessuna è nell'indirizzo, per
+     * esempio dal Calendario dell'azienda: Andamento e Recensioni la tengono,
+     * come le altre sezioni. Null: nessuna scelta, o «Tutte».
+     */
+    chosenActivityId?: string | null;
     catalogLabel: string;
 }
+
+/** Calendario e Regole: una pagina sola per tutte le sedi, coi suoi filtri. */
+const KEEPS_OWN_SEDE = new Set(["calendario", "scheduling"]);
 
 function toItem(entry: NavEntry, options: NavSidebarOptions): SidebarNavItem {
     const { businessId, catalogLabel } = options;
     // Le parti di sede vanno nella sede in vista, o in quella di ripiego; le
-    // parti con la gemella solo nella sede in vista (senza: tutte le sedi).
+    // parti con la gemella nella sede in vista, o in quella scelta in alto
+    // (senza: tutte le sedi).
+    const chosen =
+        entry.level === "azienda" && entry.sedeSegment && !KEEPS_OWN_SEDE.has(entry.key)
+            ? (options.chosenActivityId ?? null)
+            : null;
     const activityId =
-        entry.level === "sede" ? (options.activityId ?? options.defaultActivityId ?? null) : options.activityId;
+        entry.level === "sede" ? (options.activityId ?? options.defaultActivityId ?? null) : (options.activityId ?? chosen);
     const base = `/business/${businessId}/locations/${activityId ?? ""}`;
+    // Portata alla sede scelta, la voce resta accesa anche sulla pagina dell'azienda.
+    const aziendaPrefix = !options.activityId && chosen ? [`/business/${businessId}/${entry.segment}`] : [];
+    const sedePrefixes = activityId ? (entry.matchSegments?.map(s => `${base}/${s}`) ?? []) : [];
+    const matchPrefixes = [...sedePrefixes, ...aziendaPrefix];
     return {
         id: entry.key,
         search: entry.search,
@@ -113,7 +131,7 @@ function toItem(entry: NavEntry, options: NavSidebarOptions): SidebarNavItem {
         end: entry.end,
         permission: perms => canSeeNavEntry(entry, perms, activityId),
         requiresFeature: entry.requiresFeature,
-        matchPrefixes: activityId ? entry.matchSegments?.map(s => `${base}/${s}`) : undefined,
+        matchPrefixes: matchPrefixes.length ? matchPrefixes : undefined,
         showTranslationBadge: entry.signal === "translations",
         showImportBadge: entry.signal === "import",
         showUnreadDot: entry.signal === "supportUnread"
@@ -135,6 +153,6 @@ export function navSidebarGroups(
             icon: GROUP_ICONS[g.key],
             items: g.entries.map(e => toItem(e, options))
         })),
-        account: [{ title: null, items: ACCOUNT_ENTRIES.map(e => toItem(e, { ...options, activityId: null })) }]
+        account: [{ title: null, items: ACCOUNT_ENTRIES.map(e => toItem(e, { ...options, activityId: null, chosenActivityId: null })) }]
     };
 }
