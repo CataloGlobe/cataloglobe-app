@@ -135,12 +135,12 @@ export function CosaVedonoContent({ activity, tenantId }: { activity: V2Activity
                         seat: { label: "Vai alla pagina e al QR", href: `/business/${tenantId}/locations/${activity.id}/anagrafica?parte=link` },
                         subscription: { label: "Vai ad Abbonamento", href: `/business/${tenantId}/settings/abbonamento` },
                         // Programmazione della sede (T9b, PG6; prima `?sede=`, D2 §1).
-                        rule: { label: "Vai a Programmazione", href: schedulingPath(tenantId, activity.id, isForcedSingleSite) }
+                        rule: { label: "Vai alle regole", href: schedulingPath(tenantId, activity.id, isForcedSingleSite) }
                     }}
                 />
             )}
             {permissions != null && !canExplain && (
-                <InlineBanner variant="info">Per vedere perché, serve l'accesso a Programmazione.</InlineBanner>
+                <InlineBanner variant="info">Per vedere perché, serve l'accesso alle regole del Calendario.</InlineBanner>
             )}
             {canRead && (
                 <ActivityVisibilityContent

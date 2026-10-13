@@ -45,10 +45,11 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Badge } from "@/components/ui/Badge/Badge";
 import styles from "./Stories.module.scss";
+import { ACTIVE_LABEL } from "@/utils/activityStatus";
 
 const STATUS_OPTIONS: { value: StoryStatus; label: string }[] = [
     { value: "draft", label: "Bozza" },
-    { value: "published", label: "Pubblicata" }
+    { value: "published", label: ACTIVE_LABEL }
 ];
 
 /**
@@ -389,7 +390,7 @@ export default function StoryDetailPage() {
                     />
                 ) : (
                     <Badge variant={status === "published" ? "success" : "secondary"}>
-                        {status === "published" ? "Pubblicata" : "Bozza"}
+                        {status === "published" ? ACTIVE_LABEL : "Bozza"}
                     </Badge>
                 )}
                 {canWrite && (
@@ -407,7 +408,7 @@ export default function StoryDetailPage() {
         ),
         [status, canWrite, isDirty, isSaving, saveStory, discardStory]
     );
-    // Bozza/Pubblicata resta a vista anche in compatto: è lo stato della storia,
+    // Bozza/Online resta a vista anche in compatto: è lo stato della storia,
     // non un'azione accessoria. Salva/Annulla seguono lo stesso trattamento
     // delle altre pagine con `HeaderSaveAction`.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({

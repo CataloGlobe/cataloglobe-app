@@ -30,6 +30,11 @@
   outline: none;
 }
 
+.wide {
+  // tre bottoni su una riga («Resta qui», «Esci senza salvare», «Tieni come bozza ed esci»)
+  width: 520px;
+}
+
 .title {
   color: var(--text);
 }
@@ -43,14 +48,19 @@
 // Annulla a sinistra, il distruttivo (o il primario) a destra.
 .footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-8);
   margin-top: var(--space-8);
 }
 
+// Se non stanno su una riga, i bottoni a destra vanno sotto, sempre a destra.
 .footerRight {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: var(--space-8);
+  margin-left: auto;
 }

@@ -15,7 +15,6 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { AiSparkles } from "@/components/ui/Button/AiSparkles";
 import { IconBook2 } from "@tabler/icons-react";
 import { Sparkles, Eye, LayoutGrid, List as ListIcon, TextCursorInput } from "lucide-react";
 import { Loader } from "@/components/ui/Loader/Loader";
@@ -44,7 +43,6 @@ import { CatalogForm } from "./components/CatalogForm";
 import { CatalogSheet } from "./components/CatalogSheet";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
-import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 const FORM_ID = "catalog-form";
 
@@ -146,13 +144,11 @@ export default function Catalogs() {
         }
     }, [importRefreshKey, loadData]);
 
+    // «Crea» apre il tunnel di creazione (D124); il drawer resta per modificare.
     const handleOpenCreate = useCallback(() => {
         if (!ensureActive()) return;
-        setEditingCatalog(null);
-        setIsDrawerOpen(true);
-    }, [ensureActive]);
-    // Da «Cosa vuoi creare?» della Panoramica.
-    useCreateOnArrival(handleOpenCreate, permissions != null ? canWriteCatalog : null);
+        navigate(`/business/${currentTenantId}/crea/menu?da=menu`);
+    }, [ensureActive, navigate, currentTenantId]);
 
     const handleViewModeChange = useCallback((next: "list" | "grid") => {
         setViewMode(next);
@@ -164,6 +160,10 @@ export default function Catalogs() {
         openAiImport?.();
     }, [ensureActive, openAiImport]);
 
+    // «Importa con AI» non sta più in testata (D165): un menù nuovo da una foto
+    // nasce dal tunnel di «Crea menù», e in un menù che c'è si importa dal suo
+    // kebab. Il pulsante torna solo mentre un import del drawer lavora, per
+    // ritrovarlo.
     const aiImportIsBusy = importStatus !== "idle";
 
     const aiImportLabel =
@@ -171,9 +171,7 @@ export default function Catalogs() {
             ? "Analisi in corso…"
             : importStatus === "creating"
                 ? "Salvataggio…"
-                : importStatus === "review"
-                    ? "Rivedi menù analizzato"
-                    : "Importa con AI";
+                : "Rivedi menù analizzato";
 
     const headerActions = useMemo(() => (
         <>
@@ -191,18 +189,12 @@ export default function Catalogs() {
                     { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
                 ]}
             />
-            {canWriteCatalog && (
+            {canWriteCatalog && aiImportIsBusy && (
                 <Button
                     variant="secondary"
                     onClick={handleOpenAiImport}
                     disabled={!canEdit}
-                    leftIcon={
-                        importStatus === "analyzing" || importStatus === "creating"
-                            ? <Loader size="sm" className={styles.importSpinner} />
-                            : importStatus === "review"
-                                ? <Eye size={16} />
-                                : <AiSparkles size={16} />
-                    }
+                    leftIcon={importStatus === "review" ? <Eye size={16} /> : <Loader size="sm" className={styles.importSpinner} />}
                     className={styles.toolbarCta}
                 >
                     {aiImportLabel}
@@ -219,12 +211,10 @@ export default function Catalogs() {
                 </Button>
             )}
         </>
-    ), [canWriteCatalog, canEdit, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, handleOpenAiImport, importStatus, aiImportLabel]);
+    ), [canWriteCatalog, canEdit, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, handleOpenAiImport, importStatus, aiImportIsBusy, aiImportLabel]);
 
-    // Import AI: stessa azione, due collocazioni a seconda dello stato.
-    //
-    // A riposo è una secondaria come le altre e sta nel kebab. Mentre lavora
-    // NON può nascondersi lì: un'operazione in corso che l'utente non vede è
+    // Import AI del drawer, mentre lavora (a riposo non c'è, D165). Non può
+    // nascondersi nel kebab: un'operazione in corso che l'utente non vede è
     // un'operazione che l'utente rilancia. Finché non torna `idle` viene quindi
     // promossa fra le icone sempre visibili, con l'icona che ne dice lo stato
     // (spinner mentre analizza o salva, occhio quando il risultato è pronto da
@@ -247,9 +237,6 @@ export default function Catalogs() {
             persistentIcons: canWriteCatalog && aiImportIsBusy
                 ? [{ icon: aiIcon, label: aiImportLabel, onClick: handleOpenAiImport }, viewToggle]
                 : [viewToggle],
-            secondaryActions: canWriteCatalog && !aiImportIsBusy
-                ? [{ label: aiImportLabel, onClick: handleOpenAiImport, disabled: !canEdit }]
-                : undefined,
             primaryAction: canWriteCatalog
                 ? { label: `Crea ${catalogLower}`, onClick: handleOpenCreate, disabled: !canEdit }
                 : undefined
@@ -339,7 +326,7 @@ export default function Catalogs() {
         }
         if (blocked > 0) {
             showToast({
-                message: `${countLabel(blocked)} non ${blocked === 1 ? "eliminato" : "eliminati"}: in uso da regole di programmazione.`,
+                message: `${countLabel(blocked)} non ${blocked === 1 ? "eliminato" : "eliminati"}: in uso da regole del Calendario.`,
                 type: "error"
             });
         }
@@ -433,14 +420,17 @@ export default function Catalogs() {
                     label: duplicatingId === catalog.id ? "Duplicazione…" : "Duplica",
                     disabled: duplicatingId !== null
                 }),
-                {
-                    label: `Aggiungi ${productPluralLower} con AI`,
-                    icon: Sparkles,
-                    variant: "accent",
-                    onClick: () => handleAddWithAi(catalog)
-                },
                 // Il nome del menù non si cambia nel dettaglio: finché non ci arriva resta qui.
                 { label: "Rinomina", icon: TextCursorInput, onClick: () => handleOpenEdit(catalog) },
+                // D173: l'import in un menù che c'è già, sotto «Importa», con la «i» che spiega.
+                {
+                    label: `Aggiungi altri ${productPluralLower}`,
+                    icon: Sparkles,
+                    variant: "accent",
+                    group: "Importa",
+                    info: `Leggiamo con l'AI una foto o un PDF del menù di carta e aggiungiamo i ${productPluralLower} a questo ${catalogLower}. Prima che entrino li controlli tu: quelli che hai già si collegano, gli altri diventano nuovi.`,
+                    onClick: () => handleAddWithAi(catalog)
+                },
                 rowAction.remove(() => handleOpenDelete(catalog))
             ]}
         />
@@ -521,7 +511,7 @@ export default function Catalogs() {
                 <EmptyState
                     icon={<IconBook2 />}
                     title={`Il ${catalogLower} è quello che i clienti vedono col QR`}
-                    description={`Puoi crearne più di uno (${hints}) e decidere con la programmazione quando mostrarli.`}
+                    description={`Puoi crearne più di uno (${hints}) e decidere col Calendario quando mostrarli.`}
                     action={
                         <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
                             {`Crea il primo ${catalogLower}`}
@@ -639,7 +629,7 @@ export default function Catalogs() {
                 onClose={handleBulkDeleteCancel}
                 onConfirm={handleBulkDeleteConfirmed}
                 title={`Eliminare ${countLabel(pendingBulkIds?.length ?? 0)}?`}
-                message={`Si eliminano anche le loro ${categoryPluralLower} e i collegamenti ai ${productPluralLower}, e non si torna indietro. I ${productPluralLower} restano. Un ${catalogLower} usato da una regola di programmazione non si elimina.`}
+                message={`Si eliminano anche le loro ${categoryPluralLower} e i collegamenti ai ${productPluralLower}, e non si torna indietro. I ${productPluralLower} restano. Un ${catalogLower} usato da una regola del Calendario non si elimina.`}
                 confirmLabel={`Elimina ${countLabel(pendingBulkIds?.length ?? 0)}`}
             />
 

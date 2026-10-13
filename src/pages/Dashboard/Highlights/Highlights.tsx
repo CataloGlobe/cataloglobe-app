@@ -28,7 +28,6 @@ import { ProductPhotoPlaceholder } from "../Products/components/ProductPhotoPlac
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { useBulkDelete } from "@/hooks/useBulkDelete";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import FeaturedContentDrawer from "./FeaturedContentDrawer";
 import FeaturedContentDeleteDialog from "./FeaturedContentDeleteDialog";
 import styles from "./Highlights.module.scss";
 
@@ -38,7 +37,6 @@ import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
 
 const VIEW_MODE_KEY = "featuredContents_viewMode";
 
@@ -78,7 +76,6 @@ export default function Highlights() {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [contents, setContents] = useState<FeaturedContentWithProducts[]>([]);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const navigate = useNavigate();
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -118,12 +115,11 @@ export default function Highlights() {
         loadData();
     }, [loadData]);
 
+    // «Crea» apre il tunnel di creazione (D124); finito, si atterra sul contenuto.
     const handleCreate = useCallback(() => {
         if (!ensureActive()) return;
-        setIsCreateOpen(true);
-    }, [ensureActive]);
-    // Da «Cosa vuoi creare?» della Panoramica.
-    useCreateOnArrival(handleCreate, permissions ? canWrite : null);
+        navigate(`/business/${tenantId}/crea/evidenza?da=evidenza`);
+    }, [ensureActive, navigate, tenantId]);
 
     const headerActions = useMemo(() => (
         <>
@@ -390,12 +386,6 @@ export default function Highlights() {
                         {isPhone && filterChips}
                         {renderContent()}
                     </div>
-
-                    <FeaturedContentDrawer
-                        open={isCreateOpen}
-                        onClose={() => setIsCreateOpen(false)}
-                        onSuccess={() => setIsCreateOpen(false)}
-                    />
 
                     <ConfirmDialog
                         {...bulk.dialog}

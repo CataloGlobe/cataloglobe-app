@@ -21,6 +21,9 @@ type StylePreviewProps = {
   model: StyleTokenModel;
   viewMode: ViewMode;
   isTransitioning?: boolean;
+  /** Il tunnel dello stile mette i nomi veri al posto di quelli d'esempio. */
+  businessName?: string;
+  catalogName?: string;
 };
 
 const MOCK_FEATURED: V2FeaturedContent[] = [
@@ -483,10 +486,10 @@ export const StylePreview = ({
   model,
   viewMode,
   isTransitioning = false,
+  businessName = "Nome Sede",
+  catalogName = "Nome Catalogo",
 }: StylePreviewProps) => {
   const [screenEl, setScreenEl] = useState<HTMLDivElement | null>(null);
-
-  const businessName = "Nome Sede";
 
   const cardTemplate: "no-image" | "left" | "right" =
     model.card.image.mode === "hide"
@@ -533,7 +536,7 @@ export const StylePreview = ({
           <CollectionView
             businessName={businessName}
             businessImage={null}
-            collectionTitle="Nome Catalogo"
+            collectionTitle={catalogName}
             sectionGroups={MOCK_SECTION_GROUPS}
             initialSelection={MOCK_INITIAL_SELECTION}
             style={collectionStyle}

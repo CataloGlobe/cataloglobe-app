@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { sidebarLink } from "./nav";
+import { openInServizio } from "./nav";
 import { NOW, stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
@@ -28,7 +28,7 @@ function main(page: Page) {
     return page.getByRole("main");
 }
 
-/** Entra nella sede di test dalla griglia delle Sedi e apre Prenotazioni dalla sua sidebar. */
+/** Entra nella sede di test dalla griglia delle Sedi e apre Prenotazioni da «In servizio». */
 async function openPrenotazioni(page: Page): Promise<void> {
     await openBusinessPage(page, "locations", "Sedi");
     await page.getByRole("radio", { name: "Vista griglia" }).click();
@@ -37,7 +37,7 @@ async function openPrenotazioni(page: Page): Promise<void> {
     await card.getByRole("link").first().click();
     // L'indice della sede porta alla prima voce: si aspetta il redirect.
     await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
-    await (await sidebarLink(page, "Prenotazioni")).click();
+    await openInServizio(page, "Prenotazioni");
     await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/prenotazioni/, { timeout: 15_000 });
     // La pagina è pronta quando la prima richiesta finta è arrivata.
     await expect(main(page).getByText("Giulia Bianchi").first()).toBeVisible({ timeout: 15_000 });
@@ -71,18 +71,21 @@ test.describe("Prenotazioni", () => {
 
         // Una vista sola (lotto B-b): niente schede.
         await expect(page.getByRole("tab")).toHaveCount(0);
-        const nuova = page.getByRole("button", { name: "Nuova prenotazione" }).first();
+        const nuova = page.getByRole("button", { name: "Aggiungi prenotazione" }).first();
         await expect(nuova).toBeVisible();
 
         // T14 PN1: Giorni/Settimana e la settimana nella testata, sulla riga
-        // di «Nuova prenotazione».
+        // dell'interruttore di «In servizio» (con lui la riga non sta più
+        // accanto a «Aggiungi prenotazione»: la testata va su due righe).
         const giorni = main(page).getByRole("radio", { name: "Giorni" });
         const nav = main(page).getByRole("group", { name: "Naviga settimana" });
+        const parti = main(page).getByRole("radiogroup", { name: "Parti di In servizio" });
         await expect(giorni).toBeChecked();
         await expect(nav).toBeVisible();
+        await expect(parti.getByRole("radio", { name: "Prenotazioni" })).toBeChecked();
         const navBox = await nav.boundingBox();
-        const nuovaBox = await nuova.boundingBox();
-        expect(Math.abs(navBox!.y + navBox!.height / 2 - (nuovaBox!.y + nuovaBox!.height / 2))).toBeLessThan(12);
+        const partiBox = await parti.boundingBox();
+        expect(Math.abs(navBox!.y + navBox!.height / 2 - (partiBox!.y + partiBox!.height / 2))).toBeLessThan(12);
 
         // T14 PN2: niente riquadro «Oggi»; la sua frase è l'intestazione della
         // card delle richieste: 4 prenotazioni accettate, ~15 coperti.
@@ -97,7 +100,7 @@ test.describe("Prenotazioni", () => {
         await expect(main(page).getByText(/in sala adesso/i)).toHaveCount(0);
         // L'Agenda resta, con la coda in cima e la creazione.
         await expect(main(page).getByText("Richieste da gestire", { exact: true })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Nuova prenotazione" }).first()).toBeVisible();
+        await expect(page.getByRole("button", { name: "Aggiungi prenotazione" }).first()).toBeVisible();
     });
 
     test("un vecchio link a «Da gestire» apre l'Agenda", async ({ page }) => {
@@ -324,13 +327,13 @@ test.describe("Prenotazioni", () => {
         expect(stub.writes).toHaveLength(0);
     });
 
-    test("«Nuova prenotazione» apre il form e si chiude senza salvare", async ({ page }) => {
+    test("«Aggiungi prenotazione» apre il form e si chiude senza salvare", async ({ page }) => {
         await openPrenotazioni(page);
-        await page.getByRole("button", { name: "Nuova prenotazione" }).first().click();
+        await page.getByRole("button", { name: "Aggiungi prenotazione" }).first().click();
 
         const drawer = page.getByRole("dialog", { name: "Nuova prenotazione" });
         await expect(drawer).toBeVisible();
-        await expect(drawer.getByRole("button", { name: "Crea prenotazione" })).toBeVisible();
+        await expect(drawer.getByRole("button", { name: "Aggiungi prenotazione" })).toBeVisible();
         expect(await drawer.evaluate(el => Math.round(el.getBoundingClientRect().width))).toBe(520);
         await drawer.getByRole("button", { name: "Annulla", exact: true }).click();
         await expect(drawer).toHaveCount(0);
@@ -339,7 +342,7 @@ test.describe("Prenotazioni", () => {
 
     test("il form con qualcosa di scritto chiede prima di chiudersi (§27)", async ({ page }) => {
         await openPrenotazioni(page);
-        await page.getByRole("button", { name: "Nuova prenotazione" }).first().click();
+        await page.getByRole("button", { name: "Aggiungi prenotazione" }).first().click();
         const drawer = page.getByRole("dialog", { name: "Nuova prenotazione" });
         await drawer.getByLabel(/Nome cliente/).fill("Mario Rossi");
 
@@ -355,11 +358,11 @@ test.describe("Prenotazioni", () => {
         expect(stub.writes).toHaveLength(0);
     });
 
-    test("cablaggio: «Crea prenotazione» inserisce nella sede, confermata e a mano", async ({ page }) => {
+    test("cablaggio: «Aggiungi prenotazione» inserisce nella sede, confermata e a mano", async ({ page }) => {
         await freezeClock(page);
         stub.onWrite("reservations.insert", body => ({ ...(body as object), id: "00000000-0000-4000-8000-0000000000ff" }));
         await openPrenotazioni(page);
-        await page.getByRole("button", { name: "Nuova prenotazione" }).first().click();
+        await page.getByRole("button", { name: "Aggiungi prenotazione" }).first().click();
         const drawer = page.getByRole("dialog", { name: "Nuova prenotazione" });
 
         // La sede non viene ancora dal path (bug a parte, #213): la si sceglie.
@@ -380,7 +383,7 @@ test.describe("Prenotazioni", () => {
         await drawer.getByLabel(/Coperti/).fill("4");
         await drawer.getByLabel(/Nome cliente/).fill("Mario Rossi");
         await drawer.getByLabel(/Telefono/).fill("+39 333 7654321");
-        await drawer.getByRole("button", { name: "Crea prenotazione" }).click();
+        await drawer.getByRole("button", { name: "Aggiungi prenotazione" }).click();
 
         await expect.poll(() => stub.writes.filter(w => w.fn === "reservations.insert").length).toBe(1);
         const insert = stub.writes.find(w => w.fn === "reservations.insert")?.body as Record<string, unknown>;

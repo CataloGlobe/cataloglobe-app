@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
-import { useSettingsTabs } from "./useSettingsTabs";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnTenant, canChangeRoleOf, canRemoveMember, isOwnerOrAdmin } from "@/lib/permissions";
@@ -177,8 +176,8 @@ export default function TeamPage() {
         ...ROLE_ORDER.map(role => ({ value: role, label: ROLE_LABEL[role] }))
     ], []);
 
-    // T16 IM1: in testata, a destra delle tab di Impostazioni, solo l'azione
-    // della tab. Ricerca e ruoli passano nella barra sopra la tabella (IM3).
+    // T16 IM1: in testata solo l'azione della pagina. Ricerca e ruoli passano
+    // nella barra sopra la tabella (IM3).
     const headerActions = useMemo(() => (
         canInvite ? (
             <Button
@@ -191,16 +190,13 @@ export default function TeamPage() {
         ) : undefined
     ), [canInvite]);
 
-    const settingsTabs = useSettingsTabs();
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        ...settingsTabs.compact,
         primaryAction: canInvite
             ? { label: "Invita membro", onClick: () => setInviteDrawerOpen(true) }
             : undefined
-    }), [settingsTabs.compact, canInvite]);
+    }), [canInvite]);
 
     usePageHeader({
-        leading: settingsTabs.leading,
         actions: canReadTeam ? headerActions : undefined,
         compact: canReadTeam ? headerCompact : undefined,
     });

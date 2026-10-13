@@ -275,14 +275,44 @@ function withSubcategories(list: ResolvedCategory[]): ResolvedCategory[] {
     return [...list.slice(0, index + 1), ...subs, ...list.slice(index + 1)];
 }
 
+/**
+ * Con `menus`: l'elenco che manderà il giudice della fase (b). «two»: «Menu pranzo»
+ * (Antipasti, Primi) e «Carta dei vini» (Secondi, Dolci) adesso, «Dessert e caffè»
+ * dalle 15:00; «one»: solo il pranzo adesso, il dessert più tardi.
+ */
+function menuList(kind: "two" | "one", all: ResolvedCategory[]) {
+    const menu = (slug: string, name: string, sortOrder: number, start: number, end: number, state: "now" | "later", ids: string[]) => {
+        const categories = all.filter(c => ids.includes(c.id) || (c.parent_category_id !== null && ids.includes(c.parent_category_id)));
+        return {
+            catalogId: `catalog-${slug}`,
+            slug,
+            name,
+            sortOrder,
+            startMinute: start * 60,
+            endMinute: end * 60,
+            state,
+            categoriesCount: ids.length,
+            productsCount: categories.reduce((sum, c) => sum + c.products.length, 0),
+            catalog: { id: `catalog-${slug}`, name, categories },
+        };
+    };
+    const pranzo = menu("menu-pranzo", "Menu pranzo", 0, 12, 15, "now", ["cat-0", "cat-1"]);
+    const vini = menu("carta-dei-vini", "Carta dei vini", 1, 12, 23, "now", ["cat-2", "cat-3"]);
+    const dessert = menu("dessert-e-caffe", "Dessert e caffè", 2, 15, 23, "later", ["cat-3"]);
+    return kind === "two" ? [pranzo, vini, dessert] : [pranzo, dessert];
+}
+
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string; reservations?: boolean; preferences?: boolean; subcategories?: boolean }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string; reservations?: boolean; preferences?: boolean; subcategories?: boolean; menus?: "two" | "one" }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     const body = payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null, opts.reservations, opts.preferences);
     if (opts.subcategories && body.resolved.catalog?.categories) {
         body.resolved.catalog.categories = withSubcategories(body.resolved.catalog.categories);
+    }
+    if (opts.menus && body.resolved.catalog?.categories) {
+        (body.resolved as Record<string, unknown>).menus = menuList(opts.menus, body.resolved.catalog.categories);
     }
     await page.route("**/api/public-catalog**", route =>
         route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) })

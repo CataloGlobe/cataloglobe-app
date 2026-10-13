@@ -159,7 +159,7 @@ const MESSAGES: Record<PrinterErrorCode, string> = {
     PRINTER_NOT_FOUND: "Stampante non trovata. Potrebbe essere già stata rimossa.",
     PRINTER_SN_IN_USE:
         "Questo dispositivo è collegato a un'altra sede. Scollegalo da quella sede prima di collegarlo qui.",
-    ORDERING_DISABLED: "Attiva le ordinazioni dal tavolo prima di collegare una stampante.",
+    ORDERING_DISABLED: "Attiva gli ordini dal tavolo prima di collegare una stampante.",
     NO_ACTIVE_PRINTERS: "Nessuna stampante collegata a questa sede.",
     SUNMI_DEVICE_REJECTED: "Sunmi non riconosce questo numero di serie. Controlla l'SN sul dispositivo.",
     SUNMI_CONFIG_ERROR: "Integrazione Sunmi non configurata. Contatta l'assistenza.",

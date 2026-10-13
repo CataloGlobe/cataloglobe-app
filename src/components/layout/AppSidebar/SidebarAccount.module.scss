@@ -24,10 +24,10 @@
     background: var(--sb-hover, var(--hover-bg));
   }
 
-  // Dove sono: la pagina aperta è una voce del menù, acceso come una voce attiva.
+  // Dove sono: la pagina aperta è una voce del menù. Tinta tenue, non il
+  // pieno della voce attiva: sul pieno nome e piano non si leggono.
   &[aria-current="page"] {
-    background: var(--sb-active-bg, var(--hover-bg));
-    box-shadow: var(--sb-active-shadow, none);
+    background: var(--sb-hover, var(--hover-bg));
   }
 
   &:focus-visible {

@@ -16,13 +16,19 @@ import { appearanceTables, freezeClock, sediOf } from "./appearanceStub";
  * | Giulia Rossi e2e | 7 | 0 | abituale (Centro), VIP (Porto) |
  * | Marco Bianchi e2e | 3 | 2 | — |
  * | Sara Verdi e2e | 1 | 0 | — |
+ * | Luca Ferri e2e | 4 | 0 | — |
+ *
+ * Visite (D154, pallini e chi non torna; orologio fermo al 23/09/2026):
+ * Giulia è venuta il 20/09 a Centro e ha saltato il 02/08 a Porto; Luca è
+ * venuto quattro volte a Porto fra marzo e giugno, poi più: non torna.
+ * Sara è nuova (prima visita l'01/09).
  */
 
 export { TENANT_ID };
 
 const uuid = (n: number) => `e2e5c000-0000-4000-a000-${String(n).padStart(12, "0")}`;
 
-export const GUEST = { rossi: uuid(1), bianchi: uuid(2), verdi: uuid(3) } as const;
+export const GUEST = { rossi: uuid(1), bianchi: uuid(2), verdi: uuid(3), ferri: uuid(4) } as const;
 export const { SEDE } = sediOf("e2e5c000");
 
 function guest(id: string, name: string, phone: string, extra: Row = {}): Row {
@@ -75,6 +81,11 @@ export function makeTables(count?: number): Tables {
         guest(GUEST.verdi, "Sara Verdi e2e", "+393337778899", {
             first_visit_date: "2026-09-01",
             last_visit_date: "2026-09-01"
+        }),
+        guest(GUEST.ferri, "Luca Ferri e2e", "+393401203344", {
+            visible_visits: 4,
+            first_visit_date: "2026-03-14",
+            last_visit_date: "2026-06-10"
         })
     ];
     // Il tetto dei 200 della rubrica: righe finte oltre le tre vere.
@@ -111,7 +122,19 @@ export function makeTables(count?: number): Tables {
                 party_size: 2,
                 status: "no_show",
                 guest_notes: null
-            }
+            },
+            ...["2026-03-14", "2026-04-11", "2026-05-09", "2026-06-10"].map((date, i) => ({
+                reservation_id: uuid(810 + i),
+                guest_id: GUEST.ferri,
+                tenant_id: TENANT_ID,
+                activity_id: SEDE.porto,
+                activity_name: "Porto e2e",
+                reservation_date: date,
+                reservation_time: "20:00:00",
+                party_size: 2,
+                status: "completed",
+                guest_notes: null
+            }))
         ],
         activities: sedi.activities
     };

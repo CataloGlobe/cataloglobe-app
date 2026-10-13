@@ -116,6 +116,24 @@
   color: var(--text-danger);
 }
 
+// Colori: il nome a sinistra e la scelta a destra; al telefono la scelta
+// va sotto, sempre visibile (non apre niente).
+.themeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12) var(--space-16);
+  padding: var(--space-16) var(--space-24);
+}
+
+.themeText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 2px);
+  min-width: 0;
+}
+
 // Variante telefono: nascosta da 640 in su.
 .rowTap {
   display: none;

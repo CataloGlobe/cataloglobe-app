@@ -1,6 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { sidebarLink } from "./nav";
 import { stubRest, type Row } from "./restStub";
 
 /**
@@ -36,11 +35,8 @@ async function openFirstLocation(page: Page): Promise<void> {
     const firstCard = main.getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await firstCard.getByRole("link").first().click();
-    // Entrando si atterra sulla prima voce della sede (§46.1 f): la scheda è
-    // la voce «Scheda». Si aspetta l'atterraggio prima del clic, altrimenti
-    // il redirect vincerebbe sul clic.
-    await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
-    await (await sidebarLink(page, "Scheda")).click();
+    // Chi configura entra nella sede dalla Scheda (§51.6).
+    await page.waitForURL(/\/locations\/[0-9a-f-]+\/anagrafica$/);
     await expect(tile(page, PART.orari)).toBeVisible({ timeout: 15_000 });
 }
 
@@ -50,10 +46,8 @@ const sedeBase = (page: Page) =>
 test.describe("Scheda della sede", () => {
     test("si apre dalla griglia: il cruscotto con le tessere e il telefono", async ({ page }) => {
         await openFirstLocation(page);
-        // La via di ritorno sta nella pill del contesto (§46.1 g).
-        await expect(
-            page.getByRole("navigation", { name: "Contesto" }).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ })
-        ).toBeVisible();
+        // Si torna all'elenco da «Sedi» nella sidebar (artifact v4: via «← Tutte le sedi»).
+        await expect(page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Sedi", exact: true })).toBeVisible();
         // Niente più tab nella testata: il nome della sede col suo stato.
         await expect(page.getByRole("tab")).toHaveCount(0);
         await expect(page.getByText(/^(Online|Sospesa)/).first()).toBeVisible();
@@ -244,8 +238,8 @@ test.describe("Scheda della sede — le chiusure di oggi", () => {
     const NOTTE = new Date("2026-10-03T01:15:00+02:00");
     const VENERDI = "2026-10-02";
 
-    async function openWithClosures(page: Page, initial: Row[]) {
-        await page.clock.setFixedTime(NOTTE);
+    async function openWithClosures(page: Page, initial: Row[], at = NOTTE) {
+        await page.clock.setFixedTime(at);
         const stub = await stubRest(page, { tables: {} });
         const closures: Row[] = [...initial];
         const eq = (url: string, key: string) => new URL(url).searchParams.get(key)?.replace(/^eq\./, "") ?? "";
@@ -307,6 +301,14 @@ test.describe("Scheda della sede — le chiusure di oggi", () => {
         const posted = stub.writes.filter(w => w.key === "activity_closures.POST");
         expect(posted).toHaveLength(1);
         expect(posted[0].body).toMatchObject({ closure_date: VENERDI, label: "Chiuso oggi" });
+    });
+
+    test("finito l'ultimo turno dice quando si riapre, non «Chiuso oggi» (D169)", async ({ page }) => {
+        // Sabato alle 3: la sera di venerdì è finita alle 2, si riapre venerdì prossimo.
+        await openWithClosures(page, [], new Date("2026-10-03T03:00:00+02:00"));
+        await expect(page.getByRole("main").getByText("Chiuso · riapre venerdì alle 19").first()).toBeVisible();
+        await expect(page.getByText(/Per oggi avete chiuso: riaprite venerdì alle 19\./)).toBeVisible();
+        await expect(page.getByText("Chiuso oggi", { exact: true })).toHaveCount(0);
     });
 
     test("«Torna agli orari di sempre» toglie subito la chiusura di «Chiudi oggi»", async ({ page }) => {

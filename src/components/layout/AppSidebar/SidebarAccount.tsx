@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronsUpDown, LogOut, Shield, User } from "lucide-react";
+import { Building2, Check, ChevronsUpDown, LogOut, Shield, User } from "lucide-react";
 import { useAuth } from "@/context/useAuth";
 import { useTenant } from "@/context/useTenant";
 import { useSedeScope } from "@/hooks/useSedeScope";
@@ -21,6 +21,9 @@ import styles from "./SidebarAccount.module.scss";
  * una delle sue voci.
  * Il menù tiene le pagine dell'azienda che non sono lavoro di tutti i giorni
  * (Impostazioni, Team, Abbonamento, Lingue, Assistenza) e poi l'account.
+ * Con più aziende il menù le elenca e si cambia azienda da qui (Alex
+ * 2026-10-09: niente più selettore in cima alla sidebar); con tante, le
+ * prime e «Tutte le aziende».
  * Le voci arrivano già filtrate per permessi e coi segnali
  * (`ACCOUNT_ENTRIES` → `buildSidebarGroups`). Il profilo arriva da
  * `MainLayout`: il pulsante si rimonta passando fra la sidebar della sede e
@@ -28,6 +31,14 @@ import styles from "./SidebarAccount.module.scss";
  */
 
 const PLAN_LABEL: Record<string, string> = { base: "Base", pro: "Pro" };
+
+/** Oltre queste, il resto delle aziende sta nella pagina delle aziende. */
+const TENANTS_IN_MENU = 5;
+
+/** Lo spazio dell'icona, per allineare le aziende non scelte a quella col segno. */
+function NoIcon() {
+    return null;
+}
 
 interface SidebarAccountProps {
     items: AppSidebarNavItem[];
@@ -59,7 +70,7 @@ export function SidebarAccount({ items, profile, collapsed, isMobile, onRequestC
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const { signOut } = useAuth();
-    const { selectedTenant } = useTenant();
+    const { tenants, selectedTenant, selectedTenantId, selectTenant } = useTenant();
     const { readableActivities } = useSedeScope();
     const { fullName, email, avatarUrl, showAdminEntry } = profile;
     const { permissions } = usePermissions();
@@ -74,7 +85,23 @@ export function SidebarAccount({ items, profile, collapsed, isMobile, onRequestC
     const who = [fullName, role].filter(Boolean).join(" · ");
     const plan = selectedTenant?.plan ? `Piano ${PLAN_LABEL[selectedTenant.plan] ?? selectedTenant.plan}` : null;
     const sedi = readableActivities.length > 1 ? `${readableActivities.length} sedi` : null;
-    const subtitle = [plan, sedi].filter(Boolean).join(" · ") || selectedTenant?.name || "";
+    // Con più aziende la seconda riga dice in quale sei: la cima della sidebar non lo dice più.
+    const subtitle =
+        tenants.length > 1 && selectedTenant
+            ? [selectedTenant.name, plan].filter(Boolean).join(" · ")
+            : [plan, sedi].filter(Boolean).join(" · ") || selectedTenant?.name || "";
+    // L'azienda aperta sempre nell'elenco, anche oltre le prime.
+    const shownTenants = tenants.slice(0, TENANTS_IN_MENU);
+    if (selectedTenant && !shownTenants.some(t => t.id === selectedTenantId)) {
+        shownTenants[shownTenants.length - 1] = selectedTenant;
+    }
+
+    const chooseTenant = (id: string) => {
+        if (id === selectedTenantId) return;
+        selectTenant(id);
+        // Si entra dall'indice dell'azienda (D1): sede o Panoramica.
+        go(`/business/${id}`);
+    };
     const pending = pendingCount(items);
     const pendingLabel = pending > 0 ? `, ${pending} ${pending === 1 ? "cosa" : "cose"} da vedere` : "";
 
@@ -124,6 +151,31 @@ export function SidebarAccount({ items, profile, collapsed, isMobile, onRequestC
                     {email}
                 </Text>
             </Menu.Label>
+            {tenants.length > 1 && (
+                <>
+                    <Menu.Separator />
+                    <Menu.Label>
+                        <Text as="span" variant="caption-xs" weight={600} colorVariant="muted">
+                            Cambia azienda
+                        </Text>
+                    </Menu.Label>
+                    {shownTenants.map(t => (
+                        <Menu.Item
+                            key={t.id}
+                            icon={t.id === selectedTenantId ? Check : NoIcon}
+                            onSelect={() => chooseTenant(t.id)}
+                        >
+                            {t.name}
+                        </Menu.Item>
+                    ))}
+                    {tenants.length > TENANTS_IN_MENU && (
+                        <Menu.Item icon={Building2} onSelect={() => go("/workspace")}>
+                            Tutte le aziende
+                        </Menu.Item>
+                    )}
+                    <Menu.Separator />
+                </>
+            )}
             {items.map(item => (
                 <Menu.Item
                     key={item.to}

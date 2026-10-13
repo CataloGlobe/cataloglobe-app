@@ -179,7 +179,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                         variant="page"
                         icon={<Folders />}
                         title="Nessun gruppo di sedi"
-                        description="Un gruppo raccoglie più sedi: le regole di Programmazione lo puntano come bersaglio unico."
+                        description="Un gruppo raccoglie più sedi: le regole del Calendario lo puntano come bersaglio unico."
                         action={
                             canWrite ? (
                                 <Button variant="primary" onClick={openCreate}>
@@ -216,7 +216,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 onClose={() => setDeleteTarget(null)}
                 onConfirm={handleConfirmDelete}
                 title={`Elimina «${deleteTarget?.name ?? ""}»`}
-                message="Le regole di Programmazione che puntano solo questo gruppo passano in bozza. Le sedi restano."
+                message="Le regole del Calendario che puntano solo questo gruppo passano in bozza. Le sedi restano."
                 confirmLabel="Elimina"
                 confirmVariant="danger"
             />
@@ -226,7 +226,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 onClose={() => setBulkDeletePendingIds([])}
                 onConfirm={handleConfirmBulkDelete}
                 title={bulkDeletePendingIds.length === 1 ? "Elimina 1 gruppo?" : `Elimina ${bulkDeletePendingIds.length} gruppi?`}
-                message="Le regole di Programmazione che puntano solo questi gruppi passano in bozza. Le sedi restano."
+                message="Le regole del Calendario che puntano solo questi gruppi passano in bozza. Le sedi restano."
                 confirmLabel="Elimina"
                 confirmVariant="danger"
             />

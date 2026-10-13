@@ -184,7 +184,7 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
                                                 </span>
                                             ) : (
                                                 <span className={`${s.badge} ${r.eff.mode === "disable" ? s.warn : ""}`}>
-                                                    {r.eff.mode === "disable" ? "Non ordinabile" : "Non si vede"}
+                                                    {r.eff.mode === "disable" ? "Non disponibile" : "Nascosto"}
                                                 </span>
                                             )}
                                         </span>

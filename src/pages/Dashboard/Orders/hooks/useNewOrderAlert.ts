@@ -66,7 +66,7 @@ export function useNewOrderAlert({
         function applyTitle() {
             if (submittedCount > 0 && document.hidden) {
                 if (!originalTitleRef.current) originalTitleRef.current = document.title;
-                document.title = `● (${submittedCount}) Nuove · Ordini · CataloGlobe`;
+                document.title = `● (${submittedCount}) Nuove · Comande · CataloGlobe`;
             } else if (originalTitleRef.current) {
                 document.title = originalTitleRef.current;
                 originalTitleRef.current = "";

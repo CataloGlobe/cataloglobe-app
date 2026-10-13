@@ -18,7 +18,6 @@ import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { getActivities } from "@/services/supabase/activities";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { describeStoryAppearance, storyAppearance, type AppearanceActivity } from "@/utils/ruleAppearance";
-import StoryCreateDrawer from "./StoryCreateDrawer";
 import StoryDeleteDialog from "./StoryDeleteDialog";
 import { StoryBrandCard } from "./components/StoryBrandCard";
 import { StoryBrandDrawer } from "./components/StoryBrandDrawer";
@@ -41,7 +40,7 @@ import {
     type DragEndEvent
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { useCreateOnArrival } from "@/hooks/useCreateOnArrival";
+import { ACTIVE_LABEL } from "@/utils/activityStatus";
 
 type StoryFilter = "all" | "drafts" | "sede" | "noCover";
 
@@ -62,7 +61,6 @@ export default function Stories() {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [stories, setStories] = useState<StoryWithProduct[]>([]);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isBrandOpen, setIsBrandOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<StoryWithProduct | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
@@ -103,12 +101,11 @@ export default function Stories() {
         loadData();
     }, [loadData]);
 
+    // «Crea storia» apre il tunnel di creazione (D124); finito, si atterra sulla storia.
     const handleCreate = useCallback(() => {
         if (!ensureActive()) return;
-        setIsCreateOpen(true);
-    }, [ensureActive]);
-    // Da «Cosa vuoi creare?» della Panoramica.
-    useCreateOnArrival(handleCreate, permissions ? canWrite : null);
+        navigate(`/business/${tenantId}/crea/storia?da=storie`);
+    }, [ensureActive, navigate, tenantId]);
 
     const handleEditBrand = useCallback(() => {
         if (!ensureActive()) return;
@@ -266,7 +263,7 @@ export default function Stories() {
             cell: (_value, item) => (
                 <StatusBadge
                     variant={item.status === "published" ? "success" : "neutral"}
-                    label={item.status === "published" ? "Pubblicata" : "Bozza"}
+                    label={item.status === "published" ? ACTIVE_LABEL : "Bozza"}
                 />
             )
         },
@@ -384,12 +381,6 @@ export default function Stories() {
                     </div>
 
                     <StoryBrandDrawer open={isBrandOpen} onClose={() => setIsBrandOpen(false)} brand={brand} />
-
-                    <StoryCreateDrawer
-                        open={isCreateOpen}
-                        onClose={() => setIsCreateOpen(false)}
-                        tenantId={tenantId ?? undefined}
-                    />
 
                     <StoryDeleteDialog
                         open={Boolean(deleteTarget) && Boolean(tenantId)}

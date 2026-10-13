@@ -49,7 +49,7 @@ export function monthByMonthEquivalentCents(
 
 /**
  * The green line under a MONTHLY price that lets the customer know the yearly
- * option exists ("Con il piano annuale: €390/sede/anno, due mesi gratis").
+ * option exists ("Con il piano annuale: 390 €/sede/anno, due mesi gratis").
  * Null unless yearly = 10 × monthly — otherwise the "two months free" claim
  * would be false. Under a yearly price the argument is made by the struck
  * month-by-month equivalent instead (see `monthByMonthEquivalentCents`).
@@ -67,9 +67,9 @@ export function annualPitchNoteFor(prices: PlanPrice[], planCode: PlanCode): str
     return annualPitchNote(monthly, yearly);
 }
 
-/** Whole euros for a price line ("€39", "€390"). */
+/** Whole euros for a price line ("39 €", "390 €"; D166). */
 export function formatEuroWholeCents(cents: number): string {
-    return `€${Math.round(cents / 100)}`;
+    return `${Math.round(cents / 100)} €`;
 }
 
 /** Keeps `interval` only if purchasable; otherwise falls back to the first available one. */
@@ -80,13 +80,13 @@ export function coerceInterval(interval: BillingInterval | null | undefined, ava
 
 // --- Interval wording (Italian UI copy, single source for wizard + Abbonamento) ---
 
-/** Period noun for price units: "€39/mese", "€390/anno". */
+/** Period noun for price units: "39 €/mese", "390 €/anno". */
 export const INTERVAL_PERIOD_NOUN: Record<BillingInterval, string> = { month: "mese", year: "anno" };
 
 /** Adjective for the billing-interval line: "Fatturazione mensile" / "annuale". */
 export const INTERVAL_ADJECTIVE: Record<BillingInterval, string> = { month: "mensile", year: "annuale" };
 
-/** Recurrence phrase for charge notes: "€701,00 ogni anno". */
+/** Recurrence phrase for charge notes: "701,00 € ogni anno". */
 export const INTERVAL_RECURRENCE: Record<BillingInterval, string> = { month: "ogni mese", year: "ogni anno" };
 
 /** Unit suffix appended to a recurring amount: "/mese" or "/anno". */

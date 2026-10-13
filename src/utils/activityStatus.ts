@@ -2,7 +2,8 @@ import type { V2Activity } from "@/types/activity";
 
 export type InactiveReason = NonNullable<V2Activity["inactive_reason"]>;
 
-/** La sede accesa: la vetrina si vede in rete (D147, era «Pubblicata»). */
+/** La sede accesa: la vetrina si vede in rete (D147, era «Pubblicata»).
+ *  Anche le storie pubblicate (D167). */
 export const ACTIVE_LABEL = "Online";
 
 export const INACTIVE_REASON_LABEL: Record<InactiveReason, string> = {

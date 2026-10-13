@@ -393,7 +393,7 @@
 
   &.inactive {
     background: #fef2f2;
-    color: #dc2626;
+    color: var(--color-danger);
   }
 }
 

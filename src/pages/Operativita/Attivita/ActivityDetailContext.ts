@@ -22,7 +22,7 @@ export const ACTIVITY_SECTION_LABELS: Record<ActivitySection, string> = {
     anagrafica: "Scheda",
     "come-lavorate": "Scheda",
     orari: "Orari",
-    "ordini-al-tavolo": "Ordini al tavolo",
+    "ordini-al-tavolo": "Ordini dal tavolo",
     "prenotazioni-online": "Prenotazioni",
     pubblicazione: "Pubblicazione",
     "cosa-vedono": "Cosa vedono i clienti"

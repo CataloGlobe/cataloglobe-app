@@ -34,7 +34,7 @@ export interface PageHeaderAction {
     /**
      * Solo sull'azione primaria: il bottone apre questo sottomenu invece di
      * eseguire `onClick`. Serve quando la primaria non ha un bersaglio implicito
-     * (es. "Nuova regola" sulla tab "Tutte", dove il tipo va scelto).
+     * (es. "Aggiungi" in Programmazione, sulla tab "Tutte", dove il tipo va scelto).
      */
     items?: PageHeaderAction[];
     /**
@@ -173,6 +173,12 @@ export interface PageHeaderConfig {
     subtitle?: string;
     /** Addon legacy accanto al titolo — ignorato post-slim. */
     titleAddon?: ReactNode;
+    /**
+     * Accanto al percorso, nella barra del titolo: il commutatore di vista
+     * della pagina (Programmazione | Calendario). Con la banda vuota la
+     * pagina sotto è tutta della vista scelta.
+     */
+    titleSide?: ReactNode;
     /** Slot sinistro: tab controllati, filtri primari, ecc. */
     leading?: ReactNode;
     /** Slot destro: search, filtri secondari, CTA. */

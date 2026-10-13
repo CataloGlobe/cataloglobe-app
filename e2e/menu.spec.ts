@@ -107,8 +107,9 @@ test.describe("Menù — elenco", () => {
         await expect(page).toHaveTitle(/^Menù · .+ · CataloGlobe$/);
         await expect(page.getByRole("radio", { name: "Vista griglia" })).toBeVisible();
         await expect(page.getByRole("radio", { name: "Vista lista" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Importa con AI" })).toBeVisible();
+        // Un pulsante solo (D165): il menù da una foto nasce dal tunnel di «Crea menù».
         await expect(page.getByRole("button", { name: "Crea menù" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Importa con AI" })).toHaveCount(0);
 
         for (const name of ["Carta e2e", "Pranzo e2e", "Vuoto e2e"]) {
             await expect(main(page).getByText(name)).toBeVisible();
@@ -164,24 +165,18 @@ test.describe("Menù — elenco", () => {
     test("il kebab del menù ha le tre azioni", async ({ page }) => {
         await openList(page);
         await actionsOf(main(page).getByText("Carta e2e")).click();
-        await expect(page.getByRole("menuitem", { name: /Aggiungi prodotti con AI/ })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Aggiungi altri prodotti" })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: /^(Modifica nome|Rinomina)$/ })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "Elimina", exact: true })).toBeVisible();
     });
 
-    test("crea un menù: POST con il nome", async ({ page }) => {
-        stub.onWrite("catalogs.POST", ({ body }) => ({ id: "e2e0c000-0000-4000-a000-000000000777", created_at: new Date().toISOString(), ...(body as object[])[0] }));
+    // D124: si crea nel tunnel; i salvataggi (e il nome senza spazi, #240) li prova `crea.spec.ts`.
+    test("«Crea menù» apre il tunnel di creazione", async ({ page }) => {
         await openList(page);
         await page.getByRole("button", { name: "Crea menù" }).click();
-        // Senza nome l'errore sta sul campo, e non parte niente.
-        await dialog(page).getByRole("button", { name: /^Crea/ }).click();
-        await expect(dialog(page).getByText("Scrivi un nome.")).toBeVisible();
+        await expect(page).toHaveURL(/\/crea\/menu\?da=menu$/);
+        await expect(page).toHaveTitle(/Nuovo menù/);
         expect(write(stub, "catalogs.POST")).toBeUndefined();
-        // Il nome si salva senza gli spazi ai lati (#240).
-        await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("  Cena  ");
-        await dialog(page).getByRole("button", { name: /^Crea/ }).click();
-        await expect.poll(() => write(stub, "catalogs.POST")).toBeTruthy();
-        expect(write(stub, "catalogs.POST")!.body).toEqual([expect.objectContaining({ name: "Cena" })]);
     });
 
     test("rinomina un menù: PATCH sul suo id", async ({ page }) => {
@@ -257,9 +252,18 @@ test.describe("Menù — elenco", () => {
         await expect(page.getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
     });
 
-    test("«Importa con AI» apre il suo drawer, senza analizzare", async ({ page }) => {
+    test("dal kebab, sotto «Importa»: la «i» spiega senza scegliere, la voce apre il drawer senza analizzare (D173)", async ({ page }) => {
         await openList(page);
-        await page.getByRole("button", { name: "Importa con AI" }).click();
+        await actionsOf(main(page).getByText("Carta e2e")).click();
+        const menu = page.getByRole("menu");
+        await expect(menu.getByText("Importa", { exact: true })).toBeVisible();
+        const item = menu.getByRole("menuitem", { name: "Aggiungi altri prodotti" });
+        await expect(item).toHaveAttribute("aria-description", /foto o un PDF/);
+        // il clic sulla «i» apre il tooltip e lascia il menù aperto (al telefono il passaggio del mouse non c'è)
+        await item.locator("svg").last().click();
+        await expect(page.getByRole("tooltip")).toContainText("Prima che entrino li controlli tu");
+        await expect(menu).toBeVisible();
+        await item.click();
         await expect(dialog(page)).toContainText("Importa menù con AI");
         expect(stub.writes.filter(w => w.key.startsWith("fn."))).toHaveLength(0);
     });
@@ -396,9 +400,9 @@ test.describe("Menù — dettaglio", () => {
             await expect(main(page).getByText(name, { exact: true })).toBeVisible();
         }
         await expect(main(page).getByText("Senza prezzo").first()).toBeVisible();
-        await expect(main(page).getByText(/da €8[.,]00/)).toBeVisible();
+        await expect(main(page).getByText(/da 8,00 €/)).toBeVisible();
         await expect(main(page).getByText("ANT-003")).toBeVisible();
-        await expect(main(page).getByText(/€5[.,]50/)).toBeVisible();
+        await expect(main(page).getByText(/5,50 €/)).toBeVisible();
 
         const search = main(page).getByPlaceholder(/Cerca/).last();
         await search.fill("ANT-003");
@@ -551,7 +555,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         await main(page).getByRole("button", { name: "Aggiungi categoria" }).first().click();
         await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Contorni");
-        await dialog(page).getByRole("button", { name: /^(Salva|Crea)$/ }).click();
+        await dialog(page).getByRole("button", { name: /^(Salva|Crea|Aggiungi)$/ }).click();
         await expect.poll(() => write(stub, "catalog_categories.POST")).toBeTruthy();
         expect(write(stub, "catalog_categories.POST")!.body).toEqual([
             expect.objectContaining({ catalog_id: MENU.carta, name: "Contorni", level: 1, parent_category_id: null })
@@ -772,11 +776,11 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(rowOf("Olive ascolane")).not.toContainText("menù");
     });
 
-    test("eliminazione: lo stato delle regole è quello di Programmazione", async ({ page }) => {
+    test("eliminazione: lo stato delle regole è quello del Calendario", async ({ page }) => {
         await openList(page);
         await actionsOf(main(page).getByText("Carta e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
-        const rules = dialog(page).getByRole("list", { name: "Regole di programmazione collegate" });
+        const rules = dialog(page).getByRole("list", { name: "Regole del Calendario collegate" });
         await expect(rules.getByRole("link", { name: /Pranzo Centro e2e/ })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE.pranzoCentro}$`));
         await expect(rules.getByRole("listitem").filter({ hasText: "Pranzo Centro e2e" })).toContainText("Attiva");
         // Fuori dalla sua fascia oraria adesso: «Programmata», come in Programmazione.
@@ -802,7 +806,7 @@ for (const viewport of [
             await selectCategory(page, "Antipasti");
             await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
             // Il prezzo resta nella riga anche sul telefono.
-            await expect(main(page).getByText("€5.50")).toBeVisible();
+            await expect(main(page).getByText("5,50 €")).toBeVisible();
             await noSideScroll(page);
             if (viewport.width < 768) {
                 // Due viste: la categoria prende il posto dell'albero, e si torna.

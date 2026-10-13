@@ -98,15 +98,15 @@ export function SetupPublishStep({
                             </Text>
                             <Text variant="caption" colorVariant="muted">
                                 Sede e menù sono stati creati, ma non sono ancora collegati: la
-                                pagina resterà vuota finché non aggiungi una regola in
-                                Programmazione.
+                                pagina resterà vuota finché non aggiungi una regola nel
+                                Calendario.
                             </Text>
                             <Button
                                 variant="secondary"
                                 size="sm"
                                 onClick={() => navigate(`/business/${businessId}/scheduling`)}
                             >
-                                Vai a Programmazione
+                                Vai al Calendario
                             </Button>
                         </div>
                     )}
@@ -155,7 +155,7 @@ export function SetupPublishStep({
                     </li>
                     <li>
                         <Link to={`/business/${businessId}/locations`}>
-                            Attiva l'ordinazione al tavolo
+                            Attiva gli ordini dal tavolo
                         </Link>
                     </li>
                     <li>

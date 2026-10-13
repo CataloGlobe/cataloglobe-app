@@ -143,12 +143,48 @@ export interface OpenNow {
     text: string;
 }
 
-export function openNow(spans: Span[], closure: V2ActivityClosure | null, now: SchedaNow): OpenNow {
+/** Quando si riapre dopo oggi: fra quanti giorni di servizio, e a che ora. */
+export interface NextOpen {
+    days: number;
+    weekday: number;
+    at: number;
+}
+
+function addDaysIso(iso: string, days: number): string {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** Il primo turno dei prossimi sette giorni, chiusure comprese (la coda
+ *  della notte prima, che parte a mezzanotte, non è una riapertura). */
+export function nextOpening(hours: V2ActivityHours[], closures: V2ActivityClosure[], now: SchedaNow): NextOpen | null {
+    const normalized = normalizeHours(hours);
+    for (let days = 1; days <= 7; days++) {
+        const first = getDaySlots(addDaysIso(now.iso, days), normalized, closures)
+            .map(toSpan)
+            .find(s => s.a > 0);
+        if (first) return { days, weekday: (now.weekday + days) % 7, at: first.a };
+    }
+    return null;
+}
+
+/** «riapre domani alle 12», «riapre giovedì alle 19»; dopo mezzanotte il
+ *  giorno dopo è già oggi sul calendario: «riapre alle 12». */
+export function reopenText(next: NextOpen, now: SchedaNow): string {
+    const calendarDays = next.days - (now.minutes >= 1440 ? 1 : 0);
+    const when = calendarDays === 0 ? "" : calendarDays === 1 ? "domani " : `${DAY_LONG[next.weekday]} `;
+    return `riapre ${when}alle ${hh(next.at)}`;
+}
+
+/** «Chiuso oggi» è solo della chiusura straordinaria (D169): finito l'ultimo
+ *  turno si dice quando si riapre. */
+export function openNow(spans: Span[], closure: V2ActivityClosure | null, now: SchedaNow, next: NextOpen | null = null): OpenNow {
     if (closure?.is_closed) return { open: false, text: "Chiuso oggi, straordinario" };
     const s = spans.find(x => now.minutes >= x.a && now.minutes < x.b);
     if (s) return { open: true, text: `Aperto · chiude alle ${hh(s.b)}` };
     const nx = spans.find(x => x.a > now.minutes);
-    return { open: false, text: nx ? `Chiuso · apre alle ${hh(nx.a)}` : "Chiuso oggi" };
+    if (nx) return { open: false, text: `Chiuso · apre alle ${hh(nx.a)}` };
+    return { open: false, text: next ? `Chiuso · ${reopenText(next, now)}` : "Chiuso" };
 }
 
 /** «7:30–15 · 18:30–23», «Chiuso». */
@@ -254,13 +290,15 @@ export interface NowFacts {
     spans: Span[];
     closure: V2ActivityClosure | null;
     now: SchedaNow;
+    /** Dopo l'ultimo turno: quando si riapre. */
+    reopen?: NextOpen | null;
     reservationsOn: boolean;
     orderingOn: boolean;
 }
 
 export function nowSentence(f: NowFacts): Segment[] {
     const out: Segment[] = [];
-    const o = openNow(f.spans, f.closure, f.now);
+    const o = openNow(f.spans, f.closure, f.now, f.reopen ?? null);
     if (!f.hasHours) {
         out.push({ text: "Gli orari non ci sono ancora: la pagina non dice se siete aperti." });
     } else if (f.closure?.is_closed) {
@@ -275,7 +313,8 @@ export function nowSentence(f: NowFacts): Segment[] {
         );
     } else {
         const nx = f.spans.find(x => x.a > f.now.minutes);
-        out.push({ text: nx ? `Adesso siete chiusi: riaprite alle ${hh(nx.a)}.` : "Per oggi avete chiuso." });
+        const after = f.reopen ? `: ${reopenText(f.reopen, f.now).replace("riapre", "riaprite")}` : "";
+        out.push({ text: nx ? `Adesso siete chiusi: riaprite alle ${hh(nx.a)}.` : `Per oggi avete chiuso${after}.` });
     }
     if (f.closure && !f.closure.is_closed && f.spans.length) {
         out.push({ text: ` Oggi chiudete alle ${hh(f.spans[f.spans.length - 1].b)}, fuori dal solito.` });
@@ -379,6 +418,8 @@ export interface SchedaFacts {
     regular: Span[][];
     closure: V2ActivityClosure | null;
     next: V2ActivityClosure | null;
+    /** Il prossimo turno dopo oggi (D169). */
+    reopen: NextOpen | null;
     open: OpenNow;
     printers: Printer[];
     down: Printer[];
@@ -399,6 +440,7 @@ export function buildFacts(input: {
     const { a, hours, closures, now } = input;
     const spans = todaySpans(hours, closures, now);
     const closure = todayClosure(closures, now);
+    const reopen = nextOpening(hours, closures, now);
     const regular = DAY_SHORT.map((_, i) => weekdaySpans(hours, i));
     const weekSpans = regular.map((r, i) => (i === now.weekday ? spans.filter(s => s.b > 6 * 60) : r));
     return {
@@ -410,7 +452,8 @@ export function buildFacts(input: {
         regular,
         closure,
         next: nextClosure(closures, now),
-        open: openNow(spans, closure, now),
+        reopen,
+        open: openNow(spans, closure, now, reopen),
         printers: input.printers,
         down: input.printers.filter(p => p.is_active && printerDown(p, input.statuses)),
         reservationsLocked: input.reservationsLocked,

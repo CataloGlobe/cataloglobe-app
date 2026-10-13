@@ -211,7 +211,7 @@ function RadioGroupSection() {
     ];
     const plans = [
         { value: "base", label: "Base", description: "Una sede, menù pubblico, QR. 19 € al mese." },
-        { value: "pro", label: "Pro", description: "Fino a 5 sedi, ordini al tavolo, prenotazioni. 48 € al mese." },
+        { value: "pro", label: "Pro", description: "Fino a 5 sedi, ordini dal tavolo, prenotazioni. 48 € al mese." },
         { value: "dedicated", label: "Dedicato", description: "Oltre 5 sedi: un piano su misura.", disabled: true, disabledReason: "Scrivi all'assistenza per un piano dedicato." }
     ];
     return (

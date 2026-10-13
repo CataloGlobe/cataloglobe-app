@@ -25,12 +25,6 @@
   gap: var(--space-16);
 }
 
-.lockedTab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
 // La riga «Oggi» (T14 SV1): una riga sola, comune a Elenco e Mappa.
 .todayRow {
   display: flex;

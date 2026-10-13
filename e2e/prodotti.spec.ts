@@ -73,9 +73,9 @@ async function search(page: Page, text: string): Promise<void> {
     await field.fill(text);
 }
 
-/** Tab della collezione in testata (oggi «Gruppi Prodotti», dopo P2 «Gruppi»). */
+/** La collezione in testata: un interruttore (artifact v4, un secondo livello non è una tab). */
 function collection(page: Page, name: RegExp): Locator {
-    return page.getByRole("tab", { name });
+    return page.getByRole("radio", { name });
 }
 
 /** Apre una collezione: la tab, o il selettore di sezione della barra compatta. */
@@ -385,7 +385,7 @@ test.describe("Prodotti — elenco", () => {
         await openCollection(page, /^Gruppi( Prodotti)?$/);
         await expect(main(page).getByText("Panini e2e", { exact: true }).first()).toBeVisible();
         await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
-        await expect(page.getByRole("button", { name: /^(Crea|Nuovo) gruppo$/ })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: /^(Crea|Nuovo|Aggiungi) gruppo$/ })).toHaveCount(0);
 
         await openCollection(page, /^Ingredienti$/);
         await expect(main(page).getByText("Cipolla", { exact: true })).toBeVisible();
@@ -406,10 +406,10 @@ test.describe("Prodotti — gruppi e ingredienti", () => {
         await expect(main(page).getByText(/2 prodotti/).first()).toBeVisible();
 
         await actionsOf(panini).click();
-        await expect(page.getByRole("menuitem", { name: "Crea sottogruppo" })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Aggiungi sottogruppo" })).toBeVisible();
         await page.keyboard.press("Escape");
         await actionsOf(main(page).getByText("Manzo e2e", { exact: true })).click();
-        await expect(page.getByRole("menuitem", { name: "Crea sottogruppo" })).toHaveCount(0);
+        await expect(page.getByRole("menuitem", { name: "Aggiungi sottogruppo" })).toHaveCount(0);
     });
 
     test("gruppi: crea (POST) ed elimina (DELETE)", async ({ page }) => {
@@ -417,9 +417,9 @@ test.describe("Prodotti — gruppi e ingredienti", () => {
         stub.onWrite("product_groups.DELETE", () => null);
         await openList(page);
         await openCollection(page, /^Gruppi( Prodotti)?$/);
-        await page.getByRole("button", { name: /^(Crea|Nuovo) gruppo$/ }).click();
+        await page.getByRole("button", { name: /^(Crea|Nuovo|Aggiungi) gruppo$/ }).click();
         await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Dolci e2e");
-        await dialog(page).getByRole("button", { name: /^(Crea|Salva)/ }).click();
+        await dialog(page).getByRole("button", { name: /^(Crea|Salva|Aggiungi)/ }).click();
         await expect.poll(() => write(stub, "product_groups.POST")?.body).toMatchObject({ name: "Dolci e2e" });
 
         await actionsOf(main(page).getByText("Bevande e2e", { exact: true })).click();
@@ -477,8 +477,8 @@ test.describe("Prodotti — gruppi e ingredienti", () => {
     test("gruppi: nome vuoto, l'errore sta sul campo", async ({ page }) => {
         await openList(page);
         await openCollection(page, /^Gruppi$/);
-        await page.getByRole("button", { name: "Crea gruppo" }).click();
-        await dialog(page).getByRole("button", { name: "Crea" }).click();
+        await page.getByRole("button", { name: "Aggiungi gruppo" }).click();
+        await dialog(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
         await expect(dialog(page).getByText("Scrivi il nome del gruppo.")).toBeVisible();
         expect(stub.writes.filter(w => w.key === "product_groups.POST")).toHaveLength(0);
     });
@@ -1141,7 +1141,7 @@ test.describe("Prodotti — lotto bug B", () => {
         test("P2: ?tab=attributes a freddo apre gli Attributi dell'elenco", async ({ page }) => {
             await openList(page);
             await page.goto(`${page.url().split("?")[0]}?tab=attributes`);
-            await expect(collection(page, /^Attributi$/)).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+            await expect(collection(page, /^Attributi$/)).toHaveAttribute("aria-checked", "true", { timeout: 15_000 });
             await expect(main(page).getByText("Taglia", { exact: true })).toBeVisible();
         });
 

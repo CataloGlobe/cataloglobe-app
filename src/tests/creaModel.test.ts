@@ -1,0 +1,265 @@
+import { describe, expect, it, vi } from "vitest";
+// i moduli del tunnel arrivano fino al client: qui non serve, e senza `.env` non partirebbe
+vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
+import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import { blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, readFromAi, steps, tunnelTitle, whenProblem, withAside, type FromMenu } from "@/pages/Dashboard/Crea/creaModel";
+import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
+import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, logoColors, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
+
+// I tunnel di creazione (D124): i passi, cosa ferma «Avanti», la bozza del
+// Calendario e lo stile fatto con le quattro scelte.
+
+const ALL = { all: true, activityIds: [], groupIds: [] };
+const OWNER = { owner: true, multi: true };
+
+describe("tunnel di creazione: i passi", () => {
+    it("ogni tipo ha i suoi passi, poi «Dove e quando» e Controlla (D134, D145)", () => {
+        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["tipo", "parti", "sezioni", "dove", "controlla"]);
+        expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "controlla"]);
+        expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "dove", "controlla"]);
+        const ev = newTunnel("evid", ALL);
+        // D187: niente «Che cosa?»; i piatti sono una parte del contenuto, non un passo
+        expect(steps(ev, OWNER)).toEqual(["contenuto", "dove", "controlla"]);
+        expect(steps({ ...ev, evType: "promo" }, OWNER)).toEqual(["contenuto", "dove", "controlla"]);
+        expect(blocker({ ...ev, title: "Lo chef consiglia", evType: "promo" }, "contenuto", OWNER)).toBe("Aggiungi almeno un piatto");
+        expect(blocker({ ...ev, title: "Lo chef consiglia", evType: "promo", dishes: ["p1"] }, "contenuto", OWNER)).toBe("");
+        expect(blocker({ ...ev, title: "Chiusi per ferie" }, "contenuto", OWNER)).toBe("");
+    });
+
+    it("chi non gestisce il Calendario non ha Dove e quando; con una sede sola solo il Quando", () => {
+        expect(steps(newTunnel("menu", ALL), { owner: false, multi: true })).toEqual(["tipo", "parti", "sezioni", "controlla"]);
+        expect(steps(newTunnel("menu", ALL), { owner: true, multi: false })).toEqual(["tipo", "parti", "sezioni", "quando", "controlla"]);
+    });
+
+    it("gli indirizzi: /crea/evidenza è il contenuto in evidenza, il resto non esiste", () => {
+        expect(kindOfSlug("evidenza")).toBe("evid");
+        expect(kindOfSlug("menu")).toBe("menu");
+        expect(kindOfSlug("evid")).toBeNull();
+        expect(kindOfSlug(undefined)).toBeNull();
+    });
+});
+
+describe("tunnel di creazione: cosa ferma «Avanti»", () => {
+    it("il menù: il tipo, il nome (non solo spazi), almeno un piatto", () => {
+        const t = newTunnel("menu", ALL);
+        expect(firstBlock(t, OWNER)).toEqual({ i: 0, why: "Scegli che menù è" });
+        expect(firstBlock({ ...t, menuType: "classico", name: "   " }, OWNER)).toEqual({ i: 1, why: "Manca il nome del menù" });
+        const named = { ...t, menuType: "classico" as const, name: "Pranzo" };
+        expect(firstBlock(named, OWNER)).toEqual({ i: 2, why: "Aggiungi almeno un piatto" });
+        // la foto si carica nel passo dopo (D180): il nome basta per andare avanti
+        expect(firstBlock({ ...named, source: "foto" }, OWNER)).toEqual({ i: 2, why: "Aggiungi almeno un piatto" });
+        const dish = { key: "d", productId: null, name: "Capricciosa", price: 9.5 };
+        expect(firstBlock({ ...named, sections: [{ key: "s", name: "Pizze", dishes: [dish], subs: [] }] }, OWNER)).toBeNull();
+    });
+
+    it("lo stile va già bene com'è; copiato, vuole lo stile di partenza", () => {
+        const t = { ...newTunnel("stile", ALL), name: "Natale" };
+        expect(blocker(t, "aspetto", OWNER)).toBe("");
+        expect(blocker({ ...t, base: "copy" }, "nome", OWNER)).toBe("Scegli lo stile da cui partire");
+    });
+
+    it("in evidenza: il titolo, il link del bottone in https, il prezzo del bundle", () => {
+        const t = { ...newTunnel("evid", ALL), evType: "bundle" as const };
+        expect(blocker(t, "contenuto", OWNER)).toBe("Manca il titolo");
+        expect(blocker({ ...t, title: "Menù degustazione", cta: true, ctaLink: "http://x.it" }, "contenuto", OWNER)).toBe("Il link del bottone deve cominciare con https://");
+        expect(blocker({ ...t, title: "Menù degustazione", cta: true, ctaText: " " }, "contenuto", OWNER)).toBe("Manca il testo del bottone");
+        expect(blocker(t, "piatti", OWNER)).toBe("Aggiungi almeno un piatto");
+        expect(blocker({ ...t, dishes: ["p1"], bundle: "0" }, "piatti", OWNER)).toBe("Manca il prezzo unico");
+        expect(blocker({ ...t, dishes: ["p1"], bundle: "24,50" }, "piatti", OWNER)).toBe("");
+    });
+
+    it("il Dove: almeno una sede; la storia per ora in una sede sola", () => {
+        const none = { all: false, activityIds: [], groupIds: [] };
+        expect(blocker(newTunnel("menu", none), "dove", OWNER)).toBe("Scegli almeno una sede");
+        expect(blocker(newTunnel("menu", none), "dove", { owner: true, multi: false })).toBe("");
+        expect(blocker(newTunnel("storia", { all: false, activityIds: ["a", "b"], groupIds: [] }), "dove", OWNER)).toMatch(/^Una storia in più sedi/);
+        expect(blocker(newTunnel("storia", { all: false, activityIds: ["a"], groupIds: [] }), "dove", OWNER)).toBe("");
+    });
+
+    it("il Quando: «Sempre» non guarda il modulo; il modulo non passa cose che il database rifiuta", () => {
+        const t = { ...newTunnel("menu", ALL), when: { days: [] } };
+        expect(effWhen(t)).toEqual({});
+        expect(blocker(t, "quando", OWNER)).toBe("");
+        expect(blocker({ ...t, qmode: "momenti" }, "quando", OWNER)).toBe("Scegli almeno un giorno");
+        expect(whenProblem({ ranges: [[900, 720]] })).toBe("Una fascia finisce prima di cominciare");
+    });
+});
+
+describe("tunnel di creazione: la bozza tenuta da parte nel Calendario", () => {
+    it("porta il suo quando e il suo dove, senza toccare la bozza", () => {
+        const when = { days: [5, 6], ranges: [[720, 900]] as [number, number][] };
+        const where = { all: false, activityIds: ["porto"], groupIds: [] };
+        const t = withAside(newTunnel("menu", ALL), { when, where });
+        expect(t).toMatchObject({ aside: true, qmode: "momenti", when: { days: [5, 6], ranges: [[720, 900]] }, where });
+        t.when.days!.push(0);
+        t.where.activityIds.push("centro");
+        expect(when.days).toEqual([5, 6]);
+        expect(where.activityIds).toEqual(["porto"]);
+    });
+
+    it("una bozza senza tempo resta «Sempre»", () => {
+        const t = withAside(newTunnel("stile", ALL), { when: {}, where: ALL });
+        expect(t.qmode).toBe("sempre");
+        expect(t.aside).toBe(true);
+    });
+
+    it("lo stile aperto da «E adesso?» parte dal quando e dal dove del menù", () => {
+        const from: FromMenu = { name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto"], groupIds: [] }, per: null };
+        const t = newTunnel("stile", ALL, from);
+        expect(t).toMatchObject({ qmode: "momenti", when: { days: [0, 1, 2, 3, 4] }, where: { activityIds: ["porto"] }, aside: false, per: null });
+    });
+
+    it("le ore diverse per sede del menù passano allo stile, copiate", () => {
+        const per = { porto: { days: [0, 1, 2, 3, 4] }, lido: { days: [5, 6] } };
+        const from: FromMenu = { name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto", "lido"], groupIds: [] }, per };
+        const t = newTunnel("stile", ALL, from);
+        expect(t.per).toEqual(per);
+        expect(t.per).not.toBe(per);
+    });
+});
+
+describe("tunnel di creazione: il titolo e cosa si perde uscendo", () => {
+    it("il titolo dice cosa e come si chiama", () => {
+        expect(tunnelTitle(newTunnel("menu", ALL))).toBe("Nuovo menù");
+        expect(tunnelTitle({ ...newTunnel("menu", ALL), name: " Cena " })).toBe("Nuovo menù · Cena");
+        expect(tunnelTitle({ ...newTunnel("evid", ALL), title: "Brunch" })).toBe("Nuovo contenuto in evidenza · Brunch");
+        expect(tunnelTitle({ ...newTunnel("storia", ALL), name: "non conta" })).toBe("Nuova storia");
+    });
+
+    it("appena aperto non c'è niente da perdere; una scelta o un nome sì", () => {
+        expect(isDirty(newTunnel("menu", ALL))).toBe(false);
+        expect(isDirty({ ...newTunnel("menu", ALL), menuType: "classico" })).toBe(true);
+        expect(isDirty({ ...newTunnel("storia", ALL), title: "Il forno" })).toBe(true);
+        expect(isDirty({ ...newTunnel("stile", ALL), name: "  " })).toBe(false);
+        expect(isDirty({ ...newTunnel("stile", ALL), i: 1 })).toBe(true);
+    });
+});
+
+describe("tunnel dello stile: l'aspetto intero", () => {
+    it("si parte dai colori di CataloGlobe e si scrive quello che si è scelto", () => {
+        const t = newTunnel("stile", ALL);
+        expect(styleTokens(t)).toEqual(DEFAULT_STYLE_TOKENS);
+        t.look.colors.primary = "#be123c";
+        t.look.colors.pageBackground = DARK_BG;
+        t.look.navigation.style = "tabs";
+        expect(parseTokens(styleConfig(t))).toMatchObject({ colors: { primary: "#be123c", pageBackground: DARK_BG }, navigation: { style: "tabs" }, header: DEFAULT_STYLE_TOKENS.header });
+        expect(DEFAULT_STYLE_TOKENS.colors.primary).not.toBe("#be123c");
+    });
+
+    it("titolo, descrizione e pulsante dei contenuti in evidenza non sono dello stile: salvando tornano visibili", () => {
+        const t = newTunnel("stile", ALL);
+        t.look.appearance.showFeaturedCta = false;
+        t.look.appearance.showFeaturedTitle = false;
+        expect(hidFeatured(t.look)).toBe(true);
+        const out = cleanLook(t.look);
+        expect(hidFeatured(out)).toBe(false);
+        expect(parseTokens(styleConfig(t)).appearance.showFeaturedCta).not.toBe(false);
+        expect(t.look.appearance.showFeaturedCta).toBe(false);
+    });
+
+    it("il secondo colore uguale al principale non si scrive", () => {
+        const t = newTunnel("stile", ALL);
+        t.look.colors.accent = t.look.colors.primary.toUpperCase();
+        expect(cleanLook(t.look).colors.accent).toBeUndefined();
+        t.look.colors.accent = "#b45309";
+        expect(cleanLook(t.look).colors.accent).toBe("#b45309");
+    });
+
+    it("ogni parte torna com'era senza toccare le altre", () => {
+        const was = structuredClone(DEFAULT_STYLE_TOKENS), l = structuredClone(was);
+        l.colors.primary = "#be123c";
+        l.appearance.borderRadius = "none";
+        l.appearance.cardTreatment = "glass";
+        l.card.productStyle = "compact";
+        l.header.showAddress = !was.header.showAddress;
+        expect(PART_IDS.filter(p => partKey(l, p) !== partKey(was, p))).toEqual(["cima", "piatti", "colori"]);
+        restore(l, was, "colori");
+        expect(l.colors.primary).toBe(was.colors.primary);
+        expect(l.appearance.borderRadius).toBe(was.appearance.borderRadius);
+        expect(l.appearance.cardTreatment).toBe("glass");
+        restore(l, was, "piatti");
+        restore(l, was, "cima");
+        expect(lookKey(l)).toBe(lookKey(was));
+    });
+
+    it("la tavolozza ha dieci tinte per cinque toni; per lo sfondo solo molto chiari o molto scuri", () => {
+        expect(palette("ink")).toHaveLength(50);
+        expect(new Set(palette("ink")).size).toBe(50);
+        expect(palette("bg").every(c => lum(c) > 0.55 || lum(c) < 0.06)).toBe(true);
+    });
+
+    it("i colori del logo: i più presenti, diversi fra loro, senza il bianco e senza i punti trasparenti", () => {
+        const px = (c: number[], n: number) => Array.from({ length: n }, () => c).flat();
+        const data = [...px([255, 255, 255, 255], 40), ...px([190, 18, 60, 255], 30), ...px([192, 20, 62, 255], 10), ...px([15, 23, 42, 255], 20), ...px([0, 200, 0, 0], 50)];
+        expect(logoColors(data)).toEqual(["#be123c", "#0f172a"]);
+        expect(logoColors([])).toEqual([]);
+    });
+
+    it("un colore che non si legge sullo sfondo dà l'avviso, e «Rendilo leggibile» lo sistema restando nella tinta", () => {
+        const l = structuredClone(DEFAULT_STYLE_TOKENS);
+        l.colors.primary = "#0f172a";
+        l.colors.pageBackground = DARK_BG;
+        expect(hardToRead(l)).toBe(true);
+        l.colors.primary = readable(l.colors.primary, DARK_BG);
+        expect(hardToRead(l)).toBe(false);
+        expect(contrast(l.colors.primary, DARK_BG)).toBeGreaterThanOrEqual(4.5);
+        expect(readable("#be123c", LIGHT_BG)).toBe("#be123c");
+        expect(contrast(readable("#fde68a", LIGHT_BG), LIGHT_BG)).toBeGreaterThanOrEqual(4.5);
+        // uno sfondo a metà: col bianco non si arriva, col nero sì (review #443)
+        expect(contrast(readable("#d4d4d4", "#9c9c9c"), "#9c9c9c")).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(readable("#3b82f6", "#9c9c9c"), "#9c9c9c")).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it("scuro o chiaro dal colore", () => {
+        expect(isDarkHex("#0F172A")).toBe(true);
+        expect(isDarkHex("#FFFFFF")).toBe(false);
+        expect(isDarkHex("#fef3c7")).toBe(false);
+        expect(isDarkHex("non un colore")).toBe(false);
+    });
+
+    it("i piatti del telefono: due per sezione, al massimo tre sezioni, solo quelli scelti", () => {
+        const p = (id: string, category: string | null) => ({ id, name: id, category, listPrice: 8, formats: [] });
+        const pick = [p("a", "Pizze"), p("b", "Pizze"), p("c", "Pizze"), p("d", "Dolci"), p("e", null), p("f", "Vini")];
+        expect(sampleOf(pick).map(s => [s.name, s.dishes.length])).toEqual([["Pizze", 2], ["Dolci", 1], ["Piatti", 1]]);
+        expect(sampleOf(pick, new Set(["c", "f"])).map(s => s.dishes.map(d => d.name))).toEqual([["c"], ["f"]]);
+    });
+});
+
+// D165, D180: i piatti letti da una foto, prima che entrino nel menù.
+describe("tunnel di creazione: il menù letto dall'AI", () => {
+    const pick = [
+        { id: "p1", name: "Margherita", category: "Pizze", listPrice: 7, formats: [] },
+        { id: "p2", name: "Birra media", category: null, listPrice: 5, formats: [] }
+    ];
+    const item = (name: string, extra: object = {}) => ({ name, description: null, base_price: 8, product_type: "simple" as const, confidence: "high" as const, ...extra });
+
+    it("i piatti che ci sono già si collegano col loro prezzo, gli altri restano nuovi", () => {
+        const out = readFromAi([{ name: " Pizze ", items: [item("margherita"), item("Bufalina", { base_price: 9.5 })] }], pick);
+        expect(out.map(d => [d.path, d.productId, d.name, d.price, d.why])).toEqual([
+            [["Pizze"], "p1", "Margherita", 7, null],
+            [["Pizze"], null, "Bufalina", 9.5, null]
+        ]);
+    });
+
+    it("l'AI incerta o un prezzo che manca segnano «da controllare»; coi formati il prezzo è il più basso", () => {
+        const formats = [
+            { name: "Piccola", price: 4 },
+            { name: "Grande", price: null },
+            { name: "Media", price: 3.5 }
+        ];
+        const [ipa, acqua] = readFromAi([{ name: "Birre", items: [item("Ipa", { confidence: "medium", product_type: "formats", base_price: null, formats }), item("Acqua", { base_price: null })] }], pick);
+        expect(ipa).toMatchObject({ productId: null, price: 3.5, why: "l'AI non ne era sicura", formats });
+        expect(acqua).toMatchObject({ price: null, why: "il prezzo non si leggeva" });
+    });
+
+    it("le sottocategorie scritte nel nome tornano una strada; senza nome si chiama «Piatti»", () => {
+        const out = readFromAi([{ name: "Primi — Di mare", items: [item("Vongole")] }, { name: "Bibite", items: [] }, { name: "  ", items: [item("Tiramisù")] }], pick);
+        expect(out.map(d => d.path)).toEqual([["Primi", "Di mare"], ["Piatti"]]);
+    });
+
+    it("isDirty e il blocco: un import fermo sul resoconto è qualcosa da perdere e ferma «Avanti»", () => {
+        const t = { ...newTunnel("menu", ALL), impOpen: true };
+        expect(isDirty(t)).toBe(true);
+        expect(blocker(t, "sezioni", OWNER)).toContain("import aperto");
+    });
+});

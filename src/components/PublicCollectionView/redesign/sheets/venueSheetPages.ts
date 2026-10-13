@@ -1,7 +1,7 @@
 import i18next from "i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import { FEATURED_TYPE_KEY } from "../featured/stripItems";
-import { ALL_CATEGORIES_ID, ISLAND_ID, LANGUAGE_BUTTON_ID, MORE_BUTTON_ID, SEARCH_FIELD_ID } from "../island/anchors";
+import { ALL_CATEGORIES_ID, ISLAND_ID, LANGUAGE_BUTTON_ID, MENU_BUTTON_ID, MORE_BUTTON_ID, SEARCH_FIELD_ID } from "../island/anchors";
 import type { PublicSheetName } from "../slots";
 import { openSheet, openSheetAt, pushSheetPage, type SheetPage } from "./sheetStack";
 
@@ -21,7 +21,8 @@ const NEUTRAL_SHEETS: ReadonlySet<PublicSheetName> = new Set([
     "categories",
     "filters",
     "allergens",
-    "characteristics"
+    "characteristics",
+    "menus"
 ]);
 
 export function venueSheetPage(name: PublicSheetName): SheetPage {
@@ -74,6 +75,13 @@ function venueSheetBase(name: PublicSheetName): SheetPage {
             return { key: "allergens", title: t("allergens.title"), size: "large" };
         case "characteristics":
             return { key: "characteristics", title: t("characteristics.title"), size: "large" };
+        case "menus":
+            return {
+                key: "menus",
+                title: t("menus.sheet_title"),
+                size: "medium",
+                anchor: { below: MENU_BUTTON_ID, width: POPOVER_WIDTH_PX }
+            };
         case "order":
             // Il titolo sta nel corpo, col tavolo: «Il tuo ordine · Tavolo 12».
             return { key: "order", title: t("ordering.title"), size: "large", titleHidden: true };

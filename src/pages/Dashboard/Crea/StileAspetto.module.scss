@@ -1,0 +1,617 @@
+// «L'aspetto» nel tunnel dello stile (D186): le forme e le misure dell'artifact
+// «Lo stile nel tunnel», quarta versione, coi token del back office.
+@use "@styles/calendario-type" as cal;
+
+.asp {
+    --k-surface: var(--surface);
+    --k-line: var(--border);
+    --k-line2: var(--gray-300);
+    --k-ink: var(--text);
+    --k-muted: var(--text-muted);
+    --k-faint: var(--gray-400);
+    --k-brand: var(--brand-primary);
+    --k-brand-ink: var(--on-brand-soft);
+    --k-brand-soft: var(--brand-primary-soft);
+    --k-brand-line: color-mix(in srgb, var(--brand-primary) 35%, var(--surface));
+    --k-lilla: var(--sidebar-bg);
+    --k-bad: var(--text-warning);
+    --k-bad-soft: color-mix(in srgb, var(--warning-500) 14%, transparent);
+    --k-edge: color-mix(in srgb, var(--text) 28%, transparent);
+    --k-rainbow: conic-gradient(hsl(347 77% 50%), hsl(38 92% 50%), hsl(142 71% 45%), hsl(189 94% 43%), hsl(239 84% 67%), hsl(292 84% 61%), hsl(347 77% 50%));
+
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    color: var(--k-ink);
+}
+
+.linkb {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--k-brand-ink) !important;
+    font-weight: 600;
+    cursor: pointer;
+    @include cal.fs(small);
+}
+
+/* chi non può modificare: le stesse parti e lo stesso telefono, spenti */
+.guarda {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.gtop {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    h2 {
+        margin: 0;
+        @include cal.fs(title);
+    }
+}
+
+.gnote {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--hover-bg);
+    color: var(--text-muted);
+    @include cal.fs(text);
+
+    svg {
+        flex: none;
+        margin-top: 2px;
+    }
+}
+
+.ggrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    align-items: start;
+    gap: 24px;
+
+    @media (max-width: 900px) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.gset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+    button:disabled {
+        cursor: default;
+    }
+}
+
+.gside {
+    position: sticky;
+    top: 12px;
+
+    @media (max-width: 900px) {
+        display: none;
+    }
+}
+
+/* modificando: dove è in uso e le versioni di prima */
+.tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px 14px;
+}
+
+.inuse {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: auto;
+    padding: 7px 11px;
+    border-radius: 9px;
+    background: var(--success-50);
+    color: var(--text-success);
+    @include cal.fs(small);
+
+    i {
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentcolor;
+    }
+}
+
+.vers {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 14px;
+    border: 1px solid var(--k-line);
+    border-radius: 12px;
+    background: var(--k-surface);
+
+    > div {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 10px;
+        padding: 8px 0;
+        border-top: 1px solid var(--k-line);
+        @include cal.fs(text);
+
+        &:first-child {
+            border-top: 0;
+        }
+
+        span {
+            flex: 1 1 180px;
+            color: var(--k-muted);
+        }
+    }
+}
+
+/* una parte: testata lilla come le categorie del menù */
+.part {
+    border: 1px solid var(--k-line);
+    border-radius: 12px;
+    background: var(--k-surface);
+
+    &:focus-within {
+        border-color: var(--k-brand);
+        box-shadow: 0 0 0 3px var(--k-brand-soft);
+    }
+}
+
+.parth {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--k-line);
+    border-radius: 11px 11px 0 0;
+    background: var(--k-lilla);
+
+    b {
+        color: var(--k-brand-ink);
+        font-weight: 650;
+        @include cal.fs(strong);
+    }
+}
+
+.now {
+    margin-left: auto;
+    color: var(--k-muted);
+    text-align: right;
+    @include cal.fs(note);
+}
+
+.nb {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--k-brand);
+    color: var(--on-brand, var(--k-surface));
+    font-weight: 700;
+    @include cal.fs(badge);
+}
+
+.partb {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px 22px;
+    padding: 14px;
+}
+
+.pdesc {
+    grid-column: 1 / -1;
+    margin: 0 0 -4px;
+    color: var(--k-muted);
+    @include cal.fs(text);
+}
+
+.og {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.wide {
+    grid-column: 1 / -1;
+}
+
+/* una scelta che compare solo quando serve: il filo a sinistra la lega a quella sopra */
+.cond {
+    padding-left: 10px;
+    border-left: 2px solid var(--k-brand-line);
+}
+
+.lab {
+    color: var(--k-muted);
+    font-weight: 600;
+    @include cal.fs(note);
+}
+
+.hint {
+    color: var(--k-faint);
+    @include cal.fs(fine);
+}
+
+.chips,
+.sws,
+.looks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.sws,
+.looks {
+    gap: 8px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--k-line);
+    border-radius: 999px;
+    background: var(--k-surface);
+    color: inherit;
+    cursor: pointer;
+    @include cal.fs(text);
+
+    &[aria-pressed="true"] {
+        border-color: var(--k-brand);
+        background: var(--k-brand-soft);
+        color: var(--k-brand-ink);
+        font-weight: 600;
+    }
+}
+
+.font {
+    padding: 5px 13px;
+    @include cal.fs(label);
+}
+
+.tgl {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px 5px 6px;
+    border: 1px solid var(--k-line);
+    border-radius: 999px;
+    background: var(--k-surface);
+    color: inherit;
+    cursor: pointer;
+    @include cal.fs(text);
+
+    &[aria-checked="true"] {
+        border-color: var(--k-brand-line);
+
+        .trk {
+            background: var(--k-brand);
+
+            &::after {
+                transform: translateX(11px);
+            }
+        }
+    }
+}
+
+.trk {
+    position: relative;
+    flex: none;
+    width: 28px;
+    height: 17px;
+    border-radius: 999px;
+    background: var(--k-line2);
+    transition: background 0.15s;
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: var(--k-surface);
+        transition: transform 0.15s;
+    }
+}
+
+/* il mini-esempio della categoria in cui sei */
+.mini {
+    padding: 2px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--k-brand-ink);
+    font-weight: 400;
+    line-height: 1.4;
+    @include cal.fs(kicker);
+
+    &[data-m="filled"] {
+        background: var(--k-brand);
+        color: var(--on-brand, var(--k-surface));
+    }
+
+    &[data-m="tinted"] {
+        background: var(--k-brand-soft);
+    }
+
+    &[data-m="outline"] {
+        border-color: var(--k-brand);
+    }
+
+    &[data-m="tabs"] {
+        padding: 2px;
+        border-radius: 0;
+        box-shadow: inset 0 -2px 0 var(--k-brand);
+    }
+
+    &[data-m="minimal"] {
+        padding: 2px;
+        color: var(--k-ink);
+        font-weight: 700;
+    }
+
+    [aria-pressed="true"] > &[data-m="tinted"] {
+        background: var(--k-surface);
+    }
+}
+
+.sw {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 3px solid var(--k-surface);
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow: 0 0 0 1px var(--k-line2);
+    cursor: pointer;
+
+    &[aria-pressed="true"] {
+        box-shadow: 0 0 0 2px var(--k-brand);
+    }
+}
+
+.anchor {
+    position: relative;
+    display: inline-flex;
+}
+
+.cur {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 5px;
+    border: 1px solid var(--k-line2);
+    border-radius: 999px;
+    background: var(--k-surface);
+    color: inherit;
+    cursor: pointer;
+    @include cal.fs(text);
+
+    i {
+        flex: none;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--c);
+        box-shadow: inset 0 0 0 1px var(--k-edge);
+    }
+
+    .rainbow {
+        background: var(--k-rainbow);
+        box-shadow: none;
+    }
+
+    &[aria-expanded="true"],
+    &[data-on] {
+        border-color: var(--k-brand);
+        background: var(--k-brand-soft);
+        color: var(--k-brand-ink);
+        font-weight: 600;
+    }
+}
+
+/* la tavolozza: un fumetto sul pulsante, sopra la pagina */
+.pal {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 6px);
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 236px;
+    padding: 10px;
+    border: 1px solid var(--k-line2);
+    border-radius: 12px;
+    background: var(--k-surface);
+    box-shadow: var(--shadow-float);
+
+    small {
+        min-width: 74px;
+        color: var(--k-muted);
+        font-weight: 500;
+        @include cal.fs(badge);
+    }
+}
+
+.right {
+    right: 0;
+    left: auto;
+}
+
+.pgrid {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 3px;
+}
+
+.pc {
+    min-width: 0;
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: var(--c);
+    box-shadow: inset 0 0 0 1px var(--k-edge);
+    cursor: pointer;
+
+    &:hover {
+        transform: scale(1.15);
+    }
+
+    &[aria-pressed="true"] {
+        outline: 2px solid var(--k-brand);
+        outline-offset: 2px;
+    }
+}
+
+.prow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+
+    .pc {
+        width: 19px;
+        height: 19px;
+        aspect-ratio: auto;
+    }
+}
+
+.palf {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--k-line);
+}
+
+.free {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    input {
+        width: 32px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid var(--k-line2);
+        border-radius: 7px;
+        background: none;
+        cursor: pointer;
+    }
+
+    code {
+        font-family: ui-monospace, monospace;
+        font-weight: 600;
+        @include cal.fs(small);
+    }
+}
+
+.warn {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 11px;
+    border-radius: 9px;
+    background: var(--k-bad-soft);
+    color: var(--k-bad);
+    @include cal.fs(small);
+
+    svg {
+        flex: none;
+        margin-top: 2px;
+    }
+
+    .linkb {
+        margin-left: auto;
+        color: inherit !important;
+        text-decoration: underline;
+        white-space: nowrap;
+    }
+}
+
+/* il telefono: la cornice vera si adatta a questo spazio (375 × 667 in scala) */
+.phone {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    width: 300px;
+    height: 534px;
+}
+
+/* creando: gli abbinamenti pronti */
+.start {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 12px 14px;
+    border: 1px dashed var(--k-brand-line);
+    border-radius: 12px;
+    background: var(--k-surface);
+
+    b {
+        @include cal.fs(label);
+    }
+}
+
+.look {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 12px 7px 8px;
+    border: 1px solid var(--k-line);
+    border-radius: 12px;
+    background: var(--k-surface);
+    color: inherit;
+    cursor: pointer;
+    @include cal.fs(text);
+
+    i {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: var(--c);
+        box-shadow: inset 0 0 0 1px var(--k-edge);
+        font-style: normal;
+        font-weight: 700;
+        @include cal.fs(fine);
+    }
+
+    &:hover {
+        border-color: var(--k-brand);
+    }
+}

@@ -136,58 +136,16 @@
 }
 
 /* ===== Tenant switcher (inline dropdown, no portal) ===== */
-.tenantWrapper {
-  position: relative;
+// L'azienda in testata (al telefono): il nome, non un selettore.
+.tenantLabel {
   display: inline-flex;
-  min-width: 0;
-
-  // Sul telefono prende solo lo spazio che la sede lascia (base 0, cresce
-  // fino al proprio contenuto) e si ferma al cerchio: 24 + 4 + 4 di padding
-  // + 2 di bordo. Un fattore di shrink alto non basta: la sede cederebbe
-  // comunque una frazione di pixel, e i puntini compaiono già con quella.
-  @media (max-width: 767px) {
-    flex: 1 1 0;
-    min-width: 34px;
-    max-width: max-content;
-  }
-}
-
-.tenantButton {
-  display: flex;
   align-items: center;
   gap: 8px;
   padding: 4px 8px 4px 4px;
-  border-radius: var(--radius-control);
-  // C1: come il selettore della sede, a riposo nessun bordo né sfondo; al
-  // passaggio e a menu aperto lo stesso sfondo leggero.
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: background var(--timing-motion-fast) var(--easing-state);
   min-width: 0;
   overflow: hidden;
-
-  // Sul telefono l'azienda cede spazio alla sede (§51.8): il nome si
-  // accorcia fino a sparire, il cerchio con le iniziali resta e apre il menu.
-  @media (max-width: 767px) {
-    padding: 4px;
-    gap: 6px;
-  }
-
-  &:hover,
-  &[data-state="open"],
-  &[aria-expanded="true"] {
-    background: var(--hover-bg);
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--shadow-focus);
-  }
 }
 
-// L'azienda si accorcia con i puntini (§51.8): oltre ~170, e sul telefono
-// fino al solo cerchio, prima che si accorci la sede.
 .tenantName {
   font-size: 13px;
   font-weight: 600;
@@ -195,104 +153,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 170px;
   min-width: 0;
 }
 
-.tenantChevron {
-  color: var(--text-muted);
-  flex-shrink: 0;
-
-  @media (max-width: 767px) {
-    display: none;
-  }
-}
-
-/* ===== Tenant dropdown (inline, custom) ===== */
-.tenantList {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 240px;
-
-  // Sul telefono resta nello schermo: parte a 54 (12 di padding + 36 del
-  // pulsante menu + 6) e lascia 12 a destra.
-  @media (max-width: 767px) {
-    min-width: min(240px, calc(100vw - 66px));
-    max-width: calc(100vw - 66px);
-  }
-
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px 0;
-  box-shadow: var(--shadow-float);
-  z-index: var(--z-float);
-}
-
-.tenantListHeader {
-  padding: 8px 14px 6px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.tenantRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 14px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  color: var(--text);
-  transition: background 0.1s;
-
-  &:hover {
-    background: var(--hover-bg);
-  }
-
-  &:focus-visible {
-    outline: none;
-    background: var(--hover-bg);
-  }
-}
-
-.checkSlot {
-  width: 14px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--brand-primary);
-}
-
-.tenantRowName {
-  font-size: 13.5px;
-  font-weight: 400;
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tenantRowName[data-active="true"] {
-  font-weight: 500;
-}
-
-.tenantListDivider {
-  height: 1px;
-  background: var(--border);
-  margin: 6px 12px;
-}
-
-/* ===== Notifications bell ===== */
 .notifButton {
   position: relative;
   width: 32px;

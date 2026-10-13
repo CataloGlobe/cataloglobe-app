@@ -163,7 +163,7 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
                             loading={isSaving}
                             disabled={isSaving || isLoading}
                         >
-                            {mode === "create" ? "Crea gruppo" : "Salva modifiche"}
+                            {mode === "create" ? "Aggiungi gruppo" : "Salva modifiche"}
                         </Button>
                     </>
                 }
@@ -193,7 +193,7 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
                         />
                     </FormGrid>
 
-                    <FormSection title="Sedi nel gruppo" description="Le regole di Programmazione che puntano il gruppo valgono per queste sedi.">
+                    <FormSection title="Sedi nel gruppo" description="Le regole del Calendario che puntano il gruppo valgono per queste sedi.">
                         {isLoading ? (
                             <div className={styles.members}>
                                 <ListRow loading />

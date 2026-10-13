@@ -15,6 +15,9 @@ type TooltipProps = {
     variant?: "dark" | "panel";
     /** Ritardo prima di aprire; senza, quello del `TooltipProvider`. */
     delayDuration?: number;
+    /** Aperto da fuori: il clic che lo apre anche al telefono, dove il passaggio del mouse non c'è. */
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 };
 
 export function Tooltip({
@@ -24,11 +27,13 @@ export function Tooltip({
     align = "center",
     sideOffset = 8,
     variant = "dark",
-    delayDuration
+    delayDuration,
+    open,
+    onOpenChange
 }: TooltipProps) {
     const panel = variant === "panel";
     return (
-        <RadixTooltip.Root delayDuration={delayDuration}>
+        <RadixTooltip.Root delayDuration={delayDuration} open={open} onOpenChange={onOpenChange}>
             <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
 
             <RadixTooltip.Portal>

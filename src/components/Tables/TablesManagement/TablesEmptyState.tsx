@@ -19,11 +19,11 @@ export function TablesEmptyState({ onGoToOrdering, onGoToReservations }: TablesE
         <EmptyState
             icon={<QrCode size={40} strokeWidth={1.5} />}
             title="Tavoli non disponibili"
-            description="Per gestire la sala, abilita prima le Ordinazioni QR o le Prenotazioni per questa sede: ognuna ha la sua scheda."
+            description="Per gestire la sala, abilita prima gli Ordini dal tavolo o le Prenotazioni per questa sede: ognuna ha la sua scheda."
             action={
                 <div className={styles.actions}>
                     <Button variant="primary" onClick={onGoToOrdering}>
-                        Vai a Ordinazioni
+                        Vai a Ordini dal tavolo
                     </Button>
                     <Button variant="secondary" onClick={onGoToReservations}>
                         Vai a Prenotazioni

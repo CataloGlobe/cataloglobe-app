@@ -1,6 +1,22 @@
-# Style Editor / Preview
+# Stili: tunnel, anteprima, vecchio editor
 
-**Percorso**: `/business/:businessId/styles/:styleId` → `StyleEditorPage`.
+## Il tunnel (D186, Officina)
+
+Uno stile si crea e si modifica nel tunnel: `/business/:businessId/crea/stile` e `crea/stile/:id` (`CreaPage` → `CreaTunnel` → `Tunnelo`). Dall'elenco (`Styles.tsx`) il clic sulla riga, «Modifica» e «Nuovo stile» portano lì con `?da=stili`.
+
+- **Aspetto in sei parti** (`stileLook.ts`): cima, categorie, in evidenza, carattere, colori, piatti (`PART_IDS`). `restore` rimette una parte com'era, `partKey` la confronta. Tavolozza (`palette`) e colori del logo (`logoColors`).
+- **Leggibilità**: `hardToRead` accende l'avviso sotto contrasto 3 fra colore principale e sfondo; «Rendilo leggibile» (`readable`) cerca il tono più vicino che arriva a 4,5, prima verso il bianco o il nero secondo quale si legge meglio sullo sfondo, poi dall'altra parte.
+- **Salvataggio** (`creaEdit.ts`): il tunnel scrive `styleConfig(t)` = `serializeTokens(cleanLook(look))`. Il solo nome chiama `updateStyle` con config `undefined`: nessuna versione nuova. Colori e caratteri fanno una versione nuova.
+- **Versioni di prima** (passo dell'aspetto, solo in modifica): «Guarda» apre l'anteprima di quella versione, «Torna a questa» ne copia l'aspetto nella bozza; diventa una versione nuova solo al Salva.
+- **Controlla** dice per nome le sedi che vedono subito le modifiche.
+- **Stile di CataloGlobe** (`is_system`): `loadTunnel` lancia `SystemStyleError` e il tunnel parte da lui per farne uno proprio (`fromStyle`), l'originale non si tocca.
+- **Senza `styles.write`**: `StileGuarda`, le stesse parti e lo stesso telefono, spenti.
+- **Abbonamento fermo**: il Salva si ferma su `useEnsureActive`.
+- Prove: `src/tests/creaModel.test.ts` (aspetto, leggibilità), `src/tests/creaEdit.test.ts` (nome senza versione, «Torna a questa» + Salva).
+
+## Il vecchio editor
+
+**Percorso**: `/business/:businessId/styles/:styleId` → `StyleEditorPage`. Ancora montato, ma nessun link ci porta: le note qui sotto valgono per lui e per l'anteprima (`StylePreview`), che il tunnel riusa.
 
 ```
 StyleEditorPage

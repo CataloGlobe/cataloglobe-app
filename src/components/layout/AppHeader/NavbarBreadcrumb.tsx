@@ -3,7 +3,7 @@
 //
 // L'ultimo segmento del percorso a cartelle dell'header (§51.8):
 // logo / azienda / sede / **pagina**. Azienda e sede hanno i loro
-// selettori (HeaderTenantSwitcher, HeaderSedeSwitcher); qui resta
+// posti (il nome in testata, HeaderTenantName; la sede in alto a destra, SediInAlto); qui resta
 // la pagina, e sotto 768 sparisce (è il titolo sotto).
 //
 // Strategia override per i nomi-record nelle detail route:
@@ -59,7 +59,14 @@ export function NavbarBreadcrumb({ inBar = false }: NavbarBreadcrumbProps) {
 
         const label = businessRouteLabel(routeInfo.key, { catalogLabel });
 
-        // Le tab di Impostazioni sono la stessa pagina (§51.12).
+        // Team e Abbonamento stanno sotto settings/ ma sono pagine a sé,
+        // voci del menù dell'account (D170): niente Impostazioni davanti.
+        if (routeInfo.key === "settings" && routeInfo.isDetail) {
+            const sub = pathname.split("/")[4];
+            if (sub === "team") return [{ label: businessRouteLabel("team", { catalogLabel }) }];
+            if (sub === "abbonamento") return [{ label: businessRouteLabel("subscription", { catalogLabel }) }];
+        }
+
         if (routeInfo.isDetail && routeInfo.key !== "settings") {
             // Detail route senza items registrati (fase di caricamento iniziale):
             // solo il segmento intermedio col link al list-root. Il leaf
@@ -68,7 +75,7 @@ export function NavbarBreadcrumb({ inBar = false }: NavbarBreadcrumbProps) {
         }
 
         return [{ label }];
-    }, [registeredItems, sedeSegment, routeInfo, catalogLabel]);
+    }, [registeredItems, sedeSegment, routeInfo, catalogLabel, pathname]);
 
     if (items.length === 0) return null;
 

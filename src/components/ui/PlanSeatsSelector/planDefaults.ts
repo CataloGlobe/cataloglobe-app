@@ -10,16 +10,16 @@ export const DEFAULT_PLAN_FEATURES: Record<PlanCode, string[]> = {
     base: [
         "Menu digitale illimitato",
         "QR code per ogni sede",
-        "Programmazione disponibilità",
+        "Calendario e disponibilità",
         "Gestione catalogo (prodotti, categorie, varianti)",
         "Stili e branding personalizzati",
         "Multilingua",
-        "Analitiche e recensioni"
+        "Andamento e recensioni"
     ],
     pro: [
         "Tutto del piano Base",
         "Prenotazione tavolo",
-        "Ordinazione al tavolo",
+        "Ordini dal tavolo",
         "Gestione sale e tavoli"
     ]
 };

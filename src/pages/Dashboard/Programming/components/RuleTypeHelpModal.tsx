@@ -176,14 +176,14 @@ function helpContent(Label: string, product: string, products: string): Record<H
             kind: "priceRows",
             caption: "Esempio · happy hour del giovedì, 18:00 – 20:00",
             rows: [
-                { label: "Prezzo normale", product: "Spritz", price: "€ 7,00" },
+                { label: "Prezzo normale", product: "Spritz", price: "7,00 €" },
                 {
                     label: "Durante la regola",
                     product: "Spritz",
-                    price: "€ 7,00",
-                    newPrice: "€ 5,00"
+                    price: "7,00 €",
+                    newPrice: "5,00 €"
                 },
-                { label: "Dopo le 20:00", product: "Spritz", price: "€ 7,00" }
+                { label: "Dopo le 20:00", product: "Spritz", price: "7,00 €" }
             ]
         },
         points: [
@@ -230,7 +230,7 @@ function helpContent(Label: string, product: string, products: string): Record<H
                     label: "Non disponibile",
                     preview: "product",
                     productName: "Branzino al forno",
-                    productPrice: "€ 22,00",
+                    productPrice: "22,00 €",
                     badge: "Non disponibile",
                     caption:
                         "Per ciò che di solito c'è ma oggi è finito: il cliente lo vede e sa che esiste."
