@@ -230,6 +230,31 @@ export type V2FeaturedContent = {
     updated_at: string;
 };
 
+/**
+ * Un menu della sede per la pagina «Scegli il menu» (redesign, PR 9). Lo riempirà
+ * il giudice della fase (b) del pacchetto database dell'Officina (M1 fasce in minuti,
+ * M5 elenco dei menu, M16 `sort_order`); finché non c'è, `menus` non arriva e la
+ * pagina resta com'è.
+ */
+export type PublicMenu = {
+    catalogId: string;
+    /** Per `?menu=`: dal nome originale del menu, unico nella sede (lo calcola il giudice). */
+    slug: string;
+    /** Tradotto come gli altri testi del catalogo. */
+    name: string;
+    /** `catalogs.sort_order` (M16), uguale in tutte le sedi. */
+    sortOrder: number;
+    /** Fascia di oggi che lo mostra, in minuti dalla mezzanotte (M1); la fine può passare 1440. */
+    startMinute: number;
+    endMinute: number;
+    /** `now`: si vede adesso; `later`: solo oggi, più tardi (scelta 1 del 2026-10-13). */
+    state: "now" | "later";
+    categoriesCount: number;
+    productsCount: number;
+    /** Solo per i menu `now`: il catalogo intero, così il passaggio non carica niente (spec §12). */
+    catalog?: ResolvedCatalog;
+};
+
 export type ResolvedCollections = {
     style?: ResolvedStyle;
     featured?: {
@@ -237,6 +262,8 @@ export type ResolvedCollections = {
         after_catalog?: V2FeaturedContent[];
     };
     catalog?: ResolvedCatalog;
+    /** I menu della sede per «Scegli il menu» (vedi `PublicMenu`); assente finché il giudice non lo manda. */
+    menus?: PublicMenu[];
     /** True/false quando una regola "layout" ha risolto un catalogo: indica
      *  se quel catalogo ha almeno un prodotto visibile (post override).
      *  `undefined` quando nessuna regola ha risolto un catalogo (early return
