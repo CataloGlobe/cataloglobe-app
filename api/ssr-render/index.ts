@@ -103,6 +103,7 @@ type RenderPublicModule = {
         payload: unknown;
         slug: string;
         url?: string;
+        lang?: string;
     }): Promise<
         | { kind: "ready"; html: string }
         | { kind: "non-ready"; status: "inactive" | "subscription_inactive" | "empty" }
@@ -131,13 +132,19 @@ function readTemplate(): string {
  * i testi delle altre lingue sono chunk lazy. Per la lingua della pagina si
  * scaricano subito, insieme all'entry, invece di aspettare l'hydration.
  */
-function pageLanguage(payload: unknown): string | null {
+// Le lingue con i testi dell'interfaccia (`src/i18n/locales/*`). Un'altra
+// lingua della sede (es. "pt") si rende in italiano, con <html lang="it">:
+// altrimenti il client formatterebbe date e orari in un'altra lingua del server.
+const UI_LANGUAGES = new Set(["it", "en", "fr", "de", "es"]);
+
+function pageLanguage(payload: unknown): string {
     const p = payload as { effective_language?: string | null; base_language_code?: string | null };
-    return p.effective_language ?? p.base_language_code ?? null;
+    const lang = (p.effective_language ?? p.base_language_code ?? "it").toLowerCase();
+    return UI_LANGUAGES.has(lang) ? lang : "it";
 }
 
-function languagePreloadKeys(lang: string | null | undefined): string[] {
-    if (!lang || lang === "it" || !LANG_REGEX.test(lang)) return [];
+function languagePreloadKeys(lang: string): string[] {
+    if (lang === "it") return [];
     return ["public", "common", "errors"].map(ns => `src/i18n/locales/${lang}/${ns}.json`);
 }
 
@@ -329,7 +336,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         }
 
         const { renderPublic } = await loadRenderModule();
-        const result = await renderPublic({ payload, slug, url: `/${slug}` });
+        // L'interfaccia nella lingua della pagina (prima sempre italiano, e la
+        // lingua giusta arrivava solo dopo l'hydration).
+        const uiLang = pageLanguage(payload);
+        const result = await renderPublic({ payload, slug, url: `/${slug}`, lang: uiLang });
 
         if (result.kind !== "ready") {
             serveSpaFallback(res, result.status);
@@ -362,9 +372,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
                 readClientManifest(),
                 CLIENT_MANIFEST_ENTRY,
                 CLIENT_ASSET_BASE,
-                languagePreloadKeys(pageLanguage(payload))
+                languagePreloadKeys(uiLang)
             ),
-            supabaseUrl: process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ""
+            supabaseUrl: process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "",
+            lang: uiLang
         });
 
         res.status(200);
