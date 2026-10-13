@@ -1,3 +1,5 @@
+@use "../sheets/sheet-tone" as *;
+
 /* Invito al voto (spec §11). Solo telefono: sopra 640 px niente modale né pulsante.
    Mai backdrop-filter: la modale entra ed esce, il pulsante vola. */
 
@@ -13,6 +15,8 @@
   z-index: 140;
   box-sizing: border-box;
   border-radius: 26px 26px 0 0;
+  @include dark-sheet;
+
   background: var(--pub-surface);
   color: var(--pub-text);
   box-shadow: 0 -14px 40px -18px rgb(0 0 0 / 50%);

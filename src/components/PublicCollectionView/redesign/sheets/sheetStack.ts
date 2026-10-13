@@ -18,6 +18,12 @@ export type SheetPage = {
     size?: SheetSize;
     /** Alta quanto il tetto anche con poco contenuto (la ricerca: non salta mentre si scrive). */
     fill?: boolean;
+    /**
+     * Tutti i fogli sono scuri (D68, mockup v38); qui si sceglie l'accento. «neutral»:
+     * scelte e pulsanti bianchi, come ⋯, informazioni, lingua e filtri del mockup.
+     * Senza: il pulsante principale resta nel colore del locale (scheda, ordine, voto).
+     */
+    accent?: "neutral";
     /** Titolo invisibile in testata (resta per i lettori di schermo e per «‹ Titolo» nelle figlie): il corpo lo mostra da sé. */
     titleHidden?: boolean;
     /**

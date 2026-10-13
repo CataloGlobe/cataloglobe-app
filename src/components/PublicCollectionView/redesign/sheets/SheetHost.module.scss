@@ -1,3 +1,5 @@
+@use "./sheet-tone" as *;
+
 /* Il solo foglio della pagina pubblica (redesign). Mobile: attaccato al fondo e
    ai lati, angoli in alto 26px, in basso 0. ≥641px: finestra al centro.
    ⚠️ SYNC soglia con publicBreakpoints.ts (max 640 / min 641).
@@ -61,6 +63,20 @@ html :where(.root) :is(p, h1, h2, h3, h4, h5, h6) {
   &[data-size="large"] {
     --sheet-max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px);
   }
+}
+
+/* Fogli scuri in tutti i locali (D68): token in `_sheet-tone.scss`. */
+.panel {
+  @include dark-sheet;
+}
+
+/* Accento bianco (⋯, informazioni, lingua, filtri del mockup). */
+.panel[data-accent="neutral"] {
+  --pub-primary: #fff;
+  --pub-primary-text: #141414;
+  --pub-accent: #fff;
+  --pub-cta-bg: #fff;
+  --pub-cta-text: #141414;
 }
 
 .dragZone {

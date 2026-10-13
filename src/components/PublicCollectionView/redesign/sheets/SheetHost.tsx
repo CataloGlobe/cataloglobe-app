@@ -636,6 +636,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
                 tabIndex={-1}
                 data-size={activePage.size ?? "medium"}
                 data-custom={customHeader ? "" : undefined}
+                data-accent={activePage.accent}
             >
                 <div
                     className={styles.dragZone}
