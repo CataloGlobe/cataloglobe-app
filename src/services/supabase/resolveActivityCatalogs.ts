@@ -198,7 +198,7 @@ export type V2FeaturedContent = {
     media_aspect_ratio: number | null;
     cta_text: string | null;
     cta_url: string | null;
-    cta_action?: "link" | "reservation";
+    cta_action?: "none" | "link" | "reservation" | "add_to_order" | "show_products";
     status: "draft" | "published";
     layout_style: string | null;
     pricing_mode: "none" | "per_item" | "bundle";

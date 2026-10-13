@@ -30,4 +30,13 @@ describe("hasFeaturedCta", () => {
         const prenota = block({ cta_action: "reservation", cta_url: "javascript:alert(1)", cta_text: "Prenota" });
         expect(hasFeaturedCta(prenota, true)).toBe(true);
     });
+
+    it("fase (a): i valori nuovi non cambiano la pagina pubblica, conta solo cta_url", () => {
+        // Contenuto nuovo scritto dall'editor di oggi: nasce 'none' ma ha il link.
+        expect(hasFeaturedCta(block({ cta_action: "none" }))).toBe(true);
+        expect(hasFeaturedCta(block({ cta_action: "none", cta_url: null }))).toBe(false);
+        expect(hasFeaturedCta(block({ cta_action: "add_to_order", cta_url: null }), true)).toBe(false);
+        expect(hasFeaturedCta(block({ cta_action: "show_products", cta_url: null }), true)).toBe(false);
+        expect(isReservationCta(block({ cta_action: "none" }))).toBe(false);
+    });
 });
