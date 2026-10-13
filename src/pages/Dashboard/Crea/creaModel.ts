@@ -345,7 +345,7 @@ export const MAX_IMPORT_FILES = 5;
 
 /**
  * Sezioni e piatti letti dall'AI (D172). Un piatto col nome di un solo
- * prodotto vostro si collega a lui, col suo prezzo; con più prodotti dello
+ * prodotto tuo si collega a lui, col suo prezzo; con più prodotti dello
  * stesso nome, o se l'AI non ne era sicura, resta «da controllare».
  */
 export function sectionsFromAi(categories: readonly AiMenuCategory[], pick: readonly PickProduct[]): Section[] {
