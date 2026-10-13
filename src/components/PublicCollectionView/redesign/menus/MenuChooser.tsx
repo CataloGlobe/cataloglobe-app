@@ -25,14 +25,14 @@ export type MenuChooserProps = {
     menus: PublicMenu[];
     /** Il tocco su una card: chi chiama fa il passaggio verso il menu. */
     onChoose: (menu: PublicMenu) => void;
-    /** Come entra: le card in cascata alla prima apertura, ferma tornando da «Tutti i menu». */
-    entrance: "rise" | "still";
+    /** Come entra: le card in cascata alla prima apertura, ferma tornando da «Tutti i menu», da sinistra con l'indietro del browser. */
+    entrance: "rise" | "still" | "back";
     activityName: string;
     logoUrl: string | null;
     coverImageUrl: string | null;
     openingHours: OpeningHoursEntry[];
     upcomingClosures: UpcomingClosure[];
-    /** «Prenota un tavolo»: solo con le prenotazioni nel foglio. */
+    /** «Prenota un tavolo»: i passi nel foglio o la pagina /prenota; senza prenotazioni non c'è. */
     onOpenBooking?: () => void;
 };
 
@@ -67,9 +67,9 @@ export default function MenuChooser({
     const later = laterMenus(menus);
     const hasInfo = openingHours.length > 0;
 
-    // Tornando da «Tutti i menu» il fuoco va sul titolo; alla prima apertura resta dov'è.
+    // Tornando alla scelta il fuoco va sul titolo; alla prima apertura resta dov'è.
     useEffect(() => {
-        if (entrance === "still") titleRef.current?.focus({ preventScroll: true });
+        if (entrance !== "rise") titleRef.current?.focus({ preventScroll: true });
     }, [entrance]);
 
     const pick = (menu: PublicMenu) => {

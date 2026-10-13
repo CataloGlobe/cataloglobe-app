@@ -401,6 +401,23 @@ $curva: cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 }
 
+/* Indietro del browser (senza animazione del browser): la scelta rientra da sinistra sopra il menu. */
+@keyframes rientra {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+.scelta[data-entrance="back"] {
+  animation: rientra 0.38s $curva both;
+  box-shadow: 18px 0 40px -24px rgb(0 0 0 / 45%);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: appare 0.2s both;
+    box-shadow: none;
+  }
+}
+
 .scelta[data-entrance="rise"] {
   .isola,
   .titolo,

@@ -3,6 +3,7 @@ import {
     lazy,
     Suspense,
     useCallback,
+    useContext,
     useEffect,
     useLayoutEffect,
     useMemo,
@@ -12,7 +13,9 @@ import {
     type CSSProperties,
     type ReactNode
 } from "react";
+import { useNavigate } from "react-router-dom";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import { LanguageContext } from "@/context/Language/LanguageContext";
 import Island, { type MenuSwitch } from "./island/Island";
 import { MENU_BUTTON_ID } from "./island/anchors";
 import BottomBar from "./bar/BottomBar";
@@ -30,10 +33,9 @@ import { showAdded } from "./order/addedNoticeStore";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
 import type { MenuSource } from "./menus/menuSource";
 import { useMenuChoice } from "./menus/useMenuChoice";
-import { reducedMotion, runMenuPassage } from "./menus/menuPassage";
+import { animateBrowserBack, passageRunning, runMenuPassage } from "./menus/menuPassage";
 import { nowMenus, shouldChoose } from "./menus/menuList";
 import type { MenuSheetBinding } from "./menus/menuSheet";
-import { EXIT_DURATION_MS } from "./sheets/sheetMotion";
 import { useDemoMenus } from "./menus/provaMenu";
 import type { PublicMenu } from "@/types/resolvedCollections";
 
@@ -197,14 +199,25 @@ export default function RedesignCollectionView({
             ),
         [choose, whenDrawn]
     );
-    // «Tutti i menu» dal foglio: prima il foglio si chiude, poi il menu esce a destra e scopre la scelta.
+    // «Tutti i menu» dal foglio: il menu esce subito a destra col foglio sopra e scopre la scelta.
+    // Il foglio c'è solo nella fotografia di partenza: in quella d'arrivo è già nascosto
+    // (`data-sheet-off`), mentre si chiude davvero sotto il passaggio.
     const showAllMenus = useCallback(() => {
-        closeSheet();
-        const chunk = loadMenuChooser().catch(() => undefined);
-        window.setTimeout(
-            () => void chunk.then(() => runMenuPassage("back", backToChooser, whenDrawn)),
-            reducedMotion() ? 0 : EXIT_DURATION_MS + 20
-        );
+        const root = document.documentElement;
+        void loadMenuChooser()
+            .catch(() => undefined)
+            .then(() =>
+                runMenuPassage(
+                    "back",
+                    () => {
+                        root.dataset.sheetOff = "";
+                        closeSheet();
+                        backToChooser();
+                    },
+                    whenDrawn,
+                    () => delete root.dataset.sheetOff
+                )
+            );
     }, [backToChooser, whenDrawn]);
     // Foglio «Menu disponibili ora», «Cambia menu» nel ⋯ e selettore nell'isola: solo con più menu adesso.
     const currentMenu = menuChoice.menu;
@@ -224,12 +237,38 @@ export default function RedesignCollectionView({
     const menuSwitch = useMemo<MenuSwitch | undefined>(() => {
         if (!menuSheet) return undefined;
         const index = menuSheet.menus.findIndex(menu => menu.catalogId === currentMenu?.catalogId);
-        return { position: index + 1, total: menuSheet.menus.length };
+        // Il nome viene dal menu, non dal titolo del catalogo: il selettore c'è anche negli
+        // stili che nascondono il nome del catalogo.
+        return { position: index + 1, total: menuSheet.menus.length, name: currentMenu?.name ?? null };
     }, [menuSheet, currentMenu]);
     const renderIsland = useCallback<HeaderSlot>(context => <Island {...context} menuSwitch={menuSwitch} />, [menuSwitch]);
     // Le card salgono in cascata solo la prima volta; tornando alla scelta restano ferme.
-    const chooserEntrance = chooserSeen.current ? "still" : "rise";
+    // Dall'indietro del browser la scelta rientra da sinistra (vedi `animateBrowserBack`).
+    // Si decide quando la scelta compare e poi resta: un nuovo render non la ricalcola.
+    const entranceRef = useRef<"rise" | "still" | "back">("rise");
+    if (choosing && !wasChoosing.current) {
+        entranceRef.current = !chooserSeen.current
+            ? "rise"
+            : !passageRunning() && animateBrowserBack()
+              ? "back"
+              : "still";
+    }
+    const chooserEntrance = entranceRef.current;
     useEffect(() => keepPreferencesFor(props.activityId), [props.activityId]);
+    // «Prenota un tavolo» nella scelta: i passi nel foglio se la sede prenota lì,
+    // altrimenti la pagina /prenota, come il ⋯ e il fondo pagina.
+    const navigate = useNavigate();
+    const langCtx = useContext(LanguageContext);
+    const { enableReservations, slug } = props;
+    const openReservation = useMemo(() => {
+        if (booking) return openBookingSheet;
+        if (!enableReservations || !slug) return undefined;
+        return () => {
+            const lang = langCtx?.currentLang;
+            const base = langCtx?.baseLanguage;
+            navigate(lang && lang !== base ? `/${slug}/${lang}/prenota` : `/${slug}/prenota`);
+        };
+    }, [booking, enableReservations, slug, langCtx?.currentLang, langCtx?.baseLanguage, navigate]);
     // Con la sede che prenota, «Prenota» apre i passi nel foglio invece della pagina /prenota.
     const sheetsSlot = useMemo<SheetsSlot>(
         () => ({
@@ -265,7 +304,7 @@ export default function RedesignCollectionView({
                         coverImageUrl={props.style.showCoverImage ? props.businessImage : null}
                         openingHours={props.openingHours ?? []}
                         upcomingClosures={props.upcomingClosures ?? []}
-                        onOpenBooking={booking ? openBookingSheet : undefined}
+                        onOpenBooking={openReservation}
                     />
                 </Suspense>
             ) : null}

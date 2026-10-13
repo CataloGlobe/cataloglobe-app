@@ -12,6 +12,11 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
+
+  /* «Tutti i menu»: il foglio esce col menu nella fotografia di partenza del passaggio. */
+  :global(html[data-sheet-off]) & {
+    visibility: hidden;
+  }
 }
 
 /* La tipografia globale dell'app (_typography.scss) dà un colore proprio a `p` e ai

@@ -8,8 +8,12 @@
    la ri-rasterizza (banco, Chromium CPU 4×, un giro: raster da 34 a 6 task, da ~13 a
    ~2 ms; senza strato l'ombra è quasi tutto il costo). */
 
-$entrata: 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
-$uscita: 220ms ease-in;
+/* Come il mockup v38 (`.bbar`): stessa curva nei due sensi, la barra scivola e
+   sfuma un po' prima di arrivare. Prima l'uscita era un ease-in di 220 ms: partiva
+   piano e spariva di colpo, sembrava staccarsi invece di scendere. */
+$curva: cubic-bezier(0.2, 0.8, 0.2, 1);
+$scivola: 320ms;
+$sfuma: 240ms;
 
 .wrap {
   position: fixed;
@@ -26,7 +30,7 @@ $uscita: 220ms ease-in;
   margin: 0 auto;
   visibility: visible;
   will-change: transform;
-  transition: transform $entrata, opacity $entrata, visibility 0s linear 0s;
+  transition: transform $scivola $curva, opacity $sfuma $curva, visibility 0s linear 0s;
   animation: entra 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 
   /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts): solo telefono, ≤640 px. */
@@ -39,7 +43,7 @@ $uscita: 220ms ease-in;
     pointer-events: none;
     opacity: 0;
     transform: translateY(calc(100% + var(--pub-bottombar-bottom, 34px)));
-    transition: transform $uscita, opacity $uscita, visibility 0s linear 220ms;
+    transition: transform $scivola $curva, opacity $sfuma $curva, visibility 0s linear $scivola;
   }
 }
 

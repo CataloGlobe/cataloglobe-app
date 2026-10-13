@@ -304,10 +304,12 @@ function menuList(kind: "two" | "one", all: ResolvedCategory[]) {
 
 export async function stubPublicPage(
     page: Page,
-    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string; reservations?: boolean; preferences?: boolean; subcategories?: boolean; menus?: "two" | "one" }
+    opts: { ordering: boolean; featured?: FeaturedSlots; styleConfig?: StyleConfig; venueInfo?: boolean; story?: boolean; allergens?: boolean; details?: boolean; cover?: string; reservations?: boolean; preferences?: boolean; subcategories?: boolean; menus?: "two" | "one"; reservationsPage?: boolean }
 ): Promise<void> {
     const featuredSlots = opts.featured ?? { before_catalog: [featured()] };
     const body = payload(featuredSlots, opts.styleConfig, opts.venueInfo, opts.story, opts.allergens, opts.details, opts.cover ?? null, opts.reservations, opts.preferences);
+    // Prenota senza passo della griglia: niente passi nel foglio, si va alla pagina /prenota.
+    if (opts.reservationsPage) (body.business as Record<string, unknown>).reservation_pacing_slot_minutes = null;
     if (opts.subcategories && body.resolved.catalog?.categories) {
         body.resolved.catalog.categories = withSubcategories(body.resolved.catalog.categories);
     }
