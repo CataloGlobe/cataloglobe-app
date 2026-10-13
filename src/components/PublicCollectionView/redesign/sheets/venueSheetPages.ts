@@ -12,7 +12,24 @@ import { openSheet, openSheetAt, pushSheetPage, type SheetPage } from "./sheetSt
 /** Su desktop ⋯, lingua e «Tutte le categorie» si aprono sotto il loro pulsante (spec §13). */
 const POPOVER_WIDTH_PX = 320;
 
+/** Accento bianco come nel mockup (D68): opzioni, informazioni, lingua, categorie, filtri. */
+const NEUTRAL_SHEETS: ReadonlySet<PublicSheetName> = new Set([
+    "more",
+    "info",
+    "hours",
+    "language",
+    "categories",
+    "filters",
+    "allergens",
+    "characteristics"
+]);
+
 export function venueSheetPage(name: PublicSheetName): SheetPage {
+    const page = venueSheetBase(name);
+    return NEUTRAL_SHEETS.has(name) ? { ...page, accent: "neutral" } : page;
+}
+
+function venueSheetBase(name: PublicSheetName): SheetPage {
     const t = (key: string) => i18next.t(key, { ns: "public" });
     switch (name) {
         case "more":

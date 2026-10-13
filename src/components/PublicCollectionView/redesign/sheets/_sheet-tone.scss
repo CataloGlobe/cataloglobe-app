@@ -1,0 +1,23 @@
+/* Fogli scuri in tutti i locali (D68, mockup v38, modali «Predefinito scuro»): si
+   ridefiniscono i token del locale dentro il pannello, così tutto ciò che li legge
+   (testi, righe, gruppi, la superficie copiata sotto per Chrome su iPhone) diventa
+   scuro senza toccarlo. Il pulsante principale resta nel colore del locale; l'accento
+   usato come testo si schiarisce, per leggersi sullo scuro. */
+@mixin dark-sheet {
+  --pub-bg: #141414;
+  --pub-surface: #1c1c1e;
+  --pub-text: #fff;
+  --pub-text-secondary: rgb(255 255 255 / 66%);
+  --pub-text-muted: rgb(255 255 255 / 45%);
+  --pub-bg-text: #fff;
+  --pub-bg-text-secondary: rgb(255 255 255 / 66%);
+  --pub-bg-text-muted: rgb(255 255 255 / 45%);
+  --pub-surface-text: #fff;
+  --pub-surface-text-secondary: rgb(255 255 255 / 66%);
+  --pub-surface-text-muted: rgb(255 255 255 / 45%);
+  --pub-border: rgb(255 255 255 / 10%);
+  --pub-surface-border: rgb(255 255 255 / 10%);
+  --pub-accent: color-mix(in srgb, var(--pub-primary) 45%, #fff);
+
+  color-scheme: dark;
+}
