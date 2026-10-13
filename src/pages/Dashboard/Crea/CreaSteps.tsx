@@ -15,7 +15,8 @@ import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, type PassoGruppo, type Pas
 import { DB_LATER, invalid, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { CARDS, COLORS, EV, FONTS, FONT_QUICK, KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, priceText, sentence, stepLabel, stepSummary, steps, strays, type CardKey, type Ctx, type EvType, type StepId, type Tunnel } from "./creaModel";
+import { EV, KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, priceText, sentence, stepLabel, stepSummary, steps, strays, type Ctx, type EvType, type StepId, type Tunnel } from "./creaModel";
+import { hidFeatured } from "./stileLook";
 import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Sh, Toggle, Warnish } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
@@ -140,64 +141,6 @@ export function StileNome({ t, u, styles, onBase }: { t: Tunnel; u: U; styles: r
                     ))}
                 </div>
             )}
-        </>
-    );
-}
-
-export function StileAspetto({ t, u }: { t: Tunnel; u: U }) {
-    const was = t.edit?.orig.color ?? null;
-    const own = was && !COLORS.some(c => c[0] === was.toLowerCase()) ? was : null;
-    return (
-        <>
-            <Sh title="L'aspetto">{t.edit ? "Le quattro cose che cambiano di più la pagina. Il resto dello stile resta com'è." : "Le quattro cose che cambiano di più la pagina. Il resto si rifinisce dopo, nell'editor dello stile."}</Sh>
-            <div className={s.blk}>
-                <h4>Colore principale</h4>
-                <div className={s.sw}>
-                    {COLORS.map(([c, n]) => (
-                        <button key={c} type="button" className={s.swb} style={{ background: c }} aria-pressed={t.color?.toLowerCase() === c} aria-label={n} title={n} onClick={() => u(x => void (x.color = c))} />
-                    ))}
-                    {/* il colore che lo stile ha già, se non è fra i sei */}
-                    {own && <button type="button" className={s.swb} style={{ background: own }} aria-pressed={t.color === own} aria-label="Il colore di adesso" title="Il colore di adesso" onClick={() => u(x => void (x.color = own))} />}
-                </div>
-            </div>
-            <div className={s.blk}>
-                <h4>Sfondo della pagina</h4>
-                <div className={s.chips}>
-                    <Chip on={!t.dark} onClick={() => u(x => void (x.dark = false))}>
-                        Chiaro
-                    </Chip>
-                    <Chip on={t.dark} onClick={() => u(x => void (x.dark = true))}>
-                        Scuro
-                    </Chip>
-                </div>
-            </div>
-            <div className={s.blk}>
-                <h4>Carattere</h4>
-                <div className={s.chips}>
-                    {FONT_QUICK.map(f => (
-                        <Chip key={f} on={t.font === f} onClick={() => u(x => void (x.font = f))} style={{ fontFamily: FONTS[f].css }}>
-                            {FONTS[f].name}
-                        </Chip>
-                    ))}
-                    {!FONT_QUICK.includes(t.font) && (
-                        <Chip on onClick={() => undefined} style={{ fontFamily: FONTS[t.font].css }}>
-                            {FONTS[t.font].name}
-                        </Chip>
-                    )}
-                    <span className={s.hint}>e altri sei nell'editor</span>
-                </div>
-            </div>
-            <div className={s.blk}>
-                <h4>I piatti</h4>
-                <div className={s.chips}>
-                    {(Object.keys(CARDS) as CardKey[]).map(k => (
-                        <Chip key={k} on={t.card === k} onClick={() => u(x => void (x.card = k))}>
-                            {CARDS[k]}
-                        </Chip>
-                    ))}
-                </div>
-            </div>
-            {!t.edit && <p className={s.hint}>Dopo «Metti in onda» si arriva sulla pagina dello stile, con l'editor intero: header, navigazione delle sezioni, in evidenza, prodotti, tipografia, versioni.</p>}
         </>
     );
 }
@@ -570,9 +513,12 @@ export function Controlla({
     L,
     effect,
     styleName,
+    seen,
     onGo,
     onInsieme
 }: {
+    /** Lo stile in modifica: le sedi che vedono subito quello che si salva. */
+    seen?: string | null;
     t: Tunnel;
     c: Ctx;
     L: DraftLookups;
@@ -619,7 +565,8 @@ export function Controlla({
                         })}
                     </dl>
                 </div>
-                {t.kind === "stile" && changed(t, "aspetto") && <p className={s.hint}>I clienti vedono l'aspetto nuovo appena salvi, ovunque questo stile è in onda. Quello di prima resta nelle versioni dello stile.</p>}
+                {t.kind === "stile" && changed(t, "aspetto") && <p className={s.hint}>{seen ?? "I clienti vedono l'aspetto nuovo appena salvi, ovunque questo stile è in onda. Quello di prima resta nelle versioni dello stile."}</p>}
+                {t.kind === "stile" && changed(t, "aspetto") && hidFeatured(t.look) && <p className={s.hint}>Questo stile nascondeva titolo, descrizione o pulsante dei contenuti in evidenza: salvando tornano visibili. Se un contenuto non deve averli, si tolgono dal contenuto.</p>}
                 {inCal && (
                     <div className={s.blk}>
                         <h4>Cosa cambia nel calendario</h4>

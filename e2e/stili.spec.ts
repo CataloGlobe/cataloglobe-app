@@ -154,11 +154,11 @@ test.describe("Stili — elenco", () => {
         expect(order).toEqual(["Estate e2e", "Notte e2e", "Sera e2e", "Stile base e2e"]);
     });
 
-    test("lista: versione e uso, la riga apre l'editor", async ({ page }) => {
+    test("lista: versione e uso, la riga apre il tunnel di modifica", async ({ page }) => {
         await openList(page, "list");
         await expect(main(page).getByText("Versione 3")).toBeVisible();
         await styleName(page, "Sera e2e").click();
-        await expect(page).toHaveURL(new RegExp(`/styles/${STYLE.sera}$`));
+        await expect(page).toHaveURL(new RegExp(`/crea/stile/${STYLE.sera}\\?da=stili$`));
     });
 
     test("griglia/lista si ricorda la scelta", async ({ page }) => {
@@ -261,18 +261,26 @@ test.describe("Stili — elenco ricomposto (P2)", () => {
 
     test("la card è un link allo stile; di sistema lo dice a parole", async ({ page }) => {
         await openList(page, "grid");
-        await expect(main(page).getByRole("link", { name: "Estate e2e" })).toHaveAttribute("href", new RegExp(`/styles/${STYLE.estate}$`));
+        await expect(main(page).getByRole("link", { name: "Estate e2e" })).toHaveAttribute("href", new RegExp(`/crea/stile/${STYLE.estate}\\?da=stili$`));
         // ST3: testo davanti all'uso, non più una pillola.
         await expect(main(page).getByText(/^Di sistema · /)).toBeVisible();
     });
 
-    test("chi non scrive: il «⋯» apre, non modifica", async ({ page }) => {
+    test("chi non scrive: il «⋯» apre lo stile da guardare, spento", async ({ page }) => {
         await stub.revoke("styles.write");
         await openList(page);
         await stub.revoked;
         await actionsOf(styleName(page, "Sera e2e")).click();
         await page.getByRole("menuitem", { name: "Apri" }).click();
-        await expect(page).toHaveURL(new RegExp(`/styles/${STYLE.sera}$`));
+        await expect(page).toHaveURL(new RegExp(`/crea/stile/${STYLE.sera}\\?da=stili$`));
+        // lo guarda com'è, spento: le stesse parti del tunnel e la pagina vera nel telefono
+        await expect(main(page).getByText(/Puoi guardare questo stile, non cambiarlo/)).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "Sottolineata" })).toBeDisabled();
+        await expect(main(page).getByRole("switch", { name: "Il logo" })).toBeDisabled();
+        await expect(main(page).getByRole("button", { name: "Versioni di prima" })).toHaveCount(0);
+        await expect(page.getByLabel("Così lo vede il cliente").getByText("Happy Hour Estivo").first()).toBeVisible();
+        await main(page).getByRole("button", { name: "Torna agli stili" }).click();
+        await expect(page).toHaveURL(/\/styles$/);
     });
 
     test("eliminare uno stile non usato è una conferma, non un drawer", async ({ page }) => {

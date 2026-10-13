@@ -977,6 +977,16 @@ select.in {
 .rside.cal .qcard {
     width: auto;
 }
+// sotto il telefono dello stile: l'aspetto di prima, per confronto
+.cmpb {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--on-brand-soft) !important;
+    font-weight: 600;
+    cursor: pointer;
+    @include cal.fs(small);
+}
 .phoneBox {
     flex: none;
     > * {

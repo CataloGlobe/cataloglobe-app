@@ -24,7 +24,7 @@ import { styleConfig } from "./creaStyle";
 import type { SaveCtx, Saved } from "./creaSave";
 import type { CreaData } from "./useCreaData";
 
-export type EditCtx = Pick<SaveCtx, "tenantId" | "L" | "baseTokens" | "blockFiles" | "done"> & { names: CreaData["names"] };
+export type EditCtx = Pick<SaveCtx, "tenantId" | "L" | "blockFiles" | "done"> & { names: CreaData["names"] };
 
 async function saveContenuto(t: Tunnel, orig: Tunnel, tenantId: string) {
     const id = t.edit!.id, name = thingName(t);
@@ -131,7 +131,7 @@ export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {
         if (changed(t, "sezioni")) await saveSezioni(t.sections, orig.sections, id, c.tenantId, doneOnce(c));
     } else if (t.kind === "stile") {
         // i colori e i caratteri fanno una versione nuova dello stile; il solo nome no
-        if (changed(t, "nome") || changed(t, "aspetto")) await updateStyle(id, changed(t, "nome") ? name : undefined, changed(t, "aspetto") ? styleConfig(t, c.baseTokens) : undefined, c.tenantId);
+        if (changed(t, "nome") || changed(t, "aspetto")) await updateStyle(id, changed(t, "nome") ? name : undefined, changed(t, "aspetto") ? styleConfig(t) : undefined, c.tenantId);
     } else if (t.kind === "evid") {
         if (changed(t, "contenuto")) await saveContenuto(t, orig, c.tenantId);
         if (changed(t, "piatti")) await savePiatti(t, c.tenantId);

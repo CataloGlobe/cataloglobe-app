@@ -11,13 +11,14 @@
 // le sedi o in una, sempre. Quelle parti ci sono già, spente.
 import type { StoryBlock } from "@/services/supabase/stories";
 import type { FeaturedContentType } from "@/services/supabase/featuredContents";
-import type { FontFamily } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import { DEFAULT_STYLE_TOKENS, type FontFamily, type StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { DB_LATER, NEW_MODEL, daysLong, elides, listIt, mShort, perGroups, perText, whereFor, whereText, type Draft, type DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { durLabel, hhmm, type CalWhen, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { AiMenuCategory } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyzeMenu";
 import { computeProductMatch } from "@/utils/importMatching";
 import { adopt, allDishes, badFormat, clash, total } from "./menuTree";
+import { LIGHT_BG, lookKey, lum, sameHex } from "./stileLook";
 
 export type CreaKind = "menu" | "stile" | "evid" | "storia";
 export const CREA_KINDS: readonly CreaKind[] = ["menu", "stile", "evid", "storia"];
@@ -44,7 +45,7 @@ export const EV: Record<EvType, { name: string; desc: string; type: FeaturedCont
     bundle: { name: "Bundle", desc: "Più piatti insieme a un prezzo unico.", type: "bundle", ex: ["Menù degustazione", "Cinque portate, solo a cena."] }
 };
 
-/** I colori veloci dell'aspetto; gli altri nell'editor dello stile. */
+/** I colori pronti dell'aspetto; gli altri nella tavolozza. */
 export const COLORS: readonly [string, string][] = [
     ["#be123c", "Rosso"],
     ["#5f7a61", "Salvia"],
@@ -53,7 +54,7 @@ export const COLORS: readonly [string, string][] = [
     ["#b45309", "Ambra"],
     ["#0f172a", "Notte"]
 ];
-/** I nove caratteri dell'editor; nell'aspetto se ne vedono tre, gli altri nell'editor. */
+/** I nove caratteri dello stile. */
 export const FONTS: Record<FontFamily, { name: string; css: string }> = {
     inter: { name: "Inter", css: '"Inter", system-ui, sans-serif' },
     poppins: { name: "Poppins", css: '"Poppins", system-ui, sans-serif' },
@@ -65,9 +66,6 @@ export const FONTS: Record<FontFamily, { name: string; css: string }> = {
     "eb-garamond": { name: "EB Garamond", css: '"EB Garamond", Georgia, serif' },
     "patrick-hand": { name: "Patrick Hand", css: '"Patrick Hand", "Segoe Print", cursive' }
 };
-export const FONT_QUICK: readonly FontFamily[] = ["inter", "lora", "patrick-hand"];
-export type CardKey = "foto" | "lista" | "compatti";
-export const CARDS: Record<CardKey, string> = { foto: "Card con la foto", lista: "Card senza foto", compatti: "Compatti" };
 
 export type Dish = {
     key: string;
@@ -146,10 +144,8 @@ export type Tunnel = {
     // lo stile
     base: "zero" | "copy";
     baseStyleId: string | null;
-    color: string | null;
-    dark: boolean;
-    font: FontFamily;
-    card: CardKey;
+    /** L'aspetto intero (D186): tutte le scelte dello stile, come nell'editor. */
+    look: StyleTokenModel;
     // in evidenza
     evType: EvType | null;
     title: string;
@@ -203,10 +199,7 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         sections: [],
         base: "zero",
         baseStyleId: null,
-        color: null,
-        dark: false,
-        font: "inter",
-        card: "foto",
+        look: structuredClone(DEFAULT_STYLE_TOKENS),
         evType: null,
         title: "",
         sub: "",
@@ -349,7 +342,7 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
             if (!t.name.trim()) return "Manca il nome dello stile";
             return t.base === "copy" && !t.baseStyleId ? "Scegli lo stile da cui partire" : "";
         case "aspetto":
-            return t.color ? "" : "Scegli un colore";
+            return "";
         case "cosa":
             return t.evType ? "" : "Scegli cosa mettere in evidenza";
         case "contenuto":
@@ -489,7 +482,7 @@ function partOf(t: Tunnel, s: StepId): unknown {
         case "sezioni":
             return secPart(t.sections);
         case "aspetto":
-            return [t.color, t.dark, t.font, t.card];
+            return lookKey(t.look);
         case "contenuto":
             return [t.title.trim(), t.sub.trim(), t.inner.trim(), t.text.trim(), !!t.image, t.imageUrl, t.cta && [t.ctaText.trim(), t.ctaLink.trim()], t.slot];
         case "piatti":
@@ -616,10 +609,10 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
             return t.name.trim() + (t.base === "copy" && t.baseStyleId ? ` · copia di ${styleName(t.baseStyleId)}` : "");
         case "aspetto":
             return [
-                COLORS.find(c => c[0] === t.color)?.[1] ?? t.color ?? "—",
-                "sfondo " + (t.dark ? "scuro" : "chiaro"),
-                FONTS[t.font].name,
-                CARDS[t.card].toLowerCase()
+                COLORS.find(c => sameHex(c[0], t.look.colors.primary))?.[1] ?? "un tuo colore",
+                "sfondo " + (sameHex(t.look.colors.pageBackground, LIGHT_BG) ? "bianco" : lum(t.look.colors.pageBackground) < 0.35 ? "scuro" : "chiaro"),
+                FONTS[t.look.typography.fontFamily].name,
+                t.look.card.productStyle === "compact" ? "piatti in elenco" : "piatti a riquadri"
             ].join(" · ");
         case "cosa":
             return t.evType ? EV[t.evType].name : "—";

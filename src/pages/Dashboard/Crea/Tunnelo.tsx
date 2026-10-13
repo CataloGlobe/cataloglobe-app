@@ -18,17 +18,20 @@ import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/Setti
 import type { Draft, Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { NO_IMPATTO, dropAside, scontriWait, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { rebase, KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { rebase, FONTS, KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
 import { loadTunnel } from "./creaLoad";
 import { entriesOf, type Loaded } from "./creaLoad";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { aspectOf, sampleOf, styleTokens, tokensOf, useFonts } from "./creaStyle";
+import { sampleOf, styleTokens, tokensOf, useFonts, useStyleSeen } from "./creaStyle";
+import { StileAspetto } from "./StileAspetto";
+import { StilePhone } from "./StilePhone";
+import { lookKey } from "./stileLook";
 import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
 import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
-import { Adesso, Controlla, DoveQuando, Modifica, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuTipo, Quando, Serve, StileAspetto, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { Adesso, Controlla, DoveQuando, Modifica, EvidContenuto, EvidCosa, EvidPiatti, MenuParti, MenuTipo, Quando, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -50,11 +53,23 @@ function useObjectUrl(f: File | null) {
     return url;
 }
 
+import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import type { V2Style } from "@/services/supabase/styles";
+
+/** Il tunnel di creazione già su «Parti da questo stile». */
+function fromSystem(t: Tunnel, st: V2Style | undefined): Tunnel {
+    return st ? { ...t, base: "copy", baseStyleId: st.id, look: structuredClone(tokensOf(st)) } : t;
+}
+
+const FONT_ALL = Object.keys(FONTS) as FontFamily[];
+
 export type TunnelProps = {
     kind: CreaKind;
     aside: Pick<Draft, "when" | "where"> | null;
     /** La cosa già creata che si modifica (D140), letta dal database. */
     edit?: Loaded | null;
+    /** Uno stile di CataloGlobe non si modifica: si parte da lui per farne uno proprio (D186, 4A). */
+    fromStyle?: string | null;
     data: CreaData;
     tenantId: string;
     owner: boolean;
@@ -69,11 +84,11 @@ export type TunnelProps = {
 /** Il menù appena messo in onda, con «E adesso?» e quello che ci si è aggiunto. */
 type After = { t: Tunnel; saved: Saved; kids: CreaKind[] };
 
-export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, business, reload, navigate, showToast, b }: TunnelProps) {
+export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, origin, business, reload, navigate, showToast, b }: TunnelProps) {
     const L = data.L;
     const { ensureActive } = useEnsureActive();
     const allWhere = { all: true, activityIds: [], groupIds: [] };
-    const [t, setT] = useState<Tunnel>(() => (edit ? edit.t : aside ? withAside(newTunnel(kind, allWhere), aside) : newTunnel(kind, allWhere)));
+    const [t, setT] = useState<Tunnel>(() => (edit ? edit.t : aside ? withAside(newTunnel(kind, allWhere), aside) : fromSystem(newTunnel(kind, allWhere), data.styles.find(x => x.id === fromStyle))));
     const [after, setAfter] = useState<After | null>(null);
     /** «E adesso?» aperto (dopo il menù), o un tunnel aperto da lì. */
     const showAfter = !!after && t === after.t;
@@ -149,19 +164,24 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
     const styleById = useMemo(() => new Map(data.styles.map(x => [x.id, x])), [data.styles]);
     const liveStyle = styleById.get(data.base?.styleId ?? data.systemStyleId ?? "") ?? data.styles[0] ?? null;
     const baseStyle = t.edit ? edit?.style ?? null : t.kind === "stile" && t.base === "copy" && t.baseStyleId ? styleById.get(t.baseStyleId) ?? null : null;
-    const baseTokens = useMemo(() => (t.kind === "stile" ? tokensOf(baseStyle) : tokensOf(liveStyle)), [t.kind, baseStyle, liveStyle]);
-    const tk = useMemo(() => (t.kind === "stile" && (i > 0 || t.edit) ? styleTokens(t, baseTokens) : t.kind === "stile" ? tokensOf(liveStyle) : baseTokens), [t, i, baseTokens, liveStyle]);
-    useFonts(step === "aspetto" ? ["lora", "patrick-hand", tk.typography.fontFamily] : [tk.typography.fontFamily]);
+    const liveTokens = useMemo(() => tokensOf(liveStyle), [liveStyle]);
+    const tk = t.kind === "stile" && (i > 0 || t.edit) ? styleTokens(t) : liveTokens;
+    useFonts(step === "aspetto" ? FONT_ALL : [tk.typography.fontFamily]);
 
-    // scegliere lo stile di partenza riporta le quattro scelte a com'erano lì
+    // nel passo dell'aspetto il telefono è la pagina vera; «com'era prima» vale finché non si tocca altro
+    const realPhone = t.kind === "stile" && step === "aspetto" && !showAfter;
+    const was = t.edit?.orig.look ?? null;
+    const seen = useStyleSeen(t.kind === "stile" && t.edit ? t.edit.id : null, tenantId);
+    const [peek, setPeek] = useState<{ key: string; look: StyleTokenModel; label: string } | null>(null);
+    const peeking = peek && peek.key === lookKey(t.look) ? peek : null;
+    const onPeek = (look: StyleTokenModel | null, label = "") => setPeek(look ? { key: lookKey(t.look), look, label } : null);
+
+    // scegliere lo stile di partenza riporta tutto l'aspetto a com'è lì
     const onBase = (id: string | null) =>
         u(x => {
             x.base = id ? "copy" : "zero";
             x.baseStyleId = id;
-            const a = aspectOf(tokensOf(id ? styleById.get(id) : null));
-            x.dark = a.dark;
-            x.font = a.font;
-            x.card = a.card;
+            x.look = structuredClone(tokensOf(id ? styleById.get(id) : null));
         });
 
     /* ---------- il Calendario: la bozza, i nomi, le durate ---------- */
@@ -267,7 +287,8 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
     };
     const back = () => u(x => void (x.i = stepFrom(x, c, i, -1)));
 
-    const landing = (k: CreaKind, id: string) => `${b}/${PAGE_OF[k]}/${id}`;
+    // lo stile non ha una pagina sua: il suo editor è questo tunnel, e si torna all'elenco
+    const landing = (k: CreaKind, id: string) => (k === "stile" ? `${b}/${PAGE_OF[k]}` : `${b}/${PAGE_OF[k]}/${id}`);
 
     // i passi già riusciti di un salvataggio fallito a metà: «Riprova» riparte da lì
     const progress = useRef(new Map<string, unknown>());
@@ -285,7 +306,7 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
         setSaving(true);
         try {
             if (t.edit) {
-                await saveEdit(t, { tenantId, L, names: data.names, baseTokens, blockFiles, done: progress.current });
+                await saveEdit(t, { tenantId, L, names: data.names, blockFiles, done: progress.current });
                 progress.current = new Map();
                 void reload();
                 setLeave(false);
@@ -293,7 +314,7 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
                 setGoing(origin.to);
                 return true;
             }
-            const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, baseTokens, blockFiles, done: progress.current });
+            const saved = await saveTunnel(t, { tenantId, L, live: live && owner, pair, blockFiles, done: progress.current });
             progress.current = new Map();
             const n = saved.name;
             const pub = t.kind === "menu" || t.kind === "stile" ? "in onda" : t.kind === "storia" ? "pubblicata" : "pubblicato";
@@ -402,7 +423,7 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
                 body = <StileNome t={t} u={u} styles={data.styles} onBase={onBase} />;
                 break;
             case "aspetto":
-                body = <StileAspetto t={t} u={u} />;
+                body = <StileAspetto t={t} u={u} tenantId={tenantId} rules={t.edit ? styleById.get(t.edit.id)?.usage_count ?? 0 : 0} onPeek={onPeek} seen={seen} />;
                 break;
             case "cosa":
                 body = <EvidCosa t={t} u={u} />;
@@ -445,7 +466,7 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
                 break;
             }
             default:
-                body = <Controlla t={t} c={c} L={L} effect={effect} styleName={styleName} onGo={n => go(n)} onInsieme={v => u(x => void (x.insieme = v))} />;
+                body = <Controlla t={t} c={c} L={L} seen={seen} effect={effect} styleName={styleName} onGo={n => go(n)} onInsieme={v => u(x => void (x.insieme = v))} />;
         }
 
     /* ---------- a destra ---------- */
@@ -479,8 +500,18 @@ export function Tunnelo({ kind, aside, edit, data, tenantId, owner, origin, busi
                 <p>{qp}</p>
             </div>
             <div className={s.phoneBox} ref={boxRef} style={fit.boxStyle}>
-                <CreaPhone t={phoneT} step={showAfter ? "controlla" : step} tk={tk} business={business} menus={menus} sample={sample} L={L} imageUrl={imageUrl} coverUrl={coverUrl} />
+                {realPhone ? <StilePhone look={peeking?.look ?? tk} business={business} menu={menus[0] ?? ""} /> : <CreaPhone t={phoneT} step={showAfter ? "controlla" : step} tk={tk} business={business} menus={menus} sample={sample} L={L} imageUrl={imageUrl} coverUrl={coverUrl} />}
             </div>
+            {realPhone && peeking && (
+                <button type="button" className={s.cmpb} aria-pressed onClick={() => onPeek(null)}>
+                    {peeking.label}: torna alle tue modifiche
+                </button>
+            )}
+            {realPhone && !peeking && was && lookKey(was) !== lookKey(t.look) && (
+                <button type="button" className={s.cmpb} aria-pressed={false} onClick={() => onPeek(was, "Com'era prima")}>
+                    Guarda com'era prima
+                </button>
+            )}
         </aside>
     );
 

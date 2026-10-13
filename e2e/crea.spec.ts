@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPageByUrl } from "./business";
-import { MENU, PRODUCT, SEDE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { MENU, PRODUCT, SEDE, STYLE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 import { StubError, type Row } from "./restStub";
 
 /**
@@ -538,7 +538,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         stub = await stubProgrammazione(page);
     });
 
-    test("stile: quattro scelte, la bozza ha i token giusti e si atterra sull'editor", async ({ page }) => {
+    test("stile: le sei parti dell'aspetto, la bozza ha i token giusti e si torna all'elenco degli stili", async ({ page }) => {
         stub.onWrite("styles.POST", ({ body }) => ({ id: ID.style, ...first(body) }));
         stub.onWrite("style_versions.POST", ({ body }) => ({ id: ID.version, ...first(body) }));
         stub.onWrite("styles.PATCH", ({ body }) => ({ id: ID.style, name: "Natale", ...first(body) }));
@@ -546,19 +546,38 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await next(page);
         await main(page).getByLabel("Nome dello stile").fill("Natale");
         await next(page);
-        await expect(button(page, "Avanti")).toBeDisabled();
+        // l'aspetto va già bene com'è: si può andare avanti senza toccare niente
+        await expect(button(page, "Avanti")).toBeEnabled();
+        // nel telefono c'è la pagina vera del cliente, la stessa dell'editor dello stile
+        await expect(page.getByLabel("Così lo vede il cliente").getByText("Happy Hour Estivo").first()).toBeVisible();
         await button(page, "Rosso").click();
         await button(page, "Scuro").click();
         await button(page, "Lora").click();
-        await button(page, "Compatti").click();
+        await button(page, "Una riga di un elenco").click();
+        // la scelta che compare solo quando serve
+        await button(page, "I puntini, come sulla carta").click();
+        await button(page, "Sottolineata").click();
+        // la tavolozza è un fumetto sul pulsante: si chiude scegliendo
+        const second = main(page).getByRole("group", { name: "Secondo colore" });
+        await second.getByRole("button", { name: "Un altro colore" }).click();
+        const pal = page.getByRole("dialog", { name: "Secondo colore" });
+        // dieci tinte per cinque toni, il colore del logo, i due già usati e «Altri colori…»
+        await expect(pal.getByText("Dal tuo logo")).toBeVisible();
+        await expect(pal.getByRole("button")).toHaveCount(50 + 1 + 2 + 1);
+        await pal.getByRole("button").nth(12).click();
+        await expect(pal).toHaveCount(0);
+        await expect(second.getByRole("button", { name: "Un tuo colore" })).toBeVisible();
         await button(page, "Tieni come bozza").click();
-        await expect(page).toHaveURL(new RegExp(`/styles/${ID.style}$`), { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
         expect(bodyOf(stub, "styles.POST")).toMatchObject({ name: "Natale", is_system: false });
         const config = JSON.stringify(bodyOf(stub, "style_versions.POST").config);
         expect(config).toContain("#be123c");
         expect(config).toContain("#0F172A");
         expect(config).toContain("lora");
         expect(config).toContain("compact");
+        expect(config).toContain("editorial");
+        expect(config).toContain("tabs");
+        expect(config).toContain("accent");
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
     });
 
@@ -672,5 +691,53 @@ test.describe("Tunnel di creazione — misure", () => {
         await expect(button(page, "Avanti")).toBeEnabled();
         const side = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(side).toBeLessThanOrEqual(0);
+    });
+});
+
+test.describe("Tunnel dello stile: modificare (D186)", () => {
+    const OWN = "e2e51700-0000-4000-a000-000000000001";
+    const ver = (n: number, primary: string, created_at: string) => ({ id: `e2e51700-0000-4000-a000-00000000001${n}`, tenant_id: TENANT_ID, style_id: OWN, version: n, config: { colors: { primary } }, created_at });
+
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+    });
+
+    test("uno stile di CataloGlobe non si modifica: si apre la creazione già su «Parti da questo stile»", async ({ page }) => {
+        await openBusinessPageByUrl(page, `crea/stile/${STYLE.base}?da=stili`);
+        await expect(main(page).getByRole("heading", { level: 2, name: "Nuovo stile" })).toBeVisible({ timeout: 20_000 });
+        await next(page);
+        await expect(button(page, "Stile base e2e")).toHaveAttribute("aria-pressed", "true");
+    });
+
+    test("le versioni di prima: si guardano nel telefono e ci si torna, senza salvare finché non lo dici", async ({ page }) => {
+        await page.route(/\/rest\/v1\/styles\?.*id=eq\.e2e51700/, route =>
+            route.request().method() === "GET" ? route.fulfill({ json: { id: OWN, tenant_id: TENANT_ID, name: "Sera", is_system: false, is_active: true, current_version: ver(2, "#be123c", "2026-10-03T10:00:00Z") } }) : route.fallback()
+        );
+        await page.route(/\/rest\/v1\/style_versions\?/, route => (route.request().method() === "GET" ? route.fulfill({ json: [ver(2, "#be123c", "2026-10-03T10:00:00Z"), ver(1, "#1d4ed8", "2026-09-18T10:00:00Z")] }) : route.fallback()));
+        stub.onWrite("style_versions.POST", ({ body }) => ({ id: ID.version, ...first(body) }));
+        stub.onWrite("styles.PATCH", ({ body }) => ({ id: OWN, ...first(body) }));
+        await openBusinessPageByUrl(page, `crea/stile/${OWN}?da=stili`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await main(page).getByRole("checkbox", { name: /^L'aspetto/ }).click();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "L'aspetto" })).toBeVisible();
+        await expect(button(page, "Rosso")).toHaveAttribute("aria-pressed", "true");
+        // niente di cambiato: niente «Torna com'era», niente confronto
+        await expect(button(page, "Torna com'era")).toHaveCount(0);
+        await button(page, "Versioni di prima").click();
+        const vers = main(page).getByRole("region", { name: "Versioni di prima" });
+        await expect(vers.getByText("3 ottobre 2026")).toBeVisible();
+        await expect(vers.getByText(/la prima · diversi: colori e forme/)).toBeVisible();
+        await vers.getByRole("button", { name: "Guarda" }).click();
+        const side = page.getByLabel("Così lo vede il cliente");
+        await side.getByRole("button", { name: /Versione del 18 settembre 2026: torna alle tue modifiche/ }).click();
+        await vers.getByRole("button", { name: "Torna a questa" }).click();
+        await expect(button(page, "Blu")).toHaveAttribute("aria-pressed", "true");
+        await expect(button(page, "Torna com'era")).toHaveCount(1);
+        await expect(side.getByRole("button", { name: "Guarda com'era prima" })).toBeVisible();
+        expect(writesOf(stub, "style_versions.POST")).toHaveLength(0);
+        // una parte sola torna com'era
+        await button(page, "Torna com'era").click();
+        await expect(button(page, "Rosso")).toHaveAttribute("aria-pressed", "true");
     });
 });

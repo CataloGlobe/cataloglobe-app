@@ -43,7 +43,6 @@ import { listLayoutRules } from "@/services/supabase/layoutScheduling";
 import { createFeaturedContent, updateFeaturedContent } from "@/services/supabase/featuredContents";
 import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase/featuredScheduling";
 import { createStory, updateStory } from "@/services/supabase/stories";
-import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { newTunnel } from "@/pages/Dashboard/Crea/creaModel";
 import { saveTunnel, type SaveCtx } from "@/pages/Dashboard/Crea/creaSave";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
@@ -53,7 +52,7 @@ import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calend
 
 const ALL = { all: true, activityIds: [], groupIds: [] };
 const L: DraftLookups = { products: new Map(), catalogs: new Map(), styles: new Map(), featured: new Map(), sedi: new Map(), groups: new Map(), multi: false };
-const ctx = (o: Partial<SaveCtx> = {}): SaveCtx => ({ tenantId: "t1", L, live: false, pair: null, baseTokens: DEFAULT_STYLE_TOKENS, blockFiles: {}, done: new Map(), ...o });
+const ctx = (o: Partial<SaveCtx> = {}): SaveCtx => ({ tenantId: "t1", L, live: false, pair: null, blockFiles: {}, done: new Map(), ...o });
 
 beforeEach(() => vi.resetAllMocks());
 

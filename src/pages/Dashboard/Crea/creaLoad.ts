@@ -8,7 +8,7 @@ import { getStory } from "@/services/supabase/stories";
 import { getStyle, type V2Style } from "@/services/supabase/styles";
 import { entriesFromRules, whenOfRule, whereOfRule, type CalEntry } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { EV, asEdit, cloneWhen, key, newTunnel, type CreaKind, type EvType, type Section, type Tunnel } from "./creaModel";
-import { aspectOf, tokensOf } from "./creaStyle";
+import { tokensOf } from "./creaStyle";
 import type { CreaData } from "./useCreaData";
 
 const ALL = { all: true, activityIds: [], groupIds: [] };
@@ -62,8 +62,7 @@ async function loadStile(t: Tunnel, id: string, tenantId: string): Promise<V2Sty
     t.name = st.name;
     t.base = "copy";
     t.baseStyleId = id;
-    t.color = tk.colors.primary;
-    Object.assign(t, aspectOf(tk));
+    t.look = structuredClone(tk);
     return st;
 }
 

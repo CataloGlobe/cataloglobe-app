@@ -9,6 +9,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { usePermissions } from "@/context/usePermissions";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { canDoOnAnyActivity, canDoOnTenant, isTenantWide } from "@/lib/permissions";
 import { peekAside } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
@@ -16,6 +17,7 @@ import { asInside, type CreaKind } from "./creaModel";
 import { CAL_KIND } from "./creaSave";
 import { useCreaData } from "./useCreaData";
 import { Tunnelo } from "./Tunnelo";
+import { StileGuarda } from "./StileGuarda";
 import { loadTunnel, SystemStyleError, type Loaded } from "./creaLoad";
 
 /** La pagina da cui si arriva a modificare, se `?da=` non lo dice. */
@@ -42,6 +44,7 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
     const { showToast } = useToast();
     const { selectedTenant } = useTenant();
     const { permissions } = usePermissions();
+    const { canEdit } = useSubscriptionGuard();
     const { data, failed, reload } = useCreaData(tenantId);
     const b = `/business/${tenantId}`;
 
@@ -89,15 +92,21 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
             />
         );
     if (!data || !tenantId) return <Skeleton height={420} />;
+    // chi non può modificare uno stile lo guarda: le stesse parti e lo stesso telefono, spenti.
+    // Così anche con l'abbonamento fermo: si guarda, e non si arriva a un Salva che si ferma.
+    const paused = !!selectedTenant && !canEdit;
+    const look = (!canWrite || paused) && kind === "stile" && editId ? data.styles.find(x => x.id === editId) : null;
+    if (look) return <StileGuarda style={look} tenantId={tenantId} business={selectedTenant?.name ?? ""} menu="" why={canWrite ? "abbonamento" : "permesso"} back={() => navigate(`${b}/${path}`)} />;
     if (!canWrite) return <EmptyState title={editId ? "Non puoi modificarlo" : "Non puoi crearlo"} description={`Per ${editId ? "modificare" : "creare"} ${UN[kind]} serve il permesso di modifica. Chiedilo al proprietario.`} />;
-    if (editId && loaded === "system") return <EmptyState title="Lo stile di CataloGlobe non si modifica" description="Fanne una copia da Stili, e modifica quella." />;
     if (editId && loaded === "failed") return <EmptyState title="Non si è aperto" description="Non siamo riusciti a leggerlo: forse non c'è più. Torna all'elenco e riprova." />;
     if (editId && !loaded) return <Skeleton height={420} />;
     return (
         <Tunnelo
             kind={kind}
             aside={aside}
-            edit={editId ? (loaded as Loaded) : null}
+            // uno stile di CataloGlobe non si modifica: se ne fa uno proprio partendo da lui (D186, 4A)
+            edit={editId && loaded !== "system" ? (loaded as Loaded) : null}
+            fromStyle={loaded === "system" ? editId : null}
             data={data}
             tenantId={tenantId}
             owner={owner}
