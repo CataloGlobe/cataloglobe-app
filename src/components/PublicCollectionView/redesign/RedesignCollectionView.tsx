@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import Island from "./island/Island";
 import BottomBar from "./bar/BottomBar";
@@ -14,6 +14,8 @@ import type { BookingConfig } from "./booking/bookingForm";
 import AddedNotice from "./order/AddedNotice";
 import { showAdded } from "./order/addedNoticeStore";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
+import type { MenuSource } from "./menus/menuSource";
+import { useMenuChoice } from "./menus/useMenuChoice";
 
 /**
  * Radice del redesign della pagina pubblica, scelta da `PublicCatalogReady`
@@ -104,9 +106,26 @@ const baseSheetsSlot: Omit<SheetsSlot, "render"> = {
 
 export default function RedesignCollectionView({
     booking = null,
+    menus,
     ...props
-}: ComponentProps<typeof CollectionView> & { booking?: BookingConfig | null }) {
+}: ComponentProps<typeof CollectionView> & { booking?: BookingConfig | null; menus?: MenuSource }) {
     const preferences = usePreferences();
+    // «Scegli il menu» (spec §12): il menu scelto cambia solo le props del catalogo;
+    // `CollectionView` non si rimonta, così il carrello (suo stato) resta.
+    const menuChoice = useMenuChoice(menus?.list, { preview: props.mode !== "public" });
+    const chosenCatalog = menuChoice.menu?.catalog;
+    const menuView = useMemo(
+        () => (chosenCatalog && menus ? menus.view(chosenCatalog) : null),
+        [chosenCatalog, menus]
+    );
+    const chosenId = menuChoice.menu?.catalogId;
+    const shownId = useRef(chosenId);
+    useEffect(() => {
+        if (shownId.current === chosenId) return;
+        shownId.current = chosenId;
+        // Menu nuovo: si parte dalla cima.
+        window.scrollTo(0, 0);
+    }, [chosenId]);
     useEffect(() => keepPreferencesFor(props.activityId), [props.activityId]);
     // Con la sede che prenota, «Prenota» apre i passi nel foglio invece della pagina /prenota.
     const sheetsSlot = useMemo<SheetsSlot>(
@@ -133,6 +152,7 @@ export default function RedesignCollectionView({
     return (
         <CollectionView
             {...props}
+            {...menuView}
             headerSlot={renderIsland}
             bottomBarSlot={renderBottomBar}
             sheetsSlot={sheetsSlot}
