@@ -1,4 +1,4 @@
--- 20261013180000_drop_status_incidents_anon_read.sql
+-- 20261013180100_drop_status_incidents_anon_read.sql
 --
 -- Seguito di 20261013170000_drop_legacy_status_page.sql. La pagina /status
 -- legge gli incidenti da GET /api/status (api/status/index.ts) col service
