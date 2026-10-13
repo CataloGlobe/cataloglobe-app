@@ -8,9 +8,13 @@ $stage-wide-z: 0.955;
 // Telefono e programmazione di oggi (HeroStage.tsx).
 
 // ── Disposizione ────────────────────────────────────────────────────────────
-// Mobile e desktop stretto: linea orizzontale sopra il telefono (20 px d'aria).
+// Mobile: solo il telefono. Desktop stretto: linea orizzontale sopra il
+// telefono (20 px d'aria).
 // Da 1200: card verticale a sinistra del telefono, 24 px fra le due a vista
 // (il gap si divide per la scala, che lo rimpicciolirebbe).
+// Prospettiva unica per telefono e programmazione.
+$persp: 1400px;
+
 .stage {
     --stage-z: 1;
     display: flex;
@@ -60,11 +64,26 @@ $stage-overhead: 224;
 .scheduleTilt,
 .phoneTilt {
     transition: transform 700ms var(--ld-ease);
+
+    // La riga sotto cambia larghezza col testo: il telefono resta al centro.
+    @include mobile-only {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
 }
 
+// Stessa prospettiva del telefono (.phone3d): la stessa rotazione si legge uguale.
 .scheduleTilt {
+    perspective: $persp;
     width: 100%;
     max-width: 338px;
+
+    // Al telefono niente programmazione: non c'è spazio per farla leggere
+    // bene; il cambio di menù lo racconta il telefono (nome nella copertina).
+    @include mobile-only {
+        display: none;
+    }
 
     // Desktop stretto: la linea resta larga 338, più del telefono.
     @include desktop {
@@ -74,118 +93,168 @@ $stage-overhead: 224;
     @include hero-wide {
         width: auto;
         max-width: none;
-        // Un po' sopra il centro del telefono, come in tavola.
-        margin-bottom: 90px;
+        // Al centro del telefono, alla sua altezza.
+        margin-bottom: 0;
+    }
+}
+
+// Vetro scuro: lascia passare la luce dello sfondo, sfocata. Senza
+// backdrop-filter resta il fondo pieno di prima.
+@mixin sched-glass {
+    background: var(--ld-sched-bg);
+    border-color: rgba(255, 255, 255, 0.18);
+
+    @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+        background: linear-gradient(150deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03) 60%), rgba(24, 23, 44, 0.45);
+        -webkit-backdrop-filter: blur(16px) saturate(140%);
+        backdrop-filter: blur(16px) saturate(140%);
+    }
+}
+
+// Telefono e programmazione fluttuano con lo stesso ritmo.
+$float-ms: 7s;
+
+// Programmazione nello stesso spazio del telefono: stessa rotazione, vetro
+// scuro e la stessa fluttuazione, sfasata. Solo computer (al telefono è nascosta).
+.schedule3d {
+    transform-style: preserve-3d;
+    transform: rotateX(8deg) rotateY(-20deg) rotateZ(2deg);
+}
+
+@include motion-ok {
+    .schedule3d {
+        animation: ld-phone-float $float-ms ease-in-out -2.6s infinite;
+    }
+
+    .paused.schedule3d {
+        animation-play-state: paused;
     }
 }
 
 // ── Telefono ────────────────────────────────────────────────────────────────
-// Proporzione iPhone (1 : 2,05). Contenuto disegnato su 300 px di larghezza e
-// scalato sullo schermo: padding 3,4 % e raggio 15 % della larghezza.
-@mixin phone-size($w, $h) {
-    $pad: math.round($w * 0.034);
-    $radius: math.round($w * 0.15);
-    $scale: math.div($w - 2 * $pad, 300);
-    width: #{$w}px;
-    height: #{$h}px;
-    padding: #{$pad}px;
-    border-radius: #{$radius}px;
-
-    .screen {
-        border-radius: #{$radius - $pad}px;
-    }
-
-    .island {
-        top: #{$pad + 6}px;
-        height: #{math.min($pad * 2.2, 24)}px;
-    }
-
-    .content {
-        height: #{math.div($h - 2 * $pad, $scale)}px;
-        transform: scale($scale);
-    }
-}
-
+// Cornice e misure da kit/Phone (proporzione iPhone 1 : 2,05).
 .phone {
-    position: relative;
-    box-sizing: border-box;
-    background: var(--ld-hp-body);
-    box-shadow:
-        0 40px 90px rgba(0, 0, 0, 0.6),
-        inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
-    @include phone-size(220, 451);
+    --ph-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+    @include ld-phone(196);
 
     @include desktop {
-        @include phone-size(284, 582);
+        @include ld-phone(284);
     }
 }
 
-.island {
-    position: absolute;
-    left: 50%;
-    z-index: 9;
-    width: 32%;
-    border-radius: 14px;
-    background: var(--ld-hp-body);
-    transform: translateX(-50%);
+// Telefono di tre quarti che fluttua piano: girato nello spazio, con lo
+// spessore (.phoneEdge, dietro lo schermo) e l'ombra a terra che si stringe
+// quando sale. La parallasse su computer muove .phoneTilt, qui sotto.
+// Fermo fuori schermo e con prefers-reduced-motion.
+
+.phone3d {
+    @include ld-phone(196);
+    // Spessore della scocca, in proporzione alla larghezza (13 px al telefono, 19 su computer).
+    --ph-depth: calc(var(--ph-w) * 0.066);
+    position: relative;
+    perspective: $persp;
+
+    @include desktop {
+        @include ld-phone(284);
+    }
 }
 
-.screen {
+.phoneFloat {
     position: relative;
-    width: 100%;
+    transform-style: preserve-3d;
+    transform: rotateX(8deg) rotateY(-20deg) rotateZ(2deg);
+}
+
+// Spessore: tre strati della scocca dietro lo schermo (un terzo di
+// --ph-depth l'uno), dal metallo chiaro del bordo al retro scuro. Visti di
+// tre quarti fanno il fianco.
+.phoneEdge,
+.phoneEdge::before,
+.phoneEdge::after {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--ph-r);
+}
+
+.phoneEdge {
+    transform-style: preserve-3d;
+    background: linear-gradient(100deg, #4A4954, #26252E 18%, #1A1922 60%, #3A3944);
+    transform: translateZ(calc(var(--ph-depth) / -3));
+
+    &::before,
+    &::after {
+        content: "";
+    }
+
+    &::before {
+        background: linear-gradient(100deg, #3B3A45, #1C1B24 20%, #15141C 60%, #2E2D37);
+        transform: translateZ(calc(var(--ph-depth) / -3));
+    }
+
+    &::after {
+        background: #0C0B12;
+        transform: translateZ(calc(var(--ph-depth) / -1.5));
+        box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.6);
+    }
+}
+
+.phoneGround {
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: -26px;
+    height: 34px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(0, 0, 0, 0.45), transparent);
+    filter: blur(4px);
+}
+
+@include motion-ok {
+    .phoneFloat {
+        animation: ld-phone-float $float-ms ease-in-out infinite;
+    }
+
+    .phoneGround {
+        animation: ld-phone-ground $float-ms ease-in-out infinite;
+    }
+
+    .paused .phoneFloat,
+    .paused .phoneGround {
+        animation-play-state: paused;
+    }
+}
+
+@keyframes ld-phone-float {
+    0%,
+    100% {
+        translate: 0 4px;
+    }
+    50% {
+        translate: 0 -8px;
+    }
+}
+
+@keyframes ld-phone-ground {
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(0.86);
+        opacity: 0.65;
+    }
+}
+
+// Il menù del locale d'esempio, disegnato su 300 px.
+.content {
+    position: relative;
     height: 100%;
     overflow: hidden;
     background: var(--ld-hp-screen);
-}
-
-.content {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 300px;
-    overflow: hidden;
-    transform-origin: 0 0;
     font-family: var(--ld-font-sans);
     line-height: normal;
     color: var(--ld-hp-ink);
-}
-
-// Barra di stato sulla copertina: ora a sinistra, segnale e batteria a destra.
-.statusBar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    z-index: 3;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 34px;
-    box-sizing: border-box;
-    padding: 4px 24px 0 26px;
-    font-size: 13px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--ld-on-azione);
-}
-
-.sbTime {
-    transition: opacity 160ms;
-}
-
-.sbTimeOut {
-    opacity: 0;
-}
-
-.sbIcons {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-
-    svg {
-        width: auto;
-        height: 11px;
-    }
 }
 
 // Copertina: foto del locale (900×450), sotto il colore della vinaccia finché
@@ -302,7 +371,7 @@ $stage-overhead: 224;
     gap: 6px;
     font-size: 13px;
     font-weight: 600;
-    transition: color 300ms;
+    transition: color var(--ld-dur-swap) var(--ld-ease);
 }
 
 .itemDesc {
@@ -315,18 +384,26 @@ $stage-overhead: 224;
     color: var(--ld-hp-muted);
 }
 
+// Prezzo cambiato: il vecchio barrato sta sopra il nuovo, così la riga non
+// si allarga e la descrizione non si accorcia.
 .itemPrice {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
     font-size: 12.5px;
     font-weight: 700;
-    text-align: right;
+    line-height: 1.2;
     white-space: nowrap;
 }
 
 .itemOld {
-    margin-right: 4px;
     font-size: 10.5px;
     font-weight: 500;
     color: var(--ld-hp-old);
+}
+
+.itemValue {
+    transition: color var(--ld-dur-swap) var(--ld-ease);
 }
 
 .itemUp .itemValue {
@@ -357,8 +434,10 @@ $stage-overhead: 224;
     padding: 15px 16px 8px;
     border: 1px solid rgba(255, 255, 255, 0.13);
     border-radius: 18px;
-    background: var(--ld-sched-bg);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    @include sched-glass;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 24px 60px rgba(0, 0, 0, 0.45);
     line-height: normal;
     color: var(--ld-sched-text);
 
@@ -549,7 +628,7 @@ $tl-line-x: 57px;
     padding: 12px 16px 9px;
     border: 1px solid rgba(255, 255, 255, 0.13);
     border-radius: 14px;
-    background: var(--ld-sched-bg);
+    @include sched-glass;
     line-height: normal;
     color: var(--ld-sched-text);
 
@@ -733,22 +812,14 @@ $tl-line-x: 57px;
 
 // ── Animazioni ──────────────────────────────────────────────────────────────
 @include motion-ok {
-    // Cambio di fascia: il vecchio esce (160 ms), il nuovo è rimontato ed entra (240 ms).
-    .enter {
-        animation: ld-stage-in 240ms var(--ld-ease) backwards;
-    }
-
-    .leaving {
-        opacity: 0;
-        transform: translateY(-6px);
-        transition:
-            opacity 160ms ease,
-            transform 160ms ease;
-    }
-
-    // Prezzo cambiato: lampo blu + cerchio che si espande.
+    // Prezzo cambiato: lampo blu + cerchio che si espande, stessa durata.
     .itemUp {
-        animation: ld-stage-flash 900ms ease;
+        animation: ld-stage-flash var(--ld-dur-flash) var(--ld-ease);
+    }
+
+    // Il prezzo vecchio compare sopra quello nuovo.
+    .itemUp .itemOld {
+        animation: ld-stage-in var(--ld-dur-in) var(--ld-ease) backwards;
     }
 
     .itemUp::after,
@@ -764,7 +835,7 @@ $tl-line-x: 57px;
         border: 2px solid var(--ld-azione);
         border-radius: 50%;
         pointer-events: none;
-        animation: ld-stage-ring 800ms ease-out both;
+        animation: ld-stage-ring var(--ld-dur-flash) var(--ld-ease) both;
     }
 
     .itemOff::after {
@@ -772,7 +843,7 @@ $tl-line-x: 57px;
     }
 
     .badge {
-        animation: ld-stage-pop 240ms ease both;
+        animation: ld-stage-pop var(--ld-dur-in) var(--ld-ease) both;
     }
 
     // Modifica al volo in lista: si apre (0 → 50 px in 420 ms) con un lampo terracotta.
@@ -844,4 +915,72 @@ $tl-line-x: 57px;
     to {
         opacity: 0;
     }
+}
+
+// ── Riga sotto il telefono (mobile) ─────────────────────────────────────────
+// Un pallino per passo (viola le fasce, terracotta le modifiche al volo) e
+// cosa è appena successo: senza la programmazione accanto, dice che il
+// telefono si muove da solo.
+.phoneCaption {
+    display: none;
+
+    @include mobile-only {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+        min-height: 52px;
+        text-align: center;
+    }
+}
+
+.pcDots {
+    display: flex;
+    gap: 6px;
+}
+
+.pcDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--ld-sched-done);
+    transition:
+        width 300ms var(--ld-ease),
+        background-color 300ms ease;
+}
+
+.pcDotOn {
+    background: var(--ld-sched-line);
+}
+
+.pcDotLive.pcDotOn {
+    background: var(--ld-live);
+}
+
+.pcDotNow {
+    width: 18px;
+}
+
+// Frase vecchia e nuova si incrociano nello stesso posto (kit/Swap).
+.pcSwap {
+    justify-items: center;
+}
+
+.pcText {
+    max-width: 300px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--ld-sched-text);
+}
+
+// Testo sempre dello stesso colore; l'ora dice di che passo si tratta:
+// viola le fasce programmate, terracotta le modifiche al volo.
+.pcTime {
+    color: var(--ld-sched-line);
+}
+
+.pcTextLive .pcTime {
+    color: var(--ld-live-caption);
 }

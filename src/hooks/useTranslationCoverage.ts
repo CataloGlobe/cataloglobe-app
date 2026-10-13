@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+    earliestNextRunAt,
     getTranslationCoverage,
+    sumWaiting,
     type TranslationCoverage
 } from "@/services/supabase/tenantLanguages";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -11,6 +13,24 @@ import { useToast } from "@/context/Toast/ToastContext";
 const BASE_POLL_INTERVAL_MS = 15000;
 // Tetto del backoff esponenziale sugli errori (5 min).
 const MAX_BACKOFF_MS = 300000;
+// Con soli job in attesa (run_after futuro): un fetch poco dopo la prima
+// partenza invece del poll ogni 15 s per 10 minuti.
+const WAITING_GRACE_MS = 5000;
+// Tetto dell'attesa del fetch: poco oltre i 10 minuti dell'attesa server
+// (translation_debounce_interval), così un orologio storto non lo blocca.
+const MAX_WAITING_DELAY_MS = 11 * 60 * 1000;
+
+/**
+ * Delay del prossimo fetch quando non c'è lavoro in corso ma ci sono job in
+ * attesa: alla prima partenza più un margine, mai sotto il ritmo base né oltre
+ * il tetto. null se non c'è niente in attesa.
+ */
+export function waitingRefetchDelay(coverage: TranslationCoverage, now: number = Date.now()): number | null {
+    if (sumWaiting(coverage) === 0) return null;
+    const next = earliestNextRunAt(coverage);
+    const untilNext = next ? Date.parse(next) - now + WAITING_GRACE_MS : MAX_WAITING_DELAY_MS;
+    return Math.min(Math.max(untilNext, BASE_POLL_INTERVAL_MS), MAX_WAITING_DELAY_MS);
+}
 
 /** Somma pending su tutte le lingue (lavoro live in corso). */
 function sumPending(coverage: TranslationCoverage): number {
@@ -26,8 +46,10 @@ function sumFailed(coverage: TranslationCoverage): number {
  * Dato sorgente ONESTO della pagina Lingue: copertura entity-level hash-aware per
  * lingua attiva (include pending → polling live). Single-source: nessuna seconda RPC.
  *
- * Fetch: al mount, a ogni cambio refreshKey (toggle/retry), e poll ogni 5s finché
- * esiste pending > 0 su qualche lingua. Stop quando pending == 0 ovunque.
+ * Fetch: al mount, a ogni cambio refreshKey (toggle/retry), e poll ogni 15s finché
+ * esiste pending > 0 su qualche lingua. Con soli job in attesa (`waiting`), un
+ * fetch alla prima partenza (`next_run_at`); poi di nuovo il poll. Stop quando
+ * non resta né lavoro in corso né in attesa.
  *
  * Toast di completamento alla transizione pending(>0) → 0 senza errori, SENZA numero
  * cumulativo (il vecchio "356 elementi" era la somma lifetime, fuorviante).
@@ -81,16 +103,17 @@ export function useTranslationCoverage(
             }
         };
 
-        const scheduleNext = () => {
-            const delay = failures === 0
-                ? BASE_POLL_INTERVAL_MS
-                : Math.min(BASE_POLL_INTERVAL_MS * 2 ** failures, MAX_BACKOFF_MS);
+        const scheduleNext = (waitingDelay: number | null) => {
+            const delay = failures > 0
+                ? Math.min(BASE_POLL_INTERVAL_MS * 2 ** failures, MAX_BACKOFF_MS)
+                : waitingDelay ?? BASE_POLL_INTERVAL_MS;
             clearTimer();
             timer = setTimeout(() => { void tick(); }, delay);
         };
 
         const tick = async (): Promise<void> => {
             let keepPolling: boolean;
+            let waitingDelay: number | null = null;
             try {
                 const data = await getTranslationCoverage(tenantId);
                 if (cancelled || !isMountedRef.current) return;
@@ -110,7 +133,12 @@ export function useTranslationCoverage(
                 prevPendingRef.current = currPending;
                 setCoverage(data);
 
-                keepPolling = currPending > 0;
+                if (currPending > 0) {
+                    keepPolling = true;
+                } else {
+                    waitingDelay = waitingRefetchDelay(data);
+                    keepPolling = waitingDelay !== null;
+                }
             } catch (err) {
                 if (cancelled || !isMountedRef.current) return;
                 console.error("[useTranslationCoverage]", err);
@@ -119,9 +147,9 @@ export function useTranslationCoverage(
             }
 
             if (cancelled) return;
-            if (!keepPolling) { clearTimer(); return; }   // pending==0 → stop
+            if (!keepPolling) { clearTimer(); return; }   // niente in corso né in attesa → stop
             if (document.hidden) { clearTimer(); return; } // tab non visibile → pausa
-            scheduleNext();
+            scheduleNext(waitingDelay);
         };
 
         const handleVisibility = () => {

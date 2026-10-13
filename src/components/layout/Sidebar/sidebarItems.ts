@@ -30,7 +30,11 @@ export interface SidebarNavItem {
     /** Altri percorsi che tengono la voce corrente (prefissi): una voce sola
      *  per più pagine, come la «Scheda» di una sede. */
     matchPrefixes?: string[];
-    /** Spinner ambra + conteggio delle traduzioni in corso (`translationPendingCount`). */
+    /**
+     * Spinner ambra + conteggio delle traduzioni in corso (`translationPendingCount`);
+     * senza lavoro in corso, il numero di quelle in attesa dei 10 minuti
+     * (`translationWaitingCount`), senza spinner e con il titolo.
+     */
     showTranslationBadge?: boolean;
     /** Spinner senza numero: import AI in volo (`importInProgress`). */
     showImportBadge?: boolean;
@@ -58,6 +62,10 @@ export interface SidebarNavGroup {
 export interface SidebarSignals {
     translationPendingCount?: number;
     translationLabel?: string;
+    /** Traduzioni accodate in attesa dei 10 minuti (run_after futuro). */
+    translationWaitingCount?: number;
+    /** «N traduzioni in attesa · partono tra X min». */
+    translationWaitingLabel?: string;
     importInProgress?: boolean;
     supportUnread?: boolean;
 }
@@ -77,6 +85,8 @@ export function buildSidebarGroups(
     const {
         translationPendingCount = 0,
         translationLabel,
+        translationWaitingCount = 0,
+        translationWaitingLabel,
         importInProgress = false,
         supportUnread = false
     } = signals;
@@ -93,6 +103,8 @@ export function buildSidebarGroups(
                 })
                 .map((item): AppSidebarNavItem => {
                     const showTranslation = !!item.showTranslationBadge && translationPendingCount > 0;
+                    const showWaiting =
+                        !!item.showTranslationBadge && !showTranslation && translationWaitingCount > 0;
                     const count = item.count ?? 0;
                     const showImport = !!item.showImportBadge && importInProgress;
                     return {
@@ -110,8 +122,15 @@ export function buildSidebarGroups(
                             : showImport
                                 ? "Importazione menù con AI in corso"
                                 : undefined,
-                        badge: showTranslation ? translationPendingCount : count > 0 ? count : undefined,
-                        badgeTone: !showTranslation && count > 0 ? "brand" : undefined,
+                        badge: showTranslation
+                            ? translationPendingCount
+                            : showWaiting
+                                ? translationWaitingCount
+                                : count > 0
+                                    ? count
+                                    : undefined,
+                        badgeTone: !showTranslation && !showWaiting && count > 0 ? "brand" : undefined,
+                        badgeLabel: showWaiting ? translationWaitingLabel : undefined,
                         showDot: !!item.showUnreadDot && supportUnread,
                         dotLabel: item.showUnreadDot ? "Hai una risposta non letta" : undefined
                     };

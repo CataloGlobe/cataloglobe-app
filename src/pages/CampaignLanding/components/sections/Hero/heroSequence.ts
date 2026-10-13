@@ -1,8 +1,9 @@
 /**
  * Sequenza dell'hero (telefono + programmazione di oggi), logica pura.
  *
- * Cinque passi, uno ogni 2,3 s, il primo a 150 ms; dopo l'ultimo 1,5 s di
- * pausa sulla giornata finita, poi si riparte da capo (giro di 13 s):
+ * Cinque passi, uno ogni 1,8 s, il primo a 150 ms; dopo l'ultimo 1,5 s di
+ * pausa sulla giornata finita, il telefono si spegne in dissolvenza e si
+ * riparte da capo (giro di 10,5 s):
  * 12:00 Menù Pranzo → 13:10 modifica al volo (Insalata di mare 17 €) →
  * 18:00 Menù Aperitivo → 19:25 modifica al volo (Bruschette esaurite) →
  * 20:00 Menù Cena.
@@ -14,14 +15,12 @@
 
 export type Fascia = 0 | 1 | 2;
 
-/** Un passo ogni 2,3 s. */
-export const HERO_STEP_MS = 2300;
+/** Un passo ogni 1,8 s. */
+export const HERO_STEP_MS = 1800;
 /** Il primo stato arriva quasi subito. */
 export const HERO_START_MS = 150;
 /** Pausa sulla giornata finita, prima di ripartire. */
 export const HERO_END_PAUSE_MS = 1500;
-/** Uscita di ora, nome del menù e contenuto (HeroStage.module.scss: 160 ms di transizione). */
-export const HERO_SWAP_MS = 170;
 /** Programmazione: la fascia si accende 150 ms dopo l'ora, il telefono cambia menù a 450. */
 export const HERO_SLOT_MS = 150;
 export const HERO_MENU_MS = 450;
@@ -44,10 +43,8 @@ export const HERO_STEPS: readonly Step[] = [
 export const HERO_LOOP_MS = HERO_STEPS.length * HERO_STEP_MS + HERO_END_PAUSE_MS;
 
 export type HeroEvent =
-    | { type: "clockOut" }
     | { type: "clock"; clock: string }
     | { type: "slot"; slot: Fascia }
-    | { type: "menuOut" }
     | { type: "menu"; menu: Fascia }
     | { type: "live"; live: 0 | 1 }
     | { type: "fill" }
@@ -55,9 +52,8 @@ export type HeroEvent =
     | { type: "reset" };
 
 export type HeroState = {
-    /** Ora in barra di stato; `clockOut` mentre la vecchia sparisce. */
+    /** Ora in barra di stato. */
     clock: string;
-    clockOut: boolean;
     /** Fascia programmata in corso (-1 prima delle 12:00). */
     slot: Fascia | -1;
     /** Modifiche al volo entrate in lista (0, 1, 2), in ordine. */
@@ -66,15 +62,14 @@ export type HeroState = {
     filled: number;
     /** Ultimo evento della giornata, per la riga di stato della versione orizzontale. */
     last: { kind: "slot"; slot: Fascia } | { kind: "live"; live: 0 | 1 } | null;
-    /** Menù nel telefono; `menuOut` mentre il vecchio esce. */
+    /** Menù nel telefono. */
     menu: Fascia;
-    menuOut: boolean;
     /** Modifiche al volo applicate al telefono (0, 1, 2). */
     applied: number;
 };
 
 export function heroInitialState(startClock: string): HeroState {
-    return { clock: startClock, clockOut: false, slot: -1, lives: 0, filled: 0, last: null, menu: 0, menuOut: false, applied: 0 };
+    return { clock: startClock, slot: -1, lives: 0, filled: 0, last: null, menu: 0, applied: 0 };
 }
 
 /** Stato fermo con `prefers-reduced-motion`: Aperitivo, Bruschette esaurite. */
@@ -96,12 +91,10 @@ export function heroEvents(): { at: number; event: HeroEvent }[] {
     const out: { at: number; event: HeroEvent }[] = [];
     HERO_STEPS.forEach((step, i) => {
         const t0 = HERO_START_MS + i * HERO_STEP_MS;
-        out.push({ at: t0, event: { type: "clockOut" } });
-        out.push({ at: t0 + HERO_SWAP_MS, event: { type: "clock", clock: step.clock } });
+        out.push({ at: t0, event: { type: "clock", clock: step.clock } });
         if (step.kind === "slot") {
             out.push({ at: t0 + HERO_SLOT_MS, event: { type: "slot", slot: step.slot } });
-            out.push({ at: t0 + HERO_MENU_MS, event: { type: "menuOut" } });
-            out.push({ at: t0 + HERO_MENU_MS + HERO_SWAP_MS, event: { type: "menu", menu: step.slot } });
+            out.push({ at: t0 + HERO_MENU_MS, event: { type: "menu", menu: step.slot } });
         } else {
             const t = t0 + HERO_LIVE_MS;
             out.push({ at: t, event: { type: "live", live: step.live } });
@@ -114,17 +107,12 @@ export function heroEvents(): { at: number; event: HeroEvent }[] {
 
 export function heroReducer(state: HeroState, event: HeroEvent, startClock: string): HeroState {
     switch (event.type) {
-        case "clockOut":
-            return { ...state, clockOut: true };
         case "clock":
-            return { ...state, clock: event.clock, clockOut: false };
+            return { ...state, clock: event.clock };
         case "slot":
             return { ...state, slot: event.slot, last: { kind: "slot", slot: event.slot } };
-        case "menuOut":
-            // Stesso menù (il pranzo alle 12:00, già in vista): niente uscita.
-            return state.menu === state.slot ? state : { ...state, menuOut: true };
         case "menu":
-            return state.menu === event.menu ? { ...state, menuOut: false } : { ...state, menu: event.menu, menuOut: false };
+            return { ...state, menu: event.menu };
         case "live":
             return { ...state, lives: event.live + 1, last: { kind: "live", live: event.live } };
         case "fill":

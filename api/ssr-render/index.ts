@@ -26,6 +26,7 @@ import {
 } from "../_lib/publicShell.js";
 import { robotsHeaderValue } from "../_lib/robotsHeader.js";
 import { statusCanarySlug } from "../_lib/canarySlug.js";
+import { fallbackPolicy } from "../_lib/fallbackPolicy.js";
 
 /**
  * GET /api/ssr-render?slug=<slug>&lang=<lang>?    (stage 4b — ROUTE DI TEST)
@@ -40,8 +41,9 @@ import { statusCanarySlug } from "../_lib/canarySlug.js";
  * (head per-tenant → markup → payload inline + script client dal manifest).
  *
  * SSR SOLO sul ramo ready: non-ready (inactive/subscription/empty), errori
- * di fetch, slug invalidi → fallback shell SPA statica (dist/app.html),
- * comportamento identico a oggi per quei casi.
+ * di fetch, slug invalidi → fallback shell SPA statica (dist/app.html), con
+ * stato e header da api/_lib/fallbackPolicy.ts (404, 503 o 200 noindex).
+ * HEAD è trattato come GET.
  */
 
 // Validazione slug: unica implementazione (il vecchio middleware.ts che la
@@ -166,10 +168,14 @@ function readSpaFallback(): string | null {
 
 /* ── Fallback SPA (casi non-SSR: identici a oggi) ───────────────────────── */
 
-function serveSpaFallback(res: VercelResponse, status: number, reason: string): void {
+function serveSpaFallback(res: VercelResponse, reason: string): void {
     const html = readSpaFallback();
+    const { status, noindex, retryAfterSeconds } = fallbackPolicy(reason);
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("X-Cataloglobe-Ssr", `fallback:${reason}`);
+    // Non sovrascrive un X-Robots-Tag già messo (fuori produzione, canary).
+    if (noindex && !res.getHeader("X-Robots-Tag")) res.setHeader("X-Robots-Tag", "noindex");
+    if (retryAfterSeconds) res.setHeader("Retry-After", String(retryAfterSeconds));
     if (!html) {
         res.status(503).send("Service unavailable");
         return;
@@ -241,8 +247,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     );
     if (robots) res.setHeader("X-Robots-Tag", robots);
 
-    if (req.method !== "GET") {
-        res.setHeader("Allow", "GET");
+    // HEAD come GET: Node scarta da solo il body. Lo usano crawler e link
+    // checker; con un 405 la pagina sembrerebbe rotta.
+    if (req.method !== "GET" && req.method !== "HEAD") {
+        res.setHeader("Allow", "GET, HEAD");
         res.status(405).send("Method not allowed");
         return;
     }
@@ -277,11 +285,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const langRaw = typeof req.query.lang === "string" ? req.query.lang.trim() : "";
 
     if (!SLUG_RE.test(slug) || slug.includes("--") || RESERVED_SEGMENTS.has(slug)) {
-        serveSpaFallback(res, 404, "invalid_slug");
+        serveSpaFallback(res, "invalid_slug");
         return;
     }
     if (langRaw && !LANG_REGEX.test(langRaw)) {
-        serveSpaFallback(res, 404, "invalid_lang");
+        serveSpaFallback(res, "invalid_lang");
         return;
     }
     const lang = langRaw ? langRaw.toLowerCase() : undefined;
@@ -289,10 +297,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     try {
         const dataResult = await fetchPayload(slug, lang);
         if ("error" in dataResult) {
-            // domain_404 = slug inesistente → 404 reale (no soft-404).
-            // Tutti gli altri errori (network_no_snapshot, altri domain_*) restano 200 SPA-fallback.
-            const fallbackStatus = dataResult.error === "domain_404" ? 404 : 200;
-            serveSpaFallback(res, fallbackStatus, dataResult.error);
+            // Stato e header per tipo di errore: vedi api/_lib/fallbackPolicy.ts.
+            serveSpaFallback(res, dataResult.error);
             return;
         }
         const { payload, source } = dataResult;
@@ -326,7 +332,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const result = await renderPublic({ payload, slug, url: `/${slug}` });
 
         if (result.kind !== "ready") {
-            serveSpaFallback(res, 200, result.status);
+            serveSpaFallback(res, result.status);
             return;
         }
 
@@ -398,6 +404,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
                 stack: err instanceof Error ? err.stack?.slice(0, 2000) : undefined
             })
         );
-        serveSpaFallback(res, 200, "render_error");
+        serveSpaFallback(res, "render_error");
     }
 }

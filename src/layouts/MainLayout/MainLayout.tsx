@@ -20,6 +20,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
+import { earliestNextRunAt, sumWaiting } from "@/services/supabase/tenantLanguages";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { resolveBusinessRoute, businessRouteLabel } from "@components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { ACTIVITY_SECTION_LABELS } from "@/pages/Operativita/Attivita/ActivityDetailContext";
@@ -213,6 +214,17 @@ export default function MainLayout() {
                 : 0,
         [translationCoverage]
     );
+    // Testi accodati in attesa dei 10 minuti (run_after): numero e prima partenza.
+    const translationWaiting = useMemo(
+        () =>
+            translationCoverage
+                ? {
+                      count: sumWaiting(translationCoverage),
+                      nextRunAt: earliestNextRunAt(translationCoverage)
+                  }
+                : undefined,
+        [translationCoverage]
+    );
     // ── Sessione import AI sollevata ───────────────────────────────────
     // Montata una sola volta qui (come la coverage traduzioni): stato e
     // richiesta `menu-ai-import` vivono nel layout → sopravvivono all'unmount
@@ -357,6 +369,7 @@ export default function MainLayout() {
                                     brand={sidebarBrand}
                                     switcherSlot={sidebarSwitcher}
                                     translationPendingCount={translationPendingCount}
+                                    translationWaiting={translationWaiting}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
                                     profile={profile}
@@ -374,6 +387,7 @@ export default function MainLayout() {
                                     activityId={soleActivityId}
                                     loading={!sediLoaded}
                                     translationPendingCount={translationPendingCount}
+                                    translationWaiting={translationWaiting}
                                     importInProgress={importInProgress}
                                     supportUnread={supportUnread}
                                     profile={profile}

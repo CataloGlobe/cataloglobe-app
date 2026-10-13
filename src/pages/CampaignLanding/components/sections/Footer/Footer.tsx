@@ -1,16 +1,24 @@
+import { useEffect, useState } from "react";
 import { Logo } from "@components/ui/Logo/Logo";
 import { WORDMARK_INTRINSIC } from "@components/ui/Logo/logoDimensions";
 import { COMPANY } from "@/config/company";
+import CopyButton from "@pages/CampaignLanding/components/kit/CopyButton";
 import { BRAND, FOOTER } from "@pages/CampaignLanding/content/landing";
 import { openCookiePreferences } from "@pages/CampaignLanding/cookieConsentBrowser";
 import styles from "./Footer.module.scss";
 
-/** 12 · Footer: marchio e frase, tre colonne di link, riga legale da company.ts. */
+/**
+ * 12 · Footer: marchio e frase, tre colonne di link, riga legale da company.ts.
+ * Al telefono Prodotto e Legale affiancate, Contatti sotto a tutta riga.
+ */
 export default function Footer() {
     const { contact, legalName, legalAddress, vatNumber } = COMPANY;
     const { product, legal, contacts } = FOOTER.columns;
     // company.ts è `as const`: oggi il telefono è la stringa vuota letterale.
     const phone: string = contact.phone;
+    // Il prerender congela l'anno del build: quello vero arriva dopo l'idratazione.
+    const [year, setYear] = useState(FOOTER.year);
+    useEffect(() => setYear(new Date().getFullYear()), []);
 
     return (
         <footer className={styles.footer} data-tone="dark">
@@ -37,11 +45,15 @@ export default function Footer() {
                                 )}
                             </nav>
                         ))}
-                        <div className={styles.column}>
+                        <div className={`${styles.column} ${styles.contacts}`}>
                             <p className={styles.columnTitle}>{contacts.title}</p>
-                            <a className={styles.link} href={`mailto:${contact.info}`}>
-                                {contacts.write}
-                            </a>
+                            {/* L'indirizzo scritto: il mailto da solo, senza app di posta, non fa nulla. */}
+                            <div className={styles.mailRow}>
+                                <a className={styles.link} href={`mailto:${contact.info}`}>
+                                    {contact.info}
+                                </a>
+                                <CopyButton text={contact.info} label={contacts.copy} copiedLabel={contacts.copied} />
+                            </div>
                             {/* Il telefono si mostra solo quando company.ts ne ha uno pubblico. */}
                             {phone && (
                                 <a className={styles.link} href={`tel:${phone.replace(/\s+/g, "")}`}>
@@ -53,7 +65,7 @@ export default function Footer() {
                 </div>
 
                 <p className={styles.legal}>
-                    {legalName} · {legalAddress.city} ({legalAddress.province}) · {FOOTER.vatLabel} {vatNumber}
+                    <span>© {year}</span> {legalName} · {legalAddress.city} ({legalAddress.province}) · {FOOTER.vatLabel} {vatNumber}
                 </p>
             </div>
         </footer>
