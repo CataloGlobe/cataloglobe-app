@@ -1,15 +1,19 @@
 // CLI del confronto «vincitore uguale a prima» (pacchetto database dell'Officina).
 //
 //   npm run officina:confronto -- esito --dati fotografia.json --settimana 2026-10-19 --out prima.json
+//   npm run officina:confronto -- simula-m1m2 --dati fotografia.json --settimana 2026-10-19 --out dopo.json
 //   npm run officina:confronto -- confronta --prima prima.json --dopo dopo.json [--md differenze.md]
 //
 // `esito`: per ogni sede e ogni 15 minuti della settimana (lunedì dato, ora di
 // Roma) chi vince e cosa vede il cliente, col giudice di oggi.
+// `simula-m1m2`: lo stesso, con le fasce di M1 riempite in memoria e il giudice
+// che legge le fasce (M1) e le loro sedi (M2); niente scritture sul database.
 // `confronta`: dove il cliente vede qualcosa di diverso; esce con 1 se ce n'è.
 // I dati arrivano da `fotografia.sql` (sola lettura); i file di esito contengono
 // nomi di sedi e regole: tenerli fuori dal repo.
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { giudiceConFasce, simulaM1 } from "./fasce";
 import { calcolaEsito, confronta, type Differenza, type Esito, type Snapshot } from "./model";
 
 function arg(name: string): string | undefined {
@@ -89,6 +93,14 @@ if (command === "esito") {
     });
     writeFileSync(required("out"), JSON.stringify(esito, null, 2));
     console.log(riassunto(esito));
+} else if (command === "simula-m1m2") {
+    const snapshot = simulaM1(readJson<Snapshot>(required("dati")));
+    const esito = calcolaEsito(snapshot, arg("settimana") ?? nextMonday(), {
+        giudice: giudiceConFasce,
+        nomeGiudice: "fasce M1 e M2 (simulate)"
+    });
+    writeFileSync(required("out"), JSON.stringify(esito, null, 2));
+    console.log(riassunto(esito));
 } else if (command === "confronta") {
     const prima = readJson<Esito>(required("prima"));
     const dopo = readJson<Esito>(required("dopo"));
@@ -100,6 +112,7 @@ if (command === "esito") {
     process.exit(diffs.length === 0 ? 0 : 1);
 } else {
     console.error("uso: cli.ts esito --dati <fotografia.json> [--settimana AAAA-MM-GG] --out <esito.json>");
+    console.error("     cli.ts simula-m1m2 --dati <fotografia.json> [--settimana AAAA-MM-GG] --out <esito.json>");
     console.error("     cli.ts confronta --prima <esito.json> --dopo <esito.json> [--md <file.md>]");
     process.exit(2);
 }
