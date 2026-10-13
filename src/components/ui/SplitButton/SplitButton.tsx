@@ -25,7 +25,7 @@ export interface SplitButtonAction {
     /**
      * Solo sull'azione primaria: il bottone apre questo sottomenu invece di
      * eseguire `onClick`. Serve ai casi in cui la primaria non ha un bersaglio
-     * implicito e va scelto (es. "Nuova regola" sulla tab "Tutte", dove il tipo
+     * implicito e va scelto (es. "Aggiungi" in Programmazione, sulla tab "Tutte", dove il tipo
      * di regola non è deducibile dal filtro attivo).
      */
     items?: SplitButtonAction[];

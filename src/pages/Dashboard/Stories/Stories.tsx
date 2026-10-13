@@ -40,6 +40,7 @@ import {
     type DragEndEvent
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { ACTIVE_LABEL } from "@/utils/activityStatus";
 
 type StoryFilter = "all" | "drafts" | "sede" | "noCover";
 
@@ -262,7 +263,7 @@ export default function Stories() {
             cell: (_value, item) => (
                 <StatusBadge
                     variant={item.status === "published" ? "success" : "neutral"}
-                    label={item.status === "published" ? "Pubblicata" : "Bozza"}
+                    label={item.status === "published" ? ACTIVE_LABEL : "Bozza"}
                 />
             )
         },

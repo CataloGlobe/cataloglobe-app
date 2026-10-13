@@ -219,7 +219,7 @@ export default function Businesses() {
         : undefined;
     }
     return canManageGroups
-      ? { label: "Nuovo gruppo", onClick: handleNewGroup, disabled: !canEdit }
+      ? { label: "Aggiungi gruppo", onClick: handleNewGroup, disabled: !canEdit }
       : undefined;
   }, [activeTab, canCreate, canManageGroups, canEdit, handleAddActivity, handleNewGroup]);
 

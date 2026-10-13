@@ -47,7 +47,7 @@ export function IngredientsCreateEditDrawer({
                             form={FORM_ID}
                             loading={isSaving}
                         >
-                            {isEditing ? "Salva" : "Crea"}
+                            {isEditing ? "Salva" : "Aggiungi"}
                         </Button>
                     </>
                 }

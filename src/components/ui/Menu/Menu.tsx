@@ -1,6 +1,8 @@
-import React, { type ReactNode } from "react";
+import React, { useRef, useState, type ReactNode } from "react";
+import { Info } from "lucide-react";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import Text from "@/components/ui/Text/Text";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import styles from "./Menu.module.scss";
 
 type MenuAlign = "start" | "end";
@@ -69,6 +71,63 @@ interface MenuItemProps {
     target?: string;
     /** In coda alla voce: un contatore o un pallino (menù dell'account). */
     trailing?: ReactNode;
+    /**
+     * La spiegazione più lunga della voce (D173): una «i» in coda col tooltip,
+     * che si apre passando sopra e anche al clic, così si legge al telefono.
+     * La voce la dice anche ai lettori di schermo.
+     */
+    info?: string;
+}
+
+/**
+ * La «i» in coda alla voce: un bottone. Il clic apre il tooltip e non
+ * sceglie la voce; da tastiera ci si arriva con → dalla voce (come a un
+ * sottomenù), il fuoco apre il tooltip, Invio o Spazio lo chiudono e
+ * riaprono, ← o Esc tornano alla voce, ↑ ↓ vanno alle voci vicine.
+ */
+function MenuItemInfo({ text, ref }: { text: string; ref?: React.Ref<HTMLSpanElement> }) {
+    const [open, setOpen] = useState(false);
+    const stop = (e: React.SyntheticEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+    const onKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
+        const item = e.currentTarget.closest<HTMLElement>("[role='menuitem']");
+        if (e.key === "Enter" || e.key === " ") {
+            stop(e);
+            setOpen(o => !o);
+        } else if (e.key === "ArrowLeft" || e.key === "Escape") {
+            stop(e);
+            setOpen(false);
+            item?.focus();
+        } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            // Le frecce le gestisce la voce: si torna lì e si ripete il tasto.
+            stop(e);
+            item?.focus();
+            item?.dispatchEvent(new KeyboardEvent("keydown", { key: e.key, bubbles: true }));
+        }
+    };
+    return (
+        <Tooltip content={text} side="bottom" align="end" open={open} onOpenChange={setOpen}>
+            <span
+                ref={ref}
+                role="button"
+                tabIndex={-1}
+                aria-label="Cosa fa questa voce"
+                aria-expanded={open}
+                className={styles.itemInfo}
+                onPointerDown={stop}
+                onPointerUp={stop}
+                onKeyDown={onKeyDown}
+                onClick={e => {
+                    stop(e);
+                    setOpen(o => !o);
+                }}
+            >
+                <Info size={15} aria-hidden />
+            </span>
+        </Tooltip>
+    );
 }
 
 function MenuItem({
@@ -81,8 +140,10 @@ function MenuItem({
     href,
     target,
     trailing,
-    leading
+    leading,
+    info
 }: MenuItemProps) {
+    const infoRef = useRef<HTMLSpanElement>(null);
     const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : variant === "accent" ? ` ${styles.accent}` : ""}${description ? ` ${styles.withDescription}` : ""}`;
     const content = (
         <>
@@ -97,6 +158,7 @@ function MenuItem({
                 )}
             </span>
             {trailing && <span className={styles.itemTrailing}>{trailing}</span>}
+            {info && <MenuItemInfo ref={infoRef} text={info} />}
         </>
     );
 
@@ -116,7 +178,22 @@ function MenuItem({
     }
 
     return (
-        <RadixDropdownMenu.Item className={className} disabled={disabled} onSelect={onSelect}>
+        <RadixDropdownMenu.Item
+            className={className}
+            disabled={disabled}
+            onSelect={onSelect}
+            aria-description={info}
+            aria-keyshortcuts={info ? "ArrowRight" : undefined}
+            onKeyDown={
+                info
+                    ? e => {
+                          if (e.key !== "ArrowRight" || e.target !== e.currentTarget) return;
+                          e.preventDefault();
+                          infoRef.current?.focus();
+                      }
+                    : undefined
+            }
+        >
             {content}
         </RadixDropdownMenu.Item>
     );

@@ -252,7 +252,7 @@ export function andamentoSentence(data: AndamentoData, ctx: Pick<RowsContext, "p
     const parts = [
         visits > 0 ? withDelta(`${plural(visits, "visita", "visite")} alla pagina`, vDelta) : null,
         ctx.ordersFeature && orders && orders.orders_count > 0
-            ? withDelta(`${plural(orders.orders_count, "ordine", "ordini")} al tavolo per ${formatPrice(orders.revenue)}`, rDelta)
+            ? withDelta(`${plural(orders.orders_count, "ordine", "ordini")} dal tavolo per ${formatPrice(orders.revenue)}`, rDelta)
             : null,
         ctx.reservationsFeature && res && res.covers > 0 ? withDelta(`${plural(res.covers, "coperto prenotato", "coperti prenotati")}`, cDelta) : null,
         reviews > 0 ? `voto ${one(data.reviews?.avg_rating ?? 0)} su ${plural(reviews, "recensione", "recensioni")}` : null

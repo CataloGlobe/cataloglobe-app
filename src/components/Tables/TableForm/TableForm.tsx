@@ -73,7 +73,7 @@ export function TableForm({
     const [formGroupId, setFormGroupId] = useState<string | null>(null);
     const [formPriority, setFormPriority] = useState<string>("50");
     const [formBookableOnline, setFormBookableOnline] = useState(true);
-    // Guardrail: true mentre il mini-form "Crea zona"/"Crea gruppo" e' aperto.
+    // Guardrail: true mentre il mini-form "Aggiungi zona"/"Aggiungi gruppo" e' aperto.
     // Blocca submit per evitare creazione tavolo con zone_id/gruppo mancante
     // mentre l'utente sta ancora compilando la nuova entita'.
     const [isCreatingZone, setIsCreatingZone] = useState(false);

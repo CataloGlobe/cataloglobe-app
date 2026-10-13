@@ -199,7 +199,7 @@ function ProgressBarSection() {
                 <ProgressBar value={4} max={4} variant="success" label="4 di 4" />
             </State>
             <State label="warning: oltre l'80 % di un limite (credito AI)" column>
-                <ProgressBar value={15.6} max={18} variant="warning" label="€ 15,60 di € 18" />
+                <ProgressBar value={15.6} max={18} variant="warning" label="15,60 € di 18 €" />
             </State>
             <State label="indeterminate: import senza totale" column>
                 <ProgressBar variant="indeterminate" label="Importazione in corso" />

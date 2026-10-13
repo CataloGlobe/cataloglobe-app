@@ -35,7 +35,7 @@ export const SERIES_OF_ROW: Partial<Record<RowKey, SeriesKey>> = {
 
 export const SERIES_TITLE: Record<SeriesKey, string> = {
     visite: "Visite alla pagina",
-    ordini: "Ordini al tavolo",
+    ordini: "Ordini dal tavolo",
     incasso: "Incasso al tavolo",
     coperti: "Coperti prenotati"
 };

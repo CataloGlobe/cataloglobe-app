@@ -3,6 +3,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import type { BillingInterval, Plan } from "@/types/plan";
 import type { SeatsPricing } from "@/utils/pricing";
 import styles from "../CreateBusinessWizard.module.scss";
+import { formatPrice } from "@/utils/formatCurrency";
 
 interface Step3SummaryProps {
     name: string;
@@ -20,7 +21,7 @@ interface Step3SummaryProps {
 }
 
 function formatEuro(value: number): string {
-    return `€${value.toFixed(2).replace(".", ",")}`;
+    return formatPrice(value);
 }
 
 const INTERVAL_TOTAL_LABEL: Record<BillingInterval, string> = { month: "Totale mensile", year: "Totale annuale" };

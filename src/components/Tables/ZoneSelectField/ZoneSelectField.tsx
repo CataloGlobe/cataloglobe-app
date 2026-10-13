@@ -215,7 +215,7 @@ export function ZoneSelectField({
                             onClick={handleCreate}
                             loading={isSubmitting}
                         >
-                            Crea zona
+                            Aggiungi zona
                         </Button>
                     </div>
                     {error && (

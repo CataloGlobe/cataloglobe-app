@@ -103,7 +103,7 @@ test.describe("Storie — elenco", () => {
         await expect(main(page).getByText("Dal 1987")).toBeVisible();
         await expect(main(page).getByText("Pane di segale e2e")).toBeVisible();
         await expect(main(page).getByText("Bozza", { exact: true })).toBeVisible();
-        await expect(main(page).getByText("Pubblicata", { exact: true }).first()).toBeVisible();
+        await expect(main(page).getByText("Online", { exact: true }).first()).toBeVisible();
         await expect(page.getByRole("button", { name: "Crea storia" }).first()).toBeVisible();
     });
 
@@ -233,7 +233,7 @@ test.describe("Storie — editor", () => {
         await openStory(page, STORY.natale);
         await expect(titleField(page)).toHaveValue("Natale e2e", { timeout: 15_000 });
         await titleField(page).fill("Natale 2026 e2e");
-        await page.getByRole("radio", { name: "Pubblicata" }).first().click();
+        await page.getByRole("radio", { name: "Online" }).first().click();
         await saveButton(page).click();
         await expect.poll(() => write(stub, "stories.PATCH")?.body).toMatchObject({
             title: "Natale 2026 e2e",
@@ -332,8 +332,8 @@ test.describe("Storie — permessi (P1)", () => {
         await expect(titleField(page)).toBeDisabled();
         await expect(main(page).getByPlaceholder("Scrivi un paragrafo...").first()).toBeDisabled();
         await expect(main(page).getByRole("button", { name: "Trascina per riordinare" }).first()).toBeDisabled();
-        await expect(page.getByRole("radio", { name: "Pubblicata" })).toHaveCount(0);
-        await expect(page.getByText("Pubblicata", { exact: true }).first()).toBeVisible();
+        await expect(page.getByRole("radio", { name: "Online" })).toHaveCount(0);
+        await expect(page.getByText("Online", { exact: true }).first()).toBeVisible();
     });
 
     test("senza stories.read: il blocco, e nessuna lettura delle storie", async ({ page }) => {

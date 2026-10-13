@@ -6,6 +6,7 @@ vi.mock("@/services/supabase/catalogs", () => ({
     addProductToCategory: vi.fn(async () => undefined)
 }));
 vi.mock("@/services/supabase/products", () => ({ createProduct: vi.fn() }));
+vi.mock("@/services/supabase/aiImport", () => ({ importProductsIntoCatalog: vi.fn(), enqueueImportSideEffects: vi.fn() }));
 vi.mock("@/services/supabase/styles", () => ({ createStyle: vi.fn(async () => ({ id: "st1" })) }));
 vi.mock("@/services/supabase/featuredContents", () => ({
     createFeaturedContent: vi.fn(async () => ({ id: "ev1" })),
@@ -34,6 +35,8 @@ vi.mock("@/utils/compressImage", () => ({ compressImage: vi.fn(), COMPRESS_PROFI
 
 import { addProductToCategory, createCatalog, createCategory } from "@/services/supabase/catalogs";
 import { createProduct } from "@/services/supabase/products";
+import { importProductsIntoCatalog } from "@/services/supabase/aiImport";
+import { listLayoutRules } from "@/services/supabase/layoutScheduling";
 import { createFeaturedContent, updateFeaturedContent } from "@/services/supabase/featuredContents";
 import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase/featuredScheduling";
 import { createStory, updateStory } from "@/services/supabase/stories";
@@ -82,6 +85,20 @@ describe("salvare il tunnel: riprovare dopo un errore (#360.2)", () => {
         await expect(saveTunnel(t, c)).rejects.toThrow();
         await saveTunnel(t, c);
         expect(createCatalog).toHaveBeenCalledTimes(2);
+    });
+
+    it("menù da foto: la regola fallisce; riprovando l'import non riparte (un menù solo)", async () => {
+        vi.mocked(importProductsIntoCatalog).mockResolvedValue({ catalog_id: "cat1", product_ids: ["p1"] } as never);
+        vi.mocked(listLayoutRules).mockRejectedValueOnce(new Error("rete")).mockResolvedValue([] as never);
+        const t = newTunnel("menu", ALL);
+        t.name = "Carta";
+        t.imported = { sections: 1, dishes: 1 };
+        t.sections = [{ name: "Pizze", dishes: [{ name: "Bufalina", price: 10 }] }] as never;
+        const c = ctx({ live: true, pair: "stile1" });
+        await expect(saveTunnel(t, c)).rejects.toThrow();
+        const saved = await saveTunnel(t, c);
+        expect(saved.id).toBe("cat1");
+        expect(importProductsIntoCatalog).toHaveBeenCalledTimes(1);
     });
 
     it("storia: se l'ultima scrittura fallisce, riprovando la storia è la stessa", async () => {

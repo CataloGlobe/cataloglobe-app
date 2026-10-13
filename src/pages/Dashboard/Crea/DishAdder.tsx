@@ -69,7 +69,7 @@ export function DishAdder({ pick, onAdd, taken }: { pick: readonly PickProduct[]
                 Aggiungi
             </Button>
             {open && sugg.length > 0 && (
-                <div className={s.sugg} role="listbox" aria-label="Prodotti che avete">
+                <div className={s.sugg} role="listbox" aria-label="Prodotti che hai">
                     {sugg.map((p, i) => (
                         <button key={p.id} type="button" role="option" aria-selected={i === sel} onMouseDown={e => e.preventDefault()} onClick={() => add(p)}>
                             <span>{p.name}</span>

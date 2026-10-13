@@ -204,7 +204,7 @@ export function ProductGroupCreateEditDrawer({
                 Annulla
             </Button>
             <Button variant="primary" onClick={handleSave} loading={isSaving} disabled={isSaving}>
-                {isEditing ? "Salva" : "Crea"}
+                {isEditing ? "Salva" : "Aggiungi"}
             </Button>
         </>
     );

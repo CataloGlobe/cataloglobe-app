@@ -1563,7 +1563,7 @@ export default function CatalogEngine() {
             {
                 id: "price",
                 header: "Prezzo",
-                // Largo quanto il prezzo più lungo («da €12.50»), non una frazione.
+                // Largo quanto il prezzo più lungo («da 12,50 €»), non una frazione.
                 width: "max-content",
                 align: "right",
                 accessor: row => row.id,
@@ -1991,7 +1991,7 @@ export default function CatalogEngine() {
                                 form="catalog-category-form"
                                 loading={isSavingCategory}
                             >
-                                {categoryDrawer === "rename" ? "Applica" : categoryDrawer === "move" ? "Sposta" : "Crea"}
+                                {categoryDrawer === "rename" ? "Applica" : categoryDrawer === "move" ? "Sposta" : "Aggiungi"}
                             </Button>
                         </>
                     }
