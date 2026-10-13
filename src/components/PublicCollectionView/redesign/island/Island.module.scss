@@ -154,6 +154,15 @@ $scia: 50px; /* logo 40 + gap 10 */
   transition: transform $passaggio $curva;
 }
 
+/* L'h1 della pagina: solo un contenitore, l'aspetto è del nome (niente stile globale dei titoli). */
+.titolo {
+  margin: 0;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
 /* Nome lungo: completo fino a due righe, poi puntini (spec §2). */
 /* Il nome è un pulsante (apre «Info e orari»): nessun aspetto da pulsante. */
 .nomeTasto {
