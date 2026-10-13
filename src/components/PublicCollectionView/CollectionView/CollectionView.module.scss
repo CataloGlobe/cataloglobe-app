@@ -354,6 +354,8 @@
 }
 
 .compactRow {
+  /* Contiene il pulsante nascosto .rowOpen (position: absolute). */
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
@@ -646,6 +648,8 @@
 ---------------------------------------------------- */
 
 .productRow {
+  /* Contiene il pulsante nascosto .rowOpen (position: absolute). */
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 1rem;
