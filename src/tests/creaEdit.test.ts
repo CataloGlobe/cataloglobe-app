@@ -223,7 +223,7 @@ describe("modifica nel tunnel: lo stile", () => {
         expect(changed(t, "nome")).toBe(false);
     });
 
-    const sera = () => asEdit({ ...newTunnel("stile", ALL), name: "Sera", look: structuredClone(DEFAULT_STYLE_TOKENS) }, "st1", { id: null, count: 0 });
+    const sera = () => asEdit({ ...newTunnel("stile", ALL), name: "Sera", look: structuredClone(DEFAULT_STYLE_TOKENS) }, "st1", { id: null, count: 0, live: false });
     const saved = async (t: Tunnel) => {
         calls.length = 0;
         await saveEdit(t, { tenantId: "T", L: {}, names: {}, blockFiles: {}, done: new Map() } as unknown as EditCtx);
