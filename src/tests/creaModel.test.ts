@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+// i moduli del tunnel arrivano fino al client: qui non serve, e senza `.env` non partirebbe
+vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
 import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, readFromAi, steps, tunnelTitle, whenProblem, withAside, type FromMenu } from "@/pages/Dashboard/Crea/creaModel";
 import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
@@ -201,6 +203,9 @@ describe("tunnel dello stile: l'aspetto intero", () => {
         expect(contrast(l.colors.primary, DARK_BG)).toBeGreaterThanOrEqual(4.5);
         expect(readable("#be123c", LIGHT_BG)).toBe("#be123c");
         expect(contrast(readable("#fde68a", LIGHT_BG), LIGHT_BG)).toBeGreaterThanOrEqual(4.5);
+        // uno sfondo a metà: col bianco non si arriva, col nero sì (review #443)
+        expect(contrast(readable("#d4d4d4", "#9c9c9c"), "#9c9c9c")).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(readable("#3b82f6", "#9c9c9c"), "#9c9c9c")).toBeGreaterThanOrEqual(4.5);
     });
 
     it("scuro o chiaro dal colore", () => {
