@@ -338,6 +338,57 @@ test.describe("Tunnel di creazione — menù", () => {
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
     });
 
+    test("il Quando: l'ora si scrive o si sceglie dall'orologio, e una fascia può finire il giorno dopo", async ({ page }) => {
+        wireMenu(stub);
+        await open(page, "menu");
+        await walkMenu(page, "Pranzo veloce");
+        await next(page);
+        await onAir(page);
+        await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
+        await next(page);
+        await button(page, /^Solo in certi momenti/).click();
+        const dalle = main(page).getByRole("textbox", { name: "Dalle", exact: true }), alle = main(page).getByRole("textbox", { name: "Alle", exact: true });
+        await expect(dalle).toHaveValue("12:00");
+        await expect(alle).toHaveValue("15:00");
+        await expect(main(page).getByText(/Scrivi l'ora \(22, 2230 o 22:30\) o sceglila dall'orologio/)).toBeVisible();
+        // scritta senza i due punti; quello che non è un'ora non cambia niente
+        await alle.fill("2210");
+        await alle.press("Enter");
+        await expect(alle).toHaveValue("22:15");
+        await alle.fill("ciao");
+        await alle.press("Enter");
+        await expect(alle).toHaveValue("22:15");
+        // le frecce: un quarto d'ora per volta
+        await alle.press("ArrowUp");
+        await expect(alle).toHaveValue("22:30");
+        // l'inizio dopo la fine: la fascia passa la mezzanotte
+        await dalle.fill("23");
+        await dalle.press("Enter");
+        await expect(dalle).toHaveValue("23:00");
+        await expect(main(page).getByText("del giorno dopo", { exact: true })).toBeVisible();
+        // l'orologio della fine: le ore dello stesso giorno e quelle del giorno dopo
+        await main(page).getByRole("button", { name: "Scegli l'ora: Alle", exact: true }).click();
+        const clock = main(page).getByRole("dialog", { name: "Alle", exact: true });
+        await expect(clock.getByRole("heading", { name: "Stesso giorno" })).toBeVisible();
+        await expect(clock.getByRole("heading", { name: "Giorno dopo" })).toBeVisible();
+        await clock.getByRole("button", { name: "05", exact: true }).click();
+        await expect(alle).toHaveValue("05:30");
+        await clock.getByRole("button", { name: ":00", exact: true }).click();
+        await expect(clock).toHaveCount(0);
+        await expect(alle).toHaveValue("05:00");
+        await expect(main(page).getByText("del giorno dopo", { exact: true })).toBeVisible();
+        // l'orologio dell'inizio ha tutte le ore
+        await button(page, "Scegli l'ora: Dalle").click();
+        await expect(main(page).getByRole("dialog", { name: "Dalle" }).getByRole("heading", { name: "Ora", exact: true })).toBeVisible();
+        await main(page).getByRole("dialog", { name: "Dalle" }).getByRole("button", { name: "19", exact: true }).click();
+        await expect(dalle).toHaveValue("19:00");
+        await main(page).getByRole("heading", { name: "Quando", exact: true }).click();
+        await expect(main(page).getByRole("dialog")).toHaveCount(0);
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+        await expect(main(page).getByText("Dopo mezzanotte: si salva col database nuovo").first()).toBeVisible();
+    });
+
     test("Metti in onda: la regola nel Calendario, poi «E adesso?» e «Ho finito»", async ({ page }) => {
         wireMenu(stub);
         wireRule(stub);

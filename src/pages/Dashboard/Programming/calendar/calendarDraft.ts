@@ -8,6 +8,7 @@
 // cambia il database.
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 import {
+    FSLOT,
     KIND_LABEL,
     dayCtx,
     dayParts,
@@ -438,6 +439,41 @@ export const hoursText = (m: number) => {
     const h = Math.floor(m / 60), mm = m % 60;
     return (h ? h + (h === 1 ? " ora" : " ore") : "") + (mm ? (h ? " e " : "") + mm + " minuti" : "") || "0 ore";
 };
+
+/**
+ * L'ora scritta a mano: «22», «2230», «22:30» o «22.30», arrotondata al quarto
+ * d'ora. `null` se è vuota, `NaN` se non è un'ora.
+ */
+export function parseTime(text: string): number | null {
+    const v = text.trim().replace(/[.,h ]/g, ":");
+    if (!v) return null;
+    let h: number, m = 0;
+    if (v.includes(":")) {
+        const [a, b] = v.split(":");
+        h = Number(a);
+        m = Number(b || 0);
+    } else if (/^\d{1,2}$/.test(v)) h = Number(v);
+    else if (/^\d{3,4}$/.test(v)) {
+        h = Number(v.slice(0, -2));
+        m = Number(v.slice(-2));
+    } else return NaN;
+    if (!(h >= 0 && h <= 24 && m >= 0 && m < 60)) return NaN;
+    return (h * 60 + Math.round(m / FSLOT) * FSLOT) % 1440;
+}
+
+/**
+ * Cambia l'inizio (0) o la fine (1) di una fascia. Con la notte (oltre
+ * mezzanotte), una fine che viene prima dell'inizio è del giorno dopo; senza,
+ * resta com'è scritta (lo dice `invalid`) e lo 0 della fine è mezzanotte.
+ */
+export function setRangeTime(r: [number, number], edge: 0 | 1, at: number) {
+    const c = (((Math.round(at / FSLOT) * FSLOT) % 1440) + 1440) % 1440;
+    const end = (a: number, b: number) => (NEW_MODEL.overnight ? (b % 1440 <= a ? (b % 1440) + 1440 : b % 1440) : b);
+    if (edge === 0) {
+        r[0] = c;
+        r[1] = end(c, r[1]);
+    } else r[1] = NEW_MODEL.overnight ? end(r[0], c) : c === 0 ? 1440 : c;
+}
 
 /** Le fasce in ordine, unite dove si toccano. */
 export function normRanges(rs: [number, number][]) {

@@ -28,6 +28,8 @@ import {
     isDirty,
     missing,
     NEW_MODEL,
+    parseTime,
+    setRangeTime,
     perText,
     syncPer,
     timeFields,
@@ -449,6 +451,55 @@ describe("le novità della versione 10 (D120, D149)", () => {
         const D = blankDraft("style", ALL, null);
         D.thing = "s1";
         expect(waitsForDb(D)).toBe("Uno stile da solo: si salva col database nuovo");
+    });
+});
+
+describe("l'ora scritta a mano e la fascia che passa la mezzanotte (tunnel, punto 3)", () => {
+    const keep = { ...NEW_MODEL };
+    afterEach(() => void Object.assign(NEW_MODEL, keep));
+
+    it("si scrive 22, 2230, 22:30 o 22.30; si arrotonda al quarto d'ora", () => {
+        expect(parseTime("22")).toBe(1320);
+        expect(parseTime("2230")).toBe(1350);
+        expect(parseTime("22:30")).toBe(1350);
+        expect(parseTime("22.30")).toBe(1350);
+        expect(parseTime(" 9 ")).toBe(540);
+        expect(parseTime("22:10")).toBe(1335);
+        expect(parseTime("24")).toBe(0);
+        expect(parseTime("")).toBeNull();
+        expect(parseTime("ciao")).toBeNaN();
+        expect(parseTime("25")).toBeNaN();
+        expect(parseTime("12:70")).toBeNaN();
+    });
+
+    it("con la notte: una fine prima dell'inizio è del giorno dopo, e segue l'inizio", () => {
+        NEW_MODEL.overnight = true;
+        const r: [number, number] = [23 * 60, 24 * 60];
+        setRangeTime(r, 1, 5 * 60);
+        expect(r).toEqual([1380, 1440 + 300]);
+        // l'inizio scende sotto la fine: la fine torna nello stesso giorno
+        setRangeTime(r, 0, 2 * 60);
+        expect(r).toEqual([120, 300]);
+        // e risale sopra: di nuovo il giorno dopo
+        setRangeTime(r, 0, 12 * 60);
+        expect(r).toEqual([720, 1440 + 300]);
+        // le frecce: un quarto d'ora sotto lo zero è 23:45
+        setRangeTime(r, 0, -15);
+        expect(r[0]).toBe(1425);
+    });
+
+    it("senza la notte: la fine resta com'è scritta (lo dice `invalid`) e lo 0 è mezzanotte", () => {
+        NEW_MODEL.overnight = false;
+        const r: [number, number] = [12 * 60, 15 * 60];
+        setRangeTime(r, 1, 0);
+        expect(r).toEqual([720, 1440]);
+        setRangeTime(r, 1, 10 * 60);
+        expect(r).toEqual([720, 600]);
+        const D = blankDraft("menu", ALL, null);
+        D.when = { ranges: [r] };
+        expect(invalid(D)).toBe("Una fascia finisce prima di cominciare");
+        setRangeTime(r, 0, 9 * 60);
+        expect(r).toEqual([540, 600]);
     });
 });
 

@@ -1716,6 +1716,134 @@ button.dqsedi {
         }
     }
 }
+/* l'ora scritta, col suo orologio */
+.tpk {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.hin.tin {
+    width: 84px;
+    flex: none;
+    padding-right: 30px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    &[aria-expanded="true"] {
+        border-color: var(--brand-primary);
+        box-shadow: var(--shadow-focus);
+    }
+}
+.tpb {
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    padding: 3px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-grid;
+    place-items: center;
+    &:hover {
+        background: var(--hover-bg);
+        color: var(--text);
+    }
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+    }
+}
+.tpop {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: var(--z-float);
+    width: 248px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    box-shadow: var(--shadow-overlay);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.tph {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    h5 {
+        margin: 0;
+        @include type.fs(fine);
+        font-weight: 600;
+        color: var(--text-muted);
+        letter-spacing: 0.02em;
+    }
+    &.nd {
+        padding: 8px;
+        margin: 0 -2px;
+        border-radius: var(--radius-control);
+        background: var(--bg);
+    }
+}
+.tpg {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    &.m {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    button {
+        font: inherit;
+        @include type.fs(note);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 5px 0;
+        font-variant-numeric: tabular-nums;
+        cursor: pointer;
+        &:hover {
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+        }
+        &:focus-visible {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 1px;
+        }
+        &[aria-pressed="true"] {
+            background: var(--brand-primary);
+            border-color: var(--brand-primary);
+            color: var(--on-brand);
+        }
+    }
+}
+.nday {
+    @include type.fs(note);
+    font-weight: 600;
+    color: var(--brand-primary);
+    background: var(--brand-primary-soft);
+    border-radius: var(--radius-pill);
+    padding: 1px 8px;
+    white-space: nowrap;
+}
+/* sulla barra, dopo lo 0: il giorno dopo */
+.ibnd {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    z-index: 2;
+    pointer-events: none;
+    border-left: 2px solid var(--text);
+    border-radius: 0 6px 6px 0;
+    background: repeating-linear-gradient(-45deg, transparent 0 4px, color-mix(in srgb, var(--text) 16%, transparent) 4px 6px);
+}
+.ibl span.mid {
+    font-weight: 700;
+    color: var(--text);
+}
 .ibh {
     position: absolute;
     top: 0;

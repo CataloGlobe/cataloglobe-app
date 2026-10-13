@@ -5,10 +5,10 @@ import { Plus, Search, TriangleAlert, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, syncPer, whenKey, type Draft, type DraftLookups, type Scontro } from "./calendarDraft";
-import { FSLOT, dayNum, durLabel, hhmm, q, type Axis, type CalKind, type CalWhen, type CalWhere } from "./calendarModel";
+import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, setRangeTime, syncPer, whenKey, type Draft, type DraftLookups, type Scontro } from "./calendarDraft";
+import { dayNum, durLabel, hhmm, q, type Axis, type CalKind, type CalWhen, type CalWhere } from "./calendarModel";
 import { SediBottone, SediPannello } from "@/components/ui/SediPannello/SediPannello";
-import { Band, TimeSel } from "./CalendarioOrario";
+import { Band, TimeField } from "./CalendarioOrario";
 import s from "./CalendarioView.module.scss";
 
 export type PassoSede = { id: string; name: string };
@@ -135,12 +135,10 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
                 />
                 {w.ranges?.map((r, j) => (
                     <div key={j} className={`${s.hrowf} ${s.irange}`}>
-                        <label className={s.hfld}>
-                            Dalle <TimeSel v={r[0]} max={1440 - FSLOT} onChange={m => upd(dd => void (dd.when.ranges![j][0] = m))} />
-                        </label>
-                        <label className={s.hfld}>
-                            alle <TimeSel v={r[1]} min={FSLOT} max={1440} onChange={m => upd(dd => void (dd.when.ranges![j][1] = m))} />
-                        </label>
+                        <span className={s.hfld}>Dalle</span>
+                        <TimeField v={r[0]} label="Dalle" onChange={m => upd(dd => setRangeTime(dd.when.ranges![j], 0, m))} />
+                        <span className={s.hfld}>alle</span>
+                        <TimeField v={r[1]} label="Alle" start={r[0]} onChange={m => upd(dd => setRangeTime(dd.when.ranges![j], 1, m))} />
                         {w.ranges!.length > 1 && (
                             <IconButton size="sm" icon={<X size={14} />} aria-label={`Togli la fascia ${hhmm(r[0])}–${hhmm(r[1])}`} onClick={() => upd(dd => void dd.when.ranges!.splice(j, 1))} />
                         )}
@@ -157,8 +155,10 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
                 <Band w={w} axis={axis} upd={upd} />
                 {w.ranges && (
                     <p className={s.muted}>
-                        Trascina le barre per spostare le fasce, a 15 minuti per volta.{" "}
-                        {NEW_MODEL.overnight ? "Anche dopo mezzanotte: fino alle 02:00 è la stessa serata." : `Dopo mezzanotte ${DB_LATER}.`}
+                        Scrivi l'ora (22, 2230 o 22:30) o sceglila dall'orologio; le frecce ↑ ↓ la spostano di 15 minuti.{" "}
+                        {NEW_MODEL.overnight
+                            ? "Una fascia può passare la mezzanotte: dalle 23 alle 5 è una sola fascia, «alle 05:00 del giorno dopo». Sulla barra, la parte a righe dopo lo 0 è il giorno dopo."
+                            : `Dopo mezzanotte ${DB_LATER}.`}
                     </p>
                 )}
                 {bad && bad.startsWith("Una fascia") && <Warn>{bad}.</Warn>}
