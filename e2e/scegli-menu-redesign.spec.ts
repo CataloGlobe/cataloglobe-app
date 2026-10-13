@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { SLUG, stubPublicPage } from "./publicPageStub";
+import type { StyleConfig } from "./publicPageStub";
 
 /**
  * «Scegli il menu» nel redesign (PR 9, spec §12, mockup v38): con più menu adesso
@@ -13,10 +14,13 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
 test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
-async function openPage(page: Page, opts: { menus?: "two" | "one"; query?: string; ordering?: boolean } = {}) {
+async function openPage(
+    page: Page,
+    opts: { menus?: "two" | "one"; query?: string; ordering?: boolean; cover?: string; styleConfig?: StyleConfig; reservationsPage?: boolean } = {}
+) {
     // Mercoledì a mezzogiorno e mezzo: con gli orari dello stub la sede è aperta.
     await page.clock.setFixedTime(new Date("2026-10-14T12:30:00+02:00"));
-    await stubPublicPage(page, { ordering: opts.ordering ?? false, venueInfo: true, reservations: true, menus: opts.menus ?? "two" });
+    await stubPublicPage(page, { ordering: opts.ordering ?? false, venueInfo: true, reservations: true, menus: opts.menus ?? "two", cover: opts.cover, styleConfig: opts.styleConfig, reservationsPage: opts.reservationsPage });
     await page.goto(`/${SLUG}${opts.query ?? ""}`);
 }
 
@@ -58,9 +62,22 @@ test("con due menu adesso: la scelta, poi il menu toccato; indietro torna alla s
     await expect(page.getByText("Antipasti 1", { exact: true })).toHaveCount(0);
     expect(await underInert("Altre opzioni")).toBe(false);
 
+    // Indietro del browser senza animazione sua (qui, col mouse): la scelta rientra da sinistra.
     await page.goBack();
     await expect(chooser(page)).toBeVisible();
+    await expect(chooser(page)).toHaveAttribute("data-entrance", "back");
     await expect(page).not.toHaveURL(/menu=/);
+});
+
+test("sede che prenota sulla pagina /prenota: «Prenota un tavolo» nella scelta porta lì", async ({ page }) => {
+    await openPage(page, { reservationsPage: true });
+    await chooser(page).getByRole("button", { name: "Prenota un tavolo" }).click();
+    await expect(page).toHaveURL(new RegExp(`/${SLUG}/prenota`));
+});
+
+test("stile senza il nome del catalogo: il selettore del menu nell'isola c'è lo stesso", async ({ page }) => {
+    await openPage(page, { query: "?menu=menu-pranzo", styleConfig: { header: { showCatalogName: false } } });
+    await expect(page.getByRole("button", { name: "Menu: Menu pranzo, 1 di 2. Cambia menu" })).toBeVisible();
 });
 
 test("link diretto: un menu di adesso si apre subito; sconosciuto o di più tardi torna alla scelta", async ({ page }) => {
@@ -133,6 +150,8 @@ test("dal menu: il nome nell'isola apre «Menu disponibili ora», si cambia menu
     await expect(dialog.getByRole("heading", { name: "Menu disponibili ora" })).toBeVisible();
     await dialog.getByRole("button", { name: /^Tutti i menu/ }).click();
     await expect(chooser(page)).toBeVisible();
+    // Il passaggio parte subito col foglio dentro, non dopo la sua chiusura; la scelta entra ferma.
+    await expect(chooser(page)).toHaveAttribute("data-entrance", "still");
     await expect(page).not.toHaveURL(/menu=/);
     await expect(dialog).toHaveCount(0);
 });
@@ -145,6 +164,21 @@ test("il cambio dal foglio non si accumula nella cronologia: indietro torna alla
     await expect(page.getByText("Antipasti 1", { exact: true })).toBeVisible();
     await page.goBack();
     await expect(chooser(page)).toBeVisible();
+});
+
+test.describe("telefono stretto", () => {
+    test.use({ viewport: { width: 320, height: 700 } });
+
+    test("nell'isola il nome del menu resta intero: lo stato dice solo la parola e «2 di 2» esce", async ({ page }) => {
+        // Con la copertina l'isola si stacca dai bordi: è il caso più stretto (l'immagine può anche mancare).
+        await openPage(page, { query: "?menu=carta-dei-vini", cover: "/e2e-copertina.jpg" });
+        const selector = page.getByRole("button", { name: /^Menu: Carta dei vini/ });
+        await expect(selector).toHaveAttribute("data-senza-conto", "");
+        const name = selector.locator("i");
+        await expect(name).toHaveText("Carta dei vini");
+        expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+        await expect(selector.locator("xpath=following-sibling::button[1]")).toHaveText("Aperto");
+    });
 });
 
 test.describe("desktop", () => {

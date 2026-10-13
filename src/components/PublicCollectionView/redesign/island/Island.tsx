@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, MoreHorizontal, Search } from "lucide-react";
 import { SEARCH_TRIGGER_ID } from "@components/PublicCollectionView/PublicCollectionHeader/PublicCollectionHeader";
@@ -25,6 +25,36 @@ const ALTEZZA_COMPATTA_DESKTOP_PX = 74;
 const CIMA_FILA_COMPATTA_PX = 9;
 /** ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts) e con Island.module.scss. */
 const DESKTOP_QUERY = "(min-width: 641px)";
+
+/**
+ * «· 2 di 2» esce se il nome del menu non ci sta (mockup v38, `r2-nn`): il nome
+ * conta più del numero. Si rimisura quando cambia la larghezza della riga, il
+ * nome o il font.
+ */
+function useMenuCountFit(button: RefObject<HTMLButtonElement | null>, name: string | null | undefined) {
+    useEffect(() => {
+        const el = button.current;
+        const line = el?.parentElement;
+        if (!el || !line || typeof ResizeObserver === "undefined") return;
+        let live = true;
+        const nome = el.querySelector("i");
+        const fit = () => {
+            if (!live) return;
+            delete el.dataset.senzaConto;
+            if (nome && nome.scrollWidth > nome.clientWidth + 1) el.dataset.senzaConto = "";
+        };
+        fit();
+        void document.fonts?.ready.then(fit);
+        // Anche il nome: la riga resta larga uguale quando lo stato cambia parola («Chiude presto»).
+        const ro = new ResizeObserver(fit);
+        ro.observe(line);
+        if (nome) ro.observe(nome);
+        return () => {
+            live = false;
+            ro.disconnect();
+        };
+    }, [button, name]);
+}
 
 /**
  * Due sentinelle assolute in cima alla pagina: nessun lavoro a ogni scroll,
@@ -66,7 +96,8 @@ function useCompatta() {
  * telefono nella barra in basso, su desktop nel ⋯.
  */
 /** Con più menu adesso il nome del menu diventa un selettore: «Menu pranzo · 1 di 2 ⌄» (mockup v38, `menuLine`). */
-export type MenuSwitch = { position: number; total: number };
+/** Più menu adesso: posizione e nome del menu aperto (il nome anche se lo stile nasconde il titolo del catalogo). */
+export type MenuSwitch = { position: number; total: number; name: string | null };
 
 export default function Island({
     logoUrl,
@@ -98,7 +129,11 @@ export default function Island({
     const primerRef = useRef<HTMLInputElement>(null);
     const campoRef = useRef<HTMLButtonElement>(null);
     const lenteRef = useRef<HTMLButtonElement>(null);
+    const menuTastoRef = useRef<HTMLButtonElement>(null);
     const storia = activeTab === "storia";
+    // Con più menu il selettore mostra il menu aperto anche se lo stile nasconde il titolo del catalogo.
+    const switchName = menuSwitch && !storia ? (menuSwitch.name ?? menuName) : null;
+    useMenuCountFit(menuTastoRef, switchName);
     const piuLingue = useLanguage().availableLanguages.length > 1;
 
     // Desktop: da estesa a compatta il campo lascia il posto alla lente (e viceversa).
@@ -269,8 +304,9 @@ export default function Island({
                             </h1>
                             {/* «Menu pranzo  ● Aperto» su una riga; in Storia il menu non c'è. */}
                             <div className={styles.linea}>
-                                {menuName && !storia && menuSwitch ? (
+                                {switchName && menuSwitch ? (
                                     <button
+                                        ref={menuTastoRef}
                                         id={MENU_BUTTON_ID}
                                         type="button"
                                         className={`${styles.menu} ${styles.menuTasto}`}
@@ -280,12 +316,12 @@ export default function Island({
                                         }}
                                         aria-haspopup="dialog"
                                         aria-label={t("menus.island_aria", {
-                                            name: menuName,
+                                            name: switchName,
                                             position: menuSwitch.position,
                                             total: menuSwitch.total
                                         })}
                                     >
-                                        <i>{menuName}</i>
+                                        <i>{switchName}</i>
                                         <span className={styles.menuConto} aria-hidden>
                                             · {t("menus.position", { position: menuSwitch.position, total: menuSwitch.total })}
                                         </span>
@@ -294,7 +330,12 @@ export default function Island({
                                 ) : menuName && !storia ? (
                                     <i className={styles.menu}>{menuName}</i>
                                 ) : null}
-                                <VenuePill hours={openingHours} closures={upcomingClosures} onOpenHours={onOpenHours} />
+                                <VenuePill
+                                    hours={openingHours}
+                                    closures={upcomingClosures}
+                                    onOpenHours={onOpenHours}
+                                    word={Boolean(switchName)}
+                                />
                             </div>
                         </div>
                         {/* Desktop, isola estesa: il campo di ricerca prende lo spazio libero (spec §13). */}

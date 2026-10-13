@@ -2,22 +2,24 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import type { OpeningHoursEntry, UpcomingClosure } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import { useVenueStatus } from "./useVenueStatus";
-import { venueStatusLabel } from "./venueLabel";
+import { venueStatusLabel, venueStatusWord } from "./venueLabel";
 import styles from "./VenuePill.module.scss";
 
 type Props = {
     hours: OpeningHoursEntry[];
     closures: UpcomingClosure[];
     onOpenHours: () => void;
+    /** Solo la parola («Chiuso»): accanto al selettore dei menu. */
+    word?: boolean;
 };
 
 /** Stato del locale sotto il nome del menu. Senza orari non si vede. Il tocco apre le Informazioni. */
-export default function VenuePill({ hours, closures, onOpenHours }: Props) {
+export default function VenuePill({ hours, closures, onOpenHours, word = false }: Props) {
     const { t, i18n } = useTranslation("public");
     const status = useVenueStatus(hours, closures);
     const descriptionId = useId();
     const translate = t as (key: string, o?: Record<string, unknown>) => string;
-    const label = venueStatusLabel(status, translate, i18n.language, true);
+    const label = word ? venueStatusWord(status, translate) : venueStatusLabel(status, translate, i18n.language, true);
     if (!label) return null;
     // La forma corta è il nome (quello che si vede, anche per chi comanda a voce);
     // la frase intera è la descrizione («lun» letto da solo non basta).

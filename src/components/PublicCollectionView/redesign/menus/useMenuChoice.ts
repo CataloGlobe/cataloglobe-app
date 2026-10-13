@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type { PublicMenu } from "@/types/resolvedCollections";
+import { markOwnBack } from "./menuPassage";
 import { defaultMenu, findMenu, shouldChoose } from "./menuList";
 
 /** Il menu scelto sta in `?menu=<slug>` (spec §12, v38): stesso indirizzo, nessun caricamento. */
@@ -69,6 +70,7 @@ export function useMenuChoice(menus: PublicMenu[] | undefined, mode: { preview: 
     const backToChooser = useCallback(() => {
         if (chooserBehind.current) {
             chooserBehind.current = false;
+            markOwnBack();
             navigate(-1);
         } else {
             writeMenu(null, false);

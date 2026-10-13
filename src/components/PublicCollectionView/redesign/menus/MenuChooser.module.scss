@@ -27,7 +27,9 @@ $curva: cubic-bezier(0.2, 0.8, 0.2, 1);
 .copertina {
   height: 208px;
   overflow: hidden;
-  background: var(--pub-header-bg, #1a1a1a);
+  /* Niente fondo colorato: la scelta è fissa in cima e Safari 26 tinge la barra di
+     stato col fondo degli elementi fissi. Col colore del locale (header) diventava
+     arancione, mentre sul menu resta quello della pagina. */
 
   img {
     display: block;
@@ -396,6 +398,23 @@ $curva: cubic-bezier(0.2, 0.8, 0.2, 1);
 @keyframes appare {
   from {
     opacity: 0;
+  }
+}
+
+/* Indietro del browser (senza animazione del browser): la scelta rientra da sinistra sopra il menu. */
+@keyframes rientra {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+.scelta[data-entrance="back"] {
+  animation: rientra 0.38s $curva both;
+  box-shadow: 18px 0 40px -24px rgb(0 0 0 / 45%);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: appare 0.2s both;
+    box-shadow: none;
   }
 }
 

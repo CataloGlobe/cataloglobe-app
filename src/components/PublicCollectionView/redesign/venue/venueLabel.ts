@@ -38,6 +38,27 @@ export function venueStatusLabel(
 }
 
 /**
+ * Solo la parola («Aperto», «Chiude presto», «Chiuso»): accanto al selettore dei
+ * menu, dove lo spazio va al nome del menu (mockup v38, v30: «con il selettore
+ * solo la parola corta»).
+ */
+export function venueStatusWord(
+    status: VenueStatus,
+    t: (key: string, o?: Record<string, unknown>) => string
+): string | null {
+    switch (status.kind) {
+        case "unknown":
+            return null;
+        case "open":
+            return t("venue.open");
+        case "closing-soon":
+            return t("venue.closing_soon_word");
+        case "closed":
+            return t("venue.closed");
+    }
+}
+
+/**
  * Lo stato nei fogli (⋯, Informazioni, Orari), dove c'è spazio: aperto dice anche
  * quando chiude, «Aperto · chiude alle 23:30» (mockup v38); il resto come sopra.
  */

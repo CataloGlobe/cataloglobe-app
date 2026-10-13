@@ -5,6 +5,9 @@
    ri-rasterizzo per fotogramma su WebKit. */
 
 $passaggio: 220ms;
+/* La prima riga sfuma a velocità doppia (mockup v38, `opacity: 1 − 2·sy`): sparisce
+   nella prima metà del passaggio e torna nella seconda, così non passa mai sopra le pill. */
+$mezzo: 110ms;
 $curva: cubic-bezier(0.65, 0, 0.35, 1);
 $altezza-compatta: 52px;
 $rientro-compatta: 5px; /* padding dell'isola 14 − (52 − pill 34) / 2 */
@@ -126,7 +129,7 @@ $scia: 50px; /* logo 40 + gap 10 */
   align-items: center;
   gap: 10px;
   min-height: 40px;
-  transition: opacity $passaggio $curva, visibility 0s;
+  transition: opacity $mezzo $curva $mezzo, visibility 0s;
 
   > .testi {
     pointer-events: none;
@@ -263,6 +266,10 @@ $scia: 50px; /* logo 40 + gap 10 */
   flex: none;
   font-style: normal;
   opacity: 0.72;
+
+  .menuTasto[data-senza-conto] & {
+    display: none;
+  }
 }
 
 /* Capsula dei pulsanti: un solo fondo, divisori tra i segmenti (mockup v38). */
@@ -373,7 +380,7 @@ $scia: 50px; /* logo 40 + gap 10 */
   .riga {
     visibility: hidden;
     opacity: 0;
-    transition: opacity $passaggio $curva, visibility 0s linear $passaggio;
+    transition: opacity $mezzo $curva, visibility 0s linear $mezzo;
   }
 
   .fila {
@@ -415,6 +422,7 @@ $scia: 50px; /* logo 40 + gap 10 */
   .capsula,
   .fila {
     transition-duration: 1ms !important;
+    transition-delay: 0s !important;
   }
 }
 
