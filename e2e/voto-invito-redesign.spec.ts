@@ -2,8 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { SLUG, stubPublicPage } from "./publicPageStub";
 
 /**
- * Invito al voto nel redesign (PR 8b, spec §11): dopo la permanenza (20 s con
- * `?prova-voto=1`) e un ritorno in cima arriva la modale piccola, senza velo.
+ * Invito al voto nel redesign (PR 8b, spec §11, D76): alla ripresa del telefono,
+ * dopo una pausa (5 s con `?prova-voto=1`) e una visita minima (20 s), arriva la
+ * modale piccola, senza velo.
  * × = «no grazie»; ignorata vola nella barra come «Com'è andata?», poi «Vota»,
  * che riapre la modale; una stella fa crescere la modale nel modulo (mockup v38),
  * con le scelte rapide in testa al commento (D71). Pagina servita da stub, orologio finto.
@@ -30,34 +31,36 @@ test.beforeEach(async ({ page }) => {
 const invite = (page: Page) =>
     page.getByRole("region", { name: "Com'è andata?" }).filter({ has: page.getByRole("button", { name: "No grazie" }) });
 
-/**
- * Giù di qualche schermata e di nuovo in cima. WebKit consegna l'evento di
- * scorrimento al disegno dopo: si aspetta l'evento, poi si fa girare l'orologio.
- */
-async function scrollDownAndBack(page: Page) {
-    for (const y of [2400, 0]) {
-        await page.evaluate(
-            top =>
-                new Promise<void>(resolve => {
-                    window.addEventListener("scroll", () => resolve(), { once: true });
-                    window.scrollTo(0, top);
-                }),
-            y
-        );
-        await page.clock.runFor(500);
-    }
+/** La pagina si nasconde (telefono in tasca) e torna a vista. */
+async function setVisibility(page: Page, state: "hidden" | "visible") {
+    await page.evaluate(value => {
+        Object.defineProperty(document, "visibilityState", { configurable: true, get: () => value });
+        Object.defineProperty(document, "hidden", { configurable: true, get: () => value === "hidden" });
+        document.dispatchEvent(new Event("visibilitychange"));
+    }, state);
 }
 
-/** Permanenza passata, poi giù e di nuovo in cima. */
+async function awayAndBack(page: Page, awayMs: number) {
+    await setVisibility(page, "hidden");
+    await page.clock.runFor(awayMs);
+    await setVisibility(page, "visible");
+    await page.clock.runFor(500);
+}
+
+/** Visita minima passata, poi una pausa lunga e la ripresa. */
 async function arriveInvite(page: Page) {
-    await page.clock.runFor(21_000);
-    await scrollDownAndBack(page);
+    await page.clock.runFor(16_000);
+    await awayAndBack(page, 6_000);
     await expect(invite(page)).toBeVisible();
 }
 
-test("prima della permanenza tornare in cima non chiede niente", async ({ page }) => {
-    await page.clock.runFor(5_000);
-    await scrollDownAndBack(page);
+test("una pausa corta o una visita corta non chiedono niente", async ({ page }) => {
+    // Pausa lunga ma visita ancora corta.
+    await awayAndBack(page, 6_000);
+    await expect(invite(page)).toHaveCount(0);
+    // Visita lunga ma pausa corta.
+    await page.clock.runFor(20_000);
+    await awayAndBack(page, 2_000);
     await expect(invite(page)).toHaveCount(0);
 });
 
@@ -67,7 +70,7 @@ test("× è «no grazie»: la modale esce e non torna", async ({ page }) => {
     await expect(invite(page)).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Vota|Com'è andata/ })).toHaveCount(0);
 
-    await scrollDownAndBack(page);
+    await awayAndBack(page, 6_000);
     await expect(invite(page)).toHaveCount(0);
 });
 
@@ -110,4 +113,27 @@ test("una stella apre il modulo col voto; dopo l'invio il pulsante non c'è e il
     await expect(sheet).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^(Vota|Com'è andata\?)$/ })).toHaveCount(0);
     await expect(page.locator("footer", { hasText: "Fine del menu" }).getByRole("heading", { name: "Grazie, hai votato" })).toBeAttached();
+});
+
+test("dal ⋯ si vota sempre, anche prima dell'invito (D77)", async ({ page }) => {
+    await page.getByRole("button", { name: "Altre opzioni" }).click();
+    await page.getByRole("button", { name: /Lascia un voto/ }).click();
+    const sheet = page.getByRole("dialog", { name: "Com'è andata?" });
+    await expect(sheet.getByRole("button", { name: "4 stelle" })).toBeVisible();
+    await expect(invite(page)).toHaveCount(0);
+});
+
+test.describe("desktop", () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test("la modale arriva anche su desktop, in una finestra in basso (D77)", async ({ page }) => {
+        await arriveInvite(page);
+        // L'entrata è un'animazione CSS: l'orologio finto non la muove, si aspetta la fine.
+        await invite(page).evaluate(el =>
+            Promise.all(document.getAnimations().filter(a => el.contains((a.effect as KeyframeEffect).target as Node)).map(a => a.finished))
+        );
+        const box = await invite(page).boundingBox();
+        expect(box?.width).toBeLessThanOrEqual(440);
+        expect(box && 800 - (box.y + box.height)).toBeGreaterThanOrEqual(20);
+    });
 });
