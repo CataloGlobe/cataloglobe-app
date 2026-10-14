@@ -217,6 +217,15 @@
     box-shadow: none;
   }
 
+  // Sotto la barra laterale (v28 a 820 e 390) la scheda scelta è solo testo
+  // in tinta: la pillola resta alla barra delle sezioni sopra.
+  @media (max-width: 860px) {
+    .tabSelected,
+    .tabSelected:hover {
+      background: none;
+    }
+  }
+
   .tabState {
     @include d-type(small);
   }
@@ -232,6 +241,11 @@
     background: var(--d-surface);
     box-shadow: var(--d-shadow);
     @include d-type(control);
+
+    // Nella v28 la pillola dice solo «Sede» e il nome, senza negozio.
+    > svg:first-child {
+      display: none;
+    }
   }
 
   .pre {
