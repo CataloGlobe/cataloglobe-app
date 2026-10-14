@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 .appHeader {
   height: 100%;
   display: flex;
@@ -516,4 +518,55 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ===== Direzione D (artifact v28, `.btn.ddb.bell`) ===== */
+// Campanella tonda bianca con ombra; al posto del numero un pallino corallo
+// (il numero resta nel nome accessibile del pulsante).
+@include look-d {
+  .notifButton {
+    width: var(--d-ctl);
+    height: var(--d-ctl);
+    border-radius: 50%;
+    border: 1px solid var(--d-line);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+    color: var(--d-text);
+    transition: transform 0.12s ease-out;
+
+    &:hover {
+      background: var(--d-surface);
+      color: var(--d-brand-deep);
+    }
+
+    &:active {
+      transform: scale(0.97);
+    }
+  }
+
+  .notifBadge {
+    top: 7px;
+    right: 8px;
+    min-width: 0;
+    width: 9px;
+    height: 9px;
+    padding: 0;
+    border: 0;
+    background: var(--d-warm);
+    box-shadow: 0 0 0 2px var(--d-surface);
+    color: transparent;
+    overflow: hidden;
+    animation: notifDotInD 300ms var(--d-ease-move) both;
+  }
+
+  .notifCard {
+    width: min(320px, 82vw);
+    border-radius: var(--d-r-ctl);
+  }
+}
+
+@keyframes notifDotInD {
+  from {
+    transform: scale(0);
+  }
 }

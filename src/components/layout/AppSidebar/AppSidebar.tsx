@@ -503,6 +503,54 @@ export function AppSidebar({
         </Tooltip>
     );
 
+    // ===== Direzione D, telefono (artifact v28, sotto 861) =====
+    // La barra diventa una carta in alto: logo e avatar, sotto le sezioni che
+    // scorrono di lato. Le parti di una sezione stanno nelle schede della testata.
+    if (LOOK_D && isMobile) {
+        const phoneLink = (key: string, to: string, label: ReactNode, active: boolean) => (
+            <Link key={key} to={to} className={styles.phoneLinkD} aria-current={active ? "page" : undefined}>
+                {label}
+            </Link>
+        );
+        return (
+            <header className={styles.phoneBarD}>
+                <div className={styles.phoneTopD}>
+                    {brand?.homeTo ? (
+                        <Link to={brand.homeTo} className={styles.phoneBrandD} aria-label="CataloGlobe, vai all'inizio">
+                            <Logo variant="icon" color="flat" size={27} alt="" />
+                            <Logo variant="wordmark" color="auto" size={15} alt="" />
+                        </Link>
+                    ) : (
+                        <span className={styles.phoneBrandD}>
+                            <Logo variant="icon" color="flat" size={27} alt="" />
+                            <Logo variant="wordmark" color="auto" size={15} alt="" />
+                        </span>
+                    )}
+                    {accountSlot && <div className={styles.phoneAccountD}>{accountSlot}</div>}
+                </div>
+                <nav className={styles.phoneNavD} aria-label="Menu principale">
+                    {groups.flatMap((group, i) => {
+                        if (group.icon && group.title) {
+                            const id = sectionId(group, i);
+                            const last = readLastParts()[id];
+                            const target =
+                                group.items.find(item => item.id === last && !item.disabled) ??
+                                group.items.find(item => !item.disabled);
+                            if (!target) return [];
+                            const active = Boolean(currentItem(group.items, pathname, search));
+                            return [phoneLink(id, target.to, group.title, active)];
+                        }
+                        return group.items
+                            .filter(item => !item.disabled)
+                            .map(item =>
+                                phoneLink(item.id ?? item.to, item.to, item.label, Boolean(currentItem([item], pathname, search)))
+                            );
+                    })}
+                </nav>
+            </header>
+        );
+    }
+
     return (
         <>
             {isMobile && mobileOpen && (

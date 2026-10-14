@@ -975,3 +975,81 @@ $sub-height: 34px;
     transform: scale(0.9);
   }
 }
+
+/* ===== Direzione D, telefono (artifact v28 sotto 861: `.side` in alto) ===== */
+.phoneBarD {
+  @include look-d {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 10px 10px 0;
+    padding: 10px 14px;
+    border-radius: 24px;
+    background: var(--d-side-bg);
+    box-shadow: var(--d-shadow);
+    min-width: 0;
+  }
+}
+
+.phoneTopD {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.phoneBrandD {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 8px 2px 0;
+  color: var(--d-text);
+  text-decoration: none;
+}
+
+.phoneAccountD {
+  margin-left: auto;
+}
+
+.phoneNavD {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-inline: -4px;
+  padding-inline: 4px;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.phoneLinkD {
+  @include look-d {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 8px 12px;
+    border-radius: var(--d-r-ctl);
+    white-space: nowrap;
+    color: var(--d-side-muted);
+    text-decoration: none;
+    @include d-type(nav);
+    transition:
+      color var(--d-dur) ease,
+      background-color var(--d-dur) ease;
+
+    &:hover {
+      color: var(--d-text);
+      text-decoration: none;
+    }
+
+    &[aria-current="page"] {
+      background: var(--d-surface);
+      color: var(--d-brand-deep);
+      font-weight: 600;
+    }
+  }
+}

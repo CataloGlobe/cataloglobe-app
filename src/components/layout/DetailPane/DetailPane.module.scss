@@ -69,7 +69,13 @@
   }
 }
 
-.pane[data-place="slot"],
+// Nel posto accanto al contenuto forma e ombra le dà l'aside del layout.
+.pane[data-place="slot"] {
+  @include look-d {
+    border-left: none;
+  }
+}
+
 .pane[data-place="fixed"] {
   @include look-d {
     border-left: none;

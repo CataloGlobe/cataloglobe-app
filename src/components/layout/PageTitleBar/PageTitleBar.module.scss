@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 .bar {
   display: flex;
   align-items: center;
@@ -145,4 +148,87 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
+}
+
+/* ===== Direzione D (artifact v28, `.titlebar`) ===== */
+// Testata trasparente sul lilla, senza bordo: titolo in Bricolage, scheda
+// scelta in tinta, sede come pillola bianca. Ferma sopra il contenuto che
+// scorre (cornice in MainLayout).
+@include look-d {
+  .bar {
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    min-height: 0;
+    padding: 20px clamp(14px, 2.4vw, 28px) 0;
+    background: transparent;
+    border-bottom: 0;
+    position: relative;
+    z-index: 6;
+  }
+
+  // Come `.titlebar` della v28: titolo, schede e sede vanno a capo da sole.
+  .path,
+  .section {
+    flex-wrap: wrap;
+    gap: 10px 18px;
+  }
+
+  .sectionTitle {
+    @include d-type(page-title);
+    color: var(--d-text);
+  }
+
+  .tabs {
+    gap: 4px;
+    padding-block: 0;
+  }
+
+  .tab {
+    @include d-type(control);
+    padding: 6px 12px;
+    color: var(--d-muted);
+    transition:
+      color var(--d-dur) ease,
+      background-color var(--d-dur) ease;
+
+    &:hover {
+      background: var(--d-soft);
+      color: var(--d-brand-deep);
+    }
+  }
+
+  .tabSelected,
+  .tabSelected:hover {
+    background: var(--d-soft);
+    color: var(--d-brand-deep);
+    box-shadow: none;
+  }
+
+  .tabState {
+    @include d-type(small);
+  }
+
+  .sedi {
+    margin-right: 0;
+  }
+
+  .sedeBtn {
+    height: var(--d-ctl);
+    border-radius: var(--d-r-pill);
+    border: 1px solid var(--d-line);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+    @include d-type(control);
+  }
+
+  .pre {
+    font-weight: 500;
+    color: var(--d-muted);
+  }
+
+  .confrontoOn {
+    border-color: var(--d-brand);
+    background: var(--d-soft);
+    color: var(--d-brand-deep);
+  }
 }

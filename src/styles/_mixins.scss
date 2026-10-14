@@ -28,8 +28,16 @@ $bp-sidebar: 1024px;
 // VITE_BACKOFFICE_D acceso (`data-look="d"` sulla radice, vedi `lookD.ts`).
 // Dentro un modulo: `.btn { @include look-d { ... } }`.
 @mixin look-d {
-  :global(html[data-look="d"]) & {
-    @content;
+  // Dentro una regola: `html[data-look=d] .regola`. Al primo livello del file
+  // (nessun genitore) i selettori del blocco finiscono sotto la radice.
+  @if & {
+    :global(html[data-look="d"]) & {
+      @content;
+    }
+  } @else {
+    :global(html[data-look="d"]) {
+      @content;
+    }
   }
 }
 
