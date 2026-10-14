@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { SLUG, stubPublicPage } from "./publicPageStub";
+import { SLUG, featured, stubPublicPage } from "./publicPageStub";
 
 /**
  * Tastiera nella pagina pubblica: una riga del menu si apre da tastiera (pulsante
  * nascosto col nome del piatto, Invio e spazio), la scheda prende il fuoco, Esc
  * chiude e il fuoco torna alla riga. I fogli lasciano la pagina sotto `inert`.
+ * Dentro il foglio, «‹» rimette il fuoco su ciò che aveva aperto la pagina.
  *
  * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
  * e2e/tastiera-redesign.spec.ts`; senza il flag la spec si salta da sola.
@@ -35,4 +36,27 @@ test("una riga del menu si apre da tastiera e il fuoco torna alla riga", async (
     // Anche lo spazio apre la riga.
     await page.keyboard.press(" ");
     await expect(dialog).toBeVisible();
+});
+
+test("con «‹» il fuoco torna alla voce dell'elenco che aveva aperto il dettaglio", async ({ page }) => {
+    const contents = Array.from({ length: 7 }, (_, i) => featured({ id: `feat-${i}`, title: `Serata ${i + 1}` }));
+    await stubPublicPage(page, { ordering: false, featured: { before_catalog: contents } });
+    await page.goto(`/${SLUG}`);
+    await page.getByText("Antipasti 1", { exact: true }).waitFor();
+    test.skip((await page.getByRole("button", { name: "Altre opzioni" }).count()) === 0, "pagina senza redesign");
+
+    await page.getByRole("button", { name: /Vedi tutti \(7\)/ }).focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "In evidenza" })).toBeVisible();
+
+    const third = dialog.getByRole("listitem").nth(2);
+    await third.focus();
+    await page.keyboard.press("Enter");
+    const back = dialog.getByRole("button", { name: "Torna a In evidenza" });
+    await expect(back).toBeVisible();
+    await back.focus();
+    await page.keyboard.press("Enter");
+    await expect(dialog.getByRole("heading", { name: "In evidenza" })).toBeVisible();
+    await expect(third).toBeFocused();
 });
