@@ -203,6 +203,17 @@
       font-weight: 600;
     }
 
+    // Il numero più leggero; sulla chip scelta è bianco come il testo (copia, `.chip em`).
+    .count {
+      color: inherit;
+      opacity: 0.8;
+    }
+
+    &[aria-checked="true"] .count,
+    &[aria-pressed="true"] .count {
+      opacity: 0.85;
+    }
+
     // La scelta la dice il fondo pieno: niente spunta (v28, `.chip`).
     .check {
       display: none;

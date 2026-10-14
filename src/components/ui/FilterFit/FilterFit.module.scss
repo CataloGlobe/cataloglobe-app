@@ -1,0 +1,345 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
+// Filtri della D (Visual Redesign 2, `.chips` con `.fz-dd` e `.dd.srt`).
+// Il componente si usa solo con la D accesa: tutto sta dentro `look-d`.
+
+.row {
+    @include look-d {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        // si misura su una riga sola: quello che non ci sta va sotto il pulsante
+        overflow: hidden;
+        // l'ombra delle pill non si taglia
+        padding: 4px;
+        margin: -4px;
+    }
+}
+
+.pills,
+.aside {
+    @include look-d {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+
+        [role="radiogroup"] {
+            flex-wrap: nowrap;
+        }
+
+        > *,
+        [role="radio"] {
+            flex: none;
+            white-space: nowrap;
+        }
+    }
+}
+
+.row[data-zip] > .pills,
+.row[data-zip] > .aside {
+    @include look-d {
+        display: none;
+    }
+}
+
+// L'ordine (e «Passati da») vanno a destra; al telefono restano accanto al
+// filtro, a sinistra (copia, `.sp`).
+.aside,
+.sortBtn {
+    @include look-d {
+        margin-left: auto;
+
+        @media (max-width: 640px) {
+            margin-left: 0;
+        }
+    }
+}
+
+.aside + .sortBtn {
+    @include look-d {
+        margin-left: 0;
+    }
+}
+
+// le pill del pannello sono piatte, come nella copia (`.fz-c .chip`)
+.panelPills {
+    @include look-d {
+        [role="radio"],
+        button {
+            box-shadow: none;
+        }
+    }
+}
+
+// ── Il pulsante con i cursori ──
+.fzBtn,
+.sortBtn[data-icon] {
+    @include look-d {
+        position: relative;
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: var(--d-ctl);
+        height: var(--d-ctl);
+        padding: 0;
+        border: 0;
+        border-radius: var(--d-r-pill);
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow);
+        color: var(--d-text);
+        cursor: pointer;
+        transition:
+            background-color var(--d-dur) ease,
+            color var(--d-dur) ease,
+            transform 0.12s ease-out;
+
+        &:active {
+            transform: scale(0.97);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--d-focus);
+            outline-offset: 2px;
+        }
+    }
+}
+
+.fzBtn[data-on] {
+    @include look-d {
+        background: var(--d-brand);
+        color: var(--on-brand);
+    }
+}
+
+.fzIcon {
+    @include look-d {
+        width: 19px;
+        height: 19px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+    }
+}
+
+// il numerino sporge dal pulsante
+.count {
+    @include look-d {
+        @include d-type(micro);
+
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        display: grid;
+        place-items: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: var(--d-r-pill);
+        background: var(--d-warm);
+        box-shadow: 0 0 0 2px var(--d-surface);
+        color: var(--on-brand);
+        font-style: normal;
+    }
+}
+
+// ── Ordina: pillola col nome, o icona ──
+.sortBtn {
+    @include look-d {
+        @include d-type(control);
+
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 7px;
+        height: var(--d-ctl-s);
+        padding: 0 12px 0 14px;
+        border: 0;
+        border-radius: var(--d-r-pill);
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow);
+        color: var(--d-text);
+        white-space: nowrap;
+        cursor: pointer;
+        transition: transform 0.12s ease-out;
+
+        &:active {
+            transform: scale(0.97);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--d-focus);
+            outline-offset: 2px;
+        }
+    }
+}
+
+.sortIcon,
+.sortShort {
+    @include look-d {
+        display: none;
+    }
+}
+
+.chev {
+    @include look-d {
+        color: var(--d-muted);
+        transition: transform var(--d-dur) var(--d-ease-move);
+    }
+}
+
+.sortBtn[aria-expanded="true"] .chev {
+    @include look-d {
+        transform: rotate(180deg);
+    }
+}
+
+// nella testata compatta, se ci sta: la parola «Ordina» invece della scelta
+.sortBtn[data-short]:not([data-icon]) {
+    @include look-d {
+        .sortName {
+            display: none;
+        }
+
+        .sortShort {
+            display: inline;
+        }
+    }
+}
+
+.sortBtn[data-icon] {
+    @include look-d {
+        .sortName,
+        .chev {
+            display: none;
+        }
+
+        .sortIcon {
+            display: block;
+        }
+    }
+}
+
+.sortOn {
+    @include look-d {
+        background: var(--d-soft);
+        color: var(--d-brand-deep);
+        font-weight: 700;
+    }
+}
+
+// ── Il pannello «Mostra solo» ──
+.pop {
+    @include look-d {
+        position: fixed;
+        z-index: var(--z-overlay);
+        display: grid;
+        gap: 4px;
+        width: min(320px, calc(100vw - 32px));
+        padding: 8px 10px 10px;
+        border: 1px solid color-mix(in srgb, var(--d-muted) 20%, transparent);
+        border-radius: var(--d-r-ctl);
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow-pop);
+        color: var(--d-text);
+        outline: none;
+        transform-origin: 0 0;
+        animation: popIn 180ms var(--d-ease-move) both;
+    }
+}
+
+.popSheet {
+    @include look-d {
+        position: relative;
+        width: min(360px, 100%);
+        padding: 12px 14px 14px;
+        border-radius: var(--d-r-card);
+        box-shadow: var(--d-shadow-sheet);
+        transform-origin: 50% 50%;
+        animation: sheetPop 220ms var(--d-ease) both;
+    }
+}
+
+.veil {
+    @include look-d {
+        position: fixed;
+        inset: 0;
+        z-index: var(--z-overlay);
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        background: var(--d-veil);
+        animation: veilIn 180ms ease both;
+    }
+}
+
+.head {
+    @include look-d {
+        @include d-type(head);
+
+        margin: 0;
+        padding: 6px 2px 4px;
+        color: var(--d-muted);
+    }
+}
+
+.panelPills {
+    @include look-d {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 2px 0 8px;
+
+        [role="radiogroup"] {
+            flex-wrap: wrap;
+        }
+    }
+}
+
+.clear {
+    @include look-d {
+        @include d-type(control);
+
+        display: flex;
+        justify-content: center;
+        padding: 10px 10px 4px;
+        border: 0;
+        border-top: 1px solid var(--d-line);
+        background: none;
+        color: var(--d-brand-deep);
+        font-weight: 700;
+        cursor: pointer;
+    }
+}
+
+@keyframes popIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(-4px);
+    }
+}
+
+@keyframes sheetPop {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+}
+
+@keyframes veilIn {
+    from {
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pop,
+    .popSheet,
+    .veil {
+        animation: none;
+    }
+}

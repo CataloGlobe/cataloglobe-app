@@ -165,7 +165,13 @@ test.describe("Recensioni", () => {
 
     test("ordine: dal voto più alto", async ({ page }) => {
         await openPage(page);
-        await main(page).getByRole("combobox", { name: "Ordine" }).selectOption("ratingDesc");
+        // Nella D l'ordine è un menù (pillola o icona con le frecce), non una tendina.
+        if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+            await main(page).getByRole("button", { name: /^Ordine:/ }).click();
+            await page.getByRole("menuitem", { name: "Dal voto più alto" }).click();
+        } else {
+            await main(page).getByRole("combobox", { name: "Ordine" }).selectOption("ratingDesc");
+        }
         await expect(comments(page).last()).toHaveText("Freddo e2e");
         const list = await comments(page).allTextContents();
         expect(list.slice(0, 2).sort()).toEqual(["Pizza ottima e2e, torneremo.", "Tiramisù da provare e2e"]);

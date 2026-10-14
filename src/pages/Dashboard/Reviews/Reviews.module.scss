@@ -180,18 +180,12 @@
 
     .filters {
         gap: 6px;
+        min-width: 0;
         view-transition-name: r-chips;
-    }
 
-    // L'ordine è una pillola bianca senza bordo, come le tendine della v28.
-    .filters .sortSelect {
-        @include d-type(control);
-
-        border-color: transparent;
-        border-radius: var(--d-r-pill);
-        background-color: var(--d-surface);
-        box-shadow: var(--d-shadow);
-        color: var(--d-text);
+        > * {
+            flex: 1 1 auto;
+        }
     }
 
     // ── La riga compatta, attaccata sotto la testata ──
@@ -205,9 +199,14 @@
         background: var(--d-bg);
         box-shadow: 0 10px 18px -16px rgba(30, 20, 90, 0.45);
 
-        .bar,
-        .filters {
+        .bar {
             display: contents;
+        }
+
+        // I filtri prendono lo spazio che resta; se non ci stanno vanno sotto il pulsante.
+        .filters {
+            flex: 1 1 0;
+            min-width: 0;
         }
 
         .band {
@@ -237,35 +236,6 @@
                 clip-path: inset(50%);
                 white-space: nowrap;
             }
-        }
-
-        .filters > * {
-            flex: none;
-            white-space: nowrap;
-        }
-
-        // I chip prendono lo spazio che resta e scorrono di lato.
-        // Sotto i 140px non si legge nemmeno il chip scelto: vanno a capo.
-        .filters > :first-child {
-            flex: 1 1 0;
-            min-width: 140px;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            scrollbar-width: none;
-
-            [role="radiogroup"] {
-                flex-wrap: nowrap;
-            }
-        }
-
-        .sort {
-            margin-left: 0;
-            max-width: 168px;
-        }
-
-        // Non ci stanno tutti: resta il chip scelto (v28, `.tight.cz`).
-        &[data-tight] .filters [role="radiogroup"] > [role="radio"]:not([aria-checked="true"]) {
-            display: none;
         }
     }
 
