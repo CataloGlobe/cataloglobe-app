@@ -341,9 +341,6 @@
     "close_aria": "Fermer",
     "close_label": "Fermer"
   },
-  "hero": {
-    "aria": "En-tête de catalogue"
-  },
   "section_nav": {
     "aria": "Navigation dans les sections du catalogue"
   },

@@ -341,9 +341,6 @@
         "close_aria": "Close",
         "close_label": "Close"
     },
-    "hero": {
-        "aria": "Catalog header"
-    },
     "section_nav": {
         "aria": "Catalog section navigation"
     },

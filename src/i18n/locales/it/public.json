@@ -340,9 +340,6 @@
         "close_aria": "Chiudi",
         "close_label": "Chiudi"
     },
-    "hero": {
-        "aria": "Intestazione del catalogo"
-    },
     "section_nav": {
         "aria": "Navigazione sezioni del catalogo"
     },
