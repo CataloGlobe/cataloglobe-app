@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
 import type { LanguageCoverage } from "@/services/supabase/tenantLanguages";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./LanguageRow.module.scss";
 
 interface Props {
@@ -172,13 +173,20 @@ export function LanguageRow({
                 <StatusBadge variant="warning" label={label} />
             );
         }
+        // Nella D la lingua aggiornata non ha badge: lo dice già il sottotesto (v28 `.lg`).
+        if (LOOK_D) return null;
         return <StatusBadge variant="success" label={t("languages.coverage.up_to_date")} />;
     }
 
     return (
         <ListRow
             leading={
-                flagEmoji ? (
+                // Nella D la sigla in un quadratino al posto della bandiera (v28 `.lg .av`).
+                LOOK_D ? (
+                    <span className={styles.sigla} aria-hidden>
+                        {code.toUpperCase()}
+                    </span>
+                ) : flagEmoji ? (
                     // La bandiera è un'emoji: la sua misura la dà la scala del
                     // testo, non un font-size di pagina.
                     <span className={styles.flag} aria-hidden>
@@ -189,13 +197,15 @@ export function LanguageRow({
             title={
                 <span className={styles.nameLine}>
                     <span>{name}</span>
-                    <Text as="span" variant="caption" colorVariant="muted" className={styles.code}>
-                        {code}
-                    </Text>
+                    {!LOOK_D && (
+                        <Text as="span" variant="caption" colorVariant="muted" className={styles.code}>
+                            {code}
+                        </Text>
+                    )}
                 </span>
             }
             subtitle={renderSubtitle()}
-            wrapSubtitle={status === "to_review"}
+            wrapSubtitle={LOOK_D || status === "to_review"}
             meta={renderStatus()}
             trailing={
                 canToggle || (readOnly && !isBase) ? (

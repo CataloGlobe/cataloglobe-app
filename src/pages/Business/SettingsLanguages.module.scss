@@ -20,7 +20,8 @@
 .langGrid {
   @include look-d {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    // Quattro colonne a tutta pagina, tre a 820 (v28).
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
     gap: 12px;
     padding: 0;
 

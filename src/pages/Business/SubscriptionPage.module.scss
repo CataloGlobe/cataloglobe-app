@@ -88,5 +88,12 @@
         grid-row: 1 / span 2;
       }
     }
+
+    // In colonna l'ordine della v28: piano, gestione, poi il credito.
+    @media (max-width: 1119px) {
+      > :global(#utilizzo-ai) {
+        order: 1;
+      }
+    }
   }
 }

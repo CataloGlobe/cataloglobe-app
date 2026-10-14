@@ -178,6 +178,20 @@
     margin-left: auto;
   }
 
+  // Al telefono titolo e campanella sulla stessa riga, le schede sotto: la
+  // testata resta su due righe invece di tre.
+  @media (max-width: 600px) {
+    .path,
+    .section {
+      display: contents;
+    }
+
+    .tabs {
+      order: 1;
+      flex-basis: 100%;
+    }
+  }
+
   .sectionTitle {
     @include d-type(page-title);
     color: var(--d-text);
