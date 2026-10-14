@@ -667,6 +667,38 @@ describe("Scheduling consistency contract", () => {
         ]);
         expect(evening.layout.styleData?.config).toEqual({ id: "style-evening" });
     });
+
+    it("19. giudice nuovo: fra le layout l'ordine di oggi, «Fascia 00:00-23:59» (fascia 0-1440 dal ponte) prima di «Sempre»", async () => {
+        const tables: TableRows = {
+            activity_group_members: [],
+            schedule_targets: [],
+            schedule_layout: [
+                { schedule_id: "whole-day", catalog_id: "catalog-day", style: null },
+                { schedule_id: "always", catalog_id: "catalog-always", style: null }
+            ],
+            schedules: [
+                buildSchedule({
+                    id: "whole-day",
+                    rule_type: "layout",
+                    apply_to_all: true,
+                    time_mode: "window",
+                    time_from: "00:00:00",
+                    time_to: "23:59:00",
+                    priority: 20
+                }),
+                buildSchedule({ id: "always", rule_type: "layout", apply_to_all: true, priority: 1 })
+            ],
+            schedule_slots: [
+                { id: "s-day", schedule_id: "whole-day", days_of_week: null, start_minute: 0, end_minute: 1440, sort_order: 0 }
+            ]
+        };
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
+        const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now });
+        expect(edge).toEqual(web);
+        const expected = resolveCompetition(competitionRulesFromTables(tables), { activityId: "activity-1", groupIds: [] }, now);
+        expect(expected.layout.winner?.rule.id).toBe("whole-day");
+        expect(web.layout.scheduleId).toBe("whole-day");
+    });
 });
 
 /* ─── Fixtures of the numbered cases (also fed to the bridge, case 12) ─── */
