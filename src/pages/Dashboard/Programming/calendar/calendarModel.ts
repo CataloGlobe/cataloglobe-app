@@ -250,8 +250,9 @@ export type Axis = { from: number; to: number };
 export function axisFor(entries: readonly CalEntry[]): Axis {
     let from = 8 * 60, to = 24 * 60;
     for (const e of entries) for (const [a, b] of e.when.ranges ?? []) {
+        // fin dove finisce l'ultima fascia, non oltre (punto 26)
         if (b > 1440) to = Math.max(to, Math.min(30 * 60, Math.ceil(b / 60) * 60));
-        else from = Math.min(from, Math.floor(a / 60) * 60);
+        from = Math.min(from, Math.floor(a / 60) * 60);
     }
     return { from: Math.max(0, from), to };
 }

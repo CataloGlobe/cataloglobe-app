@@ -37,7 +37,7 @@ import {
     writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { axisFor, dayCtx, dayNum, entriesFromRules, fState, offLines, order, thingIdOf, voceOf, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { axisFor, dayCtx, dayNum, entriesFromRules, fLines, fState, offLines, order, thingIdOf, voceOf, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { compareCandidates, specificityFor } from "@shared/scheduleCompetition";
 import { dropDraft, PartialSaveError, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 
@@ -129,6 +129,25 @@ describe("regole spente: pronto, non in onda", () => {
         expect(offLines(off, "menu", seat, lun, ax).map(l => l.segs)).toEqual([[{ from: 720, to: 900 }]]);
         expect(offLines(off, "menu", seat, lun + 1, ax)).toEqual([]);
         expect(offLines(off, "price", seat, lun, ax)).toEqual([]);
+    });
+});
+
+describe("una fascia che passa la mezzanotte (punto 26)", () => {
+    const layout = { catalog_id: "c1", style_id: "s1" } as LayoutRule["layout"];
+    const notte = rule({ enabled: true, applyToAll: true, activityIds: [], layout, time_mode: "window", days_of_week: [5], time_from: "22:00:00", time_to: "02:00:00" });
+    const list = entriesFromRules([notte], names), seat = { activityId: "a1", groupIds: [] };
+    const ven = dayNum(2026, 8, 25);
+    it("l'asse arriva dove finisce l'ultima fascia, e parte dalla prima", () => {
+        expect(axisFor(list)).toEqual({ from: 480, to: 1560 });
+        const alba = rule({ enabled: true, applyToAll: true, activityIds: [], layout, time_mode: "window", time_from: "05:30:00", time_to: "01:00:00" });
+        expect(axisFor(entriesFromRules([alba], names))).toEqual({ from: 300, to: 1500 });
+    });
+    it("si disegna nel giorno in cui comincia: il venerdì fino alle 02:00, il sabato niente", () => {
+        const ax = axisFor(list);
+        const segs = (d: number) => fLines(dayCtx(list, "menu", seat, d), ax).flatMap(l => l.segs.filter(x => x.state === "on").map(x => [x.from, x.to]));
+        expect(segs(ven)).toEqual([[1320, 1560]]);
+        expect(segs(ven + 1)).toEqual([]);
+        expect(fState(dayCtx(list, "menu", seat, ven), 1500).win?.ruleId).toBe(notte.id);
     });
 });
 
