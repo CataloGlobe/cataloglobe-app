@@ -1,4 +1,5 @@
 @use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 .anchor {
     scroll-margin-top: 80px; // deep-link #utilizzo-ai sotto l'header fisso
@@ -56,5 +57,34 @@
   @include look-d {
     background: var(--d-tint-3);
     box-shadow: none;
+  }
+}
+
+// ── Direzione D: credito come numero grande e barra spessa (v28) ──
+@include look-d {
+  .big {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--d-muted);
+    @include d-type(body);
+
+    > b {
+      color: var(--d-text);
+      @include d-type(vote-avg);
+    }
+  }
+
+  // Il numero c'è già sopra: la barra resta sola, spessa.
+  .bar {
+    > :first-child {
+      height: 10px;
+      border-radius: var(--d-r-pill);
+      background: var(--d-surface);
+    }
+
+    > :last-child:not(:first-child) {
+      display: none;
+    }
   }
 }

@@ -41,7 +41,11 @@ import {
 import { getActivities } from "@/services/supabase/activities";
 import { TENANT_KEY } from "@/constants/storageKeys";
 import { SUBTYPE_LABELS, DEFAULT_SUBTYPE } from "@/constants/verticalTypes";
+import { LOOK_D } from "@styles/lookD";
+import { COMPANY } from "@/config/company";
 import styles from "./BusinessSettingsPage.module.scss";
+
+const CHANGE_SECTOR_MAILTO = `mailto:${COMPANY.contact.support}?subject=${encodeURIComponent("Cambio del settore")}`;
 
 /**
  * Il draft della pagina (§37.4 p. 5, regola B §11): nome e dati di
@@ -205,7 +209,9 @@ export default function BusinessSettingsPage() {
     // Il salvataggio sta nella barra della pagina, a destra (MD1): niente barra
     // fluttuante. Solo per chi può modificare, quando il draft è pronto.
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
-    const showSave = canManageTenant && draft !== null;
+    // Nella D la riga col solo «Salvato» non c'è: il salvataggio lo dice il
+    // toast, e i pulsanti compaiono quando c'è qualcosa da salvare.
+    const showSave = canManageTenant && draft !== null && (!LOOK_D || isDirty || saving);
     // Azioni e barra compatta memoizzate: `usePageHeader` si ridisegna a ogni
     // riferimento nuovo, e un riferimento nuovo a ogni render lo manda in ciclo
     // (Team non si apriva più). I gestori passano da un ref.
@@ -320,7 +326,7 @@ export default function BusinessSettingsPage() {
         <div className={styles.page}>
             {/* T16 IM2: l'azienda a righe di impostazione; il logo è una riga
                 qui, non più una card a parte. */}
-            <Card title="Azienda" flush>
+            <Card title="Azienda" flush className={styles.company}>
                 <SettingRow
                     label="Nome"
                     htmlFor="tenant-name"
@@ -335,15 +341,28 @@ export default function BusinessSettingsPage() {
                         />
                     }
                 />
-                <SettingRow
-                    label="Settore"
-                    description="Scelto alla creazione. Per cambiarlo scrivi al supporto."
-                    control={
-                        <Text as="p" variant="body" className={styles.readOnlyValue}>
-                            {SUBTYPE_LABELS[selectedTenant.business_subtype ?? DEFAULT_SUBTYPE]}
-                        </Text>
-                    }
-                />
+                {LOOK_D ? (
+                    // v28: il settore nella frase, e la richiesta di cambio a destra.
+                    <SettingRow
+                        label="Settore"
+                        description={`${SUBTYPE_LABELS[selectedTenant.business_subtype ?? DEFAULT_SUBTYPE]}. Scelto alla creazione.`}
+                        control={
+                            <a className={styles.askLink} href={CHANGE_SECTOR_MAILTO}>
+                                Chiedi di cambiarlo
+                            </a>
+                        }
+                    />
+                ) : (
+                    <SettingRow
+                        label="Settore"
+                        description="Scelto alla creazione. Per cambiarlo scrivi al supporto."
+                        control={
+                            <Text as="p" variant="body" className={styles.readOnlyValue}>
+                                {SUBTYPE_LABELS[selectedTenant.business_subtype ?? DEFAULT_SUBTYPE]}
+                            </Text>
+                        }
+                    />
+                )}
                 <SettingRow
                     label="Logo"
                     description="Quadrato. Compare nel workspace, nelle pagine pubbliche e sui PDF del menù."
@@ -408,7 +427,11 @@ export default function BusinessSettingsPage() {
                     }
                     control={
                         canDeleteTenant ? (
-                            <Button variant="danger" onClick={() => setDeleteDialogOpen(true)}>
+                            <Button
+                                variant="danger"
+                                className={styles.dangerButton}
+                                onClick={() => setDeleteDialogOpen(true)}
+                            >
                                 Elimina l&apos;azienda
                             </Button>
                         ) : (

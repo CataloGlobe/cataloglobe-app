@@ -5,6 +5,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import type { AiUsageCycle } from "@/types/aiUsage";
 import { buildUsageDetail, formatResetDate, formatUsagePercent } from "@/utils/aiUsage";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./AiUsageSection.module.scss";
 
 interface AiUsageSectionProps {
@@ -63,12 +64,19 @@ export function AiUsageSection({ usage, planName, seats }: AiUsageSectionProps) 
         <section id="utilizzo-ai" className={styles.anchor}>
             <Card title="Credito AI" subtitle={subtitle}>
                 <div className={styles.body}>
+                    {/* Nella D la percentuale è il numero grande, sopra una barra spessa (v28). */}
+                    {LOOK_D && (
+                        <p className={styles.big}>
+                            <b>{formatUsagePercent(usage.percent)}</b> usato questo mese
+                        </p>
+                    )}
                     <ProgressBar
                         value={percent}
                         max={100}
                         variant={isBlocked || isWarning ? "warning" : "brand"}
                         label={formatUsagePercent(usage.percent)}
                         aria-label="Credito AI usato questo mese"
+                        className={styles.bar}
                     />
                     <Text as="p" variant="caption" colorVariant="muted">
                         Si azzera il {formatResetDate(usage.resetAt)}

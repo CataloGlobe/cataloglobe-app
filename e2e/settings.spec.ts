@@ -62,7 +62,12 @@ test.describe("Impostazioni", () => {
         const logo = rows.filter({ hasText: /^Logo/ }).first();
         await expect(logo).toContainText("Quadrato. Compare nel workspace");
         await expect(logo.getByText("1:1", { exact: true })).toHaveCount(0);
-        await expect(page.getByRole("main").getByText("Scelto alla creazione. Per cambiarlo scrivi al supporto.")).toBeVisible();
+        // Nella D il settore dice solo «Scelto alla creazione.» e accanto c'è «Chiedi di cambiarlo».
+        const lookD = await page.evaluate(() => document.documentElement.dataset.look === "d");
+        await expect(
+            page.getByRole("main").getByText(lookD ? /Scelto alla creazione\.$/ : "Scelto alla creazione. Per cambiarlo scrivi al supporto.")
+        ).toBeVisible();
+        if (lookD) await expect(page.getByRole("link", { name: "Chiedi di cambiarlo" })).toBeVisible();
     });
 
     test("zona distruttiva: a un amministratore la frase, nessun bottone spento", async ({ page }) => {
