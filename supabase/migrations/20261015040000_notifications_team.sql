@@ -14,6 +14,7 @@ BEGIN;
 -- Ricevuto e accettato: un trigger su tenant_memberships, così valgono tutte
 -- le strade (invite_tenant_member, resend_invite, accept_invite_by_token,
 -- accept_tenant_invite) senza riscrivere quelle funzioni.
+-- Chi ha invitato riceve gli avvisi solo se è ancora owner o membro attivo.
 -- Scaduto: dentro expire_old_invites, l'unico punto che lo decide (le righe
 -- senza account vengono cancellate, un trigger DELETE non saprebbe distinguere
 -- una scadenza da una revoca).
@@ -34,10 +35,32 @@ VALUES
         'Ha accettato l''invito: ora fa parte del team.',
         true, false, NULL, true),
     ('team.invite_expired', 'team', 'info',
-        'Invito scaduto: {invited_email}',
-        'Non è stato accettato in 7 giorni. Puoi mandarlo di nuovo da Team in «{tenant_name}».',
+        'Invito scaduto in «{tenant_name}»',
+        '{invited_label} non l''ha accettato in 7 giorni. Puoi mandarlo di nuovo da Team.',
         true, false, NULL, true)
 ON CONFLICT (event_type) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Chi ha invitato è ancora dentro?
+-- -----------------------------------------------------------------------------
+-- invited_by resta sulla riga anche se quella persona lascia il team: gli
+-- avvisi le arrivano solo se è ancora owner o membro attivo.
+
+CREATE OR REPLACE FUNCTION public.is_tenant_insider(p_tenant_id uuid, p_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+    SELECT p_user_id IS NOT NULL AND (
+        EXISTS (SELECT 1 FROM public.tenants t
+                WHERE t.id = p_tenant_id AND t.owner_user_id = p_user_id)
+        OR EXISTS (SELECT 1 FROM public.tenant_memberships tm
+                   WHERE tm.tenant_id = p_tenant_id AND tm.user_id = p_user_id
+                     AND tm.status = 'active')
+    );
+$$;
 
 -- -----------------------------------------------------------------------------
 -- Ricevuto e accettato
@@ -111,8 +134,9 @@ BEGIN
             PERFORM public.notify(
                 'team.invite_accepted',
                 jsonb_build_object(
-                    'users', CASE WHEN NEW.invited_by IS NULL THEN '[]'::jsonb
-                                  ELSE jsonb_build_array(NEW.invited_by) END,
+                    'users', CASE WHEN public.is_tenant_insider(NEW.tenant_id, NEW.invited_by)
+                                  THEN jsonb_build_array(NEW.invited_by)
+                                  ELSE '[]'::jsonb END,
                     'tenant_owner', true,
                     'exclude', jsonb_build_array(NEW.user_id)),
                 NEW.tenant_id,
@@ -160,7 +184,7 @@ BEGIN
     -- Step 0: avvisi (mai bloccanti)
     FOR v_inv IN
         SELECT tm.id, tm.tenant_id, tm.invited_by, tm.invite_token,
-               coalesce(u.email, tm.invited_email) AS email,
+               u.email AS email,
                t.name AS tenant_name
         FROM public.tenant_memberships tm
         JOIN public.tenants t ON t.id = tm.tenant_id AND t.deleted_at IS NULL
@@ -168,7 +192,7 @@ BEGIN
         WHERE tm.status = 'pending'
           AND tm.invite_expires_at IS NOT NULL
           AND tm.invite_expires_at < now()
-          AND tm.invited_by IS NOT NULL
+          AND public.is_tenant_insider(tm.tenant_id, tm.invited_by)
     LOOP
         BEGIN
             PERFORM public.notify(
@@ -177,7 +201,9 @@ BEGIN
                 v_inv.tenant_id,
                 jsonb_build_object(
                     'tenant_name', v_inv.tenant_name,
-                    'invited_email', coalesce(v_inv.email, 'un invitato')
+                    -- Senza account la riga si cancella proprio per non
+                    -- tenere l'email: non la si copia nella campanella.
+                    'invited_label', coalesce(v_inv.email, 'Chi hai invitato')
                 ),
                 'expired:' || v_inv.id || ':' || coalesce(v_inv.invite_token::text, ''),
                 false);
