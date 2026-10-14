@@ -266,4 +266,5 @@ test("un piatto spento dopo l'apertura: il server lo rifiuta e la riga dice qual
     await page.getByRole("button", { name: "Togli i piatti non più disponibili" }).click();
     await dialog.getByRole("button", { name: "Rimuovi Antipasti 2" }).click();
     await expect(page.getByRole("button", { name: /^Invia alla cucina · 10,00/ })).toBeVisible();
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
 });

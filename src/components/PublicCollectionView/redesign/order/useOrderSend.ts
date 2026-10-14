@@ -36,6 +36,11 @@ export function useOrderSend(ordering: OrderingContext | undefined, knownOrders:
             setRefused(new Set());
         }
     }
+    // Tolti i piatti rifiutati, l'avviso non ha più niente da dire.
+    if (refused.size > 0 && !ordering?.selection.some(line => refused.has(line.id))) {
+        setRefused(new Set());
+        setFailure(null);
+    }
 
     const messageOf = (result: SendFailure): string => {
         switch (result.kind) {
