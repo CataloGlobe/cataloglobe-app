@@ -24,6 +24,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmailWithResult } from "../_shared/sendEmail.ts";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
+import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import {
     buildNotificationEmail,
     nextRetryDelayMinutes,
@@ -82,6 +83,7 @@ Deno.serve(async (req: Request) => {
     if (claimed.length === 0) return jsonResponse(counters, 200);
 
     const unresolved = new Set(claimed.map(e => e.id));
+    const ctx = { siteUrl: getPublicSiteUrl() };
 
     async function finish(id: string, patch: Record<string, unknown>): Promise<void> {
         const { error } = await supabase
@@ -98,7 +100,7 @@ Deno.serve(async (req: Request) => {
 
     try {
         for (const row of claimed) {
-            const email = buildNotificationEmail(row.template, row.data ?? {});
+            const email = buildNotificationEmail(row.template, row.data ?? {}, ctx);
             if (!email) {
                 console.error(`${LOG} template not buildable`, {
                     id: row.id,
