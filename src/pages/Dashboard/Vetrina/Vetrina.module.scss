@@ -1,0 +1,613 @@
+/* Menù e vetrina nella D (Visual Redesign 2, PR 9; copia congelata `#p-mv`).
+   La testata con la frase e la riga dei comandi, le card con l'anteprima
+   sulla tinta della famiglia. Si usa solo con la D accesa. */
+
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
+.page {
+    display: grid;
+    gap: var(--d-gap);
+    min-width: 0;
+}
+
+// ── Testata ──────────────────────────────────────────────
+// Il segnaposto in cima: uscito dalla vista, la testata si compatta.
+.top {
+    display: block;
+    height: 24px;
+    margin-bottom: calc(-24px - var(--d-gap));
+    pointer-events: none;
+}
+
+.head {
+    display: grid;
+    gap: var(--d-gap);
+    min-width: 0;
+    position: sticky;
+    // Il contenuto ha 18 px sopra (cornice D): la testata si attacca al bordo.
+    top: -18px;
+    z-index: 7;
+}
+
+.lead {
+    margin: 0;
+    @include d-type(answer);
+    line-height: 1.15;
+    color: var(--d-text);
+    text-wrap: balance;
+    view-transition-name: mv-lead;
+}
+
+// Le sedi che non mostrano niente (`b.dn`).
+.down {
+    font-weight: inherit;
+    color: var(--d-s-wait-ink);
+}
+
+.bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    view-transition-name: mv-bar;
+}
+
+// I filtri e l'ordine a sinistra, quanto serve; Cerca, Fogli e Crea a destra.
+.filters {
+    display: flex;
+    flex: 0 1 auto;
+    min-width: 0;
+
+    > * {
+        flex: 1 1 auto;
+    }
+}
+
+.search {
+    flex: 0 1 240px;
+    min-width: 0;
+    margin-left: auto;
+}
+
+.lens {
+    margin-left: auto;
+    width: var(--d-ctl);
+    min-width: var(--d-ctl);
+    height: var(--d-ctl);
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+    border-radius: var(--d-r-pill);
+}
+
+// Solo per i lettori di schermo.
+.sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+// Fogli o Elenco: al telefono solo Fogli.
+@media (max-width: 640px) {
+    .view {
+        display: none;
+    }
+}
+
+.crea {
+    flex: none;
+}
+
+.creaBtn {
+    min-height: var(--d-ctl);
+}
+
+// Sotto i 1024 «Crea» è solo il più, tondo come la lente.
+@media (max-width: 1023px) {
+    .creaBtn {
+        width: var(--d-ctl);
+        min-width: var(--d-ctl);
+        height: var(--d-ctl);
+        padding: 0;
+        justify-content: center;
+        gap: 0;
+        border-radius: var(--d-r-pill);
+    }
+
+    .creaWord {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}
+
+.creaPop {
+    min-width: 300px;
+}
+
+// La tessera dell'icona nella tendina: la tinta della famiglia.
+.creaIc {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    background: var(--fam, var(--d-soft2));
+    color: var(--fam-ink, var(--d-brand-deep));
+
+    svg {
+        width: 17px !important;
+        height: 17px !important;
+        stroke-width: 1.8;
+    }
+}
+
+[data-family="menu"] {
+    --fam: var(--d-fam-menu);
+    --fam-ink: var(--d-fam-menu-ink);
+    --tint: var(--d-tint-menu);
+}
+
+[data-family="style"] {
+    --fam: var(--d-fam-sty);
+    --fam-ink: var(--d-fam-sty-ink);
+    --tint: var(--d-tint-sty);
+}
+
+[data-family="featured"] {
+    --fam: var(--d-fam-ev);
+    --fam-ink: var(--d-fam-ev-ink);
+    --tint: var(--d-tint-ev);
+}
+
+[data-family="story"] {
+    --fam: var(--d-fam-sto);
+    --fam-ink: var(--d-fam-sto-ink);
+    --tint: var(--d-tint-sto);
+}
+
+[data-family="price"] {
+    --fam: var(--d-fam-pr);
+    --fam-ink: var(--d-fam-pr-ink);
+}
+
+// ── La riga compatta, ferma in alto (v34) ───────────────
+.head[data-compact] {
+    gap: 0;
+    margin: 0 calc(-1 * clamp(14px, 2.4vw, 28px));
+    padding: 28px clamp(14px, 2.4vw, 28px) 10px;
+    background: var(--d-bg);
+    box-shadow: var(--d-shadow-bar);
+
+    .lead {
+        display: none;
+    }
+}
+
+// Tablet e telefono: sotto la testata ferma bastano 10 px, e i comandi sono alti 40.
+@media (max-width: 1023px) {
+    .head[data-compact] {
+        --d-ctl: 40px;
+        --d-ctl-s: 40px;
+        --control-height: 40px;
+
+        padding-top: 10px;
+    }
+}
+
+// ── Card ─────────────────────────────────────────────────
+.grid {
+    container: vetrina / inline-size;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+    gap: var(--d-gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    padding: 10px 10px 12px;
+    border-radius: var(--d-r-card);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+}
+
+.hit {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+    min-width: 0;
+    border-radius: 20px;
+    color: inherit;
+    text-decoration: none;
+    transition: transform var(--d-dur) var(--d-ease);
+
+    &:hover {
+        text-decoration: none;
+    }
+
+    &:active {
+        transform: scale(0.985);
+    }
+}
+
+.pv {
+    display: block;
+    position: relative;
+    height: 142px;
+    overflow: hidden;
+    border-radius: 20px;
+    background: var(--tint);
+}
+
+.pvIc {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    background: var(--d-surface);
+    color: var(--fam-ink);
+    box-shadow: var(--d-shadow-chip-ic);
+
+    svg {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+.name {
+    display: block;
+    padding: 7px 6px 0;
+    @include d-type(card-name);
+    overflow-wrap: anywhere;
+}
+
+// «Di sistema» accanto al nome dello stile.
+.sys {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 8px;
+    vertical-align: 2px;
+    border-radius: var(--d-r-tag);
+    background: color-mix(in srgb, var(--d-muted) 13%, transparent);
+    font-style: normal;
+    @include d-type(small);
+    color: var(--d-muted);
+}
+
+.meta {
+    padding: 0 6px;
+    @include d-type(note);
+    color: var(--d-muted);
+    font-variant-numeric: tabular-nums;
+
+    em {
+        font-style: normal;
+        font-weight: 600;
+        color: var(--d-s-wait-ink);
+    }
+}
+
+.ft {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--d-ctl-s);
+    padding-left: 6px;
+}
+
+.on {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    min-width: 0;
+    @include d-type(note);
+    color: var(--d-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.ln {
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 1.4;
+
+    b {
+        font-weight: 700;
+        color: var(--d-text);
+    }
+
+    > i {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        margin-right: 6px;
+        vertical-align: 1px;
+        border-radius: 50%;
+        background: var(--d-brand);
+    }
+
+    &[data-now] > i {
+        background: var(--d-good);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--d-good) 18%, transparent);
+    }
+}
+
+.nb {
+    white-space: nowrap;
+}
+
+// Spento: l'anteprima si sbiadisce un poco.
+.card[data-off] :is(.paper, .phone) {
+    opacity: 0.72;
+}
+
+// ── Le anteprime ─────────────────────────────────────────
+// Il menù di carta.
+.sheet {
+    display: block;
+    height: 100%;
+    padding: 18px 16px 0 56px;
+}
+
+.paper {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    height: 100%;
+    padding: 12px 16px;
+    overflow: hidden;
+    border-radius: 10px 10px 0 0;
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow-paper);
+    transition: transform var(--d-dur) var(--d-ease-move);
+
+    > * {
+        flex: none;
+    }
+}
+
+.paperTitle {
+    margin-bottom: 2px;
+    overflow: hidden;
+    font-style: normal;
+    @include d-type(paper-title);
+    color: var(--d-text);
+    text-align: center;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.paperCat {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.cat {
+    margin-top: 4px;
+    overflow: hidden;
+    font-style: normal;
+    @include d-type(paper-cat);
+    color: var(--d-brand-deep);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.line {
+    display: block;
+    width: 80%;
+    height: 4px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--d-text) 11%, transparent);
+
+    &[data-short] {
+        width: 54%;
+    }
+}
+
+// Il telefono con i colori dello stile.
+.sw {
+    display: flex;
+    justify-content: center;
+    height: 100%;
+}
+
+.phone {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 96px;
+    margin-top: 22px;
+    padding: 12px 10px;
+    border-radius: 16px 16px 0 0;
+    background: var(--c0);
+    box-shadow: var(--d-shadow-phone);
+    transition: transform var(--d-dur) var(--d-ease-move);
+
+    .line {
+        width: 82%;
+        background: var(--c2);
+        opacity: 0.75;
+
+        &[data-short] {
+            width: 56%;
+        }
+    }
+}
+
+.aa {
+    font-style: normal;
+    @include d-type(style-aa);
+    line-height: 1;
+    color: var(--c1);
+}
+
+.phoneBar {
+    display: block;
+    height: 16px;
+    margin: 2px 0;
+    border-radius: 8px;
+    background: var(--c1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .hit:hover {
+        :is(.paper, .phone) {
+            transform: translateY(-4px) rotate(-0.5deg);
+        }
+
+        .name {
+            color: var(--d-brand-deep);
+        }
+    }
+}
+
+// Card strette (telefono, o colonna piccola): anteprima a sinistra, 88 px.
+@container vetrina (max-width: 520px) {
+    .cards {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    .card {
+        display: grid;
+        grid-template-columns: 88px minmax(0, 1fr);
+        grid-template-rows: auto auto 1fr;
+        gap: 0 12px;
+        align-items: start;
+        padding: 10px;
+    }
+
+    .hit {
+        display: contents;
+    }
+
+    .pv {
+        grid-column: 1;
+        grid-row: 1 / 4;
+        height: 100px;
+        border-radius: 16px;
+    }
+
+    .name,
+    .meta {
+        grid-column: 2;
+        padding: 6px 0 0;
+    }
+
+    .meta {
+        padding-top: 2px;
+    }
+
+    .ft {
+        grid-column: 2;
+        grid-row: 3;
+        align-self: end;
+        min-height: 0;
+        padding: 8px 0 0;
+    }
+
+    .pvIc {
+        top: 7px;
+        left: 7px;
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+
+        svg {
+            width: 13px;
+            height: 13px;
+        }
+    }
+
+    .sheet {
+        padding: 10px 11px 0;
+    }
+
+    .paper {
+        gap: 3px;
+        padding: 7px 8px;
+        border-radius: 7px 7px 0 0;
+    }
+
+    .paperTitle {
+        margin: 0;
+        @include d-type(paper-title-s);
+    }
+
+    .paperCat {
+        gap: 3px;
+    }
+
+    .cat {
+        margin-top: 2px;
+        @include d-type(paper-cat-s);
+    }
+
+    .line {
+        height: 3px;
+    }
+
+    .phone {
+        gap: 4px;
+        width: 50px;
+        margin-top: 12px;
+        padding: 7px 6px;
+        border-radius: 10px 10px 0 0;
+    }
+
+    .aa {
+        @include d-type(style-aa-s);
+    }
+
+    .phoneBar {
+        height: 9px;
+    }
+}
+
+// ── Nessun risultato ─────────────────────────────────────
+.empty {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 34px 20px;
+    border-radius: var(--d-r-card);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+    text-align: center;
+
+    b {
+        @include d-type(card-name);
+    }
+
+    span {
+        max-width: 44ch;
+        @include d-type(note);
+        color: var(--d-muted);
+    }
+}

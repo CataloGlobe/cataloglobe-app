@@ -42,6 +42,13 @@ import { CatalogDeleteDialog } from "./CatalogDeleteDialog";
 import { CatalogForm } from "./components/CatalogForm";
 import { CatalogSheet } from "./components/CatalogSheet";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
+import { LOOK_D } from "@/styles/lookD";
+import { VetrinaHead, type VetrinaView } from "../Vetrina/VetrinaHead";
+import { VetrinaCrea } from "../Vetrina/VetrinaCrea";
+import { MenuPaper, VetrinaCard, VetrinaNone } from "../Vetrina/VetrinaCard";
+import { useCompactHead } from "../Vetrina/useCompactHead";
+import { leadOf, matchesOnAir, onAirOf, sortVetrina, type OnAir, type OnAirFilter, type VetrinaSort } from "../Vetrina/vetrinaModel";
+import vs from "../Vetrina/Vetrina.module.scss";
 import styles from "./Catalogs.module.scss";
 
 const FORM_ID = "catalog-form";
@@ -81,6 +88,11 @@ export default function Catalogs() {
     const appearance = useRuleAppearance(currentTenantId);
     // Sotto 768 la tabella tiene una colonna: lo stato scende sotto il nome.
     const isPhone = useMediaQuery("(max-width: 767px)");
+
+    // D (Visual Redesign 2): filtri «In onda», ordine e testata che si stringe.
+    const [onAirFilter, setOnAirFilter] = useState<OnAirFilter>("all");
+    const [sort, setSort] = useState<VetrinaSort>("onda");
+    const { compact, setTop } = useCompactHead();
 
     // Drawer state
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -257,8 +269,9 @@ export default function Catalogs() {
 
     usePageHeader({
         title: verticalConfig.catalogLabel,
-        actions: headerActions,
-        compact: headerCompact,
+        // Nella D i comandi stanno nella pagina, sotto la frase.
+        actions: LOOK_D ? undefined : headerActions,
+        compact: LOOK_D ? undefined : headerCompact,
     });
 
     const handleOpenEdit = (catalog: V2Catalog) => {
@@ -282,8 +295,18 @@ export default function Catalogs() {
         setDuplicatingId(catalog.id);
         showToast({ message: `Sto duplicando «${catalog.name}»…`, type: "info" });
         try {
-            await duplicateCatalog(catalog.id, currentTenantId!, `${catalog.name} (Copia)`);
-            showToast({ message: `${verticalConfig.catalogLabel} duplicato.`, type: "success" });
+            const copy = await duplicateCatalog(catalog.id, currentTenantId!, `${catalog.name} (Copia)`);
+            if (LOOK_D) {
+                // D: la copia si può togliere subito, dal toast.
+                showToast({
+                    message: `«${copy.name}» creato. Nessuno lo vede finché non lo metti in onda.`,
+                    type: "success",
+                    actionLabel: "Annulla",
+                    onAction: () => void deleteCatalog(copy.id, currentTenantId!).then(loadData, () => {})
+                });
+            } else {
+                showToast({ message: `${verticalConfig.catalogLabel} duplicato.`, type: "success" });
+            }
             await loadData();
         } catch {
             showToast({ message: `Impossibile duplicare il ${catalogLower}.`, type: "error" });
@@ -293,6 +316,11 @@ export default function Catalogs() {
     };
 
     const handleOpenDelete = (catalog: V2Catalog) => {
+        // D: quello in onda non si elimina; prima si toglie dal Calendario.
+        if (LOOK_D && onAirById.get(catalog.id)?.state !== "off" && onAirById.has(catalog.id)) {
+            showToast({ message: `«${catalog.name}» è in onda: prima toglilo dal Calendario, poi si può eliminare.`, type: "info" });
+            return;
+        }
         setCatalogToDelete(catalog);
         setIsDeleteOpen(true);
     };
@@ -377,6 +405,42 @@ export default function Catalogs() {
         }
         return map;
     }, [appearance.index, catalogs, styleById]);
+
+    // D: la riga «In onda» di ogni menù e la frase in cima.
+    const onAirById = useMemo(() => {
+        const map = new Map<string, OnAir>();
+        if (!appearance.index) return map;
+        for (const catalog of catalogs) {
+            map.set(catalog.id, onAirOf(appearanceOf(appearance.index, { kind: "catalog", id: catalog.id }), appearance.activities));
+        }
+        return map;
+    }, [appearance.index, appearance.activities, catalogs]);
+    const OFF_AIR: OnAir = { state: "off", when: null, where: null };
+    const onAirOfCatalog = (catalog: V2Catalog) => onAirById.get(catalog.id) ?? OFF_AIR;
+    const lead = useMemo(() => {
+        if (!LOOK_D || !appearance.index) return null;
+        const index = appearance.index;
+        return leadOf(
+            catalogs.map(c => ({ name: c.name, appearance: appearanceOf(index, { kind: "catalog", id: c.id }) })),
+            appearance.activities,
+            { none: `nessun ${catalogLower}`, lead: "Adesso in onda:" },
+            `nessun ${catalogLower}`
+        );
+    }, [appearance.index, appearance.activities, catalogs, catalogLower]);
+    const onAirCounts = {
+        all: catalogs.length,
+        on: catalogs.filter(c => onAirOfCatalog(c).state !== "off").length,
+        off: catalogs.filter(c => onAirOfCatalog(c).state === "off").length
+    };
+    const dCatalogs = sortVetrina(
+        filteredCatalogs.filter(c => matchesOnAir(onAirFilter, onAirOfCatalog(c))),
+        sort,
+        onAirOfCatalog
+    );
+    const clearD = () => {
+        setSearchQuery("");
+        setOnAirFilter("all");
+    };
 
     /** Solo lo stato, nella card e nell'elenco: il campione dello stile vive in Stili. */
     const usageBadge = (catalogId: string) => {
@@ -528,11 +592,59 @@ export default function Catalogs() {
             );
         }
 
+        if (LOOK_D && !isLoading && catalogs.length > 0 && dCatalogs.length === 0) {
+            return <VetrinaNone onClear={clearD} />;
+        }
+
+        // D: le card con il foglio di carta (al telefono sempre Fogli).
+        if (LOOK_D && (viewMode === "grid" || isPhone)) {
+            if (isLoading) return <CardGrid loading skeletonCount={3} skeletonShape={{ media: true, badge: true, height: CARD_HEIGHT }} />;
+            return (
+                <div className={vs.grid}>
+                    <ul className={vs.cards} aria-label={verticalConfig.catalogLabelPlural}>
+                        {dCatalogs.map(catalog => {
+                            const stats = statsMap[catalog.id];
+                            const empty = stats && !statsLoading ? stats.emptyCategoryCount : 0;
+                            return (
+                                <li key={catalog.id}>
+                                    <VetrinaCard
+                                        family="menu"
+                                        to={`/business/${currentTenantId}/catalogs/${catalog.id}`}
+                                        preview={<MenuPaper title={catalog.name} categories={stats?.previewCategories ?? []} />}
+                                        name={catalog.name}
+                                        label={catalog.name}
+                                        meta={
+                                            <>
+                                                {`${categoriesText(catalog.id)} · ${productsText(catalog.id)}`}
+                                                {empty > 0 && (
+                                                    <>
+                                                        {" · "}
+                                                        <em>{empty === 1 ? "una vuota" : `${empty} vuote`}</em>
+                                                    </>
+                                                )}
+                                            </>
+                                        }
+                                        onAir={onAirOfCatalog(catalog)}
+                                        onMetti={
+                                            canWriteCatalog && canEdit
+                                                ? () => navigate(`/business/${currentTenantId}/crea/menu/${catalog.id}?da=menu&metti=1`)
+                                                : undefined
+                                        }
+                                        actions={canWriteCatalog ? rowActions(catalog) : undefined}
+                                    />
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            );
+        }
+
         if (viewMode === "list") {
             return (
                 <DataTable<V2Catalog>
                     ariaLabel={verticalConfig.catalogLabelPlural}
-                    data={filteredCatalogs}
+                    data={LOOK_D ? dCatalogs : filteredCatalogs}
                     allRowIds={allCatalogIds}
                     columns={columns}
                     isLoading={isLoading}
@@ -579,7 +691,28 @@ export default function Catalogs() {
     return (
         <PageGate readPermission="catalogs.read">
         {() => (
-        <section className={styles.container}>
+        <section className={LOOK_D ? `${styles.container} ${vs.page}` : styles.container}>
+            {LOOK_D && catalogs.length > 0 && (
+                <VetrinaHead
+                    family="menu"
+                    lead={lead}
+                    filter={onAirFilter}
+                    onFilter={setOnAirFilter}
+                    counts={onAirCounts}
+                    sort={sort}
+                    onSort={setSort}
+                    query={searchQuery}
+                    onQuery={setSearchQuery}
+                    placeholder={`Cerca ${catalogLower}`}
+                    view={{
+                        value: viewMode === "list" ? "elenco" : "fogli",
+                        onChange: (v: VetrinaView) => handleViewModeChange(v === "elenco" ? "list" : "grid")
+                    }}
+                    crea={<VetrinaCrea da="menu" disabled={!canEdit} />}
+                    compact={compact}
+                    setTop={setTop}
+                />
+            )}
             <div className={styles.content} data-view-mode={viewMode}>
                 {renderContent()}
             </div>

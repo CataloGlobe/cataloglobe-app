@@ -387,3 +387,54 @@
     }
   }
 }
+
+// Il segno dell'azienda in Menù e vetrina (Visual Redesign 2, `.azb`).
+.az {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: var(--d-ctl);
+  padding: 4px 16px 4px 4px;
+  border-radius: var(--d-r-pill);
+  background: var(--d-surface);
+  box-shadow: var(--d-shadow);
+  @include d-type(small);
+  line-height: 1.15;
+  white-space: nowrap;
+
+  b {
+    display: block;
+    font-weight: 700;
+    color: var(--d-text);
+  }
+
+  small {
+    display: block;
+    @include d-type(az-sub);
+    color: var(--d-muted);
+  }
+}
+
+.azLogo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--d-brand-deep);
+  color: var(--d-surface);
+  @include d-type(az-logo);
+}
+
+.azPin {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--d-surface);
+  color: var(--d-text);
+  box-shadow: var(--d-shadow-knob);
+}

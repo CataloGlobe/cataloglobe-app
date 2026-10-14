@@ -1,0 +1,54 @@
+@use "@styles/mixins" as *;
+
+// Il nome nella frase (Visual Redesign 2, `b.fk`).
+.name {
+    font-weight: inherit;
+}
+
+.icon {
+    display: none;
+}
+
+@include look-d {
+    .name {
+        --fam: var(--d-fam-menu);
+        --fam-ink: var(--d-fam-menu-ink);
+
+        padding: 0 0.22em;
+        border-radius: 0.3em;
+        background: var(--fam);
+        color: var(--fam-ink);
+        white-space: nowrap;
+        -webkit-box-decoration-break: clone;
+        box-decoration-break: clone;
+    }
+
+    .name[data-family="style"] {
+        --fam: var(--d-fam-sty);
+        --fam-ink: var(--d-fam-sty-ink);
+    }
+
+    .name[data-family="featured"] {
+        --fam: var(--d-fam-ev);
+        --fam-ink: var(--d-fam-ev-ink);
+    }
+
+    .name[data-family="story"] {
+        --fam: var(--d-fam-sto);
+        --fam-ink: var(--d-fam-sto-ink);
+    }
+
+    .name[data-family="price"] {
+        --fam: var(--d-fam-pr);
+        --fam-ink: var(--d-fam-pr-ink);
+    }
+
+    .icon {
+        display: inline;
+        width: 0.78em;
+        height: 0.78em;
+        margin-right: 0.22em;
+        vertical-align: -0.06em;
+        stroke-width: 2.2;
+    }
+}

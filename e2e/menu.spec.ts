@@ -20,6 +20,42 @@ function main(page: Page) {
     return page.getByRole("main");
 }
 
+/** Con VITE_BACKOFFICE_D acceso (`data-look="d"`) la pagina è Menù e vetrina della D. */
+function lookD(page: Page): Promise<boolean> {
+    return page.evaluate(() => document.documentElement.dataset.look === "d");
+}
+
+/**
+ * Un menù nell'elenco, per nome. Nella D il nome compare anche nella frase in
+ * cima («Adesso in onda: …») e sul foglio dell'anteprima: quello della card o
+ * della riga è l'ultimo.
+ */
+function item(page: Page, name: string): Locator {
+    return main(page).getByText(name, { exact: true }).last();
+}
+
+/** La griglia dei menù (card), oggi e nella D. */
+function grid(page: Page): Locator {
+    return main(page).getByRole("list", { name: "Menù" });
+}
+
+/** «Vista griglia» e «Vista lista»; nella D «Fogli» ed «Elenco». */
+async function viewRadio(page: Page, view: "grid" | "list"): Promise<Locator> {
+    const d = await lookD(page);
+    const name = view === "grid" ? (d ? "Fogli" : "Vista griglia") : d ? "Elenco" : "Vista lista";
+    return page.getByRole("radio", { name, exact: true });
+}
+
+/** «Crea menù»; nella D «Crea» apre «Cosa vuoi creare?» e la voce è «Un menù». */
+async function createMenu(page: Page): Promise<void> {
+    if (await lookD(page)) {
+        await main(page).getByRole("button", { name: "Crea", exact: true }).click();
+        await page.getByRole("menuitem", { name: /^Un menù/ }).click();
+    } else {
+        await page.getByRole("button", { name: "Crea menù" }).click();
+    }
+}
+
 /** Il «⋯» della riga (card, riga di tabella, nodo) che contiene `anchor`. */
 function actionsOf(anchor: Locator): Locator {
     return anchor
@@ -42,12 +78,12 @@ function dialog(page: Page): Locator {
 
 async function openList(page: Page): Promise<void> {
     await openBusinessPage(page, "catalogs", "Menù");
-    await expect(main(page).getByText("Carta e2e")).toBeVisible({ timeout: 15_000 });
+    await expect(item(page, "Carta e2e")).toBeVisible({ timeout: 15_000 });
 }
 
 async function openCarta(page: Page): Promise<void> {
     await openList(page);
-    await main(page).getByText("Carta e2e").click();
+    await item(page, "Carta e2e").click();
     await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.carta}`));
     await expect(node(page, "Antipasti")).toBeVisible({ timeout: 15_000 });
 }
@@ -105,23 +141,26 @@ test.describe("Menù — elenco", () => {
     test("testata e griglia con i conteggi", async ({ page }) => {
         await openList(page);
         await expect(page).toHaveTitle(/^Menù · .+ · CataloGlobe$/);
-        await expect(page.getByRole("radio", { name: "Vista griglia" })).toBeVisible();
-        await expect(page.getByRole("radio", { name: "Vista lista" })).toBeVisible();
+        await expect(await viewRadio(page, "grid")).toBeVisible();
+        await expect(await viewRadio(page, "list")).toBeVisible();
         // Un pulsante solo (D165): il menù da una foto nasce dal tunnel di «Crea menù».
-        await expect(page.getByRole("button", { name: "Crea menù" })).toBeVisible();
+        await expect(
+            (await lookD(page)) ? main(page).getByRole("button", { name: "Crea", exact: true }) : page.getByRole("button", { name: "Crea menù" })
+        ).toBeVisible();
         await expect(page.getByRole("button", { name: "Importa con AI" })).toHaveCount(0);
 
         for (const name of ["Carta e2e", "Pranzo e2e", "Vuoto e2e"]) {
             await expect(main(page).getByText(name)).toBeVisible();
         }
         // Carta: 7 categorie, 22 collegamenti (le due varianti comprese).
-        const carta = main(page).getByText("Carta e2e").locator("xpath=ancestor::*[contains(., 'categorie') and contains(., 'prodotti')][1]");
+        const carta = item(page, "Carta e2e").locator("xpath=ancestor::*[contains(., 'categorie') and contains(., 'prodotti')][1]");
         await expect(carta).toContainText(/7 categorie/);
         await expect(carta).toContainText(/22\s*prodotti/);
     });
 
     test("caricamento: tre skeleton per riga, con la sagoma della card", async ({ page }) => {
         await openList(page);
+        test.skip(await lookD(page), "nella D le card hanno le misure della copia, confrontate a foto");
         // Si ricarica con i menù in ritardo: la griglia resta in caricamento.
         let hold = true;
         await page.route(/\/rest\/v1\/catalogs\?/, async route => {
@@ -148,23 +187,23 @@ test.describe("Menù — elenco", () => {
         await openList(page);
         const search = page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca menù/)).first();
         await search.fill("pranzo");
-        await expect(main(page).getByText("Pranzo e2e")).toBeVisible();
-        await expect(main(page).getByText("Carta e2e")).toHaveCount(0);
+        await expect(grid(page).getByText("Pranzo e2e", { exact: true }).last()).toBeVisible();
+        await expect(grid(page).getByText("Carta e2e", { exact: true })).toHaveCount(0);
         await search.fill("zzz");
         await expect(main(page).getByText("Nessun risultato")).toBeVisible();
     });
 
     test("la vista lista apre il menù dalla riga", async ({ page }) => {
         await openList(page);
-        await page.getByRole("radio", { name: "Vista lista" }).click();
+        await (await viewRadio(page, "list")).click();
         await expect(page.getByRole("checkbox", { name: "Seleziona tutte le righe" })).toBeVisible();
-        await main(page).getByText("Carta e2e").click();
+        await item(page, "Carta e2e").click();
         await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.carta}`));
     });
 
     test("il kebab del menù ha le tre azioni", async ({ page }) => {
         await openList(page);
-        await actionsOf(main(page).getByText("Carta e2e")).click();
+        await actionsOf(item(page, "Carta e2e")).click();
         await expect(page.getByRole("menuitem", { name: "Aggiungi altri prodotti" })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: /^(Modifica nome|Rinomina)$/ })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "Elimina", exact: true })).toBeVisible();
@@ -173,7 +212,7 @@ test.describe("Menù — elenco", () => {
     // D124: si crea nel tunnel; i salvataggi (e il nome senza spazi, #240) li prova `crea.spec.ts`.
     test("«Crea menù» apre il tunnel di creazione", async ({ page }) => {
         await openList(page);
-        await page.getByRole("button", { name: "Crea menù" }).click();
+        await createMenu(page);
         await expect(page).toHaveURL(/\/crea\/menu\?da=menu$/);
         await expect(page).toHaveTitle(/Nuovo menù/);
         expect(write(stub, "catalogs.POST")).toBeUndefined();
@@ -182,7 +221,7 @@ test.describe("Menù — elenco", () => {
     test("rinomina un menù: PATCH sul suo id", async ({ page }) => {
         stub.onWrite("catalogs.PATCH", ({ body }) => ({ id: MENU.carta, created_at: new Date().toISOString(), ...(body as object) }));
         await openList(page);
-        await actionsOf(main(page).getByText("Carta e2e")).click();
+        await actionsOf(item(page, "Carta e2e")).click();
         await page.getByRole("menuitem", { name: /^(Modifica nome|Rinomina)$/ }).click();
         const name = dialog(page).getByRole("textbox", { name: /Nome/ });
         await expect(name).toHaveValue("Carta e2e");
@@ -196,7 +235,7 @@ test.describe("Menù — elenco", () => {
 
     test("un menù usato da una regola non si elimina", async ({ page }) => {
         await openList(page);
-        await actionsOf(main(page).getByText("Pranzo e2e")).click();
+        await actionsOf(item(page, "Pranzo e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
         await expect(dialog(page)).toContainText("Pranzo feriale");
         await expect(dialog(page).getByRole("button", { name: "Elimina" })).toBeDisabled();
@@ -206,7 +245,7 @@ test.describe("Menù — elenco", () => {
     test("elimina un menù libero: DELETE sul suo id", async ({ page }) => {
         stub.onWrite("catalogs.DELETE", () => null);
         await openList(page);
-        await actionsOf(main(page).getByText("Vuoto e2e")).click();
+        await actionsOf(item(page, "Vuoto e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
         await dialog(page).getByRole("button", { name: "Elimina" }).click();
         await expect.poll(() => write(stub, "catalogs.DELETE")).toBeTruthy();
@@ -216,9 +255,9 @@ test.describe("Menù — elenco", () => {
     test("eliminazione multipla: chiede conferma col conteggio, poi due DELETE", async ({ page }) => {
         stub.onWrite("catalogs.DELETE", () => null);
         await openList(page);
-        await page.getByRole("radio", { name: "Vista lista" }).click();
-        await checkboxOf(main(page).getByText("Carta e2e")).check();
-        await checkboxOf(main(page).getByText("Vuoto e2e")).check();
+        await (await viewRadio(page, "list")).click();
+        await checkboxOf(item(page, "Carta e2e")).check();
+        await checkboxOf(item(page, "Vuoto e2e")).check();
         const bulk = page.getByRole("toolbar", { name: "Azioni sulla selezione" }).getByRole("button", { name: /Elimina/ });
 
         // Annullare non scrive e rimette la selezione com'era.
@@ -228,8 +267,8 @@ test.describe("Menù — elenco", () => {
         await expect(confirm).toContainText(/categorie e i collegamenti/);
         await confirm.getByRole("button", { name: "Annulla" }).click();
         expect(stub.writes.filter(w => w.key === "catalogs.DELETE")).toHaveLength(0);
-        await expect(checkboxOf(main(page).getByText("Carta e2e"))).toBeChecked();
-        await expect(checkboxOf(main(page).getByText("Vuoto e2e"))).toBeChecked();
+        await expect(checkboxOf(item(page, "Carta e2e"))).toBeChecked();
+        await expect(checkboxOf(item(page, "Vuoto e2e"))).toBeChecked();
 
         await bulk.click();
         await confirm.getByRole("button", { name: "Elimina 2 menù" }).click();
@@ -244,26 +283,33 @@ test.describe("Menù — elenco", () => {
         await openList(page);
         await stub.revoked;
         // Il controllo positivo prima: la pagina è quella giusta e carica.
-        await expect(page.getByRole("radio", { name: "Vista lista" })).toBeVisible();
+        await expect(await viewRadio(page, "list")).toBeVisible();
         await expect(page.getByRole("button", { name: "Crea menù" })).toHaveCount(0);
+        // Nella D «Crea» resta per le altre cose, ma senza «Un menù».
+        if (await lookD(page)) {
+            await main(page).getByRole("button", { name: "Crea", exact: true }).click();
+            await expect(page.getByRole("menuitem", { name: /^Uno stile/ })).toBeVisible();
+            await expect(page.getByRole("menuitem", { name: /^Un menù/ })).toHaveCount(0);
+            await page.keyboard.press("Escape");
+        }
         await expect(page.getByRole("button", { name: "Importa con AI" })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
-        await page.getByRole("radio", { name: "Vista lista" }).click();
+        await (await viewRadio(page, "list")).click();
         await expect(page.getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
     });
 
     test("dal kebab, sotto «Importa»: la «i» spiega senza scegliere, la voce apre il drawer senza analizzare (D173)", async ({ page }) => {
         await openList(page);
-        await actionsOf(main(page).getByText("Carta e2e")).click();
+        await actionsOf(item(page, "Carta e2e")).click();
         const menu = page.getByRole("menu");
         await expect(menu.getByText("Importa", { exact: true })).toBeVisible();
-        const item = menu.getByRole("menuitem", { name: "Aggiungi altri prodotti" });
-        await expect(item).toHaveAttribute("aria-description", /foto o un PDF/);
+        const entry = menu.getByRole("menuitem", { name: "Aggiungi altri prodotti" });
+        await expect(entry).toHaveAttribute("aria-description", /foto o un PDF/);
         // il clic sulla «i» apre il tooltip e lascia il menù aperto (al telefono il passaggio del mouse non c'è)
-        await item.locator("svg").last().click();
+        await entry.locator("svg").last().click();
         await expect(page.getByRole("tooltip")).toContainText("Prima che entrino li controlli tu");
         await expect(menu).toBeVisible();
-        await item.click();
+        await entry.click();
         await expect(dialog(page)).toContainText("Importa menù con AI");
         expect(stub.writes.filter(w => w.key.startsWith("fn."))).toHaveLength(0);
     });
@@ -693,7 +739,7 @@ function cardOf(page: Page, name: string): Locator {
 test.describe("Menù — dove è attivo (§50.13)", () => {
     test("lista: «Dove è attivo» al posto di «Creato il»", async ({ page }) => {
         await openList(page);
-        await page.getByRole("radio", { name: "Vista lista" }).click();
+        await (await viewRadio(page, "list")).click();
         const table = main(page).getByRole("table", { name: "Menù" });
         await expect(table.getByRole("columnheader", { name: "Dove è attivo" })).toBeVisible();
         await expect(table.getByRole("columnheader", { name: "Creato il" })).toHaveCount(0);
@@ -706,7 +752,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
 
     test("griglia: stato e categorie vuote sulla card, senza campione dello stile", async ({ page }) => {
         await openList(page);
-        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        await (await viewRadio(page, "grid")).click();
         const carta = cardOf(page, "Carta e2e");
         await expect(carta).toContainText("Attivo adesso in Centro e2e");
         // Dessert non ha prodotti: il cliente non la vede, l'elenco lo dice.
@@ -728,11 +774,11 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await page.unrouteAll({ behavior: "ignoreErrors" });
         stub = await stubMenu(page, { twoStyles: true });
         await openList(page);
-        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        await (await viewRadio(page, "grid")).click();
         const carta = cardOf(page, "Carta e2e");
         await expect(carta).toContainText("Attivo adesso in 2 sedi");
         await expect(carta).not.toContainText("+1 stile");
-        await page.getByRole("radio", { name: "Vista lista" }).click();
+        await (await viewRadio(page, "list")).click();
         const row = main(page).getByRole("row").filter({ hasText: "Carta e2e" });
         await expect(row).toContainText("Attivo adesso in 2 sedi");
         await expect(row).not.toContainText("+1 stile");
@@ -758,7 +804,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
 
     test("dettaglio: un menù senza regole si lavora senza che nessuno veda", async ({ page }) => {
         await openList(page);
-        await main(page).getByText("Vuoto e2e").click();
+        await item(page, "Vuoto e2e").click();
         await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.vuoto}`));
         await expect(page.getByText("Non assegnato a nessuna sede")).toBeVisible({ timeout: 15_000 });
         await expect(page.getByText("Nessun cliente lo vede adesso")).toBeVisible();
@@ -778,7 +824,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
 
     test("eliminazione: lo stato delle regole è quello del Calendario", async ({ page }) => {
         await openList(page);
-        await actionsOf(main(page).getByText("Carta e2e")).click();
+        await actionsOf(item(page, "Carta e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
         const rules = dialog(page).getByRole("list", { name: "Regole del Calendario collegate" });
         await expect(rules.getByRole("link", { name: /Pranzo Centro e2e/ })).toHaveAttribute("href", new RegExp(`/scheduling/${RULE.pranzoCentro}$`));
@@ -798,9 +844,9 @@ for (const viewport of [
         test("elenco e dettaglio senza scroll di lato", async ({ page }) => {
             await openList(page);
             await page.setViewportSize(viewport);
-            await expect(main(page).getByText("Carta e2e")).toBeVisible();
+            await expect(item(page, "Carta e2e")).toBeVisible();
             await noSideScroll(page);
-            await main(page).getByText("Carta e2e").click();
+            await item(page, "Carta e2e").click();
             await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.carta}`));
             await expect(node(page, "Antipasti")).toBeVisible({ timeout: 15_000 });
             await selectCategory(page, "Antipasti");
@@ -824,7 +870,7 @@ for (const viewport of [
         test("il piè della tabella resta su una riga", async ({ page }) => {
             await openList(page);
             await page.setViewportSize(viewport);
-            await main(page).getByText("Carta e2e").click();
+            await item(page, "Carta e2e").click();
             await expect(node(page, "Pizze")).toBeVisible({ timeout: 15_000 });
             await selectCategory(page, "Pizze");
             const pageSize = main(page).getByRole("combobox", { name: "Righe per pagina" });

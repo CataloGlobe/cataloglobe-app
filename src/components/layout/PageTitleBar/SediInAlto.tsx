@@ -1,11 +1,13 @@
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { GitCompareArrows, MapPin } from "lucide-react";
 import { usePermissions } from "@/context/usePermissions";
+import { LOOK_D } from "@/styles/lookD";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import { useConfrontoOpts, useSediVista } from "@/hooks/useSediVista";
 import { SediBottone, type SedeScelta } from "@/components/ui/SediPannello/SediPannello";
 import { entryPath, isNavEntryUsable, navPart, seatOf, switchSedePath } from "@/utils/navModel";
+import { SegnoAzienda } from "./SegnoAzienda";
 import styles from "./PageTitleBar.module.scss";
 
 /** `/business/:businessId/locations/:activityId[/:segment]`: la sede in vista. */
@@ -42,6 +44,10 @@ export function SediInAlto({ groupKey, entryKey, compact = false }: SediInAltoPr
     const vista = useSediVista(businessId);
 
     const part = navPart(groupKey, entryKey);
+    // Menù e vetrina vale per tutta l'azienda: al posto di «Sede», il suo segno (D).
+    if (LOOK_D && part?.group.key === "crea") {
+        return isLoaded ? <SegnoAzienda sedi={readableActivities.length} compact={compact} /> : null;
+    }
     // Una sede sola: non c'è niente da scegliere.
     if (!part || !isLoaded || readableActivities.length < 2) return null;
     // Le Regole dell'azienda hanno i loro filtri; quelle di una sede dicono
@@ -228,3 +234,4 @@ function confrontoCompact(confrontate: { name: string }[]) {
         count: confrontate.length
     };
 }
+
