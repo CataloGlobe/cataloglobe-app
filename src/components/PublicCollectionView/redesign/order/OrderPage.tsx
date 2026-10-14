@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { BellRing, ChefHat, Clock, Minus, Plus, Trash2, Utensils, type LucideIcon } from "lucide-react";
 import AssistanceActions from "@components/PublicCollectionView/AssistanceActions/AssistanceActions";
 import type { CollectionViewSectionItem } from "@components/PublicCollectionView/CollectionView/CollectionView";
 import type { SelectionItem } from "@components/PublicCollectionView/OrderingSheet/OrderingSheet";
@@ -33,6 +33,14 @@ const STEP_KEYS: Record<(typeof ORDER_STEPS)[number], string> = {
     acknowledged: "ordering.step_kitchen",
     ready: "ordering.step_ready",
     delivered: "order_sheet.step_served"
+};
+
+/** Un'icona per stato, dentro il cerchio (come lo stepper di prima, scelto da Lorenzo il 2026-10-14). */
+const STEP_ICONS: Record<(typeof ORDER_STEPS)[number], LucideIcon> = {
+    submitted: Clock,
+    acknowledged: ChefHat,
+    ready: BellRing,
+    delivered: Utensils
 };
 
 type Props = {
@@ -163,6 +171,7 @@ function OrderContent({ ordering, findProduct, canEdit, sendState, sessionOrders
                         waiterCalledAt={ordering.waiterCalledAt}
                         onWaiterCalledAtChange={ordering.onWaiterCalledAtChange}
                         ordersRefreshKey={ordering.refreshKey}
+                        hasInProgressOrders={orders ? orders.some(order => order.status === "submitted" || order.status === "acknowledged") : undefined}
                     />
                 </section>
             ) : null}
@@ -300,22 +309,27 @@ function SentOrder({
     );
 }
 
-/** I quattro passi dello stato, quello attuale segnato (anche nella conferma). */
+/** I quattro passi dello stato, ognuno con la sua icona, quello attuale segnato (anche nella conferma). */
 export function OrderSteps({ step }: { step: number }) {
     const { t } = useTranslation("public");
     return (
         <ol className={styles.steps} aria-label={t("order_sheet.status_aria")}>
-            {ORDER_STEPS.map((status, i) => (
-                <li
-                    key={status}
-                    className={styles.stepItem}
-                    data-state={i < step ? "done" : i === step ? "current" : "todo"}
-                    aria-current={i === step ? "step" : undefined}
-                >
-                    <span className={styles.stepDot} aria-hidden="true" />
-                    {t(STEP_KEYS[status])}
-                </li>
-            ))}
+            {ORDER_STEPS.map((status, i) => {
+                const Icon = STEP_ICONS[status];
+                return (
+                    <li
+                        key={status}
+                        className={styles.stepItem}
+                        data-state={i < step ? "done" : i === step ? "current" : "todo"}
+                        aria-current={i === step ? "step" : undefined}
+                    >
+                        <span className={styles.stepDot} aria-hidden="true">
+                            <Icon size={15} strokeWidth={2.2} />
+                        </span>
+                        {t(STEP_KEYS[status])}
+                    </li>
+                );
+            })}
         </ol>
     );
 }

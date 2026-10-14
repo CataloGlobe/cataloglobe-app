@@ -17,6 +17,11 @@ type Props = {
     onWaiterCalledAtChange: (next: string | null) => void;
     /** Bump esterno (submit ordine riuscito) → ricalcola il gating "ordini in corso". */
     ordersRefreshKey?: number;
+    /**
+     * Ordini in corso già noti col realtime (redesign): se c'è, il gating del conto segue
+     * i cambi di stato a foglio aperto e la lettura qui sotto non parte.
+     */
+    hasInProgressOrders?: boolean;
     /** «tiles»: due riquadri nel corpo del foglio (redesign, mockup v38); di default il piede fisso. */
     layout?: "bar" | "tiles";
 };
@@ -27,6 +32,7 @@ export default function AssistanceActions({
     waiterCalledAt,
     onWaiterCalledAtChange,
     ordersRefreshKey,
+    hasInProgressOrders: liveInProgress,
     layout = "bar"
 }: Props) {
     const { t } = useTranslation("public");
@@ -55,8 +61,10 @@ export default function AssistanceActions({
     // ── Gating conto: ha ordini in lavorazione? Fetch al mount (apertura
     // sheet, indipendente dalla tab attiva) + refetch su bump esterno
     // (submit ordine riuscito). ─────────────────────────────────────────
-    const [hasInProgressOrders, setHasInProgressOrders] = useState(false);
+    const [fetchedInProgress, setHasInProgressOrders] = useState(false);
+    const hasLive = liveInProgress !== undefined;
     useEffect(() => {
+        if (hasLive) return;
         if (!session?.jwt) {
             setHasInProgressOrders(false);
             return;
@@ -74,7 +82,8 @@ export default function AssistanceActions({
             })
             .catch(() => {});
         return () => { cancelled = true; };
-    }, [session?.jwt, ordersRefreshKey]);
+    }, [session?.jwt, ordersRefreshKey, hasLive]);
+    const hasInProgressOrders = liveInProgress ?? fetchedInProgress;
 
     // ── Handlers ──────────────────────────────────────────────────────────
     const [isCallingWaiter, setIsCallingWaiter] = useState(false);
