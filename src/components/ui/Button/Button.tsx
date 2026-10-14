@@ -1,5 +1,6 @@
 import React, { forwardRef } from "react";
 import Text from "../Text/Text";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./Button.module.scss";
 
 type ButtonVariant =
@@ -64,7 +65,7 @@ export const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonPr
             <>
                 {loading && <span className={styles.spinner} aria-hidden />}
                 {!loading && leftIcon && <span className={styles.icon}>{leftIcon}</span>}
-                <Text as="span" variant="button" weight={500} className={styles.label}>
+                <Text as="span" variant="button" weight={LOOK_D ? 600 : 500} className={styles.label}>
                     {children}
                 </Text>
                 {!loading && rightIcon && <span className={styles.icon}>{rightIcon}</span>}
