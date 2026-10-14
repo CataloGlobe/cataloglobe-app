@@ -91,6 +91,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
 import { formatDecimal } from "@/utils/formatCurrency";
+import { findProductInGroups } from "./findProductInGroups";
 const importOrderConfirmationSheet = () => import("../OrderConfirmationSheet/OrderConfirmationSheet");
 const OrderConfirmationSheet = lazy(importOrderConfirmationSheet);
 
@@ -1885,40 +1886,10 @@ export default function CollectionView({
         setSelection(prev => replaceLine(prev, index, line));
     }, []);
 
-    const findProductById = useCallback((productId: string): CollectionViewSectionItem | null => {
-        for (const group of sectionGroups) {
-            for (const section of [group.root, ...group.children]) {
-                const found = section.items.find(i => i.id === productId);
-                if (found) return found;
-                for (const item of section.items) {
-                    if (item.variants) {
-                        const variant = item.variants.find(v => v.id === productId);
-                        if (variant) {
-                            return {
-                                id: variant.id,
-                                name: variant.name,
-                                parentSelected: true,
-                                price: variant.price ?? null,
-                                original_price: variant.original_price ?? null,
-                                from_price: variant.from_price ?? null,
-                                to_price: variant.to_price ?? null,
-                                image: variant.image ?? null,
-                                description: variant.description ?? null,
-                                ...(variant.optionGroups?.length ? { optionGroups: variant.optionGroups } : {}),
-                                ...(item.characteristics?.length
-                                    ? { characteristics: item.characteristics }
-                                    : {}),
-                                ...(item.allergens?.length ? { allergens: item.allergens } : {}),
-                                ...(item.ingredients?.length ? { ingredients: item.ingredients } : {}),
-                                ...(item.notes?.length ? { notes: item.notes } : {}),
-                            };
-                        }
-                    }
-                }
-            }
-        }
-        return null;
-    }, [sectionGroups]);
+    const findProductById = useCallback(
+        (productId: string): CollectionViewSectionItem | null => findProductInGroups(sectionGroups, productId),
+        [sectionGroups]
+    );
 
     // Rimando prodotto dal lettore storia (sub-fase 5): chiude il lettore,
     // torna al tab Menu e apre l'ItemDetail dello stesso meccanismo del

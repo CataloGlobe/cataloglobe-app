@@ -1539,7 +1539,10 @@ function menuSlugBase(name: string): string {
         .replace(/[̀-ͯ]/g, "")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+        .replace(/^-+/, "")
+        // `api/ssr-render` accetta `?menu=` fino a 80 caratteri: 72 lasciano posto a `-NN`
+        .slice(0, 72)
+        .replace(/-+$/, "");
     return slug || "menu";
 }
 
