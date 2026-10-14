@@ -320,6 +320,12 @@ export function AppSidebar({
     useEffect(() => {
         showSection(null);
     }, [pathname, collapsed, showSection]);
+    // D al telefono: la sezione aperta resta in vista nella fila che scorre di lato.
+    const phoneNavRef = useRef<HTMLElement>(null);
+    useEffect(() => {
+        if (!LOOK_D || !isMobile) return;
+        phoneNavRef.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "center" });
+    }, [isMobile, pathname]);
     useEffect(
         () => () => {
             window.clearTimeout(openTimer.current);
@@ -529,7 +535,7 @@ export function AppSidebar({
                     )}
                     {accountSlot && <div className={styles.phoneAccountD}>{accountSlot}</div>}
                 </div>
-                <nav className={styles.phoneNavD} aria-label="Menu principale">
+                <nav ref={phoneNavRef} className={styles.phoneNavD} aria-label="Menu principale">
                     {groups.flatMap((group, i) => {
                         if (group.icon && group.title) {
                             const id = sectionId(group, i);
