@@ -107,6 +107,10 @@ export function sheetReducer(state: SheetState, action: SheetAction): SheetState
 let current: SheetState = CLOSED_SHEET;
 let opener: HTMLElement | null = null;
 let pendingOpener: HTMLElement | null = null;
+// Chi ha spinto ogni pagina, per profondità (0 = la prima): «‹» rimette il fuoco
+// lì, non in cima al foglio (chi usa la tastiera non perde il punto dell'elenco).
+let pageOpeners: (HTMLElement | null)[] = [];
+let returnTo: HTMLElement | null = null;
 const listeners = new Set<() => void>();
 
 function dispatch(action: SheetAction): void {
@@ -119,6 +123,19 @@ function dispatch(action: SheetAction): void {
         opener = active instanceof HTMLElement && active !== document.body ? active : null;
     }
     pendingOpener = null;
+    if (typeof document !== "undefined") {
+        if (next.pages.length === 0 || current.pages.length === 0) {
+            pageOpeners = [];
+            returnTo = null;
+        } else if (next.pages.length > current.pages.length) {
+            const active = document.activeElement;
+            pageOpeners[current.pages.length - 1] = active instanceof HTMLElement ? active : null;
+            returnTo = null;
+        } else if (next.pages.length < current.pages.length) {
+            returnTo = pageOpeners[next.pages.length - 1] ?? null;
+            pageOpeners = pageOpeners.slice(0, next.pages.length - 1);
+        }
+    }
     current = next;
     listeners.forEach(listener => listener());
 }
@@ -146,6 +163,13 @@ export function getSheetState(): SheetState {
 export function takeSheetOpener(): HTMLElement | null {
     const element = opener;
     opener = null;
+    return element?.isConnected ? element : null;
+}
+
+/** Dopo «‹»: chi aveva spinto la pagina tornata a vista (già staccato dal DOM: null). */
+export function takePageOpener(): HTMLElement | null {
+    const element = returnTo;
+    returnTo = null;
     return element?.isConnected ? element : null;
 }
 

@@ -30,6 +30,7 @@ import {
     notifySheetShown,
     popSheetPage,
     takeSheetOpener,
+    takePageOpener,
     useSheetState,
     type SheetPage
 } from "./sheetStack";
@@ -462,9 +463,13 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
             }
             // Il fuoco segue la spinta: la pagina che lo aveva è diventata inert.
             // Resta dov'è se la pagina nuova (o la sua testata) l'ha già preso.
+            // Con «‹» torna a chi aveva aperto la pagina lasciata, se c'è ancora.
             const panel = panelRef.current;
+            const back = state.move === "pop" ? takePageOpener() : null;
             const active = document.activeElement;
-            if (panel && !(active && active !== panel && panel.contains(active) && !active.closest("[inert]"))) {
+            if (back && panel?.contains(back) && !back.closest("[inert]")) {
+                back.focus({ preventScroll: true });
+            } else if (panel && !(active && active !== panel && panel.contains(active) && !active.closest("[inert]"))) {
                 panel.focus({ preventScroll: true });
             }
         }
