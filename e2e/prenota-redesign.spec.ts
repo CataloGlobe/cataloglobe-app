@@ -17,8 +17,8 @@ test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_RED
 
 type Submitted = Record<string, unknown>;
 
-async function open(page: Page, opts: { submit?: { status: number; body: unknown }; featuredCta?: boolean } = {}) {
-    await page.clock.install({ time: new Date("2026-10-14T12:30:00+02:00") });
+async function open(page: Page, opts: { submit?: { status: number; body: unknown }; featuredCta?: boolean; time?: string } = {}) {
+    await page.clock.install({ time: new Date(opts.time ?? "2026-10-14T12:30:00+02:00") });
     await stubPublicPage(page, {
         ordering: false,
         reservations: true,
@@ -172,4 +172,16 @@ test("persone fino a 20, poi il rimando alle richieste particolari; i giorni in 
     await expect(sheet.getByText(/Oltre 20 persone scrivilo nelle richieste particolari/)).toBeVisible();
     const days = sheet.getByRole("group", { name: /^Giorno/ }).getByRole("button");
     expect(await days.count()).toBeGreaterThan(7);
+});
+
+test("di sera la lista degli orari va da sola al primo libero (D91)", async ({ page }) => {
+    // Telefono basso: gli orari della sera non stanno a vista senza scorrere.
+    await page.setViewportSize({ width: 390, height: 640 });
+    await open(page, { time: "2026-10-14T20:10:00+02:00" });
+    await openFromFooter(page);
+    const sheet = dialog(page);
+    const firstFree = sheet.getByRole("group", { name: "Sera" }).getByRole("button", { disabled: false }).first();
+    await expect(firstFree).toBeInViewport();
+    // Il foglio è sceso: la fila dei giorni è passata sopra.
+    await expect(sheet.getByRole("group", { name: /^Giorno/ })).not.toBeInViewport();
 });
