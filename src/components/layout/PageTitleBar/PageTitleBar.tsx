@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { NavbarBreadcrumb } from "@components/layout/AppHeader/NavbarBreadcrumb";
 import Text from "@/components/ui/Text/Text";
+import { LOOK_D } from "@styles/lookD";
 import type { AppSidebarNavGroup } from "@/components/layout/AppSidebar/AppSidebar";
 import { currentItem, isItemRoot } from "@/components/layout/AppSidebar/isItemActive";
 import { useReadPageHeader } from "@/context/useReadPageHeader";
@@ -78,7 +79,7 @@ export function PageTitleBar({ actions, groups = [], account = [] }: PageTitleBa
             <div className={styles.path}>
                 {section ? (
                     <div className={styles.section}>
-                        <Text as="span" variant="body" weight={600} className={styles.sectionTitle}>
+                        <Text as="span" variant="body" weight={LOOK_D ? 700 : 600} className={styles.sectionTitle}>
                             {section.group.title}
                         </Text>
                         <nav className={styles.tabs} aria-label={`Parti di ${section.group.title}`}>
