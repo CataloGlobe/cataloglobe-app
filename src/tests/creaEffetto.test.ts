@@ -70,3 +70,29 @@ describe("le sedi di un gruppo", () => {
     });
 });
 
+
+describe("«Cosa cambia nel calendario» in modifica: «Prima: …» e le sedi dove non cambia niente", () => {
+    it("le sedi uguali a prima vanno a parte, le altre dicono com'era", () => {
+        const prima = { sedi: [sede("a"), sede("b"), sede("c", { cov: ["Pranzo"] })], val: false as const };
+        const r = effSum([sede("a"), sede("b", { cov: ["Pranzo"] }), sede("c", { cov: ["Pranzo"] }), sede("d")], "menu", false, prima);
+        expect(r.unchanged).toEqual(["a", "c"]);
+        expect(r.groups.map(g => [g.lab, g.prima, g.ids])).toEqual([
+            ["Prende il posto di «Pranzo»", "non incrocia altri menù", ["b"]],
+            ["Non incrocia altri menù", "non c'era", ["d"]]
+        ]);
+        expect(r.on).toBe(4);
+    });
+    it("stesso esito ma prima diverso: due gruppi", () => {
+        const prima = { sedi: [sede("a"), sede("b", { mins: 0, days: 0 })], val: false as const };
+        const r = effSum([sede("a", { cov: ["Cena"] }), sede("b", { cov: ["Cena"] })], "menu", false, prima);
+        expect(r.groups.map(g => g.prima)).toEqual(["non incrocia altri menù", "non c'era"]);
+    });
+    it("spenta prima e spenta adesso: non cambia niente", () => {
+        const off = sede("a", { mins: 0, days: 0 });
+        expect(effSum([off], "menu", false, { sedi: [off], val: false }).unchanged).toEqual(["a"]);
+    });
+    it("senza `prima` (creando) nessuna sede va a parte", () => {
+        expect(effSum([sede("a")], "menu", false).unchanged).toEqual([]);
+        expect(effSum([sede("a")], "menu", false).groups[0].prima).toBeUndefined();
+    });
+});

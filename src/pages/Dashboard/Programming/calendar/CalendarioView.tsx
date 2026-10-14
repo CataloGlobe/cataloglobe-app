@@ -1120,13 +1120,40 @@ export default function CalendarioView({
                 } else sc.set(sk, { sedi: [x.name], ids: [x.id], con, quando, vince: t.vince, pari: t.pari, ...(t.copre ? { copre: true as const } : {}) });
             }
         }
+        // in modifica, la voce com'era salvata, con gli stessi conti: «Prima: …» in «Controlla»
+        let prima: SedeEff[] | undefined;
+        const r0 = draft.rule;
+        if (draft.mode === "edit" && r0 && (!draft.only || draft.kind === "featured")) {
+            const mine = (e: CalEntry) => e.kind === draft.kind && (draft.only ? e.id === `${r0.id}:featured:${draft.only}` : e.ruleId === r0.id);
+            // come `judged`: chi stava insieme si guarda come se prendesse il posto, la risposta la dice il tunnel
+            const list = entries.map(e => (mine(e) ? { ...e, preview: true, ...(e.kind === "menu" ? { add: false } : {}) } : e));
+            const ax = axisFor(list);
+            prima = (pvAll.length ? pvAll : shown).map(x => {
+                const seat = seatOf(x.id), cov = new Set<string>(), by = new Set<string>();
+                let mins = 0, days = 0;
+                for (let i = 0; i < 7; i++) {
+                    let on = 0;
+                    for (const l of fLines(dayCtx(list, draft.kind, seat, week + i), ax).filter(l => l.preview))
+                        for (const g of l.segs)
+                            if (g.state === "on") {
+                                on += g.to - g.from;
+                                g.covers.forEach(c => cov.add(c));
+                            } else if (g.by) by.add(g.by);
+                    if (on) {
+                        mins += on;
+                        days++;
+                    }
+                }
+                return { id: x.id, name: x.name, mins, days, cov: [...cov], by: [...by], incroci: 0 };
+            });
+        }
         // le sedi con lo stesso risultato stanno insieme
         const lines = [...groupsOf.entries()].flatMap(([k, ss]) => {
             const r = k.split("\n");
             if (multi) r[0] = "A " + listIt(ss) + ": " + r[0].charAt(0).toLowerCase() + r[0].slice(1);
             return r;
         });
-        return { lines, scontri: [...sc.values()], sedi: effSedi, ...(pvPair?.kind === "style" ? { pair: pvPair.thing } : {}) };
+        return { lines, scontri: [...sc.values()], sedi: effSedi, ...(prima ? { prima } : {}), ...(pvPair?.kind === "style" ? { pair: pvPair.thing } : {}) };
     };
 
     // le durate che ci sono già, prima quelle dello stesso tipo: al massimo sei

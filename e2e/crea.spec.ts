@@ -282,6 +282,27 @@ test.describe("Tunnel: «Salva le modifiche ed esci» passa gli stessi controlli
     });
 });
 
+test("in modifica «Controlla» dice com'era: «Prima: …» sotto ogni gruppo e le sedi dove non cambia niente (punto 5)", async ({ page }) => {
+    stub = await stubProgrammazione(page);
+    await emptyCategories(page);
+    // «Pranzo e2e» va in onda a Centro: portato a tutte le sedi, a Lago e Porto prima non c'era
+    await openBusinessPageByUrl(page, `crea/menu/${MENU.pranzo}?da=menu`);
+    await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+    await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
+    await next(page);
+    await allSedi(page).click();
+    await rail(page).getByRole("button", { name: /Controlla$/ }).click();
+    await expect(main(page).getByText(/^In onda in 3 sedi · /)).toBeVisible();
+    // il gruppo: l'esito, «Prima: …» e le sue sedi
+    const nuovo = main(page).locator("div").filter({ has: page.getByText("Prende il posto di «Carta e2e»", { exact: true }) }).filter({ has: page.getByText("Prima: non c'era", { exact: true }) }).last();
+    await expect(nuovo).toBeVisible();
+    await expect(nuovo.getByRole("button", { name: "Lago e2e" })).toBeVisible();
+    await expect(nuovo.getByRole("button", { name: "Porto e2e" })).toBeVisible();
+    const fermo = main(page).locator("div").filter({ has: page.getByText("In 1 sede non cambia niente", { exact: true }) }).filter({ has: page.getByRole("button") }).last();
+    await expect(fermo.getByRole("button", { name: "Centro e2e" })).toBeVisible();
+    expect(stub.writes).toEqual([]);
+});
+
 test.describe("Tunnel di creazione — ingressi", () => {
     test.beforeEach(async ({ page }) => {
         stub = await stubProgrammazione(page);

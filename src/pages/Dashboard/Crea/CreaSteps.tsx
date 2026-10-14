@@ -725,7 +725,11 @@ export function Controlla({
     const fb = firstBlock(t, c);
     // senza i fatti per sede (bozza incompleta) restano le righe della settimana
     const cosa = effect.sedi?.length ? (
-        <CosaCambia sedi={effect.sedi} kind={t.kind} insieme={t.insieme == null ? false : (sede, con) => hVal(t, sede, con)} when={effWhen(t)} multi={L.multi} pair={effect.pair} sede={wkSede} onSede={onSede} />
+        <CosaCambia sedi={effect.sedi} kind={t.kind} insieme={t.insieme == null ? false : (sede, con) => hVal(t, sede, con)} when={effWhen(t)} multi={L.multi} pair={effect.pair}
+            sede={wkSede}
+            onSede={onSede}
+            prima={t.edit?.orig.onda === "on" && effect.prima ? { sedi: effect.prima, val: t.edit.orig.insieme == null ? false : (sede, con) => hVal(t.edit!.orig, sede, con) } : undefined}
+        />
     ) : (
         <ul className={s.ieff}>
             {effect.lines.map((x, i) => (

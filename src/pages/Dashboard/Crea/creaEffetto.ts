@@ -5,9 +5,15 @@ import { DB_WAIT, hoursText, listIt, type SedeEff } from "@/pages/Dashboard/Prog
 import type { CreaKind as Kind } from "./creaModel";
 
 export type EffIco = "off" | "posto" | "insieme" | "solo";
-export type EffGroup = { key: string; ico: EffIco; lab: string; hrs: string; ids: string[]; off: boolean };
-/** `on`: le sedi dove va in onda (anche quelle dove lo farà col database nuovo); `tot`: tutte quelle guardate. */
-export type EffSum = { on: number; tot: number; same: boolean; mins: number; groups: EffGroup[] };
+/** `prima`: in modifica, com'era nelle stesse sedi («Prima: …»). */
+export type EffGroup = { key: string; ico: EffIco; lab: string; hrs: string; ids: string[]; off: boolean; prima?: string };
+/**
+ * `on`: le sedi dove va in onda (anche quelle dove lo farà col database nuovo); `tot`: tutte quelle guardate.
+ * `unchanged`: in modifica, le sedi dove non cambia niente (stanno fuori dai gruppi).
+ */
+export type EffSum = { on: number; tot: number; same: boolean; mins: number; groups: EffGroup[]; unchanged: string[] };
+/** In modifica: i fatti della voce salvata, sede per sede, e le sue risposte «insieme / al posto». */
+export type EffPrima = { sedi: readonly SedeEff[]; val: EffVal };
 
 const hrs = (x: SedeEff) => x.days + " " + (x.days === 1 ? "giorno" : "giorni") + ", " + hoursText(x.mins);
 
@@ -38,23 +44,39 @@ export function effLab(x: SedeEff, kind: Kind, val: EffVal): { lab: string; ico:
     return { lab: out.join(" · "), ico: posto.length || byPos.length ? "posto" : insieme.length ? "insieme" : "solo" };
 }
 
-/** Le sedi con lo stesso esito stanno insieme: prima quelle in onda, poi le più numerose. */
-export function effSum(sedi: readonly SedeEff[], kind: Kind, insieme: EffVal): EffSum {
+/**
+ * Le sedi con lo stesso esito stanno insieme: prima quelle in onda, poi le più numerose.
+ * In modifica (`prima`) stanno insieme quelle con lo stesso esito e lo stesso «Prima: …»,
+ * e quelle dove non cambia niente vanno a parte.
+ */
+export function effSum(sedi: readonly SedeEff[], kind: Kind, insieme: EffVal, prima?: EffPrima): EffSum {
     const on = sedi.filter(x => x.mins);
     const same = on.length > 0 && on.every(x => x.mins === on[0].mins && x.days === on[0].days);
-    const g = new Map<string, EffGroup>();
+    const sig = (x: SedeEff, lab: string) => lab + (same || !x.mins ? "" : "|" + hrs(x));
+    const was = (id: string) => {
+        const o = prima?.sedi.find(x => x.id === id);
+        if (!o) return { lab: "non c'era", sig: "" };
+        const lab = effLab(o, kind, prima!.val).lab;
+        return { lab: o.mins ? lab : "non c'era", sig: sig(o, lab) };
+    };
+    const g = new Map<string, EffGroup>(), unchanged: string[] = [];
     let n = 0;
     for (const x of sedi) {
         const { lab, ico } = effLab(x, kind, insieme), off = ico === "off";
         if (!off) n++;
+        const w = prima ? was(x.id) : null;
+        if (w && w.sig === sig(x, lab)) {
+            unchanged.push(x.id);
+            continue;
+        }
         const h = same || !x.mins ? "" : hrs(x);
-        const key = lab + "|" + h;
+        const key = lab + "|" + h + (w ? "#" + w.lab : "");
         const cur = g.get(key);
         if (cur) cur.ids.push(x.id);
-        else g.set(key, { key, ico, lab, hrs: h, ids: [x.id], off });
+        else g.set(key, { key, ico, lab, hrs: h, ids: [x.id], off, ...(w ? { prima: w.lab.charAt(0).toLowerCase() + w.lab.slice(1) } : {}) });
     }
     const groups = [...g.values()].sort((a, b) => Number(a.off) - Number(b.off) || b.ids.length - a.ids.length);
-    return { on: n, tot: sedi.length, same, mins: on[0]?.mins ?? 0, groups };
+    return { on: n, tot: sedi.length, same, mins: on[0]?.mins ?? 0, groups, unchanged };
 }
 
 /** Le sedi di un gruppo da mostrare: fino a quattro tutte, oltre le prime tre e «+N». */
