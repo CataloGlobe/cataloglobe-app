@@ -89,10 +89,24 @@ describe("invio alla cucina", () => {
         expect(sendFailure(fail("Chiuso", { code: "ORDERING_CLOSED" }))).toEqual({ kind: "closed", message: "Chiuso" });
         expect(sendFailure(fail("Sessione scaduta"))).toEqual({ kind: "session" });
         expect(sendFailure(fail("SESSION_EXPIRED"))).toEqual({ kind: "session" });
-        expect(sendFailure(fail("INVALID_ITEMS"))).toEqual({ kind: "items" });
+        expect(sendFailure(fail("INVALID_ITEMS"))).toEqual({ kind: "items", productIds: [] });
         expect(sendFailure(fail("EMPTY_CART"))).toEqual({ kind: "empty" });
         expect(sendFailure(fail("boh"))).toEqual({ kind: "other", message: "boh" });
         expect(sendFailure("non un errore")).toEqual({ kind: "other", message: null });
+    });
+
+    it("piatti rifiutati dal server: spenti o fuori menu", () => {
+        const withDetails = (details: unknown) => Object.assign(new Error("INVALID_ITEMS"), { details });
+        expect(sendFailure(withDetails({ reason: "UNAVAILABLE_PRODUCTS", unavailable_product_ids: ["p1", "p2"] }))).toEqual({
+            kind: "items",
+            productIds: ["p1", "p2"]
+        });
+        expect(sendFailure(withDetails({ reason: "PRODUCT_NOT_IN_CATALOG", invalid_product_ids: ["p3", 4] }))).toEqual({
+            kind: "items",
+            productIds: ["p3"]
+        });
+        expect(sendFailure(withDetails({ reason: "PRICE_MISMATCH" }))).toEqual({ kind: "items", productIds: [] });
+        expect(sendFailure(withDetails("x"))).toEqual({ kind: "items", productIds: [] });
     });
 
     it("quattro passi fino a Servito; annullato fuori; si annulla solo da Inviato", () => {
@@ -111,6 +125,8 @@ describe("righe e tavolo", () => {
         expect(isLineUnavailable(find, { id: "p1" })).toBe(false);
         expect(isLineUnavailable(find, { id: "p2" })).toBe(true);
         expect(isLineUnavailable(find, { id: "p3" })).toBe(true);
+        // Spento dopo l'apertura: il menu della pagina lo dà ancora, il server no.
+        expect(isLineUnavailable(find, { id: "p1" }, new Set(["p1"]))).toBe(true);
     });
 
     it("«Tavolo» solo davanti a un numero nudo", () => {

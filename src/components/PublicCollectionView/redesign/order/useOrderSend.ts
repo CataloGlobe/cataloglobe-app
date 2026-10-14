@@ -22,6 +22,8 @@ export function useOrderSend(ordering: OrderingContext | undefined, knownOrders:
     const { t } = useTranslation("public");
     const [sending, setSending] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
+    // Piatti rifiutati dal server all'ultimo invio: le righe restano segnate finché il foglio è aperto.
+    const [refused, setRefused] = useState<ReadonlySet<string>>(() => new Set());
     const [receipts, setReceipts] = useState<Record<string, SentReceipt>>({});
     // Due tocchi nello stesso frame vedono ancora `sending` falso: il ref no.
     const inFlight = useRef(false);
@@ -29,7 +31,10 @@ export function useOrderSend(ordering: OrderingContext | undefined, knownOrders:
     const [wasInStack, setWasInStack] = useState(inStack);
     if (inStack !== wasInStack) {
         setWasInStack(inStack);
-        if (inStack) setFailure(null);
+        if (inStack) {
+            setFailure(null);
+            setRefused(new Set());
+        }
     }
 
     const messageOf = (result: SendFailure): string => {
@@ -67,6 +72,7 @@ export function useOrderSend(ordering: OrderingContext | undefined, knownOrders:
             const result = await ordering.send();
             if (result.kind !== "sent") {
                 setFailure(messageOf(result));
+                if (result.kind === "items") setRefused(new Set(result.productIds));
                 return;
             }
             setReceipts(prev => ({ ...prev, [result.orderId]: { orderId: result.orderId, lines, total: selectionTotal(lines) } }));
@@ -84,7 +90,7 @@ export function useOrderSend(ordering: OrderingContext | undefined, knownOrders:
         }
     };
 
-    return { sending, failure, receipts, send };
+    return { sending, failure, refused, receipts, send };
 }
 
 export type OrderSendState = ReturnType<typeof useOrderSend>;
