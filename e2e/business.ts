@@ -29,11 +29,13 @@ export async function openBusinessPage(page: Page, path: string, sidebarLabel: s
     // transizione): finché non lo è, la sidebar dell'azienda non c'è ancora.
     // Si aspetta la voce «Panoramica».
     const nav = page.getByRole("navigation", { name: "Menu principale" });
-    await expect(nav.getByRole("link", { name: "Panoramica" })).toBeVisible({ timeout: 15_000 });
+    // Nella D si chiama «Home» (v28).
+    await expect(nav.getByRole("link", { name: /^(Panoramica|Home)$/ })).toBeVisible({ timeout: 15_000 });
     // Le voci stanno dirette nel menu o nel pannello della loro sezione;
     // Impostazioni, Team, Abbonamento, Lingue e Assistenza nel menù
     // dell'account in fondo alla sidebar (Officina).
-    const link = await sidebarLink(page, sidebarLabel);
+    const homeD = sidebarLabel === "Panoramica" && (await page.evaluate(() => document.documentElement.dataset.look === "d"));
+    const link = await sidebarLink(page, homeD ? "Home" : sidebarLabel);
     if ((await link.count()) > 0) {
         await link.click();
     } else {

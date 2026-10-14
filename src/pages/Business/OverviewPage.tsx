@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
+    ArrowRight,
     ClipboardList,
     Copy,
     Download,
@@ -20,6 +21,8 @@ import {
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageHeader } from "@/context/usePageHeader";
+import { ROUTE_LABELS } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
+import { LOOK_D } from "@styles/lookD";
 import { usePermissions } from "@/context/usePermissions";
 import { useToast } from "@/context/Toast/ToastContext";
 import { canDoOnActivity, canDoOnAnyActivity, canDoOnTenant, isOwnerOrAdmin } from "@/lib/permissions";
@@ -364,7 +367,7 @@ export default function OverviewPage() {
                 : `${activeCount} sedi nel tuo ruolo · le altre non si vedono`
             : undefined;
 
-    usePageHeader({ title: "Panoramica" });
+    usePageHeader({ title: ROUTE_LABELS.overview });
 
     if (tenantLoading || !selectedTenant || permissions == null) {
         // La forma della pagina che arriva: la vetrina (due righe) e le basi.
@@ -940,6 +943,12 @@ export default function OverviewPage() {
                                     <Text as="span" variant="caption" colorVariant="muted">
                                         {option.text}
                                     </Text>
+                                    {/* Direzione D (v28): l'invito in fondo alla tessera. */}
+                                    {LOOK_D && (
+                                        <span className={styles.createGo}>
+                                            Crea <ArrowRight aria-hidden="true" />
+                                        </span>
+                                    )}
                                 </Link>
                             </li>
                         ))}
