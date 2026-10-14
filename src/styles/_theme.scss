@@ -284,9 +284,20 @@
   --timing-motion-base: 200ms;
   --easing-state: ease;
   --easing-surface: cubic-bezier(0.4, 0, 0.2, 1);
+
+  // Un colore per tipo di cosa (menù, stile, in evidenza, storia): le corsie
+  // del Calendario e i tunnel di creazione usano gli stessi.
+  --kind-menu: var(--brand-primary);
+  --kind-style: #0e9488;
+  --kind-featured: #d97706;
+  --kind-story: #e11d48;
 }
 
 [data-theme="dark"] {
+  --kind-style: #2dd4bf;
+  --kind-featured: #fbbf24;
+  --kind-story: #fb7185;
+
   // Caselle, selettori di data e barre di scorrimento native in scuro:
   // senza, le caselle restavano bianche su --surface.
   color-scheme: dark;

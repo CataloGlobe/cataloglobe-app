@@ -25,7 +25,7 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
   1. «da una foto (D165, D172, D180)»: tolto un «Avanti» di troppo prima di `toReady` («Dove e quando» ora chiede la scelta).
   2. «stile: «Sì, lo metto in onda»»: regola ristretta a Porto e a certi momenti, come la prova «Metti in onda» del menù; in tutte le sedi e sempre era a pari merito con lo stile di base e il Calendario la fermava, giustamente.
   3. e 4. «Metti in onda dall'elenco» e «riaccendere un contenuto pronto»: `nataleDraft` risponde con una riga scritta a mano (oggetto o lista secondo `Accept`) invece di `route.fetch()`, che usciva sulla rete vera.
-  Da rilanciare sul Mac: `bash scripts/e2e.sh e2e/crea.spec.ts`.
+  Rilanciata sul Mac il 2026-10-14, dopo l'unione di staging e i punti 18 e 19: 45 prove su 45.
 
 ## I 27 punti
 
@@ -56,7 +56,7 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 18. Nell'elenco ogni riga dice di cosa parla e se è in onda. **Fatto**: l'elenco Storie ha le colonne «Storia», «Di cosa parla» (il prodotto, oppure «Il locale · sede»; con una sede sola «Il locale») e «Stato»: «In onda», «Pronta, non in onda», «In onda, ma nessuno la vede». Le colonne «Dove appare» e «Prodotto collegato» non ci sono più; sotto la testata «Ogni storia sta con la cosa che racconta.». Parole e stato in `ruleAppearance.ts` (`storyAbout`, `describeStoryOnAir`). «Nessuno la vede» per il prodotto fuori dai menù in onda è dietro `DB.ready` [int.]: col database di oggi la storia di un prodotto compare ancora sotto il menù, quindi non sarebbe vero; oggi lo dice solo per sede sospesa, sede che non c'è più o abbonamento fermo, col perché sotto. Non portato: «Tocca una riga: a destra vedi dove compare» (la riga apre la storia, come prima). Testi composti da me, da confermare: «Il locale · tutte le sedi» (storie di prima, senza sede né prodotto), il filtro «Pronte, non in onda» al posto di «Bozze», «Un prodotto che non c'è più». Prove: `src/tests/stories/storyOnAir.test.ts`, `e2e/storie.spec.ts`.
 
 ### Comune
-19. Colori per tipo. **Da fare**
+19. Colori per tipo. **Fatto**: ogni tunnel prende il colore del suo tipo, lo stesso delle corsie del Calendario (menù di marca, stile verde acqua, in evidenza ambra, storia rosa). I quattro colori sono token del tema (`--kind-menu`, `--kind-style`, `--kind-featured`, `--kind-story` in `_theme.scss`, chiaro e scuro) e il Calendario li legge da lì. Nel tunnel (`data-kind` sulla radice, `--k` in `Crea.module.scss`): l'icona del tipo accanto al titolo, i pallini dei passi, le caselle di «Cosa vuoi modificare?», le scelte, la card «Sul telefono», la frase di «Controlla» e i titoli dei passi col filo a sinistra. «In onda?»: le due scelte sono neutre finché non le tocchi, il «Sì» scelto è verde. Non portati: il filo in cima al riquadro del «Quando» e la barra delle ore colorata (stanno nel passo del Calendario: si fanno coi punti 21-26). Guardato a vista su storia e stile.
 20. «E adesso?» sul binario dei passi. **Fatto** col punto 7: è l'ultima voce del binario in ogni creazione, mai in modifica.
 
 ### Calendario (per ultimo)

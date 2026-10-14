@@ -2,7 +2,7 @@
 // salvataggio e «E adesso?».
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, Pencil, Smartphone, Sparkles, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Megaphone, Palette, Pencil, ScrollText, Smartphone, Sparkles, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
@@ -40,6 +40,8 @@ import s from "./Crea.module.scss";
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 const q = (x: string) => "«" + x + "»";
 const PAGE_OF: Record<CreaKind, string> = { menu: "catalogs", stile: "styles", evid: "featured", storia: "stories" };
+/** L'icona del tipo, accanto al titolo (punto 19). */
+const KIND_ICON: Record<CreaKind, LucideIcon> = { menu: BookOpen, stile: Palette, evid: Megaphone, storia: ScrollText };
 const IL: Record<CreaKind, string> = { menu: "il menù", stile: "lo stile", evid: "il contenuto", storia: "la storia" };
 
 /** La cosa che si sta creando, nel Calendario: non ha ancora un id. */
@@ -594,10 +596,11 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const sub = showAfter ? "Vuoi aggiungere qualcosa?" : t.edit ? "Scegli cosa cambiare: il resto resta com'è." : `${st.length} passi. A destra vedi già com'è.`;
     // «E adesso?» chiude ogni creazione, mai una modifica (D194)
     const creating = !t.edit;
+    const KindIcon = KIND_ICON[t.kind];
     const rootStyle = { "--stick": `${hdr.h + 12 - hdr.pad}px`, "--ihdr": `${hdr.h - hdr.pad}px` } as CSSProperties;
 
     return (
-        <div className={s.root} style={rootStyle}>
+        <div className={s.root} style={rootStyle} data-kind={t.kind}>
             <div className={s.ihdr} ref={hdrRef}>
                 <div className={s.itop}>
                     <nav className={s.icrumb} aria-label="Percorso">
@@ -614,8 +617,13 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                     </span>
                 </div>
                 <div className={s.ihead}>
-                    <h2>{title}</h2>
-                    <p className={cx(s.small, s.muted)}>{sub}</p>
+                    <span className={s.kchip} aria-hidden>
+                        <KindIcon size={18} />
+                    </span>
+                    <div>
+                        <h2>{title}</h2>
+                        <p className={cx(s.small, s.muted)}>{sub}</p>
+                    </div>
                 </div>
                 <div className={s.istrow}>
                     <ol className={cx(s.isteps, t.edit && s.editing)}>

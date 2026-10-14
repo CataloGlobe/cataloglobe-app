@@ -1785,3 +1785,149 @@ select.in {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Un colore per tipo (punto 19): quello delle corsie del Calendario. Il tunnel
+// lo prende da `data-kind` sulla radice e lo porta su testa, passi, scelte,
+// frase di «Controlla» e card a destra. Fuochi, campi e chip restano di marca.
+// ---------------------------------------------------------------------------
+.root {
+    --k: var(--kind-menu);
+    &[data-kind="stile"] {
+        --k: var(--kind-style);
+    }
+    &[data-kind="evid"] {
+        --k: var(--kind-featured);
+    }
+    &[data-kind="storia"] {
+        --k: var(--kind-story);
+    }
+}
+.root .ihead {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    > div {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+}
+.kchip {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex: none;
+    background: color-mix(in srgb, var(--k) 16%, transparent);
+    color: var(--k);
+}
+.root .isteps {
+    button[aria-current="step"] .idot {
+        background: var(--k);
+        border-color: var(--k);
+        color: var(--on-brand);
+    }
+    button.done .idot {
+        background: color-mix(in srgb, var(--k) 15%, transparent);
+        color: var(--k);
+    }
+    &.editing button.pick {
+        border-color: var(--k);
+        color: var(--k);
+        .idot {
+            border-color: var(--k);
+            color: var(--k);
+        }
+        &[aria-current="step"] {
+            background: color-mix(in srgb, var(--k) 12%, transparent);
+            .idot {
+                color: var(--on-brand);
+            }
+        }
+    }
+}
+.root .what[aria-checked="true"] {
+    border-color: var(--k);
+    box-shadow: 0 0 0 1px var(--k);
+    background: color-mix(in srgb, var(--k) 9%, var(--surface));
+    > .box {
+        background: var(--k);
+        border-color: var(--k);
+    }
+    b {
+        color: var(--k);
+    }
+}
+.root .qcard {
+    background: color-mix(in srgb, var(--k) 10%, var(--surface));
+    border-color: color-mix(in srgb, var(--k) 30%, transparent);
+    .k {
+        color: var(--k);
+    }
+}
+.root .opt {
+    .oi {
+        background: color-mix(in srgb, var(--k) 10%, var(--c-sunk));
+        color: var(--k);
+    }
+    &[aria-pressed="true"] {
+        border-color: var(--k);
+        box-shadow: 0 0 0 1px var(--k);
+        background: color-mix(in srgb, var(--k) 9%, var(--surface));
+        .oi {
+            background: var(--surface);
+        }
+    }
+    &.pk .tick {
+        background: var(--k);
+    }
+}
+.root .isent {
+    background: color-mix(in srgb, var(--k) 9%, var(--surface));
+    border-left: 3px solid var(--k);
+}
+.root .sh h3 {
+    border-left: 3px solid var(--k);
+    padding-left: 10px;
+}
+// «In onda?»: le due scelte restano neutre finché non le tocchi; il «Sì» scelto è verde
+.root .ondaPick {
+    grid-auto-rows: 1fr;
+    .pk {
+        align-items: center;
+    }
+    &.fresh .pk.lead {
+        background: var(--surface);
+        border-color: var(--border);
+        > span:not(.oi):not(.tick) {
+            color: var(--text);
+            > span {
+                color: var(--text-muted);
+                opacity: 1;
+            }
+        }
+        &:hover {
+            background: var(--surface);
+            border-color: color-mix(in srgb, var(--c-success) 50%, transparent);
+        }
+    }
+    .pk.lead .oi {
+        background: var(--c-sunk);
+        color: var(--text-muted);
+    }
+    .pk.lead[aria-pressed="true"] {
+        border-color: var(--c-success);
+        box-shadow: 0 0 0 1px var(--c-success);
+        background: var(--c-success-soft);
+        .oi {
+            background: var(--c-success-soft);
+            color: var(--c-success);
+        }
+        .tick {
+            background: var(--c-success);
+        }
+    }
+}
