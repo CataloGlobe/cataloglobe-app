@@ -4,6 +4,7 @@
 // (TableRowActions) ultima colonna a destra, visibili al hover e al focus ·
 // footer 48 con paginazione · caricamento a righe Skeleton. Solo token.
 @use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 // Probe di misura per l'auto page size: si stretcha SOLO se il genitore è
 // una colonna flex vincolata (align-self + flex). In un genitore block resta
@@ -455,5 +456,49 @@
 @media (prefers-reduced-motion: reduce) {
     .rowHighlighted {
         animation: none;
+    }
+}
+
+// ── Direzione D: le tabelle della v28 (`.stbl` L662-665, `.tw` L245) ──
+// Card senza bordo, intestazione piana in minuscolo, righe con filetto chiaro.
+@include look-d {
+    .table {
+        border-color: transparent;
+        border-radius: var(--d-r-card);
+        box-shadow: var(--d-shadow);
+        background: var(--d-surface);
+    }
+
+    .header {
+        background: var(--d-surface);
+        border-bottom-color: color-mix(in srgb, var(--d-muted) 14%, transparent);
+    }
+
+    .headerCell {
+        min-height: 42px;
+        color: var(--d-muted);
+        text-transform: none;
+        letter-spacing: 0;
+        @include d-type(small);
+        font-weight: 700;
+    }
+
+    .row {
+        border-bottom-color: color-mix(in srgb, var(--d-muted) 14%, transparent);
+
+        &:hover,
+        &:has([data-state="open"]) {
+            background: color-mix(in srgb, var(--d-brand) 5%, var(--d-surface));
+        }
+    }
+
+    .cell {
+        font-family: var(--preview-font-family, var(--pub-font-family, var(--d-f-body)));
+        font-variant-numeric: tabular-nums;
+    }
+
+    .footer {
+        border-top-color: color-mix(in srgb, var(--d-muted) 14%, transparent);
+        background: var(--d-surface);
     }
 }

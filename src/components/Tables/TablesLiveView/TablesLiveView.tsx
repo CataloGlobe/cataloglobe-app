@@ -29,6 +29,7 @@ import { deriveTableStatus } from "@/utils/tableState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useTablesLiveRealtime } from "./useTablesLiveRealtime";
 import { TableSketch, type TableSketchState } from "./TableSketch";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./TablesLiveView.module.scss";
 
 export interface TablesLiveViewProps {
@@ -388,7 +389,7 @@ export function TablesLiveView({
                                     {group.tables.length} {group.tables.length === 1 ? "tavolo" : "tavoli"}
                                 </Text>
                             </header>
-                            <CardGrid aria-label={group.name}>
+                            <CardGrid aria-label={group.name} minColumnWidth={LOOK_D ? 146 : undefined}>
                                 {group.tables.map(t => {
                                     const status = deriveTableStatus(t) as TableStatus;
                                     const statusLabel = STATUS_LABELS[status];
@@ -435,8 +436,15 @@ export function TablesLiveView({
                                             key={t.id}
                                             title={t.label}
                                             subtitle={subtitle || undefined}
-                                            media={<TableSketch seats={t.seats ?? null} state={sketchState} />}
-                                            mediaHeight={120}
+                                            // Nella D la tessera è un dato: niente disegno del tavolo.
+                                            media={LOOK_D ? undefined : <TableSketch seats={t.seats ?? null} state={sketchState} />}
+                                            mediaHeight={LOOK_D ? undefined : 120}
+                                            className={styles.tile}
+                                            data-tone={
+                                                t.bill_requested_count > 0 || t.waiter_called_count > 0
+                                                    ? "wait"
+                                                    : sketchState
+                                            }
                                             badge={
                                                 <span className={styles.badges}>
                                                     <StatusBadge

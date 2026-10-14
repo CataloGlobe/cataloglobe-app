@@ -14,6 +14,7 @@ import {
 import type { V2Reservation } from "@/types/reservation";
 import type { DeferredAction } from "./useDeferredCommit";
 import ChannelMark from "./ChannelMark";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./Reservations.module.scss";
 
 interface Props {
@@ -141,7 +142,7 @@ export default function ReservationsInbox({
                             </Button>
                             {!isStale && (
                                 <Button
-                                    variant="secondary"
+                                    variant={LOOK_D ? "primary" : "secondary"}
                                     size="sm"
                                     className={styles.confirmAction}
                                     onClick={() => onAction(r, "confirm")}

@@ -56,7 +56,12 @@ $d-type: (
   // La stella accanto al voto, metà del numero (`.vavg span`).
   vote-star: (size: 0.5em),
   // Testo da leggere: il commento di una recensione, le stelle (`.rev p`).
-  read: (size: 14px, weight: 400)
+  read: (size: 14px, weight: 400),
+  // Servizio: tavolo della comanda, nome della tessera, ora delle righe.
+  ticket: (family: display, size: 17px, weight: 700, tracking: -0.01em),
+  tile-num: (family: num, size: 13px, weight: 700),
+  time: (family: num, size: 15px, weight: 700),
+  now: (family: display, size: clamp(14px, 1.3cqi, 19px), weight: 600, tracking: -0.015em)
 );
 
 @mixin d-type($role) {

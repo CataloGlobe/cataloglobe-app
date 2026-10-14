@@ -1,4 +1,5 @@
 @use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 // Board delle comande. Sopra 1024 tre corsie affiancate, a piena altezza,
 // con lo scroll nella corsia; sotto 1024 una lista sola, scelta dal
@@ -170,4 +171,41 @@
 
 @container board (max-width: 719px) {
     @include narrow-board;
+}
+
+// ── Direzione D (artifact v28, `.lanes`/`.lane` L535-538) ──
+@include look-d {
+    .kanban {
+        gap: 10px;
+    }
+
+    .column {
+        border: 0;
+        border-radius: 20px;
+    }
+
+    .columnHeader {
+        padding: 14px 16px 6px;
+        @include d-type(control);
+    }
+
+    .columnHeader .laneTitle {
+        font: inherit;
+    }
+
+    .columnHeader .laneCount {
+        min-width: 22px;
+        padding: 1px 6px;
+        border: 0;
+        border-radius: var(--d-r-tag);
+        background: rgba(255, 255, 255, 0.8);
+        font-family: var(--d-f-num);
+        @include d-type(small);
+        font-weight: 700;
+    }
+
+    .columnList {
+        gap: 10px;
+        padding: 4px 10px 10px;
+    }
 }

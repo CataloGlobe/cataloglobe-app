@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 // Vista live dei tavoli: solo layout. Le tessere sono CardGridItem
 // (3 → 2 sotto 1024 → 1 sotto 768, dalla CardGrid), gli stati StatusBadge.
 
@@ -50,4 +53,125 @@
   justify-content: space-between;
   gap: var(--space-8);
   width: 100%;
+}
+
+// ── Direzione D: tessere della sala (artifact v28, `.tile` L573-585) ──
+// La tessera è una CardGridItem: si veste da qui con la sua struttura
+// (superficie che si tocca, corpo, riga in fondo, azioni).
+@include look-d {
+  .zonesList {
+    gap: 18px;
+  }
+
+  .zoneSection {
+    gap: 10px;
+  }
+
+  .zoneHeader {
+    justify-content: flex-start;
+    gap: 8px;
+    padding-bottom: 0;
+    border-bottom: 0;
+
+    > :first-child {
+      @include d-type(control);
+      font-weight: 700;
+    }
+
+    > :last-child {
+      @include d-type(note);
+      color: var(--d-muted);
+    }
+  }
+
+  .tile {
+    border: 1.5px solid transparent;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--d-brand) 6%, var(--d-surface));
+    box-shadow: none;
+
+    @media (prefers-reduced-motion: no-preference) {
+      transition:
+        transform var(--d-dur) var(--d-ease-move),
+        box-shadow var(--d-dur) ease;
+    }
+
+    > [role="button"] > div,
+    > a > div {
+      gap: 5px;
+      padding: 12px 12px 0;
+    }
+
+    > [role="button"] > div > :first-child,
+    > a > div > :first-child {
+      @include d-type(card-title);
+    }
+
+    > [role="button"] > div > :nth-child(2),
+    > a > div > :nth-child(2) {
+      @include d-type(small);
+      font-variant-numeric: tabular-nums;
+    }
+
+    // Senza riga in fondo il corpo chiude da solo la tessera.
+    &:not(:has(.footer)) > [role="button"] > div {
+      padding-bottom: 12px;
+    }
+
+    .badges {
+      gap: 4px;
+    }
+
+    > [role="button"] > div > :nth-child(2) {
+      white-space: normal;
+    }
+
+    .footer {
+      flex-wrap: wrap;
+      gap: 2px 8px;
+      @include d-type(small);
+
+      > * {
+        white-space: nowrap;
+      }
+    }
+
+    > :has(> .footer) {
+      padding: 6px 12px 12px;
+      border-top: 0;
+    }
+
+    &:has([aria-pressed="true"]) {
+      border-color: transparent;
+      box-shadow:
+        0 0 0 2.5px var(--d-brand-deep),
+        0 16px 30px -16px rgba(61, 47, 192, 0.5);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:not(:has([aria-pressed="true"])):hover {
+        transform: translateY(-2px);
+      }
+    }
+  }
+
+  .tile[data-tone="free"] {
+    border: 1.5px dashed color-mix(in srgb, var(--d-muted) 30%, transparent);
+    background: none;
+
+    > [role="button"] > div > :first-child {
+      color: var(--d-muted);
+      font-weight: 600;
+    }
+  }
+
+  .tile[data-tone="previous"],
+  .tile[data-tone="maintenance"] {
+    background: var(--d-s-old);
+  }
+
+  .tile[data-tone="wait"] {
+    border-color: var(--d-warm);
+    background: var(--d-warm-soft);
+  }
 }
