@@ -847,6 +847,27 @@ test.describe("Tunnel di creazione — menù", () => {
     });
 });
 
+test.describe("Tunnel di creazione — il locale con una sede sola", () => {
+    test("in quelle ore c'è già un altro menù: sotto, menù per menù, come con più sedi", async ({ page }) => {
+        stub = await stubProgrammazione(page, { oneSeat: true });
+        wireMenu(stub);
+        wireRule(stub);
+        await open(page, "menu");
+        await walkMenu(page, "Pranzo veloce");
+        await next(page);
+        await onAir(page);
+        await button(page, /^Solo in certi momenti/).click();
+        // con una sede il riquadro sta sotto le ore, senza la seconda parte del Quando
+        await main(page).locator("[data-insieme]").getByRole("button", { name: /^Mostralo al posto degli altri/ }).click();
+        await expect(main(page).getByRole("heading", { name: "A Porto e2e, menù per menù" })).toBeVisible();
+        const voce = main(page).getByRole("group", { name: "Porto e2e, Carta e2e" });
+        await expect(voce.getByRole("button", { name: "Al posto" })).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).locator("[data-insieme]").getByText("Al posto di", { exact: true })).toBeVisible();
+        // niente «È uguale per…?»: c'è una sede sola
+        await expect(main(page).getByText(/^È uguale per/)).toHaveCount(0);
+    });
+});
+
 test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
     test.beforeEach(async ({ page }) => {
         stub = await stubProgrammazione(page);

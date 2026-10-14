@@ -27,6 +27,8 @@ export function InsiemeBox({ t, u: u0, scontri, multi, sedi, onSede, nuovi }: { 
     const stile = t.kind === "stile", none = t.insieme == null, name = q(thingName(t));
     // ogni incrocio conta, anche dove oggi vince l'altro (D196): l'utente sceglie sempre
     const altri = new Set(scontri.map(x => x.con)).size, dove = [...new Set(scontri.flatMap(x => x.sedi))];
+    // il locale con una sede sola: anche lì menù per menù, senza «È uguale per…?»
+    const one = !multi && scontri[0]?.ids?.length === 1 ? { id: scontri[0].ids[0], name: scontri[0].sedi[0] } : null;
     const cosa = altri === 1 ? `c'è già ${stile ? "un altro stile" : "un altro menù"}` : `ci sono già altri ${stile ? "stili" : "menù"}`;
     const pk = (v: boolean, title: string, text: string) => (
         <button type="button" className={s.hpk} aria-pressed={!none && t.insieme === v} onClick={() => u(x => void (x.insieme = v))}>
@@ -64,8 +66,8 @@ export function InsiemeBox({ t, u: u0, scontri, multi, sedi, onSede, nuovi }: { 
                     )}
                 </div>
             </div>
-            {sedi ? (
-                <SedePer t={t} u={u} scontri={scontri} sedi={sedi} onSede={onSede} />
+            {sedi || one ? (
+                <SedePer t={t} u={u} scontri={scontri} sedi={sedi ?? [one!]} onSede={onSede} />
             ) : (
                 scontri.map((x, j) => (
                     <p key={j} className={s.hint}>
