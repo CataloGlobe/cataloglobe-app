@@ -83,9 +83,16 @@ export const orderSentIdOf = (key: string): string | null =>
 function refusedProductIds(error: Error): string[] {
     const details = (error as Error & { details?: unknown }).details;
     if (!details || typeof details !== "object") return [];
-    const { unavailable_product_ids, invalid_product_ids } = details as Record<string, unknown>;
-    const ids = Array.isArray(unavailable_product_ids) ? unavailable_product_ids : invalid_product_ids;
-    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
+    const { unavailable_product_ids, invalid_product_ids, invalid_items } = details as Record<string, unknown>;
+    const fromItems = Array.isArray(invalid_items)
+        ? invalid_items.map(item => (item && typeof item === "object" ? (item as { product_id?: unknown }).product_id : null))
+        : [];
+    const ids = [
+        ...(Array.isArray(unavailable_product_ids) ? unavailable_product_ids : []),
+        ...(Array.isArray(invalid_product_ids) ? invalid_product_ids : []),
+        ...fromItems
+    ];
+    return [...new Set(ids.filter((id): id is string => typeof id === "string"))];
 }
 
 export function sendFailure(error: unknown): SendFailure {

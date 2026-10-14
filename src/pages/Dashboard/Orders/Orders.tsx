@@ -743,7 +743,10 @@ function OrdersBoard() {
 
     // Conto e cameriere restano in cima finché la sala non li segna gestiti:
     // l'avviso di OperationalAlerts dura pochi secondi.
-    const { items: liveTables } = useTablesLiveRealtime(tenantId, selectedActivityId);
+    // Come l'Elenco: senza il permesso della sala niente lettura né canale.
+    const canReadTables =
+        !!selectedActivityId && !!permissions && canDoOnActivity(permissions, "seatings.read", selectedActivityId);
+    const { items: liveTables } = useTablesLiveRealtime(canReadTables ? tenantId : null, selectedActivityId);
     const requests = useMemo(() => openRequests(liveTables), [liveTables]);
     const requestsHref = useMemo(() => {
         if (!businessId || !selectedActivityId || requests.length === 0) return null;

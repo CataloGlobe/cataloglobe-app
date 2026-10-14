@@ -105,6 +105,10 @@ describe("invio alla cucina", () => {
             kind: "items",
             productIds: ["p3"]
         });
+        expect(sendFailure(withDetails({ reason: "INVALID_OPTIONS", invalid_items: [{ product_id: "p4" }, { reason: "x" }] }))).toEqual({
+            kind: "items",
+            productIds: ["p4"]
+        });
         expect(sendFailure(withDetails({ reason: "PRICE_MISMATCH" }))).toEqual({ kind: "items", productIds: [] });
         expect(sendFailure(withDetails("x"))).toEqual({ kind: "items", productIds: [] });
     });

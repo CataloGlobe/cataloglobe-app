@@ -77,7 +77,11 @@ export function useOrderSend(ordering: OrderingContext | undefined, knownOrders:
             const result = await ordering.send();
             if (result.kind !== "sent") {
                 setFailure(messageOf(result));
-                if (result.kind === "items") setRefused(new Set(result.productIds));
+                // Solo i piatti che sono davvero nell'ordine: altrimenti l'avviso sparirebbe subito.
+                if (result.kind === "items") {
+                    const inOrder = result.productIds.filter(id => lines.some(line => line.id === id));
+                    if (inOrder.length > 0) setRefused(new Set(inOrder));
+                }
                 return;
             }
             setReceipts(prev => ({ ...prev, [result.orderId]: { orderId: result.orderId, lines, total: selectionTotal(lines) } }));
