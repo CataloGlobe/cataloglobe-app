@@ -69,6 +69,26 @@ test("«Vedi tutti» apre l'elenco, il dettaglio entra a spinta con «‹ In evi
     await expect(dialog).toHaveCount(0);
 });
 
+test("tornando dal dettaglio con «‹» l'elenco è dov'era (D99)", async ({ page }) => {
+    await open(page, 12);
+    const dialog = page.getByRole("dialog");
+    await page.getByRole("button", { name: /Vedi tutti \(12\)/ }).click();
+    await expect(dialog.getByRole("heading", { name: "In evidenza" })).toBeVisible();
+    const last = dialog.getByRole("listitem").last();
+    await last.scrollIntoViewIfNeeded();
+    const scroller = dialog.locator("[class*='page']").first();
+    const scrolledTo = await scroller.evaluate(el => el.scrollTop);
+    expect(scrolledTo).toBeGreaterThan(0);
+
+    await last.click();
+    const back = dialog.getByRole("button", { name: "Torna a In evidenza" });
+    await expect(back).toBeVisible();
+    await back.click();
+    await expect(dialog.getByRole("heading", { name: "In evidenza" })).toBeVisible();
+    await expect(last).toBeInViewport();
+    expect(await scroller.evaluate(el => el.scrollTop)).toBe(scrolledTo);
+});
+
 test("la card apre il dettaglio da solo, senza elenco sotto", async ({ page }) => {
     const strip = await open(page, 3);
     await strip.getByRole("listitem").first().click();
