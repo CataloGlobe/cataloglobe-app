@@ -524,7 +524,7 @@ export default function CalendarioView({
                                     </button>
                                     )}
                                     {lines.map(ln => (
-                                        <div key={ln.thing} className={`${s.fname} ${ln.preview ? s.pv : ""}`} style={{ "--c": colorOf(l.k, ln.thing) } as CSSProperties}>
+                                        <div key={ln.thing} className={`${s.fname} ${ln.preview ? s.pv : ""}`} title={ln.thing} style={{ "--c": colorOf(l.k, ln.thing) } as CSSProperties}>
                                             <span>{l.k === "menu" ? shortName(ln.thing) : ln.thing}</span>
                                             {ln.preview && o.pv && <em className={s.pv}>{o.pv}</em>}
                                         </div>
@@ -1089,7 +1089,7 @@ export default function CalendarioView({
             const out: string[] = [], pd = mainWhen(draft).period;
             if (!mins && !off)
                 out.push(`${wk} non c'è${pd && pd.from > week + 6 ? ": comincia " + (elides(pd.from) ? "l'" : "il ") + mShort(pd.from) : pd && pd.to < week ? ": è già finito" : ""}.`);
-            else if (!mins) out.push(`${wk} non va mai in onda: lo copre ${listIt([...by].map(q))}.`);
+            else if (!mins) out.push(`${wk} non va mai in onda: ${by.size > 1 ? "lo coprono" : "lo copre"} ${listIt([...by].map(q))}.`);
             else {
                 out.push(`${wk} è in onda ${days} ${days === 1 ? "giorno" : "giorni"}, ${hoursText(mins)} in tutto.`);
                 if (cov.size)
@@ -1098,7 +1098,7 @@ export default function CalendarioView({
                             ? `Quando si sovrappongono c'è insieme a ${listIt([...cov].map(q))}: il cliente sceglie.`
                             : `Prende il posto di ${listIt([...cov].map(q))} quando si sovrappongono.`
                     );
-                if (by.size) out.push(`Per ${hoursText(off)} non si vede: lo copre ${listIt([...by].map(q))}.`);
+                if (by.size) out.push(`Per ${hoursText(off)} non si vede: ${by.size > 1 ? "lo coprono" : "lo copre"} ${listIt([...by].map(q))}.`);
             }
             // lo stile porta con sé il suo menù (e viceversa), che nella sua corsia può coprire altro
             if (pvPair && (mins || off)) {

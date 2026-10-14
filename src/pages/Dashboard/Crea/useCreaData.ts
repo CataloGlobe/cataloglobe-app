@@ -10,7 +10,8 @@ import type { CalNames } from "@/pages/Dashboard/Programming/calendar/calendarMo
 export type CreaData = {
     rules: LayoutRule[];
     names: CalNames;
-    sedi: { id: string; name: string }[];
+    /** `off`: la sede è sospesa (la pagina pubblica non mostra il catalogo). */
+    sedi: { id: string; name: string; off?: true }[];
     groups: { id: string; name: string; activityIds: string[] }[];
     groupIdsByActivity: Record<string, string[]>;
     groupNames: Map<string, string>;
@@ -98,7 +99,7 @@ export function useCreaData(tenantId: string | null | undefined) {
         };
         const groupIdsByActivity: Record<string, string[]> = {};
         for (const [g, ids] of Object.entries(raw.idsByGroup)) for (const id of ids) (groupIdsByActivity[id] ??= []).push(g);
-        const sedi = raw.activities.map(a => ({ id: a.id, name: a.name }));
+        const sedi = raw.activities.map(a => ({ id: a.id, name: a.name, ...(a.status === "inactive" ? { off: true as const } : {}) }));
         const groupNames = new Map(raw.groups.map(g => [g.id, g.name]));
         const baseRule = raw.rules.find(
             r =>

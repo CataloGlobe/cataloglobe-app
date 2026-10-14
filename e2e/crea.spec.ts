@@ -248,7 +248,7 @@ test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
         await rail(page).getByRole("button", { name: /Il nome$/ }).click();
         await main(page).getByLabel("Nome del menù").fill("Altro");
         await button(page, "Esci").click();
-        const dlg = page.getByRole("alertdialog", { name: "Uscire dal tunnel?" });
+        const dlg = page.getByRole("alertdialog", { name: "Modifiche non salvate" });
         await expect(dlg.getByRole("button")).toHaveText(["Resta", "Esci senza salvare", "Salva le modifiche ed esci"]);
         await dlg.getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/catalogs$/);
@@ -273,7 +273,7 @@ test.describe("Tunnel: «Salva le modifiche ed esci» passa gli stessi controlli
         await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await button(page, /^Sempre/).click();
         await button(page, "Esci").click();
-        await page.getByRole("alertdialog", { name: "Uscire dal tunnel?" }).getByRole("button", { name: "Salva le modifiche ed esci" }).click();
+        await page.getByRole("alertdialog", { name: "Modifiche non salvate" }).getByRole("button", { name: "Salva le modifiche ed esci" }).click();
         // le sedi nuove incrociano altri menù: prima si chiede «insieme o al posto» (D196)
         await expect(page.getByText(/^Scegli: a .+ c'è un incrocio nuovo, insieme o al posto degli altri: torna a «Quando»\.$/)).toBeVisible();
         await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
@@ -664,7 +664,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await page.goBack();
         await main(page).getByLabel("Nome del menù").fill("Cena");
         await button(page, "Esci").click();
-        const dlg = page.getByRole("alertdialog", { name: "Uscire dal tunnel?" });
+        const dlg = page.getByRole("alertdialog", { name: "Modifiche non salvate" });
         await expect(dlg).toBeVisible();
         // creando non c'è più «Tieni come bozza ed esci» (D189): o si resta o si esce senza salvare
         await expect(dlg.getByText("Quello che hai scritto non è ancora salvato. Se esci senza salvare, lo perdi.")).toBeVisible();
@@ -728,7 +728,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await button(page, "Annulla l'import: togli questi 2 piatti").click();
         await expect(main(page).getByText("Il menù è vuoto")).toBeVisible();
         await button(page, "Esci").click();
-        await page.getByRole("alertdialog", { name: "Uscire dal tunnel?" }).getByRole("button", { name: "Esci senza salvare" }).click();
+        await page.getByRole("alertdialog", { name: "Modifiche non salvate" }).getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/catalogs$/);
         expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
     });

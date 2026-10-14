@@ -59,6 +59,8 @@ describe("l'avviso quando si accavalla (D135 A)", () => {
     it("dice i giorni e le ore a parole", () => {
         expect(quandoScontro([0, 1, 2, 3, 4].map(d => [d, 720, 840] as const))).toBe("dal lunedì al venerdì dalle 12 alle 14");
         expect(quandoScontro([[5, 690, 900]])).toBe("il sabato dalle 11:30 alle 15");
+        expect(quandoScontro([0, 1, 2, 3, 4, 5, 6].map(d => [d, 420, 1440] as const))).toBe("tutti i giorni dalle 7 a mezzanotte");
+        expect(quandoScontro([[4, 60, 180]])).toBe("il venerdì dall'una alle 3");
         expect(quandoScontro([0, 1, 2, 3, 4, 5, 6].map(d => [d, 720, 900] as const))).toBe("tutti i giorni dalle 12 alle 15");
     });
 

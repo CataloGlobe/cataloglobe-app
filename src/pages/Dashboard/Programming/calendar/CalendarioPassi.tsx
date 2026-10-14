@@ -3,6 +3,7 @@
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { Plus, Search, TriangleAlert, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, setRangeTime, syncPer, whenKey, type Draft, type DraftLookups, type Scontro } from "./calendarDraft";
@@ -11,7 +12,7 @@ import { SediBottone, SediPannello } from "@/components/ui/SediPannello/SediPann
 import { Band, TimeField } from "./CalendarioOrario";
 import s from "./CalendarioView.module.scss";
 
-export type PassoSede = { id: string; name: string };
+export type PassoSede = { id: string; name: string; off?: true };
 export type PassoGruppo = { id: string; name: string; activityIds: string[] };
 type Upd = (fn: (d: Draft) => void) => void;
 
@@ -239,6 +240,7 @@ export function SediPasso({ draft: d, upd, sedi, groups, bad }: SediPassoProps) 
                     value={ids}
                     onChange={pick}
                     allLabel="Tutte le sedi, anche le nuove"
+                    tag={id => (sedi.find(x => x.id === id)?.off ? <StatusBadge variant="neutral" label="Sospesa" /> : null)}
                     noSede={q => `Nessuna sede con «${q}».`}
                     foot={
                         <span className={s.sft}>

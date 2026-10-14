@@ -431,6 +431,10 @@ select.in {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 10px;
 }
+// tre scelte: in colonna, o tutte e tre su una riga se c'è posto; mai due più una col buco (difetto 6)
+.opts:has(> :nth-child(3):last-child) {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
 /* «Cosa vuoi modificare?»: una casella per passo, con com'è adesso */
 .whats {
     display: grid;
@@ -1279,10 +1283,10 @@ select.in {
     background: var(--c-brand-soft);
     border: 1px solid var(--c-brand-soft-2);
     border-radius: var(--radius-surface);
-    padding: 10px 14px;
+    padding: 8px 14px;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     overflow: hidden;
     .k {
         display: inline-flex;
@@ -1293,21 +1297,27 @@ select.in {
         text-transform: uppercase;
         font-weight: 600;
         color: var(--c-brand);
+        line-height: 1.2;
+        flex: none;
     }
     b {
         @include cal.fs(body);
         font-weight: 650;
+        line-height: 1.25;
+        flex: none;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    // la frase va su due righe: troncata a metà non si capiva (difetto 5)
     p {
         @include cal.fs(note);
         color: var(--text-muted);
-        line-height: 1.4;
-        white-space: nowrap;
+        line-height: 1.25;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
         overflow: hidden;
-        text-overflow: ellipsis;
     }
 }
 // finestra bassa (D123): la card diventa una riga e lascia 48 px al telefono

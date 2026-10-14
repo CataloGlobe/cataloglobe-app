@@ -265,6 +265,10 @@ export const NO_IMPATTO: Impatto = { lines: [], scontri: [] };
 
 export const ore = (m: number) => hhmm(m).replace(/:00$/, "").replace(/^0(\d)/, "$1");
 
+// «dalle 7 a mezzanotte», «dall'una alle 3»: niente «alle 0» (giro del 2026-10-14, difetto 4)
+const oraDa = (m: number) => (m % 1440 === 0 ? "da mezzanotte" : ore(m) === "1" ? "dall'una" : `dalle ${ore(m)}`);
+const oraA = (m: number) => (m % 1440 === 0 ? "a mezzanotte" : ore(m) === "1" ? "all'una" : `alle ${ore(m)}`);
+
 /** «dal lunedì al venerdì dalle 12 alle 14»: i tratti di una settimana, giorno (0 = lunedì) → [da, a]. */
 export function quandoScontro(tratti: readonly (readonly [number, number, number])[]): string {
     const by = new Map<string, number[]>();
@@ -277,7 +281,7 @@ export function quandoScontro(tratti: readonly (readonly [number, number, number
             .sort((x, y) => Math.min(...x[1]) - Math.min(...y[1]))
             .map(([k, ds]) => {
                 const [a, b] = k.split("-").map(Number);
-                return `${ds.length === 7 ? "tutti i giorni" : daysLong(ds)} dalle ${ore(a)} alle ${ore(b)}`;
+                return `${ds.length === 7 ? "tutti i giorni" : daysLong(ds)} ${oraDa(a)} ${oraA(b)}`;
             })
     );
 }

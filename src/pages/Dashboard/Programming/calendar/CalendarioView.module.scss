@@ -1317,15 +1317,26 @@ button.dqsedi {
         border-radius: var(--radius-control);
     }
     .fcal {
-        min-width: 480px;
+        min-width: 520px;
     }
+    // i nomi dei menù interi, anche con «nuovo» accanto (giro del 2026-10-14, difetto 3)
     .fhead,
     .fday {
-        grid-template-columns: 58px 132px minmax(0, 1fr);
+        grid-template-columns: 58px 172px minmax(0, 1fr);
     }
     .fhead > div:nth-child(2),
     .flabs {
         left: 58px;
+    }
+    // «nuovo» lo dicono già il colore e il bordo tratteggiato (spiegati sotto la settimana):
+    // la parola resta per chi legge con lo screen reader e lascia lo spazio al nome
+    .fname em.pv {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
     .fdl {
         padding: 6px 8px;

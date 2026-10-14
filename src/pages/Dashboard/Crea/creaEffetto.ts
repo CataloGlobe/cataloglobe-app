@@ -27,7 +27,7 @@ export function effLab(x: SedeEff, kind: Kind, val: EffVal): { lab: string; ico:
         if (!x.by.length) return { lab: "Questa settimana non c'è", ico: "off" };
         if (byPos.length) return { lab: "Prende il posto di " + listIt(byPos.map(q)) + ": " + DB_WAIT, ico: "posto" };
         if (byKeep.length) return { lab: kind === "stile" ? "Lascia " + listIt(byKeep.map(q)) + ": lì resta il suo stile" : "Non si vede: lì resta " + listIt(byKeep.map(q)) + ", al posto degli altri", ico: "off" };
-        return { lab: "Questa settimana non va mai in onda: lo copre " + listIt(x.by.map(q)), ico: "off" };
+        return { lab: `Questa settimana non va mai in onda: ${x.by.length > 1 ? "lo coprono" : "lo copre"} ` + listIt(x.by.map(q)), ico: "off" };
     }
     if (!x.cov.length && !byPos.length && !byKeep.length) return { lab: kind === "stile" ? "Non incrocia altri stili" : kind === "menu" ? "Non incrocia altri menù" : "Non incrocia altri contenuti", ico: "solo" };
     const posto = x.cov.filter(c => !ins(c)), insieme = x.cov.filter(c => ins(c)), out: string[] = [];

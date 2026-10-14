@@ -745,7 +745,6 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             {!week && step === "controlla" && owner && calKind && <div hidden>{preview}</div>}
             <UnsavedChangesDialog
                 isOpen={leave}
-                title="Uscire dal tunnel?"
                 message={t.edit ? "Le modifiche non sono ancora salvate. Se esci senza salvare, le perdi." : "Quello che hai scritto non è ancora salvato. Se esci senza salvare, lo perdi."}
                 cancelLabel="Resta"
                 saveLabel="Salva le modifiche ed esci"

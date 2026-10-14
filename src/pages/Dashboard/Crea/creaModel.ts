@@ -595,7 +595,12 @@ function menuProblem(sections: readonly Section[]): string {
 /** C'è qualcosa da perdere uscendo. */
 export const isDirty = (t: Tunnel) =>
     !!t.impOpen || (t.edit ? EDIT_PARTS.some(s => changed(t, s)) :
+    t.kind === "storia" ? storiaDirty(t) :
     t.i > 0 || !!t.name.trim() || !!t.title.trim() || !!t.evType || t.sections.length > 0);
+
+// la storia parte da «A cosa serve», che si legge e basta: conta solo quello che si sceglie o si scrive (difetto 5)
+const storiaDirty = (t: Tunnel) =>
+    t.i > 1 || (t.i === 1 && !!t.about) || !!t.title.trim() || !!t.kicker.trim() || !!t.cover || t.blocks.length > 0;
 
 /* ---------- modificare (D140) ---------- */
 

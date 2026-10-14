@@ -384,3 +384,13 @@ describe("tunnel di creazione: il menù letto dall'AI", () => {
         expect(blocker(t, "sezioni", OWNER)).toContain("import aperto");
     });
 });
+
+describe("tunnel della storia: c'è qualcosa da perdere uscendo?", () => {
+    it("no dopo «A cosa serve», che si legge e basta; sì appena si sceglie o si scrive (difetto 5)", () => {
+        const t: Tunnel = { ...newTunnel("storia", ALL), i: 1 };
+        expect(isDirty(t)).toBe(false);
+        expect(isDirty({ ...t, about: "prod" })).toBe(true);
+        expect(isDirty({ ...t, i: 2 })).toBe(true);
+        expect(isDirty({ ...t, title: "La nostra cucina" })).toBe(true);
+    });
+});

@@ -8,6 +8,7 @@ describe("«Cosa cambia nel calendario»: cosa succede in una sede", () => {
     it("fuori dalla settimana, o coperto da un altro", () => {
         expect(effLab(sede("a", { mins: 0, days: 0 }), "menu", false)).toEqual({ lab: "Questa settimana non c'è", ico: "off" });
         expect(effLab(sede("a", { mins: 0, days: 0, by: ["Pranzo"] }), "menu", false).lab).toBe("Questa settimana non va mai in onda: lo copre «Pranzo»");
+        expect(effLab(sede("a", { mins: 0, days: 0, by: ["Pranzo", "Cena"] }), "menu", false).lab).toBe("Questa settimana non va mai in onda: lo coprono «Pranzo» e «Cena»");
     });
     it("non incrocia nessuno: la parola segue il tipo", () => {
         expect(effLab(sede("a"), "menu", false).lab).toBe("Non incrocia altri menù");
