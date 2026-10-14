@@ -340,6 +340,7 @@ export function SidebarAccount({ items, profile, collapsed, isMobile, onRequestC
             side={dPhone ? "bottom" : collapsed ? "right" : "top"}
             align={dPhone || collapsed ? "end" : "start"}
             contentClassName={`${styles.menu} ${styles.menuD}`}
+            phoneSheet={false}
             onOpenChange={open => {
                 if (!open) return;
                 setView("main");

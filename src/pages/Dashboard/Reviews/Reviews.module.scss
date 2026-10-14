@@ -397,3 +397,27 @@
         animation: none;
     }
 }
+
+// Sotto i 1024 «Cerca» è solo la lente, tonda da 38 (artifact v30, `.search>.btn`).
+.searchButton {
+    @include look-d {
+        @media (max-width: 1023px) {
+            width: 38px;
+            min-width: 38px;
+            height: 38px;
+            padding: 0;
+            justify-content: center;
+            gap: 0;
+
+            // La parola resta per chi legge con lo screen reader.
+            > :not(:has(svg)) {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            }
+        }
+    }
+}

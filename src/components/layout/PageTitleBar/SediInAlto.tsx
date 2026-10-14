@@ -1,4 +1,5 @@
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { GitCompareArrows, MapPin } from "lucide-react";
 import { usePermissions } from "@/context/usePermissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useSedeScope } from "@/hooks/useSedeScope";
@@ -14,6 +15,8 @@ interface SediInAltoProps {
     /** La sezione e la parte aperte (chiavi del modello della navigazione). */
     groupKey?: string;
     entryKey?: string;
+    /** D al telefono, nella barra in alto: icone tonde al posto delle pillole (v30). */
+    compact?: boolean;
 }
 
 /**
@@ -29,7 +32,7 @@ interface SediInAltoProps {
  * indirizzo, cambia lo stato comune che la pagina legge, con «Tutte», i
  * gruppi e la nota per sede che la pagina passa a `useConfrontoQui`.
  */
-export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
+export function SediInAlto({ groupKey, entryKey, compact = false }: SediInAltoProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { pathname } = useLocation();
     const navigate = useNavigate();
@@ -47,7 +50,13 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
     if (part.group.key === "calendario" && !regoleDiSede) {
         // La vista Calendario, quando è montata.
         if (part.entry.key !== "calendario" || !vista.confrontoQui) return null;
-        return <SediCalendario sedi={readableActivities.map(a => ({ id: a.id, name: a.name }))} businessId={businessId} />;
+        return (
+            <SediCalendario
+                sedi={readableActivities.map(a => ({ id: a.id, name: a.name }))}
+                businessId={businessId}
+                compact={compact}
+            />
+        );
     }
 
     const { entry } = part;
@@ -104,6 +113,11 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
                 title="Cosa guardi"
                 tag={sospese.size ? sospesaTag : undefined}
                 className={styles.sedeBtn}
+                compact={
+                    compact
+                        ? { icon: <MapPin size={20} aria-hidden />, label: `Sede: ${current ? current.name : "Tutte le sedi"}` }
+                        : undefined
+                }
             >
                 <span className={styles.pre}>Sede</span>
                 {current ? current.name : "Tutte le sedi"}
@@ -117,6 +131,7 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
                     allLabel="Tutte le altre sedi"
                     title="Confronta con"
                     className={`${styles.sedeBtn} ${confrontate.length ? styles.confrontoOn : ""}`}
+                    compact={compact ? confrontoCompact(confrontate) : undefined}
                 >
                     <span className={styles.pre}>Confronta con</span>
                     {confrontate.length === 0
@@ -133,7 +148,15 @@ export function SediInAlto({ groupKey, entryKey }: SediInAltoProps) {
 }
 
 /** «Sede» e «Confronta con» del Calendario: sullo stato comune, senza indirizzo. */
-function SediCalendario({ sedi, businessId }: { sedi: { id: string; name: string }[]; businessId: string }) {
+function SediCalendario({
+    sedi,
+    businessId,
+    compact
+}: {
+    sedi: { id: string; name: string }[];
+    businessId: string;
+    compact: boolean;
+}) {
     const vista = useSediVista(businessId);
     const { gruppi = [], tag } = useConfrontoOpts();
     // Senza scelta si guarda la prima sede, come fa la pagina.
@@ -164,6 +187,7 @@ function SediCalendario({ sedi, businessId }: { sedi: { id: string; name: string
                 allowAll
                 title="Cosa guardi"
                 className={styles.sedeBtn}
+                compact={compact ? { icon: <MapPin size={20} aria-hidden />, label: `Sede: ${label}` } : undefined}
             >
                 <span className={styles.pre}>Sede</span>
                 {label}
@@ -178,6 +202,7 @@ function SediCalendario({ sedi, businessId }: { sedi: { id: string; name: string
                     title="Confronta con"
                     tag={tag}
                     className={`${styles.sedeBtn} ${confrontate.length ? styles.confrontoOn : ""}`}
+                    compact={compact ? confrontoCompact(confrontate) : undefined}
                 >
                     <span className={styles.pre}>Confronta con</span>
                     {confrontate.length === 0
@@ -191,4 +216,15 @@ function SediCalendario({ sedi, businessId }: { sedi: { id: string; name: string
             )}
         </div>
     );
+}
+
+/** «Confronta con» come icona: il numerino dice quante sedi sono a confronto. */
+function confrontoCompact(confrontate: { name: string }[]) {
+    return {
+        icon: <GitCompareArrows size={19} aria-hidden />,
+        label: confrontate.length
+            ? `Confronta con: ${confrontate.map(a => a.name).join(", ")}`
+            : "Confronta con altre sedi",
+        count: confrontate.length
+    };
 }

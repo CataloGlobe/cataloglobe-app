@@ -1,6 +1,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Store } from "lucide-react";
+import { LOOK_D } from "@styles/lookD";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { ACTIVITY_SEARCH_THRESHOLD, filterActivityOptions } from "@/components/ui/ActivityMultiSelect/activityFilter";
 import s from "./SediPannello.module.scss";
@@ -237,6 +239,11 @@ export type SediBottoneProps = SediPannelloProps & {
     className?: string;
     /** Senza, il bottone dice cosa è scelto. */
     children?: ReactNode;
+    /**
+     * D al telefono, nella barra in alto (v30): solo l'icona tonda, con il
+     * nome per i lettori di schermo e un numerino se serve.
+     */
+    compact?: { icon: ReactNode; label: string; count?: number };
 };
 
 const W = 330;
@@ -246,7 +253,9 @@ const GAP = 8;
 
 /** Un bottone che apre il pannello delle sedi sopra la pagina. Con una scelta sola si chiude scegliendo. */
 export function SediBottone(props: SediBottoneProps) {
-    const { place = "below", className, children } = props;
+    const { place = "below", className, children, compact } = props;
+    // D sotto 641: il pannello è un foglio in mezzo allo schermo, sopra un velo (v30).
+    const sheet = useMediaQuery(LOOK_D ? "(max-width: 640px)" : "(max-width: 0px)");
     const [open, setOpen] = useState(false);
     const [pos, setPos] = useState<CSSProperties>(AWAY);
     const btnRef = useRef<HTMLButtonElement>(null);
@@ -255,7 +264,7 @@ export function SediBottone(props: SediBottoneProps) {
 
     // si mette dove c'è posto: a fianco o sotto, dentro la finestra
     useLayoutEffect(() => {
-        if (!open) return;
+        if (!open || sheet) return;
         const put = () => {
             const b = btnRef.current?.getBoundingClientRect();
             const h = popRef.current?.offsetHeight ?? 0;
@@ -285,7 +294,7 @@ export function SediBottone(props: SediBottoneProps) {
             window.removeEventListener("resize", later);
             ro.disconnect();
         };
-    }, [open, place]);
+    }, [open, place, sheet]);
 
     // si chiude cliccando fuori o con Esc, e il fuoco torna al bottone
     useEffect(() => {
@@ -327,17 +336,33 @@ export function SediBottone(props: SediBottoneProps) {
                 aria-haspopup="dialog"
                 aria-expanded={open}
                 aria-controls={open ? id : undefined}
+                aria-label={compact?.label}
+                data-count={compact?.count || undefined}
                 onClick={() => setOpen(o => !o)}
             >
-                <Store size={15} aria-hidden />
-                <span className={s.nm}>{children ?? summary(props)}</span>
-                <ChevronDown size={14} aria-hidden />
+                {compact ? (
+                    compact.icon
+                ) : (
+                    <>
+                        <Store size={15} aria-hidden />
+                        <span className={s.nm}>{children ?? summary(props)}</span>
+                        <ChevronDown size={14} aria-hidden />
+                    </>
+                )}
             </button>
             {open &&
                 createPortal(
-                    <div ref={popRef} id={id} className={s.pop} role="dialog" aria-label={props.title ?? "Sedi"} style={pos}>
-                        <SediPannello {...panel} />
-                    </div>,
+                    sheet ? (
+                        <div className={s.sheet}>
+                            <div ref={popRef} id={id} className={`${s.pop} ${s.popSheet}`} role="dialog" aria-label={props.title ?? "Sedi"}>
+                                <SediPannello {...panel} />
+                            </div>
+                        </div>
+                    ) : (
+                        <div ref={popRef} id={id} className={s.pop} role="dialog" aria-label={props.title ?? "Sedi"} style={pos}>
+                            <SediPannello {...panel} />
+                        </div>
+                    ),
                     document.body
                 )}
         </>

@@ -238,6 +238,67 @@
     }
 }
 
+// D sotto 641 (v30): il pannello è un foglio in mezzo allo schermo. Radix lo
+// mette in un involucro posizionato accanto al bottone: qui l'involucro copre
+// la finestra e fa da velo, senza prendere i tocchi; un tocco sul velo è un
+// tocco fuori e chiude.
+:global([data-radix-popper-content-wrapper]):has(> .sheet) {
+    @include look-d {
+        inset: 0 !important;
+        transform: none !important;
+        min-width: 0 !important;
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        background: var(--d-veil);
+        pointer-events: none;
+        animation: sheetVeilIn 180ms ease both;
+    }
+}
+
+.sheet {
+    @include look-d {
+        pointer-events: auto;
+        width: min(360px, 100%);
+        min-width: 0;
+        max-height: calc(100dvh - 48px);
+        overflow: auto;
+        padding: 8px;
+        border: 0;
+        border-radius: 22px;
+        box-shadow: var(--d-shadow-sheet);
+
+        &[data-state="open"] {
+            animation: sheetPopIn 220ms var(--d-ease) both;
+        }
+
+        .item {
+            white-space: normal;
+            padding: 10px 12px;
+        }
+    }
+}
+
+@keyframes sheetVeilIn {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes sheetPopIn {
+    from {
+        opacity: 0;
+        transform: scale(0.94) translateY(8px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :global([data-radix-popper-content-wrapper]):has(> .sheet),
+    .sheet[data-state="open"] {
+        animation: none;
+    }
+}
+
 .item {
     @include look-d {
         height: auto;
