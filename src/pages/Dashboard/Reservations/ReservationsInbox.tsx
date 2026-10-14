@@ -101,17 +101,39 @@ export default function ReservationsInbox({
     const renderRow = (r: V2Reservation, isStale: boolean) => {
         const canManage = canManageActivity(r.activity_id);
         const tableView = tableViews.get(r.id);
-        const when = `${formatRowDate(r.reservation_date)} · ${r.reservation_time.slice(0, 5)} · ${r.party_size} ${r.party_size === 1 ? "persona" : "persone"}`;
+        const people = `${r.party_size} ${r.party_size === 1 ? "persona" : "persone"}`;
+        const when = `${formatRowDate(r.reservation_date)} · ${r.reservation_time.slice(0, 5)} · ${people}`;
+        // Nella D l'orario è la colonna a sinistra e le persone stanno col
+        // nome (v28 `.rq`); sotto restano il giorno e il canale.
         return (
             <ListRow
                 key={r.id}
                 onClick={() => onOpenDetail(r)}
                 muted={isStale}
-                leading={<ChannelMark source={r.source} />}
-                title={r.customer_name}
+                className={LOOK_D ? styles.reqRow : undefined}
+                // Al telefono i pulsanti in una riga loro: accanto schiacciano il nome.
+                trailingWrap={LOOK_D}
+                leading={
+                    LOOK_D ? (
+                        <span className={styles.reqTime}>{r.reservation_time.slice(0, 5)}</span>
+                    ) : (
+                        <ChannelMark source={r.source} />
+                    )
+                }
+                title={
+                    LOOK_D ? (
+                        <span className={styles.reqTitle}>
+                            <span>{r.customer_name}</span> · {people}
+                        </span>
+                    ) : (
+                        r.customer_name
+                    )
+                }
                 subtitle={
                     <>
-                        {when}
+                        {LOOK_D
+                            ? `${formatRowDate(r.reservation_date)} · ${r.source === "manual" ? "A mano" : "Online"}`
+                            : when}
                         {r.notes && (
                             <>
                                 <br />

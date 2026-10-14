@@ -179,6 +179,12 @@
         }
     }
 
+    // I blocchi hanno il loro padding: quello del corpo flush lasciava vuoto
+    // sotto la data.
+    .surface .body {
+        padding: 0;
+    }
+
     .surface .open {
         color: var(--d-brand-deep);
         @include d-type(small);

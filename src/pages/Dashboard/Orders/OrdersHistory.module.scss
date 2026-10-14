@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Lo Storico è una pagina a tabella: la catena flex vincolata (template
 // Prodotti/Cataloghi) porta l'altezza di `MainLayout .content` fino al
 // `.autoSizeProbe` del DataTable, così l'auto-pagesize misura lo spazio vero.
@@ -58,5 +60,13 @@
   &:last-child {
     border-bottom: none;
     padding-bottom: 0;
+  }
+}
+
+// ── Direzione D: la tabella sta dentro il padding della card (v28 `.card`
+// con `table`), le righe non toccano i bordi. ──
+@include look-d {
+  .historySection > :last-child > :first-child {
+    padding: 8px 20px 4px;
   }
 }
