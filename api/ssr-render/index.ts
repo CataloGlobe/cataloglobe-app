@@ -290,6 +290,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     const slug = typeof req.query.slug === "string" ? req.query.slug.trim() : "";
     const langRaw = typeof req.query.lang === "string" ? req.query.lang.trim() : "";
+    // Il menu scelto (`?menu=<slug>`, «Scegli il menu» del redesign): il server
+    // rende lo stesso menu del browser. Gli slug dei menu hanno la forma degli
+    // slug di sede; uno diverso non può essere un menu e si ignora (il browser
+    // torna alla scelta, come il server). La CDN tiene una copia per query.
+    const menuRaw = typeof req.query.menu === "string" ? req.query.menu.trim() : "";
+    const menu = menuRaw.length <= 80 && SLUG_RE.test(menuRaw) ? menuRaw : undefined;
 
     if (!SLUG_RE.test(slug) || slug.includes("--") || RESERVED_SEGMENTS.has(slug)) {
         serveSpaFallback(res, "invalid_slug");
@@ -325,9 +331,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
                 !canonicalSlug.includes("--") &&
                 !RESERVED_SEGMENTS.has(canonicalSlug);
             if (validCanonical) {
-                // Preserva solo `lang` (già validato + lowercased sopra). Il
-                // param interno `slug` aggiunto dal rewrite NON viene propagato.
-                const location = lang ? `/${canonicalSlug}?lang=${lang}` : `/${canonicalSlug}`;
+                // Preserva solo `lang` e `menu` (già validati sopra). Il param
+                // interno `slug` aggiunto dal rewrite NON viene propagato.
+                const query = new URLSearchParams();
+                if (lang) query.set("lang", lang);
+                if (menu) query.set("menu", menu);
+                const search = query.toString();
+                const location = search ? `/${canonicalSlug}?${search}` : `/${canonicalSlug}`;
                 res.setHeader("Cache-Control", "no-store");
                 res.setHeader("X-Cataloglobe-Ssr", "redirect:alias");
                 res.status(301).setHeader("Location", location).end();
@@ -339,7 +349,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         // L'interfaccia nella lingua della pagina (prima sempre italiano, e la
         // lingua giusta arrivava solo dopo l'hydration).
         const uiLang = pageLanguage(payload);
-        const result = await renderPublic({ payload, slug, url: `/${slug}`, lang: uiLang });
+        const url = menu ? `/${slug}?menu=${menu}` : `/${slug}`;
+        const result = await renderPublic({ payload, slug, url, lang: uiLang });
 
         if (result.kind !== "ready") {
             serveSpaFallback(res, result.status);
