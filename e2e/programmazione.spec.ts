@@ -550,11 +550,11 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
         await expect(main(page).getByText(/^Sola lettura/)).toHaveCount(0);
     });
 
-    test("cablaggio: «Nuova regola» dalla sede nasce con la RPC, già sulla sede (T9b)", async ({ page }) => {
+    test("cablaggio: «Aggiungi» dalla sede nasce con la RPC, già sulla sede (T9b)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000780";
         stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
         await openSeatList(page, SEDE.centro, "price");
-        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await page.getByRole("button", { name: /^Aggiungi/ }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
         const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
         expect(body.p_rule_type).toBe("price");
@@ -581,11 +581,11 @@ test.describe("Programmazione — ruolo di sede con più sedi", () => {
         stub = await stubProgrammazione(page, {});
     });
 
-    test("cablaggio: «Nuova regola» dall'azienda nasce sulle sue sedi (T9b)", async ({ page }) => {
+    test("cablaggio: «Aggiungi» dall'azienda nasce sulle sue sedi (T9b)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000781";
         stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
         await openList(page, "layout");
-        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await page.getByRole("button", { name: /^Aggiungi/ }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
         const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
         const targets = JSON.stringify(body.p_targets);
