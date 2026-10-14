@@ -1,0 +1,6 @@
+// Se il build porta gli stili della D (`@include look-d` e `_look-d.scss`).
+// Acceso qui, per il back office; le build della parte pubblica (pagina
+// pubblica, suo server SSR, landing) lo sostituiscono con
+// `_look-d-build-off.scss` (alias in vite.config.ts): lì `data-look="d"` non
+// c'è mai e quegli stili sarebbero solo peso in più.
+$on: true;
