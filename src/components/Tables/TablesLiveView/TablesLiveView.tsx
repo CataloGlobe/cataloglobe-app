@@ -434,7 +434,17 @@ export function TablesLiveView({
                                     return (
                                         <CardGridItem
                                             key={t.id}
-                                            title={t.label}
+                                            // Nella D il conto sta sulla riga del nome (v28 `.tile`).
+                                            title={
+                                                LOOK_D ? (
+                                                    <span className={styles.name}>
+                                                        <span>{t.label}</span>
+                                                        {status === "occupied" && <span>{formatEur(t.current_total)}</span>}
+                                                    </span>
+                                                ) : (
+                                                    t.label
+                                                )
+                                            }
                                             subtitle={subtitle || undefined}
                                             // Nella D la tessera è un dato: niente disegno del tavolo.
                                             media={LOOK_D ? undefined : <TableSketch seats={t.seats ?? null} state={sketchState} />}
@@ -451,11 +461,17 @@ export function TablesLiveView({
                                                         variant={sketchState === "previous" ? "neutral" : STATUS_VARIANTS[status]}
                                                         label={statusLabel}
                                                     />
-                                                    {submitted > 0 && (
-                                                        <Badge variant="brand">
-                                                            {submitted} {submitted === 1 ? "nuova" : "nuove"}
-                                                        </Badge>
-                                                    )}
+                                                    {submitted > 0 &&
+                                                        (LOOK_D ? (
+                                                            <StatusBadge
+                                                                variant="new"
+                                                                label={`${submitted} ${submitted === 1 ? "nuova" : "nuove"}`}
+                                                            />
+                                                        ) : (
+                                                            <Badge variant="brand">
+                                                                {submitted} {submitted === 1 ? "nuova" : "nuove"}
+                                                            </Badge>
+                                                        ))}
                                                     {t.bill_requested_count > 0 && (
                                                         <StatusBadge variant="warning" label="Conto richiesto" />
                                                     )}
@@ -471,9 +487,11 @@ export function TablesLiveView({
                                                         <Text as="span" variant="body-sm" colorVariant="muted">
                                                             {activeOrdersText}
                                                         </Text>
-                                                        <Text as="span" variant="body-sm" weight={600}>
-                                                            {formatEur(t.current_total)}
-                                                        </Text>
+                                                        {!LOOK_D && (
+                                                            <Text as="span" variant="body-sm" weight={600}>
+                                                                {formatEur(t.current_total)}
+                                                            </Text>
+                                                        )}
                                                     </span>
                                                 ) : undefined
                                             }

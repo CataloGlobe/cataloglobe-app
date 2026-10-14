@@ -21,6 +21,7 @@ import { Menu } from "@/components/ui/Menu/Menu";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { formatRelativeTime } from "@/utils/relativeTime";
+import { LOOK_D } from "@styles/lookD";
 import type { V2OrderItem, V2OrderWithItems } from "@/types/orders";
 import type { ComandaPrintState } from "./hooks/comandaPrintState";
 import styles from "./OrderCard.module.scss";
@@ -283,7 +284,12 @@ export default function OrderCard({
                         const detail = formatItemDetail(item);
                         return (
                             <li key={item.id} className={styles.item} data-cancelled={isCancelled || undefined}>
-                                <Text as="span" variant="body-sm" weight={600} colorVariant="muted">
+                                <Text
+                                    as="span"
+                                    variant="body-sm"
+                                    weight={LOOK_D ? 700 : 600}
+                                    colorVariant={LOOK_D ? "default" : "muted"}
+                                >
                                     {item.quantity}×
                                 </Text>
                                 <span className={styles.itemName}>
