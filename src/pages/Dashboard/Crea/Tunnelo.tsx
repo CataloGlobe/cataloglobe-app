@@ -17,7 +17,8 @@ import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/S
 import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/SettimanaAnteprima";
 import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type { V2Style } from "@/services/supabase/styles";
-import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { axisFor, dayCtx, entriesFromRules, fState, romeToday, thingIdOf, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { DB_WAIT, NEW_MODEL, sediOf, NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { rebase, aboutPlace, adessoDid, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, skipped, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type From, type StepId, type Tunnel } from "./creaModel";
 import { badSel, useBad, type Bad } from "./creaBad";
@@ -305,14 +306,28 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     }, [entries, calKind]);
 
     /* ---------- il telefono ---------- */
+    // l'in evidenza sta sopra o sotto il menù che il cliente ha davanti: quello in onda adesso
+    // nella prima sede scelta, non il primo dell'elenco (giro del 2026-10-14, difetto 11)
+    const liveMenu = useMemo(() => {
+        if (t.kind !== "evid") return null;
+        const sid = whereSedi[0] ?? data.sedi[0]?.id;
+        if (!sid) return null;
+        const r = toRomeDateTime(new Date());
+        const st = fState(dayCtx(entries, "menu", { activityId: sid, groupIds: data.groupIdsByActivity[sid] ?? [] }, romeToday()), r.hour * 60 + r.minute);
+        return st.win ? thingIdOf(st.win) : null;
+    }, [t.kind, whereSedi, data.sedi, data.groupIdsByActivity, entries]);
     const sample = useMemo(() => {
-        const only = t.from?.productIds.length ? new Set(t.from.productIds) : undefined;
-        return sampleOf(data.pickList, only);
-    }, [data.pickList, t.from]);
+        const only = t.from?.productIds.length
+            ? new Set(t.from.productIds)
+            : liveMenu
+              ? new Set(data.pickList.filter(p => data.menusOf.get(p.id)?.includes(liveMenu)).map(p => p.id))
+              : undefined;
+        return sampleOf(data.pickList, only?.size ? only : undefined);
+    }, [data.pickList, data.menusOf, t.from, liveMenu]);
     const menus = useMemo(() => {
-        const first = data.base?.catalogId;
+        const first = liveMenu ?? data.base?.catalogId;
         return [...data.catalogs].sort((a, b) => (a.id === first ? -1 : b.id === first ? 1 : 0)).map(x => x.name);
-    }, [data.catalogs, data.base]);
+    }, [data.catalogs, data.base, liveMenu]);
     const imageUrl = useObjectUrl(t.image) ?? t.imageUrl;
     const coverUrl = useObjectUrl(t.cover) ?? t.coverUrl;
     const blockUrls = useMemo(() => Object.fromEntries(Object.entries(blockFiles).map(([k, f]) => [k, URL.createObjectURL(f)])), [blockFiles]);
@@ -379,8 +394,9 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         u(x => void (x.i = stepFrom(x, c, i, -1)));
     };
 
-    // lo stile non ha una pagina sua: il suo editor è questo tunnel, e si torna all'elenco
-    const landing = (k: CreaKind, id: string) => (k === "stile" ? `${b}/${PAGE_OF[k]}` : `${b}/${PAGE_OF[k]}/${id}`);
+    // lo stile non ha una pagina sua: il suo editor è questo tunnel, e si torna all'elenco;
+    // la storia nemmeno: la sua pagina è l'editor di prima, e «Ho finito» promette «Storie» (difetto 12)
+    const landing = (k: CreaKind, id: string) => (k === "stile" || k === "storia" ? `${b}/${PAGE_OF[k]}` : `${b}/${PAGE_OF[k]}/${id}`);
 
     // i passi già riusciti di un salvataggio fallito a metà: «Riprova» riparte da lì
     const progress = useRef(new Map<string, unknown>());

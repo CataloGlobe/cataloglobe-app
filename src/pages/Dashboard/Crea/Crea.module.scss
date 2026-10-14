@@ -1752,17 +1752,18 @@ select.in {
         @include cal.fs(fine);
         background: var(--surface);
     }
+    // le due parti del «Quando» come i passi del tunnel: col colore del tipo (difetto 13)
     &[aria-current="step"] {
         color: var(--text);
         i {
-            background: var(--c-brand);
-            border-color: var(--c-brand);
+            background: var(--k, var(--c-brand));
+            border-color: var(--k, var(--c-brand));
             color: var(--on-brand);
         }
     }
     &.ok i {
-        border-color: var(--c-brand);
-        color: var(--c-brand);
+        border-color: var(--k, var(--c-brand));
+        color: var(--k, var(--c-brand));
     }
     &:focus-visible {
         outline: 2px solid var(--c-brand);
@@ -1810,8 +1811,8 @@ select.in {
     gap: 8px;
     padding: 12px 14px;
     border-radius: var(--radius-surface);
-    background: var(--c-brand-soft);
-    border: 1px solid color-mix(in srgb, var(--c-brand) 35%, transparent);
+    background: color-mix(in srgb, var(--k, var(--c-brand)) 8%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--k, var(--c-brand)) 35%, transparent);
     p {
         margin: 0;
     }
@@ -1864,8 +1865,8 @@ select.in {
         color: var(--text-muted);
     }
     &[aria-pressed="true"] {
-        border-color: var(--c-brand);
-        box-shadow: 0 0 0 1px var(--c-brand);
+        border-color: var(--k, var(--c-brand));
+        box-shadow: 0 0 0 1px var(--k, var(--c-brand));
     }
     &:focus-visible {
         outline: 2px solid var(--c-brand);

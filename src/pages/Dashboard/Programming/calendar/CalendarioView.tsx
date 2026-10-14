@@ -631,7 +631,8 @@ export default function CalendarioView({
                     return (
                         <button key={g.from} type="button" className={`${s.fseg} ${s.ev2} ${g.hidden.length ? s.hid : ""}`} data-tip={tip} aria-label={aria(tip)} onClick={openIt}
                             style={{ "--c": KIND_COLOR.featured, ...pos, background: `color-mix(in srgb, var(--c) ${pc}%, var(--surface))` } as CSSProperties}>
-                            <span className={s.ft}>{g.onda.length}</span>
+                            {/* un numero da solo non diceva cosa (difetto 13): il nome, o quanti e quali */}
+                            <span className={s.ft}>{g.onda.length === 1 ? g.onda[0] : `${g.onda.length} insieme: ${g.onda.join(", ")}`}</span>
                             {under(g)}
                         </button>
                     );

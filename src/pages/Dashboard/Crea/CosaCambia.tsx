@@ -49,7 +49,14 @@ export function CosaCambia({
                     {sum.same && (
                         <>
                             {multi && " · "}
-                            {durLabel(when)} · <b>{hoursText(sum.mins)}</b> a settimana
+                            {durLabel(when)}
+                            {/* «tutto il giorno» conta le ore della griglia, non del locale: il numero confondeva (difetto 13) */}
+                            {!!when.ranges?.length && (
+                                <>
+                                    {" · "}
+                                    <b>{hoursText(sum.mins)}</b> a settimana
+                                </>
+                            )}
                         </>
                     )}
                     {kind === "menu" && sum.on > 0 && pair && " · stile " + q(pair)}

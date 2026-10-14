@@ -1016,7 +1016,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await button(page, "Metti in onda").click();
         await expect(main(page).getByText("«Il forno a legna» è in onda: si vede in fondo alla scheda di «Tiramisù e2e».")).toBeVisible({ timeout: 15_000 });
         await finito(page);
-        await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/stories$/, { timeout: 15_000 });
         expect(bodyOf(stub, "stories.POST")).toMatchObject({ title: "Il forno a legna", eyebrow: "Il forno", status: "draft", activity_id: null });
         expect(bodyOf(stub, "stories.POST").product_id).toBeTruthy();
         const done = bodyOf(stub, "stories.PATCH");
@@ -1272,7 +1272,7 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         await expect(main(page).getByText(/^La storia «Il forno a legna» è pronta ma spenta: nessun cliente la vede finché non la metti in onda\.$/)).toBeVisible();
         await button(page, "Salva e tieni pronta").click();
         await finito(page);
-        await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/stories$/, { timeout: 15_000 });
         expect(bodyOf(stub, "stories.PATCH")).toMatchObject({ status: "draft", product_id: null });
         expect(bodyOf(stub, "stories.PATCH").activity_id).toBeTruthy();
     });

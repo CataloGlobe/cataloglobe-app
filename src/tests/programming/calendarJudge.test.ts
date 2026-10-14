@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import { blankDraft, quandoScontro, scontriWait, type Draft, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { order, tie, why, type CalEntry, type CalSeat } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { dayNum, durLabel, order, tie, why, type CalEntry, type CalSeat } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 
 const seat: CalSeat = { activityId: "porto", groupIds: ["nord"] };
@@ -75,5 +75,14 @@ describe("l'avviso quando si accavalla (D135 A)", () => {
     it("dove resta l'altro perché c'era prima (fuori da localhost) si salva lo stesso", () => {
         NEW_MODEL.newestWins = false;
         expect(scontriWait(D(), [sc(false, true)])).toBe("");
+    });
+});
+
+describe("durLabel: un periodo di un giorno solo (difetto 13)", () => {
+    it("dice «Solo il 5 apr», non «5 apr – 5 apr»; «l'8» con l'apostrofo", () => {
+        const d5 = dayNum(2026, 3, 5), d8 = dayNum(2026, 3, 8);
+        expect(durLabel({ period: { from: d5, to: d5 } })).toBe("Solo il 5 apr · tutto il giorno");
+        expect(durLabel({ period: { from: d8, to: d8 } })).toBe("Solo l'8 apr · tutto il giorno");
+        expect(durLabel({ period: { from: d5, to: d8 } })).toBe("5 apr – 8 apr · tutto il giorno");
     });
 });

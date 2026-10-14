@@ -71,6 +71,21 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 
 Il punto «due strade» della pagina del tunnel è superato da D191 e non si porta.
 
+## Giro di controllo del 2026-10-14: correzioni
+
+Dal giro in Chrome di quella mattina, difetti (1)-(13):
+- (1), (2), (8): vedi il punto 3 («insieme / al posto» in ogni sede con un incrocio, anche in modifica).
+- (7) «Di cosa parla» della storia: il nome del prodotto non si schiaccia più in colonna.
+- (3) Anteprima della settimana nel tunnel: colonna dei nomi più larga, nome intero al passaggio del mouse; «nuovo» lo dicono colore e tratteggio.
+- (4) «a mezzanotte» e «dall'una»; «lo coprono» al plurale; il dialogo d'uscita si chiama «Modifiche non salvate» come nel resto dell'app.
+- (5) Storia: niente conferma d'uscita se non si è scelto o scritto niente; la frase di «Sul telefono» su due righe.
+- (6) Tre scelte di «Da dove parti» senza buco; «Sospesa» accanto alla sede sospesa nel «Dove»; testate delle parti dello stile e dell'in evidenza col colore del tipo.
+- (9) Lo stile «Default» nella regola di un menù nuovo: viene da `schedule_layout.style_id` obbligatorio (menù e stile nella stessa regola). Codice non toccato: senza stile si salva solo col database nuovo (`schedule_menu` / `schedule_style`).
+- (10) Calendario: il perché di «Spegni» grigio si vede nel fumetto.
+- (11) In «Controlla» il telefono non mostra gli esempi dei campi facoltativi vuoti; nel tunnel in evidenza il telefono mostra il menù in onda adesso nella prima sede scelta.
+- (12) Il titolo della scheda in modifica dice «Modifica il menù»; «Ho finito» della storia porta all'elenco «Storie».
+- (13) «Sempre, tutto il giorno» senza il conto delle ore (era quello della griglia, non del locale); «Solo il 5 apr» per un giorno solo; la riga In evidenza chiusa dice il nome, o quanti e quali; le parti del «Quando» col colore del tipo.
+
 ## Salvataggio: cosa è cambiato in questo ramo (per Lorenzo, fase b)
 
 Da tenere aggiornato: il passo finale di Lorenzo (RPC nuova, `DB.ready`, `NEW_MODEL`) parte da questo codice.

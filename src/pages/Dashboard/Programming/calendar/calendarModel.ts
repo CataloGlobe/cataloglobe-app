@@ -421,7 +421,7 @@ export function daysText(days?: readonly number[]): string {
 /** «10 ott – 12 ott · 19:00–23:30», «Lun–Ven · 11:00–15:00», «Sempre, tutto il giorno». */
 export function durLabel(w: CalWhen): string {
     const p: string[] = [];
-    if (w.period) p.push(dayShort(w.period.from) + " – " + dayShort(w.period.to));
+    if (w.period) p.push(w.period.from === w.period.to ? "Solo " + ([8, 11].includes(dayParts(w.period.from).day) ? "l'" : "il ") + dayShort(w.period.from) : dayShort(w.period.from) + " – " + dayShort(w.period.to));
     if (w.days && w.days.length < 7) p.push(daysText(w.days));
     else if (!w.period && (w.days || w.ranges)) p.push("Tutti i giorni");
     if (w.ranges) p.push(w.ranges.map(([a, b]) => hhmm(a) + "–" + hhmm(b)).join(", "));

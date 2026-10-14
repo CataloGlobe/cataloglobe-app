@@ -33,6 +33,8 @@ type PhoneProps = {
 
 /** Il telefono a destra del tunnel (artifact, `phoneHTML`): com'è adesso quello che si crea. */
 export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, coverUrl, stack }: PhoneProps) {
+    // in «Controlla» il telefono è quello del cliente: i campi facoltativi vuoti non mostrano l'esempio (difetto 11)
+    const final = step === "controlla";
     const head = (
         <div>
             <div className={s.pName}>{business || "Il tuo locale"}</div>
@@ -102,7 +104,7 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
                         <CalendarDays size={12} aria-hidden /> {dateTxt(t.date)}
                     </span>
                 )}
-                <span>{t.text.trim() || ex[1]}</span>
+                {(t.text.trim() || !final) && <span>{t.text.trim() || ex[1]}</span>}
                 {t.evType === "promo" &&
                     dishes.map(d => (
                         <span key={d.id} className={s.fd}>
@@ -155,7 +157,7 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
         body = (
             <div className={cx(s.pBody, s.pRead)}>
                 <div className={cx(s.sc, !coverUrl && s.noCover)} style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined} />
-                <span className={s.pH}>{t.kicker.trim() || "La nostra cucina"}</span>
+                {(t.kicker.trim() || !final) && <span className={s.pH}>{t.kicker.trim() || "La nostra cucina"}</span>}
                 <div className={s.pName}>{t.title.trim() || "Il titolo della storia"}</div>
                 {t.blocks.map(b =>
                     b.type === "quote" ? (
@@ -190,7 +192,7 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
             <div className={cx(s.pStory, step !== "controlla" && s.hl)}>
                 <div className={cx(s.sc, !coverUrl && s.noCover)} style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined} />
                 <div className={s.st}>
-                    <span>{t.kicker.trim() || "La nostra cucina"}</span>
+                    {(t.kicker.trim() || !final) && <span>{t.kicker.trim() || "La nostra cucina"}</span>}
                     <b>{t.title.trim() || "Il titolo della storia"}</b>
                 </div>
             </div>
