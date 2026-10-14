@@ -51,11 +51,11 @@ describe("sede per sede: insieme o al posto", () => {
         expect(hEsito(ins, "c", c)).toEqual({ ins: [], pos: [], solo: ["Perso"] });
         expect(hCopreText(ins, c[0], "ins")).toBe("«Perso» sta al posto degli altri: qui, in quelle ore, il tuo non si vede.");
         expect(hCopreText(T({ kind: "stile", insieme: true }), c[0], "ins")).toBe("Qui, in quelle ore, resta lo stile «Perso».");
-        expect(hCopreText(pos, c[0], "pos")).toBe("Al posto di «Perso», che oggi qui vince: si salva col database nuovo.");
+        expect(hCopreText(pos, c[0], "pos")).toBe("Al posto di «Perso», che oggi qui vince: si salva col database nuovo. Per ora lascia «Perso».");
         expect(hCopreText(pos, m.get("a")![0], "pos")).toBe("");
         const names = new Map([["c", "Comasina"]]);
         expect(copreWait(ins, m, names)).toBe("");
-        expect(copreWait(pos, m, names)).toBe("Al posto di «Perso» a Comasina: si salva col database nuovo");
+        expect(copreWait(pos, m, names)).toBe("Al posto di «Perso» a Comasina: si salva col database nuovo. Per ora lascia «Perso».");
         expect(copreWait({ ...pos, onda: "off" }, m, names)).toBe("");
         // al posto di tutti, ma «Insieme» dove vince l'altro: è quello che succede oggi, si salva
         hSet(pos, "c", "Perso", "ins");

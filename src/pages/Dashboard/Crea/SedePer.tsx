@@ -7,6 +7,7 @@ import { Button } from "@components/ui/Button/Button";
 import { DB_WAIT, listIt, type Impatto, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { thingName, type Tunnel } from "./creaModel";
 import { hAltri, hCopreText, hDiff, hDiverse, hEsito, hSet, hSolo, hVal, nTutteSedi, type HAltro, type HVal } from "./creaSedePer";
+import { SedeGiorni } from "./SedeGiorni";
 import s from "./Crea.module.scss";
 
 const q = (x: string) => "«" + x + "»";
@@ -85,21 +86,6 @@ export function Voci({ t, u, sede, altri, colori }: { t: Tunnel; u: U; sede: Sed
     );
 }
 
-// i giorni della sede aperta in breve: si vedono solo quando la settimana a destra non c'è (sotto i 1100px)
-function Giorni({ sede, eff }: { sede: Sede; eff?: Impatto }) {
-    const g = eff?.sedi?.find(x => x.id === sede.id)?.giorni;
-    if (!g?.length) return null;
-    return (
-        <ul className={s.hdays} aria-label={`I giorni di ${sede.name}`}>
-            {g.map(x => (
-                <li key={x.days + x.txt}>
-                    <b>{x.days}</b> {x.txt}
-                </li>
-            ))}
-        </ul>
-    );
-}
-
 export function SedePer({ t, u, scontri, sedi, onSede, eff }: { t: Tunnel; u: U; scontri: readonly Scontro[]; sedi: readonly Sede[]; onSede?: (id: string) => void; eff?: Impatto }) {
     const [open, setOpen] = useState<string | null>(null);
     const [seen, setSeen] = useState<ReadonlySet<string>>(new Set());
@@ -140,7 +126,7 @@ export function SedePer({ t, u, scontri, sedi, onSede, eff }: { t: Tunnel; u: U;
     const tutte = all ? nTutteSedi(withX.length) : few ? listIt(withX.map(x => x.name)) : `le ${withX.length} sedi con incroci`;
     const inTutte = all ? "In " + tutte : few ? "A " + tutte : `Nelle ${withX.length} sedi con incroci`;
     const cop = withX.filter(x => altri.get(x.id)?.some(a => a.copre)), copCon = [...new Set(cop.flatMap(x => (altri.get(x.id) ?? []).filter(a => a.copre).map(a => q(a.con))))];
-    const copNote = !cop.length ? "" : t.insieme ? (stile ? "" : ` Tranne a ${listIt(cop.map(x => x.name))}: lì resta ${listIt(copCon)}, che sta al posto degli altri.`) : ` A ${listIt(cop.map(x => x.name))} oggi vince ${listIt(copCon)}: lì ${DB_WAIT}.`;
+    const copNote = !cop.length ? "" : t.insieme ? (stile ? "" : ` Tranne a ${listIt(cop.map(x => x.name))}: lì resta ${listIt(copCon)}, che sta al posto degli altri.`) : ` A ${listIt(cop.map(x => x.name))} oggi vince ${listIt(copCon)}: lì ${DB_WAIT}. Per ora lascia ${listIt(copCon)}.`;
     // i menù che stanno da soli: la regola per tutti, nella frase di «Sì, uguale» (punto 4)
     const soli = hSolo(t) ? [...new Set(withX.flatMap(x => (altri.get(x.id) ?? []).map(a => a.con)))] : [];
     const soloRule = !soli.length ? "" : t.insieme ? ` I menù che stanno da soli (${listIt(soli)}) restano da soli nei loro giorni.` : ` Prende il posto anche dei menù che stanno da soli (${listIt(soli)}).`;
@@ -213,7 +199,7 @@ export function SedePer({ t, u, scontri, sedi, onSede, eff }: { t: Tunnel; u: U;
                                         <ChevronDown size={16} aria-hidden />
                                     </button>
                                     {on && <Voci t={t} u={u} sede={x} altri={l} colori={eff?.colori} />}
-                                    {on && <Giorni sede={x} eff={eff} />}
+                                    {on && <SedeGiorni sede={x} eff={eff} />}
                                 </li>
                             );
                         })}

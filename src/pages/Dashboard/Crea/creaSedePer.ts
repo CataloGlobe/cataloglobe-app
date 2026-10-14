@@ -86,7 +86,7 @@ export function hPeriodi(t: Tunnel, altri: ReadonlyMap<string, HAltro[]>): HPeri
 /** Sotto la voce di un altro che oggi vince: cosa succede con la risposta scelta. */
 export function hCopreText(t: Tunnel, a: HAltro, v: HVal | null): string {
     if (!a.copre || v == null || (hSolo(t) && v === "ins")) return "";
-    if (v === "pos") return `Al posto di ${q(a.con)}, che oggi qui vince: ${DB_WAIT}.`;
+    if (v === "pos") return `Al posto di ${q(a.con)}, che oggi qui vince: ${DB_WAIT}. Per ora lascia ${q(a.con)}.`;
     return t.kind === "stile" ? `Qui, in quelle ore, resta lo stile ${q(a.con)}.` : `${q(a.con)} sta al posto degli altri: qui, in quelle ore, il tuo non si vede.`;
 }
 
@@ -95,7 +95,7 @@ export function copreWait(t: Tunnel, altri: ReadonlyMap<string, HAltro[]>, names
     if (t.onda !== "on" || t.insieme == null) return "";
     for (const [id, l] of altri) {
         const a = l.find(x => x.copre && hVal(t, id, x.con) === "pos");
-        if (a) return `Al posto di ${q(a.con)} a ${names.get(id) ?? "una sede"}: ${DB_WAIT}`;
+        if (a) return `Al posto di ${q(a.con)} a ${names.get(id) ?? "una sede"}: ${DB_WAIT}. Per ora lascia ${q(a.con)}.`;
     }
     return "";
 }

@@ -631,7 +631,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await uguale.getByRole("button", { name: "No, cambia" }).click();
         await expect(box.getByText("1 di 3 sedi viste")).toBeVisible();
         await expect(box.getByRole("button", { name: /Centro e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
-        await expect(box.getByText("Al posto di «Pranzo e2e», che oggi qui vince: si salva col database nuovo.")).toBeVisible();
+        await expect(box.getByText("Al posto di «Pranzo e2e», che oggi qui vince: si salva col database nuovo. Per ora lascia «Pranzo e2e».")).toBeVisible();
         // ogni menù col pallino del suo colore, e sotto la sede aperta i suoi giorni: solo quando la settimana a destra non c'è
         await expect(box.locator("li[style*='--c']").filter({ hasText: "Pranzo e2e" })).toHaveCount(1);
         const giorni = box.getByRole("list", { name: "I giorni di Centro e2e", includeHidden: true });
@@ -658,10 +658,10 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByText("Scelte diverse fra le sedi: si salva col database nuovo").first()).toBeVisible();
         await button(page, "Indietro").click();
         await uguale.getByRole("button", { name: "Sì, uguale" }).click();
-        await expect(box.getByText(/^In tutte e tre le sedi «.+» si vede da solo, al posto degli altri menù\. A Centro e2e oggi vince «Pranzo e2e»: lì si salva col database nuovo\. Prende il posto anche dei menù che stanno da soli \(.+\)\.$/)).toBeVisible();
+        await expect(box.getByText(/^In tutte e tre le sedi «.+» si vede da solo, al posto degli altri menù\. A Centro e2e oggi vince «Pranzo e2e»: lì si salva col database nuovo\. Per ora lascia «Pranzo e2e»\. Prende il posto anche dei menù che stanno da soli \(.+\)\.$/)).toBeVisible();
         // al posto anche a Centro: oggi lì vince «Pranzo e2e», quindi aspetta il database nuovo
         await next(page);
-        await expect(main(page).getByText("Al posto di «Pranzo e2e» a Centro e2e: si salva col database nuovo").first()).toBeVisible();
+        await expect(main(page).getByText("Al posto di «Pranzo e2e» a Centro e2e: si salva col database nuovo. Per ora lascia «Pranzo e2e».").first()).toBeVisible();
         await button(page, "Indietro").click();
         // a Centro «Pranzo e2e» da solo è quello che succede oggi: si salva
         await uguale.getByRole("button", { name: "No, cambia" }).click();
@@ -704,7 +704,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByRole("combobox", { name: "Sede da guardare" })).toBeVisible();
         await button(page, /^Prende il posto degli altri/).click();
         await next(page);
-        await expect(main(page).getByText(/^Al posto di «.+» a Centro e2e: si salva col database nuovo$/).first()).toBeVisible();
+        await expect(main(page).getByText(/^Al posto di «(.+)» a Centro e2e: si salva col database nuovo\. Per ora lascia «\1»\.$/).first()).toBeVisible();
         await button(page, "Indietro").click();
         // a Centro lo lascia: è quello che succede oggi, e si salva
         const sbox = main(page).locator("[data-insieme]");

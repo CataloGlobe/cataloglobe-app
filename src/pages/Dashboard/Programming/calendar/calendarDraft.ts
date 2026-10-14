@@ -298,7 +298,7 @@ export function quandoScontro(tratti: readonly (readonly [number, number, number
 /** Cosa aspetta il database nuovo per gli scontri (D135, D149); "" se si salva. */
 export function scontriWait(D: Draft, sc: readonly Scontro[]): string {
     if (DB.ready || !sc.some(x => x.vince)) return "";
-    if (D.kind === "menu" && D.insieme) return "Due menù insieme: " + DB_WAIT;
+    if (D.kind === "menu" && D.insieme) return "Due menù insieme: " + DB_WAIT + ". Per ora scegli «al posto».";
     if (NEW_MODEL.newestWins && sc.some(x => x.vince && x.pari)) return "Prende il posto di un altro a pari merito: " + DB_WAIT;
     return "";
 }

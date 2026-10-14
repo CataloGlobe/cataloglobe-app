@@ -923,7 +923,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByText("Prende il posto di un altro a pari merito: si salva col database nuovo")).toBeVisible();
         await avviso.getByRole("radio", { name: "Mettili insieme" }).click();
         await expect(avviso.getByText("In quelle ore ci sono tutti e due: il cliente sceglie.")).toBeVisible();
-        await expect(main(page).getByText("Due menù insieme: si salva col database nuovo")).toBeVisible();
+        await expect(main(page).getByText("Due menù insieme: si salva col database nuovo. Per ora scegli «al posto».")).toBeVisible();
         // il riepilogo e l'anteprima lo dicono: si aggiunge, non prende il posto
         await expect(main(page).getByText(/«Carta e2e» si aggiunge agli altri menù/).first()).toBeVisible();
         await expect(main(page).getByText("Quando si sovrappongono c'è insieme a «Pranzo e2e»: il cliente sceglie.")).toBeVisible();
