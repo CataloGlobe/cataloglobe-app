@@ -531,37 +531,6 @@
         }
     }
 }
-.sug {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-    padding: 8px 10px;
-    border-top: 1px dashed var(--k-brand-line);
-    background: var(--k-brand-soft);
-    @include cal.fs(text);
-    border-radius: 0 0 12px 12px;
-}
-.one {
-    display: inline-flex;
-    gap: 6px;
-    align-items: center;
-    background: var(--k-surface);
-    border: 1px solid var(--k-brand-line);
-    border-radius: 999px;
-    padding: 5px 12px 5px 9px;
-    @include cal.fs(text);
-    color: var(--k-ink);
-    cursor: pointer;
-    svg {
-        color: var(--k-brand-ink);
-    }
-    &:hover {
-        background: var(--k-brand-soft);
-        border-color: var(--k-brand);
-    }
-}
-
 /* ---------- l'import e il suo resoconto ---------- */
 .card {
     border: 1px solid var(--k-line);

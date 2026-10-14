@@ -214,6 +214,29 @@ test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
     });
 });
 
+test.describe("Tunnel: «Salva le modifiche ed esci» passa gli stessi controlli di «Salva»", () => {
+    test('"Salva le modifiche ed esci" con un conflitto aperto nel Calendario non salva: lo dice e si resta nel tunnel', async ({ page }) => {
+        stub = await stubProgrammazione(page);
+        await emptyCategories(page);
+        // «Pranzo e2e» va in onda a Centro, dal lunedì al venerdì: portato a tutte le sedi e sempre, pari merito con «carta»
+        await openBusinessPageByUrl(page, `crea/menu/${MENU.pranzo}?da=menu`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await main(page).getByRole("checkbox", { name: /^Dove e quando/ }).click();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
+        await button(page, "Centro e2e").click();
+        await page.getByRole("dialog", { name: "Sedi" }).getByRole("checkbox", { name: /^Tutte le sedi/ }).check();
+        await page.keyboard.press("Escape");
+        await button(page, /^Sempre/).click();
+        await button(page, "Esci").click();
+        await page.getByRole("alertdialog", { name: "Uscire dal tunnel?" }).getByRole("button", { name: "Salva le modifiche ed esci" }).click();
+        await expect(page.getByText("Prende il posto di un altro a pari merito: si salva col database nuovo")).toBeVisible();
+        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
+        await expect(page).not.toHaveURL(/\/catalogs$/);
+        expect(stub.writes).toEqual([]);
+    });
+});
+
 test.describe("Tunnel di creazione — ingressi", () => {
     test.beforeEach(async ({ page }) => {
         stub = await stubProgrammazione(page);

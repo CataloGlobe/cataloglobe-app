@@ -17,11 +17,11 @@ import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { deriveTypeFields, parsePrice } from "@/pages/Dashboard/Highlights/featuredContentTypes";
-import { EV, changed, cloneWhen, effWhen, hasDishes, thingName, type Tunnel } from "./creaModel";
-import { saveSezioni, type Once } from "./menuSave";
+import { EV, changed, clonePer, cloneWhen, effWhen, hasDishes, thingName, type Tunnel } from "./creaModel";
+import { saveSezioni } from "./menuSave";
 import { entriesOf } from "./creaLoad";
 import { styleConfig } from "./creaStyle";
-import type { SaveCtx, Saved } from "./creaSave";
+import { parts, type SaveCtx, type Saved } from "./creaSave";
 import type { CreaData } from "./useCreaData";
 
 export type EditCtx = Pick<SaveCtx, "tenantId" | "L" | "blockFiles" | "done"> & { names: CreaData["names"] };
@@ -118,17 +118,9 @@ async function saveQuando(t: Tunnel, c: EditCtx) {
     const D = draftFromEntry(e, c.L, t.kind === "evid" && e.rule.featured_contents.length > 1 ? id : null);
     D.when = cloneWhen(effWhen(t));
     D.where = { all: t.where.all, activityIds: [...t.where.activityIds], groupIds: [...t.where.groupIds] };
-    await saveDraft(D, c.L, c.tenantId);
-}
-
-/** I passi già riusciti al tentativo prima (`SaveCtx.done`): al «Riprova» non si rifanno. */
-function doneOnce(c: EditCtx): Once {
-    return async (key, run) => {
-        if (c.done?.has(key)) return c.done.get(key) as Awaited<ReturnType<typeof run>>;
-        const v = await run();
-        c.done?.set(key, v);
-        return v;
-    };
+    D.per = clonePer(t.per);
+    // con le ore diverse per sede sono più regole: al «Riprova» quelle già nate non rinascono
+    await saveDraft(D, c.L, c.tenantId, parts(c, "rule:" + id));
 }
 
 export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {
@@ -136,7 +128,7 @@ export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {
     const dove = changed(t, "dove") || changed(t, "quando");
     if (t.kind === "menu") {
         if (changed(t, "parti")) await updateCatalog(id, c.tenantId, { name });
-        if (changed(t, "sezioni")) await saveSezioni(t.sections, orig.sections, id, c.tenantId, doneOnce(c));
+        if (changed(t, "sezioni")) await saveSezioni(t.sections, orig.sections, id, c.tenantId, c.done);
     } else if (t.kind === "stile") {
         // i colori e i caratteri fanno una versione nuova dello stile; il solo nome no
         if (changed(t, "nome") || changed(t, "aspetto")) await updateStyle(id, changed(t, "nome") ? name : undefined, changed(t, "aspetto") ? styleConfig(t) : undefined, c.tenantId);

@@ -22,6 +22,11 @@ vi.mock("@/services/supabase/catalogs", async orig => ({ ...(await orig<object>(
 vi.mock("@/services/supabase/products", async orig => ({ ...(await orig<object>()), createProduct: fake("createProduct", (_t, p) => ({ id: "p-" + (p as { name: string }).name })) }));
 vi.mock("@/services/supabase/styles", async orig => ({ ...(await orig<object>()), updateStyle: fake("updateStyle") }));
 vi.mock("@/services/supabase/productOptions", async orig => ({ ...(await orig<object>()), createPrimaryPriceFormat: fake("createPrimaryPriceFormat") }));
+// la regola del Calendario di saveQuando: una voce sola, «r1»
+vi.mock("@/services/supabase/layoutScheduling", async orig => ({ ...(await orig<object>()), listLayoutRules: fake("listLayoutRules", () => []) }));
+vi.mock("@/pages/Dashboard/Crea/creaLoad", async orig => ({ ...(await orig<object>()), entriesOf: () => [{ ruleId: "r1", rule: { featured_contents: [] } }] }));
+vi.mock("@/pages/Dashboard/Programming/calendar/calendarDraft", async orig => ({ ...(await orig<object>()), draftFromEntry: () => ({ when: {}, where: { all: true, activityIds: [], groupIds: [] }, per: null }) }));
+vi.mock("@/pages/Dashboard/Programming/calendar/calendarSave", async orig => ({ ...(await orig<object>()), saveDraft: fake("saveDraft") }));
 vi.mock("@/services/supabase/featuredContents", async orig => ({
     ...(await orig<object>()),
     updateFeaturedContent: fake("updateFeaturedContent"),
@@ -297,5 +302,52 @@ describe("modifica nel tunnel: «Riprova» dopo un piatto nuovo fermo a metà (r
         expect(calls.filter(c => c[0] === "createCategory")).toHaveLength(1);
         const links = calls.filter(c => c[0] === "addProductToCategory");
         expect(links.map(c => c[3])).toEqual(["c-new", "c-new"]);
+    });
+});
+
+describe("modifica nel tunnel: il menù, le ore per sede e l'import aperto", () => {
+    beforeEach(() => {
+        calls.length = 0;
+        Object.assign(fail, { on: "", skip: 0 });
+    });
+    const ctx = () => ({ tenantId: "T", L: {}, names: {}, blockFiles: {}, done: new Map() }) as unknown as EditCtx;
+
+    it("salvando il «Dove e quando», le ore diverse per sede scelte nel tunnel arrivano al Calendario", async () => {
+        const per = { s1: { days: [1, 2] }, s2: { days: [6, 0] } } as unknown as Tunnel["per"];
+        const t = upd(menu(), x => {
+            x.where = { all: false, activityIds: ["s1", "s2"], groupIds: [] };
+            x.per = structuredClone(per);
+        });
+        await saveEdit(t, ctx());
+        const saved = calls.filter(c => c[0] === "saveDraft");
+        expect(saved).toHaveLength(1);
+        expect((saved[0][1] as { per: unknown }).per).toEqual(per);
+    });
+
+    it("con un import da foto ancora aperto, «Avanti» e il salvataggio si fermano anche se non è cambiato altro", () => {
+        const t = upd(menu(), x => void (x.impOpen = true));
+        expect(changed(t, "sezioni")).toBe(false);
+        expect(firstBlock(t, OWNER)).toEqual({ i: 2, why: "Hai un import aperto: aggiungi i piatti o butta via l'import" });
+        expect(firstBlock(menu(), OWNER)).toBeNull();
+    });
+});
+
+describe("modifica nel tunnel: «Riprova» del «Dove e quando» (rilettura #472)", () => {
+    beforeEach(() => {
+        calls.length = 0;
+        Object.assign(fail, { on: "", skip: 0 });
+    });
+
+    it("le parti della regola già salvate restano segnate fra un tentativo e l'altro: niente regole doppie", async () => {
+        const t = upd(menu(), x => void (x.where = { all: false, activityIds: ["s1"], groupIds: [] }));
+        const done = new Map<string, unknown>();
+        const ctx = { tenantId: "T", L: {}, names: {}, blockFiles: {}, done } as unknown as EditCtx;
+        fail.on = "saveDraft";
+        await expect(saveEdit(t, ctx)).rejects.toThrow();
+        await saveEdit(t, ctx);
+        const sets = calls.filter(c => c[0] === "saveDraft").map(c => c[4]);
+        expect(sets).toHaveLength(2);
+        expect(sets[0]).toBeInstanceOf(Set);
+        expect(sets[1]).toBe(sets[0]);
     });
 });

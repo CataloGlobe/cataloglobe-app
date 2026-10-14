@@ -3,7 +3,7 @@ import { openBusinessPage } from "./business";
 import { STYLE, stubStili } from "./stiliStub";
 
 /**
- * Bottom bar nell'anteprima dello Style Editor (device mobile): stessa logica
+ * Bottom bar nel telefono del tunnel dello stile, passo «L'aspetto» (StylePreview mobile): stessa logica
  * della pagina pubblica, sullo scroll del device frame invece che della
  * finestra. Le regole sono provate in `bottom-bar.spec.ts` e in
  * `bottomBarVisibility.test.ts`; qui il cablaggio sullo `scrollContainerEl`.
@@ -12,13 +12,11 @@ import { STYLE, stubStili } from "./stiliStub";
 
 async function openPreview(page: Page): Promise<Locator> {
     await stubStili(page);
-    // L'helper entra dalla sidebar, chiusa sotto 768: si entra larghi e si stringe.
     await page.setViewportSize({ width: 1280, height: 800 });
     await openBusinessPage(page, "styles", "Stili");
-    await page.setViewportSize({ width: 390, height: 844 });
+    // `styles/:id` apre il tunnel in modifica; il telefono con la pagina vera è nel passo «L'aspetto».
     await page.goto(page.url().replace(/\/business\/([0-9a-f-]+)\/.*$/, `/business/$1/styles/${STYLE.sera}`));
-    // A 390 il pannello proprietà copre l'anteprima: si comprime.
-    await page.getByRole("button", { name: "Comprimi pannello" }).click({ timeout: 15_000 });
+    await page.getByRole("button", { name: /L'aspetto/ }).click({ timeout: 15_000 });
     const frame = page.locator(".preview-mobile");
     await expect(frame).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(700);

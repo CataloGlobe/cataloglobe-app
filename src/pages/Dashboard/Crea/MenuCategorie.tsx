@@ -3,7 +3,7 @@
 // Si trascina prima, dopo o dentro; l'import apre un resoconto e il menù non
 // cambia finché non si tocca «Aggiungi». Artifact «Il menù nel tunnel», v8.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { ArrowDown, ArrowLeftToLine, ArrowUp, Check, Folder, GripVertical, Plus, RefreshCw, Sparkles, Trash2, TriangleAlert, Upload, Utensils, X } from "lucide-react";
+import { ArrowDown, ArrowLeftToLine, ArrowUp, Check, Folder, GripVertical, Plus, Trash2, TriangleAlert, Upload, Utensils, X } from "lucide-react";
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { MAX_IMPORT_FILES, key, priceText, type Dish, type Read, type Section, type Tunnel } from "./creaModel";
 import { MAX_LEVEL, allDishes, allSecs, cats, catsOf, dropDish, dropSec, ensure, findDish, findSec, height, inside, moveOut, pathName, pathOf, shift, total, totalOf, type Drop } from "./menuTree";
@@ -12,7 +12,6 @@ import s from "./MenuCategorie.module.scss";
 export const IMPORT_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
 
 export type ReadResult = { ok: true; items: Read[]; file: string } | { ok: false; error: string } | null;
-export type Suggest = { name: string; price: number | null };
 
 type St = "new" | "lnk" | "chk" | "dup";
 type Item = Read & { st: St; on: boolean; to: string; raw: string };
@@ -20,7 +19,6 @@ type Imp =
     | { phase: "pick"; error: string | null }
     | { phase: "read"; file: string }
     | { phase: "done"; file: string; T: Section[]; ghosts: string[]; items: Item[] };
-type Ai = { open: boolean; loading: boolean; list: Suggest[]; page: number; error: boolean };
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 /** Il livello nell'albero: il rientro lo fa il foglio di stile. */
@@ -114,11 +112,9 @@ type Props = {
     pick: readonly PickProduct[];
     /** Legge la foto o il PDF; null se qui l'import non c'è. */
     onRead: ((files: File[], signal: AbortSignal) => Promise<ReadResult>) | null;
-    /** Propone piatti per una categoria; null se qui i suggerimenti non ci sono. */
-    onSuggest: ((category: string, have: string[]) => Promise<Suggest[]>) | null;
 };
 
-export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
+export function MenuCategorie({ t, u, pick, onRead }: Props) {
     const rootRef = useRef<HTMLDivElement>(null);
     const ghostRef = useRef<HTMLDivElement>(null);
     const dlineRef = useRef<HTMLDivElement>(null);
@@ -126,7 +122,6 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
     const [sel, setSel] = useState("all");
     const [ren, setRen] = useState<string | null>(null);
     const [openV, setOpenV] = useState<ReadonlySet<string>>(new Set());
-    const [ai, setAi] = useState<Record<string, Ai>>({});
     const [imp, setImp] = useState<Imp | null>(null);
     const [over, setOver] = useState(false);
     const run = useRef<AbortController | null>(null);
@@ -193,7 +188,7 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
                     ],
                     { duration: 260, easing: EASE }
                 );
-                if (kind !== "var" && kind !== "one") flash(headOf(el), 120);
+                if (kind !== "var") flash(headOf(el), 120);
                 continue;
             }
             const d = dl.get(el)!;
@@ -508,31 +503,6 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
         if (inp) setTimeout(() => inp.focus({ preventScroll: true }), 450);
     };
 
-    /* ---------- i suggerimenti ---------- */
-    const suggest = async (sec: Section, more: boolean, spin: SVGElement | null) => {
-        if (!onSuggest) return;
-        const cur = ai[sec.key];
-        if (more && cur && (cur.page + 1) * 2 < cur.list.length) {
-            mark();
-            if (spin && !still()) spin.animate([{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }], { duration: 520, easing: EASE });
-            return setAi(a => ({ ...a, [sec.key]: { ...cur, page: cur.page + 1 } }));
-        }
-        if (!more && cur?.list.length) return setAi(a => ({ ...a, [sec.key]: { ...cur, open: !cur.open } }));
-        const turning = spin && !still() ? spin.animate([{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }], { duration: 700, iterations: Infinity }) : null;
-        setAi(a => ({ ...a, [sec.key]: { open: true, loading: true, list: cur?.list ?? [], page: cur?.page ?? 0, error: false } }));
-        const path = pathOf(M, sec.key) ?? [sec];
-        const have = [...sec.dishes.map(d => d.name), ...(cur?.list ?? []).map(x => x.name)];
-        const got = await onSuggest(pathName(path), have).catch(() => null);
-        turning?.cancel();
-        mark();
-        setAi(a => {
-            const was = a[sec.key]?.list ?? [];
-            const add = (got ?? []).filter(x => !was.some(y => same(y.name, x.name)));
-            const list = [...was, ...add];
-            return { ...a, [sec.key]: { open: true, loading: false, list, page: more && add.length ? Math.ceil(was.length / 2) : 0, error: !got } };
-        });
-    };
-
     /* ---------- i pezzi ---------- */
     const np = (c: number, d: number) => (
         <span className={s.np} data-np>
@@ -716,67 +686,20 @@ export function MenuCategorie({ t, u, pick, onRead, onSuggest }: Props) {
             );
         });
 
-    const footer = (sec: Section) => {
-        const a = ai[sec.key];
-        const pool = (a?.list ?? []).filter(x => !sec.dishes.some(d => same(d.name, x.name)));
-        const shown = pool.length ? [0, 1].map(k => pool[((a?.page ?? 0) * 2 + k) % pool.length]).filter((x, k, l) => l.indexOf(x) === k) : [];
-        return (
-            <>
-                <div className={s.foot}>
-                    <DishInput
-                        pick={pick}
-                        taken={taken}
-                        label={`Piatto da aggiungere a ${sec.name}`}
-                        onAdd={(p, name) => {
-                            const d: Dish = { key: key(), productId: p?.id ?? null, name: p?.name ?? name, price: p?.listPrice ?? null };
-                            edit(R => void findSec(R, sec.key)?.sec.dishes.push(d));
-                            if (!p) setRen("p" + d.key);
-                        }}
-                    />
-                    {onSuggest && (
-                        <button type="button" className={s.lk} disabled={a?.loading} onClick={e => void suggest(sec, false, e.currentTarget.querySelector("svg"))}>
-                            <Sparkles size={14} aria-hidden />
-                            Suggerisci altri piatti
-                        </button>
-                    )}
-                </div>
-                {a?.open && (
-                    <div className={s.sug} aria-live="polite">
-                        {a.loading && !shown.length ? (
-                            "Cerco piatti che starebbero bene qui…"
-                        ) : a.error && !shown.length ? (
-                            "Adesso non riesco a suggerirne: riprova fra poco."
-                        ) : shown.length ? (
-                            <>
-                                {shown.map(x => (
-                                    <button
-                                        key={x.name}
-                                        type="button"
-                                        className={s.one}
-                                        data-k={`g${sec.key}${x.name}`}
-                                        data-kind="one"
-                                        title={`Aggiungi a ${sec.name}`}
-                                        onClick={() => edit(R => void findSec(R, sec.key)?.sec.dishes.push({ key: key(), productId: null, name: x.name, price: x.price }))}
-                                    >
-                                        <Plus size={14} aria-hidden />
-                                        {x.name}
-                                        {x.price !== null && ` · ${priceText(x.price)}`}
-                                    </button>
-                                ))}
-                                <span className={s.grow} />
-                                <button type="button" className={s.lk} title="Proponine altri" disabled={a.loading} onClick={e => void suggest(sec, true, e.currentTarget.querySelector("svg"))}>
-                                    <RefreshCw size={14} aria-hidden />
-                                    Altri
-                                </button>
-                            </>
-                        ) : (
-                            "Li hai presi tutti."
-                        )}
-                    </div>
-                )}
-            </>
-        );
-    };
+    const footer = (sec: Section) => (
+        <div className={s.foot}>
+            <DishInput
+                pick={pick}
+                taken={taken}
+                label={`Piatto da aggiungere a ${sec.name}`}
+                onAdd={(p, name) => {
+                    const d: Dish = { key: key(), productId: p?.id ?? null, name: p?.name ?? name, price: p?.listPrice ?? null };
+                    edit(R => void findSec(R, sec.key)?.sec.dishes.push(d));
+                    if (!p) setRen("p" + d.key);
+                }}
+            />
+        </div>
+    );
 
     const sect = (sec: Section, list: readonly Section[], k: number, depth: number, sub: boolean): ReactNode => {
         const path = pathOf(M, sec.key) ?? [sec];

@@ -15,15 +15,14 @@ import { analyzeMenuFiles } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyz
 import { partitionBySizeBudget } from "@/pages/Dashboard/Catalogs/AiMenuImport/sizeBudget";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
 import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/SettimanaAnteprima";
-import type { Draft, Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import type { V2Style } from "@/services/supabase/styles";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
-import { NO_IMPATTO, dropAside, scontriWait, waitsForDb, whenKey } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { rebase, FONTS, KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { rebase, FONTS, KIND, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
-import { loadTunnel } from "./creaLoad";
-import { entriesOf, type Loaded } from "./creaLoad";
-import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { entriesOf, loadTunnel, type Loaded } from "./creaLoad";
 import { sampleOf, styleTokens, tokensOf, useFonts, useStyleSeen } from "./creaStyle";
 import { StileAspetto } from "./StileAspetto";
 import { StilePhone } from "./StilePhone";
@@ -53,9 +52,6 @@ function useObjectUrl(f: File | null) {
     }, [f]);
     return url;
 }
-
-import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import type { V2Style } from "@/services/supabase/styles";
 
 /** Il tunnel di creazione già su «Parti da questo stile». */
 function fromSystem(t: Tunnel, st: V2Style | undefined): Tunnel {
@@ -159,7 +155,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const last = i === st.length - 1;
     const fb = firstBlock(t, c);
     const nothing = !!t.edit && !isDirty(t);
-    const stepWhy = showAfter ? "" : last ? fb?.why ?? (nothing ? "Non hai cambiato niente" : "") : t.edit && step !== "modifica" && !changed(t, step) ? "" : blocker(t, step, c);
+    const stepWhy = showAfter ? "" : last ? fb?.why ?? (nothing ? "Non hai cambiato niente" : "") : t.edit && step !== "modifica" && !touched(t, step) ? "" : blocker(t, step, c);
 
     /* ---------- lo stile del telefono ---------- */
     const styleById = useMemo(() => new Map(data.styles.map(x => [x.id, x])), [data.styles]);
@@ -207,11 +203,12 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const draft: Draft | null = !calKind
         ? null
         : editEntry
-          ? { ...draftFromEntry(editEntry, L, calKind === "featured" && editEntry.rule.featured_contents.length > 1 ? editId : null), when: structuredClone(effWhen(t)), where: t.where }
+          ? { ...draftFromEntry(editEntry, L, calKind === "featured" && editEntry.rule.featured_contents.length > 1 ? editId : null), when: structuredClone(effWhen(t)), where: t.where, per: clonePer(t.per) }
           : draftFor(t, calKind, FAKE, pair);
     const calTouched = !t.edit || changed(t, "dove") || changed(t, "quando");
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
-    const why = stepWhy || (last && !showAfter && owner && draft && calTouched ? waitsForDb(draft) || scontriWait(draft, effect.scontri) : "");
+    const calWhy = owner && draft && calTouched ? waitsForDb(draft) || scontriWait(draft, effect.scontri) : "";
+    const why = stepWhy || (last && !showAfter ? calWhy : "");
     const updDraft = (fn: (d: Draft) => void) =>
         u(x => {
             const D = draftFor(x, calKind ?? "featured", FAKE, pair);
@@ -298,9 +295,10 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         // con l'abbonamento fermo non si crea niente, come dai bottoni «Crea» delle liste
         // un ref, non lo stato: due clic nello stesso istante vedrebbero tutti e due `saving` falso
         if (savingNow.current || !ensureActive()) return false;
-        if (t.edit && (fb || nothing)) {
+        // anche da «Salva le modifiche ed esci»: gli stessi controlli del bottone «Salva»
+        if (t.edit && (fb || nothing || calWhy)) {
             setLeave(false);
-            showToast({ message: fb ? `${fb.why}: torna a «${stepLabel(t, st[fb.i])}».` : "Non hai cambiato niente.", type: "error" });
+            showToast({ message: fb ? `${fb.why}: torna a «${stepLabel(t, st[fb.i])}».` : nothing ? "Non hai cambiato niente." : calWhy, type: "error" });
             return false;
         }
         savingNow.current = true;
@@ -400,7 +398,6 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 kids={after.kids}
                 onChain={chain}
                 onFinish={finishAfter}
-                can={{ stile: true, evid: true, storia: true }}
             />
         );
     } else
@@ -415,7 +412,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 body = <MenuParti t={t} u={u} />;
                 break;
             case "sezioni":
-                body = <MenuCategorie t={t} u={u} pick={data.pickList} onRead={onRead} onSuggest={null} />;
+                body = <MenuCategorie t={t} u={u} pick={data.pickList} onRead={onRead} />;
                 break;
             case "serve":
                 body = <Serve t={t} example={t.kind === "stile" ? liveStyle?.name ?? null : null} business={business} />;

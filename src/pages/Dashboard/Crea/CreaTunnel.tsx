@@ -55,6 +55,7 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
 
     // modificare (D140): la cosa com'è oggi, letta una volta quando ci sono i dati del tunnel
     const [loaded, setLoaded] = useState<Loaded | "failed" | "system" | null>(null);
+    const [tries, setTries] = useState(0);
     const ready = !!data;
     useEffect(() => {
         if (!editId || !tenantId || !data || loaded) return;
@@ -70,7 +71,7 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
         };
         // i dati si rileggono dopo ogni salvataggio: la cosa si legge una volta sola
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [kind, editId, tenantId, ready]);
+    }, [kind, editId, tenantId, ready, tries]);
     // dal Calendario con una bozza tenuta da parte: il suo quando e il suo dove
     const [aside] = useState(() => {
         if (params.get("da") !== "calendario" || kind === "storia") return null;
@@ -98,7 +99,29 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
     const look = (!canWrite || paused) && kind === "stile" && editId ? data.styles.find(x => x.id === editId) : null;
     if (look) return <StileGuarda style={look} tenantId={tenantId} business={selectedTenant?.name ?? ""} menu="" why={canWrite ? "abbonamento" : "permesso"} back={() => navigate(`${b}/${path}`)} />;
     if (!canWrite) return <EmptyState title={editId ? "Non puoi modificarlo" : "Non puoi crearlo"} description={`Per ${editId ? "modificare" : "creare"} ${UN[kind]} serve il permesso di modifica. Chiedilo al proprietario.`} />;
-    if (editId && loaded === "failed") return <EmptyState title="Non si è aperto" description="Non siamo riusciti a leggerlo: forse non c'è più. Torna all'elenco e riprova." />;
+    // come il vecchio editor: si torna all'elenco o si riprova (rilettura #472, punto 7)
+    if (editId && loaded === "failed")
+        return (
+            <EmptyState
+                title="Non si è aperto"
+                description="Non siamo riusciti a leggerlo: forse non c'è più. Torna all'elenco e riprova."
+                action={
+                    <>
+                        <Button variant="secondary" onClick={() => navigate(`${b}/${path}`)}>
+                            Torna all'elenco
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setLoaded(null);
+                                setTries(n => n + 1);
+                            }}
+                        >
+                            Riprova
+                        </Button>
+                    </>
+                }
+            />
+        );
     if (editId && !loaded) return <Skeleton height={420} />;
     return (
         <Tunnelo
