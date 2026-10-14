@@ -105,6 +105,14 @@ $global-header-height: 56px;
   .content {
     padding: 18px clamp(14px, 2.4vw, 28px) 28px;
     overscroll-behavior: contain;
+    // Compattando, la testata cambia altezza: il browser non deve riportare
+    // indietro lo scorrimento per tenere ferma una riga (v30).
+    overflow-anchor: none;
+  }
+
+  // In fondo al contenuto: lo tiene alto quanto serve `useCompactOnScroll`.
+  .compactSpacer {
+    height: 0;
   }
 
   .detail {

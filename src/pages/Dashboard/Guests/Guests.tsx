@@ -389,6 +389,7 @@ export default function Guests() {
                             <Button
                                 variant={LOOK_D ? "secondary" : "ghost"}
                                 size="sm"
+                                className={styles.searchButton}
                                 leftIcon={<Search size={15} aria-hidden />}
                                 onClick={() => setSearchOpen(true)}
                             >

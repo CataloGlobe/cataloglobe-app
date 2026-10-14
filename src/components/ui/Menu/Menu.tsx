@@ -3,6 +3,8 @@ import { Info } from "lucide-react";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import Text from "@/components/ui/Text/Text";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { LOOK_D } from "@styles/lookD";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import styles from "./Menu.module.scss";
 
 type MenuAlign = "start" | "end";
@@ -19,6 +21,11 @@ interface MenuProps {
     density?: "default" | "compact";
     /** Aperto e chiuso: chi ha più viste nel pannello torna alla prima a ogni apertura. */
     onOpenChange?: (open: boolean) => void;
+    /**
+     * D sotto 641 (v30): il pannello è un foglio in mezzo allo schermo sopra un
+     * velo. `false` per chi resta attaccato al suo bottone (menù dell'account).
+     */
+    phoneSheet?: boolean;
 }
 
 export function Menu({
@@ -28,9 +35,12 @@ export function Menu({
     side = "bottom",
     contentClassName,
     density = "default",
-    onOpenChange
+    onOpenChange,
+    phoneSheet = true
 }: MenuProps) {
-    const className = [styles.content, density === "compact" && styles.compact, contentClassName]
+    const narrow = useMediaQuery(LOOK_D ? "(max-width: 640px)" : "(max-width: 0px)");
+    const sheet = phoneSheet && narrow;
+    const className = [styles.content, density === "compact" && styles.compact, sheet && styles.sheet, contentClassName]
         .filter(Boolean)
         .join(" ");
     return (

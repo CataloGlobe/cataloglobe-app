@@ -21,6 +21,8 @@ export interface TenantSidebarProps {
     onToggleCollapse: () => void;
     /** Sidebar a tutta altezza (desktop): logo e apri/chiudi. */
     brand?: AppSidebarProps["brand"];
+    /** D al telefono: dove la testata porta sede e campanella. */
+    phoneActionsRef?: AppSidebarProps["phoneActionsRef"];
 }
 
 export default function TenantSidebar({
@@ -31,7 +33,8 @@ export default function TenantSidebar({
     collapsed,
     onRequestClose,
     onToggleCollapse,
-    brand
+    brand,
+    phoneActionsRef
 }: TenantSidebarProps) {
     return (
         <AppSidebar
@@ -51,6 +54,7 @@ export default function TenantSidebar({
             onRequestClose={onRequestClose}
             onToggleCollapse={onToggleCollapse}
             brand={brand}
+            phoneActionsRef={phoneActionsRef}
         />
     );
 }

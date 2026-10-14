@@ -127,6 +127,11 @@ export interface AppSidebarProps {
      * il piede. Le sedi non stanno qui: in alto a destra nella pagina (D152).
      */
     brand?: { homeTo: string | null; actions?: ReactNode };
+    /**
+     * D al telefono: il posto, nella barra in alto prima dell'avatar, dove la
+     * testata della pagina porta sede e campanella come icone (v30 sotto 861).
+     */
+    phoneActionsRef?: (el: HTMLElement | null) => void;
 }
 
 /** La scorciatoia di apri/chiudi come si scrive sulla tastiera di chi guarda. */
@@ -256,7 +261,8 @@ export function AppSidebar({
     footerItems = [],
     accountSlot,
     collapseLabel,
-    brand
+    brand,
+    phoneActionsRef
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
     const { pathname, search } = useLocation();
@@ -320,24 +326,55 @@ export function AppSidebar({
     useEffect(() => {
         showSection(null);
     }, [pathname, collapsed, showSection]);
-    // D al telefono: la sezione aperta resta in vista nella fila che scorre di lato.
+    // D al telefono: la sezione aperta va al centro della fila che scorre di
+    // lato (v30), e le sfumature ai lati dicono che c'è altro da quella parte.
     const phoneNavRef = useRef<HTMLElement>(null);
+    const phoneNavMoved = useRef(false);
     useEffect(() => {
         if (!LOOK_D || !isMobile) return;
         const nav = phoneNavRef.current;
         if (!nav) return;
-        // Al centro della fila, senza far scorrere la pagina; di nuovo se la fila cambia larghezza.
-        const center = () => {
-            const on = nav.querySelector<HTMLElement>('[aria-current="page"]');
-            if (!on) return;
-            const left = on.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft;
-            nav.scrollLeft = left - (nav.clientWidth - on.offsetWidth) / 2;
+        const edges = () => {
+            const room = nav.scrollWidth - nav.clientWidth;
+            nav.toggleAttribute("data-ml", room > 2 && nav.scrollLeft > 4);
+            nav.toggleAttribute("data-mr", room > 2 && nav.scrollLeft < room - 4);
         };
-        center();
-        const ro = new ResizeObserver(center);
+        let frame = 0;
+        // Senza far scorrere la pagina; la prima volta ci si mette subito,
+        // dopo un tocco la fila ci scivola (420 ms, come nella v30).
+        const center = (animate: boolean) => {
+            cancelAnimationFrame(frame);
+            const on = nav.querySelector<HTMLElement>('[aria-current="page"]');
+            const room = nav.scrollWidth - nav.clientWidth;
+            if (!on || room <= 2) return edges();
+            const left = on.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft;
+            const to = Math.max(0, Math.min(room, left - (nav.clientWidth - on.offsetWidth) / 2));
+            const from = nav.scrollLeft;
+            if (Math.abs(to - from) <= 4) return edges();
+            if (!animate || reduceMotion) {
+                nav.scrollLeft = to;
+                return edges();
+            }
+            const start = performance.now();
+            const step = (now: number) => {
+                const k = Math.min(1, (now - start) / 420);
+                nav.scrollLeft = from + (to - from) * (1 - (1 - k) ** 3);
+                if (k < 1) frame = requestAnimationFrame(step);
+                else edges();
+            };
+            frame = requestAnimationFrame(step);
+        };
+        center(phoneNavMoved.current);
+        phoneNavMoved.current = true;
+        const ro = new ResizeObserver(() => center(false));
         ro.observe(nav);
-        return () => ro.disconnect();
-    }, [isMobile, pathname]);
+        nav.addEventListener("scroll", edges, { passive: true });
+        return () => {
+            cancelAnimationFrame(frame);
+            ro.disconnect();
+            nav.removeEventListener("scroll", edges);
+        };
+    }, [isMobile, pathname, reduceMotion]);
     useEffect(
         () => () => {
             window.clearTimeout(openTimer.current);
@@ -528,8 +565,13 @@ export function AppSidebar({
     // La barra diventa una carta in alto: logo e avatar, sotto le sezioni che
     // scorrono di lato. Le parti di una sezione stanno nelle schede della testata.
     if (LOOK_D && isMobile) {
-        const phoneLink = (key: string, to: string, label: ReactNode, active: boolean) => (
+        const phoneLink = (key: string, to: string, label: ReactNode, icon: ReactNode, active: boolean) => (
             <Link key={key} to={to} className={styles.phoneLinkD} aria-current={active ? "page" : undefined}>
+                {icon && (
+                    <span className={styles.phoneIconD} aria-hidden="true">
+                        {icon}
+                    </span>
+                )}
                 {label}
             </Link>
         );
@@ -547,6 +589,8 @@ export function AppSidebar({
                             <Logo variant="wordmark" color="auto" size={15} alt="" />
                         </span>
                     )}
+                    {/* Sede e campanella della testata, come icone (v30). */}
+                    <div ref={phoneActionsRef} className={styles.phoneActionsD} />
                     {accountSlot && <div className={styles.phoneAccountD}>{accountSlot}</div>}
                 </div>
                 <nav ref={phoneNavRef} className={styles.phoneNavD} aria-label="Menu principale">
@@ -559,12 +603,18 @@ export function AppSidebar({
                                 group.items.find(item => !item.disabled);
                             if (!target) return [];
                             const active = Boolean(currentItem(group.items, pathname, search));
-                            return [phoneLink(id, target.to, group.title, active)];
+                            return [phoneLink(id, target.to, group.title, group.icon, active)];
                         }
                         return group.items
                             .filter(item => !item.disabled)
                             .map(item =>
-                                phoneLink(item.id ?? item.to, item.to, item.label, Boolean(currentItem([item], pathname, search)))
+                                phoneLink(
+                                    item.id ?? item.to,
+                                    item.to,
+                                    item.label,
+                                    item.icon,
+                                    Boolean(currentItem([item], pathname, search))
+                                )
                             );
                     })}
                 </nav>

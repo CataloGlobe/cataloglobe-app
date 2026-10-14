@@ -879,14 +879,71 @@ $sub-height: 34px;
     margin: 2px 0 6px 20px;
     padding-left: 10px;
     border-left: 1px solid color-mix(in srgb, var(--d-side-muted) 35%, transparent);
-    animation: subInD 340ms var(--d-ease) both;
   }
 }
 
-@keyframes subInD {
-  from {
+// D (artifact v30): la sezione che si chiude e quella che si apre si muovono
+// insieme, l'altezza va da 0 al contenuto con le righe della griglia.
+.subWrap {
+  @include look-d {
+    display: grid;
+    grid-template-rows: 0fr;
     opacity: 0;
-    transform: translateX(-6px);
+    transition:
+      grid-template-rows 360ms var(--d-ease),
+      opacity 220ms ease;
+
+    &[data-on] {
+      grid-template-rows: 1fr;
+      opacity: 1;
+      transition:
+        grid-template-rows 360ms var(--d-ease),
+        opacity 260ms ease 60ms;
+    }
+
+    // Lo spazio sopra e sotto sta dentro la parte che si chiude, sulle voci:
+    // a lista chiusa non resta nessuna fessura.
+    > .subList {
+      min-height: 0;
+      overflow: hidden;
+      margin-block: 0;
+
+      > li:first-child {
+        margin-top: 2px;
+      }
+
+      > li:last-child {
+        margin-bottom: 6px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      &,
+      &[data-on] {
+        transition: none;
+      }
+    }
+  }
+}
+
+// Le voci scendono di 4 px mentre la lista si apre.
+.sections .subWrap .link.subLink {
+  @include look-d {
+    transform: translateY(-4px);
+    transition:
+      background-color var(--d-dur) ease,
+      color var(--d-dur) ease,
+      transform 360ms var(--d-ease);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+}
+
+.sections .subWrap[data-on] .link.subLink {
+  @include look-d {
+    transform: none;
   }
 }
 
@@ -1007,8 +1064,24 @@ $sub-height: 34px;
   text-decoration: none;
 }
 
+// Sede e campanella arrivano dalla testata (portal): a destra, prima dell'avatar.
+.phoneActionsD {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  &:empty {
+    display: none;
+  }
+}
+
 .phoneAccountD {
   margin-left: auto;
+
+  .phoneActionsD:not(:empty) + & {
+    margin-left: 2px;
+  }
 }
 
 .phoneNavD {
@@ -1022,6 +1095,29 @@ $sub-height: 34px;
   &::-webkit-scrollbar {
     display: none;
   }
+
+  // Le sfumature ai lati: c'è altro da quella parte (v30, 36 px).
+  &[data-mr] {
+    mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+  }
+
+  &[data-ml] {
+    mask-image: linear-gradient(90deg, transparent, #000 36px);
+  }
+
+  &[data-ml][data-mr] {
+    mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+  }
+}
+
+.phoneIconD {
+  display: inline-flex;
+  flex: none;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 .phoneLinkD {
@@ -1029,6 +1125,7 @@ $sub-height: 34px;
     flex: none;
     display: inline-flex;
     align-items: center;
+    gap: 8px;
     min-height: 44px;
     padding: 8px 12px;
     border-radius: var(--d-r-ctl);

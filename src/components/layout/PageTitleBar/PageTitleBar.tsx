@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import { NavbarBreadcrumb } from "@components/layout/AppHeader/NavbarBreadcrumb";
 import Text from "@/components/ui/Text/Text";
@@ -16,6 +17,11 @@ interface PageTitleBarProps {
     groups?: AppSidebarNavGroup[];
     /** Le voci del menù dell'account: nella D le pagine dell'azienda sono tab in testata. */
     account?: AppSidebarNavGroup["items"];
+    /**
+     * D al telefono: sede e campanella stanno nella barra in alto, come icone
+     * (v30 sotto 861); qui la testata tiene solo titolo e schede.
+     */
+    actionsHost?: HTMLElement | null;
 }
 
 /** Direzione D (artifact v28): Azienda, Team, Abbonamento e Lingue come tab di «Azienda». */
@@ -44,7 +50,7 @@ function accountSection(account: AppSidebarNavGroup["items"], pathname: string):
  * (`PageHeaderSlot`); accanto al titolo solo un commutatore di vista della
  * pagina, se lo dichiara (`titleSide`).
  */
-export function PageTitleBar({ actions, groups = [], account = [] }: PageTitleBarProps) {
+export function PageTitleBar({ actions, actionsHost = null, groups = [], account = [] }: PageTitleBarProps) {
     const { pathname, search } = useLocation();
     const side = useReadPageHeader()?.titleSide;
 
@@ -105,11 +111,20 @@ export function PageTitleBar({ actions, groups = [], account = [] }: PageTitleBa
                 )}
                 {side && <div className={styles.side}>{side}</div>}
             </div>
-            {/* Al telefono le notifiche stanno nella testata: qui restano le sedi. */}
-            <div className={styles.actions}>
-                <SediInAlto {...open} />
-                {actions}
-            </div>
+            {actionsHost ? (
+                createPortal(
+                    <div className={`${styles.actions} ${styles.actionsTop}`}>
+                        <SediInAlto {...open} compact />
+                        {actions}
+                    </div>,
+                    actionsHost
+                )
+            ) : (
+                <div className={styles.actions}>
+                    <SediInAlto {...open} />
+                    {actions}
+                </div>
+            )}
         </div>
     );
 }

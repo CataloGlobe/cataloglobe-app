@@ -562,6 +562,11 @@
   .notifCard {
     width: min(320px, 82vw);
     border-radius: var(--d-r-ctl);
+
+    // Telefono: dentro il foglio al centro occupa tutta la larghezza.
+    @media (max-width: 640px) {
+      width: auto;
+    }
   }
 }
 
