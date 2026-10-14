@@ -99,6 +99,20 @@ test("un solo menu adesso: niente scelta, dritti nel menu", async ({ page }) => 
     await expect(chooser(page)).toHaveCount(0);
 });
 
+test("si ordina da più menu: un piatto preso da un altro menu resta nell'ordine", async ({ page }) => {
+    await openPage(page, { ordering: true });
+    await pickCard(page, "Menu pranzo");
+    await page.getByRole("button", { name: "Aggiungi alla selezione" }).first().click();
+    await page.goBack();
+    await pickCard(page, "Carta dei vini");
+
+    await page.getByRole("button", { name: /^Il tuo ordine/ }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Antipasti 1", { exact: false }).first()).toBeVisible();
+    await expect(dialog.getByText("Non più disponibile")).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "Togli i piatti non più disponibili" })).toHaveCount(0);
+});
+
 test("dalla scelta: Info e orari e Prenota aprono il foglio sopra, la scelta resta", async ({ page }) => {
     await openPage(page);
     const dialog = page.getByRole("dialog");
