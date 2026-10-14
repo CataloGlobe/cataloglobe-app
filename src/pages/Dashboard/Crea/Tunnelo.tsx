@@ -264,7 +264,9 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const calWhy = owner && draft && calTouched ? waitsForDb(draft) || (clash && kind === "stile" && t.insieme ? "Lascia gli altri stili: " + DB_WAIT : scontriWait(draft, effect.scontri) || sedePerWait(t, hAltri(effect.scontri))) : "";
     // i blocchi che «Avanti» non sa sistemare: lì il bottone resta spento, col motivo accanto
     const dbWhy = calWhy || evidWait(t) || ordWait(t);
-    const why = showAfter || !last ? "" : nothing ? "Non hai cambiato niente" : dbWhy;
+    // dal Calendario si può anche solo tenere pronto: non è «niente»
+    const keptOnly = !!t.edit?.add && t.onda === "off";
+    const why = showAfter || !last ? "" : nothing && !keptOnly ? "Non hai cambiato niente" : dbWhy;
     const updDraft = (fn: (d: Draft) => void) =>
         u(x => {
             const D = draftFor(x, calKind ?? "featured", FAKE, pair);
@@ -375,6 +377,13 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         // un ref, non lo stato: due clic nello stesso istante vedrebbero tutti e due `saving` falso
         if (savingNow.current || !ensureActive()) return false;
         // anche da «Salva le modifiche ed esci»: gli stessi controlli del bottone «Salva»
+        // dal Calendario, tenuto pronto senza toccare altro: non c'è niente da scrivere, resta com'è
+        if (t.edit?.add && !fb && nothing && t.onda === "off") {
+            setLeave(false);
+            showToast({ message: `Salvato: ${thingName(t)}. ${ONDA[t.kind].Pronto}, non in onda.`, type: "success" });
+            setGoing(origin.to);
+            return true;
+        }
         if (t.edit && (fb || nothing || dbWhy)) {
             setLeave(false);
             showToast({ message: fb ? `${fb.why}: torna a «${stepLabel(t, st[fb.i])}».` : nothing ? "Non hai cambiato niente." : dbWhy, type: "error" });
@@ -388,7 +397,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 progress.current = new Map();
                 void reload();
                 setLeave(false);
-                showToast({ message: "Modifiche salvate.", type: "success" });
+                showToast({ message: !t.edit.cal ? "Modifiche salvate." : t.edit.add && t.onda === "on" ? `In onda: ${thingName(t)}.` : t.edit.add ? `Salvato: ${thingName(t)}. ${ONDA[t.kind].Pronto}, non in onda.` : `Salvato: ${thingName(t)}.`, type: "success" });
                 setGoing(origin.to);
                 return true;
             }
@@ -627,7 +636,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     );
 
     /* ---------- la testa ---------- */
-    const pubLabel = t.edit ? "Salva le modifiche" : goesLive(t, c) ? KIND[t.kind].pub : `Salva e tieni ${ONDA[t.kind].pronto}`;
+    const pubLabel = t.edit?.add ? (t.onda === "off" ? `Salva e tieni ${ONDA[t.kind].pronto}` : "Metti in onda") : t.edit ? "Salva le modifiche" : goesLive(t, c) ? KIND[t.kind].pub : `Salva e tieni ${ONDA[t.kind].pronto}`;
     const title = showAfter && after ? after.saved.name : tunnelTitle(t);
     const sub = showAfter ? "Vuoi aggiungere qualcosa?" : t.edit ? "Scegli cosa cambiare: il resto resta com'è." : `${st.length} passi. A destra vedi già com'è.`;
     // «E adesso?» chiude ogni creazione, mai una modifica (D194)

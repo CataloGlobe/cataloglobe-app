@@ -37,7 +37,7 @@ import {
     writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { axisFor, dayCtx, dayNum, entriesFromRules, fState, offLines, order, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { axisFor, dayCtx, dayNum, entriesFromRules, fState, offLines, order, thingIdOf, voceOf, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { compareCandidates, specificityFor } from "@shared/scheduleCompetition";
 import { dropDraft, PartialSaveError, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 
@@ -115,6 +115,13 @@ describe("regole spente: pronto, non in onda", () => {
         expect(entriesFromRules(all, names).map(e => e.ruleId)).toEqual([accesa.id, accesa.id]);
         const off = entriesFromRules(all, names, true);
         expect(off.map(e => [e.ruleId, e.kind, e.spento])).toEqual([[spenta.id, "menu", true], [spenta.id, "style", true]]);
+    });
+    it("la voce di una cosa: in quante regole sta, e se una è in onda", () => {
+        const on = entriesFromRules(all, names), off = entriesFromRules(all, names, true);
+        expect(on.map(thingIdOf)).toEqual(["c1", "s1"]);
+        expect(voceOf(on, off, "menu", "c1")).toMatchObject({ count: 2, on: true, entry: { ruleId: accesa.id } });
+        expect(voceOf([], off, "menu", "c1")).toMatchObject({ count: 1, on: false, entry: { spento: true } });
+        expect(voceOf(on, off, "menu", "c9")).toBeNull();
     });
     it("la linea spenta sta nelle ore che avrebbe, solo nei suoi giorni", () => {
         const off = entriesFromRules(all, names, true), seat = { activityId: "a1", groupIds: [] }, ax = { from: 480, to: 1440 };

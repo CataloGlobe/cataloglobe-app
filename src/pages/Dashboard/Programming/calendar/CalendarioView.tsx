@@ -16,7 +16,7 @@ import {
     dayOfWeek,
     dayParts,
     entriesFromRules,
-    offLines,
+    offLines, thingIdOf, voceOf,
     fLane,
     fLines,
     hhmm,
@@ -142,6 +142,9 @@ export type CalendarioViewProps = {
         onDrop: (draft: Draft) => Promise<void>;
         /** Porta alla pagina dove si crea un menù, uno stile, un In evidenza. */
         onGoNew: (kind: CalKind) => void;
+        /** Il dove e il quando di menù, stile e in evidenza si scelgono nel tunnel: chi può, per tipo. */
+        canTunnel?: (kind: CalKind) => boolean;
+        onTunnel?: (kind: CalKind, id: string, add: boolean) => void;
     };
 };
 
@@ -929,7 +932,14 @@ export default function CalendarioView({
         setDraft(null);
         setNote(null);
     };
+    // menù, stile e in evidenza con una voce sola: il dove e il quando si cambiano nel tunnel, come creando
+    const tunnelFor = (e: CalEntry) => {
+        const id = isDish(e.kind) ? null : thingIdOf(e);
+        return id && section?.onTunnel && section.canTunnel?.(e.kind) && voceOf(entries, spente, e.kind, id)?.count === 1 ? id : null;
+    };
     const openFull = (e: CalEntry, only?: string) => {
+        const id = only ? null : tunnelFor(e);
+        if (id) return section!.onTunnel!(e.kind, id, false);
         setSec({ back: true });
         setDraft(draftFromEntry(e, L, only ?? null));
         setNote(null);
@@ -1354,6 +1364,10 @@ export default function CalendarioView({
                             closeSec(false);
                             section.onGoNew(to);
                         }}
+                        voce={(k, id) => voceOf(entries, spente, k, id)}
+                        tunnel={k => !!section.onTunnel && !!section.canTunnel?.(k)}
+                        onTunnel={(k, id, add) => section.onTunnel?.(k, id, add)}
+                        onVoce={e => openFull(e)}
                     />
                 </div>
                 {tipNode}

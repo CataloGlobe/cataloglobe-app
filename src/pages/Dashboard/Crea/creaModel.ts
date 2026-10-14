@@ -126,6 +126,10 @@ export type Edit = {
     ruleId: string | null;
     /** In quante regole del Calendario compare. */
     rules: number;
+    /** Aperto dal Calendario: si cambiano solo il dove e il quando, il resto si modifica dalla sua pagina. */
+    cal?: boolean;
+    /** Dal Calendario, da «Aggiungi»: una cosa che c'è già e non ha ancora la sua voce. */
+    add?: boolean;
 };
 
 /** Quello che arriva da «E adesso?»: la cosa appena creata (D194). */
@@ -605,7 +609,7 @@ function editSteps(t: Tunnel, c: Ctx): StepId[] {
     // (allora la si crea mettendolo in onda); la storia non ha regole: ha «In onda?»
     const one = t.kind === "storia" || (t.edit?.rules ?? 0) <= 1;
     const when: StepId[] = c.owner && one ? calSteps(t, c) : [];
-    return ["modifica", ...content, ...when, "controlla"];
+    return ["modifica", ...(t.edit?.cal && when.length ? [] : content), ...when, "controlla"];
 }
 
 const sorted = (x: readonly string[]) => [...x].sort();
@@ -706,6 +710,18 @@ export function asMetti(t: Tunnel, c: Ctx): Tunnel {
     const x: Tunnel = { ...t, onda: "on", edit: { ...t.edit, picked: cal } };
     const i = steps(x, c).indexOf(s);
     return i < 0 ? t : { ...x, i, seen: Math.max(t.seen, i) };
+}
+
+/**
+ * Dal Calendario: la stessa modifica, coi soli passi del dove e del quando.
+ * `add`: da «Aggiungi», già sul primo dei due con «Sì» acceso, come «Metti in onda».
+ */
+export function asCal(t: Tunnel, c: Ctx, add: boolean): Tunnel {
+    if (!t.edit) return t;
+    const x: Tunnel = { ...t, edit: { ...t.edit, cal: true } };
+    if (!add) return x;
+    const m = asMetti(x, c);
+    return m.edit ? { ...m, edit: { ...m.edit, add: true } } : m;
 }
 
 /* ---------- le frasi ---------- */

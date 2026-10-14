@@ -788,7 +788,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(page).toHaveURL(/[?&]vista=calendario/);
         await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
         await main(page).getByRole("button", { name: /^Menù/ }).first().click();
-        await expect(main(page).getByText("Si crea nel tunnel di creazione, dove scegli se è classico o multi: si esce dal Calendario.")).toBeVisible();
+        await expect(main(page).getByText("Si crea nel tunnel di creazione: si esce dal Calendario.")).toBeVisible();
         await main(page).getByRole("button", { name: /Crea un menù nuovo/ }).click();
         await expect(page.getByText("Creare un menù nuovo?")).toBeVisible();
         await expect(page.getByText("Si apre il tunnel di creazione: tieni da parte la bozza, e il suo quando e il suo dove vengono con te.")).toBeVisible();
@@ -820,7 +820,7 @@ test.describe("Tunnel di creazione — menù", () => {
         // uscire senza salvare lascia la bozza dov'è
         await button(page, "Esci").click();
         await page.getByRole("alertdialog").getByRole("button", { name: "Esci senza salvare" }).click();
-        await expect(page).toHaveURL(/\/scheduling$/);
+        await expect(page).toHaveURL(/\/scheduling\?vista=calendario$/);
         expect(await page.evaluate(t => sessionStorage.getItem("calendario:da-parte:" + t), TENANT_ID)).toContain('"kind":"menu"');
     });
 });
@@ -1273,6 +1273,30 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         await button(page, "Salva le modifiche").click();
         await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
         expect(writesOf(stub, "featured_contents.PATCH").map(w => first(w.body))).toContainEqual(expect.objectContaining({ status: "published" }));
+        const on = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + RULE.natale);
+        expect(on.map(w => first(w.body))).toContainEqual(expect.objectContaining({ enabled: true }));
+    });
+
+    test("dal Calendario (punti 22 e 24): solo il dove e il quando; da «Aggiungi» il pulsante è «Metti in onda» e si torna al Calendario", async ({ page }) => {
+        wireEvid();
+        // «Modifica completa»: le caselle sono solo quelle del Calendario
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=calendario`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await expect(main(page).getByRole("navigation", { name: "Percorso" }).getByRole("button", { name: "Calendario" })).toBeVisible();
+        await expect(main(page).getByRole("checkbox")).toHaveCount(2);
+        await expect(main(page).getByRole("checkbox", { name: /^Dove/ })).toBeVisible();
+        await expect(main(page).getByRole("checkbox", { name: /^Quando/ })).toBeVisible();
+        // da «Aggiungi», per una cosa pronta: già sul «Dove», e si mette in onda
+        await nataleDraft(page);
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=calendario&metti=1`);
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible({ timeout: 20_000 });
+        await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
+        await next(page);
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+        await expect(button(page, "Salva le modifiche")).toHaveCount(0);
+        await button(page, "Metti in onda").click();
+        await expect(page).toHaveURL(/\/scheduling\?vista=calendario$/, { timeout: 15_000 });
         const on = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + RULE.natale);
         expect(on.map(w => first(w.body))).toContainEqual(expect.objectContaining({ enabled: true }));
     });

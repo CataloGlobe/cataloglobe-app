@@ -54,7 +54,7 @@ const uuid = (n: number) => `e2e0d000-0000-4000-a000-${String(n).padStart(12, "0
 
 export const SEDE = { centro: uuid(1), porto: uuid(2), lago: uuid(3) } as const;
 export const GROUP = { system: uuid(11), costa: uuid(12), vuoto: uuid(13) } as const;
-export const MENU = { carta: uuid(21), pranzo: uuid(22) } as const;
+export const MENU = { carta: uuid(21), pranzo: uuid(22), cena: uuid(23) } as const;
 export const STYLE = { base: uuid(31) } as const;
 export const PRODUCT = { margherita: uuid(41), diavola: uuid(42), tiramisu: uuid(43), spritz: uuid(44), birra: uuid(45) } as const;
 const SPRITZ_FORMAT = { group: uuid(51), piccolo: uuid(52), grande: uuid(53) } as const;
@@ -274,7 +274,9 @@ function makeTables(matrix: boolean, manySeats: boolean): Tables {
         ],
         catalogs: [
             { id: MENU.carta, tenant_id: TENANT_ID, name: "Carta e2e" },
-            { id: MENU.pranzo, tenant_id: TENANT_ID, name: "Pranzo e2e" }
+            { id: MENU.pranzo, tenant_id: TENANT_ID, name: "Pranzo e2e" },
+            // senza regole: pronto, non in onda
+            { id: MENU.cena, tenant_id: TENANT_ID, name: "Cena e2e" }
         ],
         styles: [{ id: STYLE.base, tenant_id: TENANT_ID, name: "Stile base e2e", is_system: true, is_active: true, current_version: { version: 1 } }],
         products: products.map(p => ({

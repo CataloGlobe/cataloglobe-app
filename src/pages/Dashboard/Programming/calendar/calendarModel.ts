@@ -164,6 +164,19 @@ export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames, 
     return out;
 }
 
+/** L'id della cosa di una voce: il menù, lo stile, il contenuto in evidenza. */
+export const thingIdOf = (e: CalEntry): string | null =>
+    e.kind === "menu" ? (e.rule.layout?.catalog_id ?? null) : e.kind === "style" ? (e.rule.layout?.style_id ?? null) : e.kind === "featured" ? (e.id.split(":featured:")[1] ?? null) : null;
+
+/** Le voci che una cosa ha già nel Calendario: in quante regole sta, se una è in onda, e la prima (accesa, se c'è). */
+export type Voce = { count: number; on: boolean; entry: CalEntry };
+export function voceOf(on: readonly CalEntry[], off: readonly CalEntry[], kind: CalKind, thingId: string): Voce | null {
+    const mine = (l: readonly CalEntry[]) => l.filter(e => e.kind === kind && thingIdOf(e) === thingId);
+    const a = mine(on), b = mine(off);
+    const entry = a[0] ?? b[0];
+    return entry ? { count: new Set([...a, ...b].map(e => e.ruleId)).size, on: a.length > 0, entry } : null;
+}
+
 /* ---------- chi raggiunge la sede, quando ---------- */
 
 export function specFor(e: CalEntry, seat: CalSeat): 0 | 1 | 2 | null {

@@ -1070,6 +1070,14 @@ button.dqsedi {
         background: color-mix(in srgb, var(--text-warning) 14%, var(--surface));
         color: var(--text-warning);
     }
+    &.live {
+        background: var(--success-50);
+        color: var(--text-success);
+    }
+}
+.ichn {
+    flex: 1;
+    min-width: 0;
 }
 .iacts {
     display: flex;

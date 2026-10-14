@@ -13,7 +13,7 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { canDoOnAnyActivity, canDoOnTenant, isTenantWide } from "@/lib/permissions";
 import { peekAside } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { asInside, asMetti, type CreaKind } from "./creaModel";
+import { asCal, asInside, asMetti, type CreaKind } from "./creaModel";
 import { CAL_KIND } from "./creaSave";
 import { useCreaData } from "./useCreaData";
 import { Tunnelo } from "./Tunnelo";
@@ -33,7 +33,7 @@ const ORIGIN: Record<string, [string, string]> = {
     stili: ["Stili", "styles"],
     evidenza: ["In evidenza", "featured"],
     storie: ["Storie", "stories"],
-    calendario: ["Calendario", "scheduling"]
+    calendario: ["Calendario", "scheduling?vista=calendario"]
 };
 
 export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }) {
@@ -63,7 +63,8 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
             .then(x => {
                 if (off) return;
                 // «Metti in onda» dall'elenco (D189): dritti al «Dove e quando»
-                if (params.get("metti")) setLoaded({ ...x, t: asMetti(x.t, { owner, multi: data.L.multi }) });
+                if (params.get("da") === "calendario") setLoaded({ ...x, t: asCal(x.t, { owner, multi: data.L.multi }, !!params.get("metti")) });
+                else if (params.get("metti")) setLoaded({ ...x, t: asMetti(x.t, { owner, multi: data.L.multi }) });
                 else setLoaded(params.get("dentro") ? { ...x, t: asInside(x.t) } : x);
             })
             .catch(error => {

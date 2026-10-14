@@ -39,7 +39,7 @@ vi.mock("@/services/supabase/featuredContents", async orig => ({
     updateFeaturedContentProductNote: fake("updateFeaturedContentProductNote"),
     updateFeaturedContentProductsSortOrder: fake("updateFeaturedContentProductsSortOrder")
 }));
-import { asEdit, asInside, asMetti, offLater, ondaChange, sentence, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import { asCal, asEdit, asInside, asMetti, offLater, ondaChange, sentence, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
@@ -508,5 +508,29 @@ describe("«Metti in onda» dall'elenco (D189)", () => {
     it("senza il passo (chi non gestisce il Calendario, o più voci) resta la modifica di sempre", () => {
         expect(asMetti(pronto(), { owner: false, multi: true })).toEqual(pronto());
         expect(asMetti(pronto(2), OWNER)).toEqual(pronto(2));
+    });
+});
+
+describe("dal Calendario: solo il dove e il quando (punti 22 e 24)", () => {
+    const pronto = (rules = 0) => asEdit({ ...newTunnel("evid", ALL), name: "Aperitivo" }, "e1", { id: rules === 1 ? "r1" : null, count: rules, live: false });
+
+    it("«Modifica completa»: i passi del contenuto non ci sono, si parte da «Cosa vuoi modificare?»", () => {
+        const t = asCal(pronto(1), OWNER, false);
+        expect(steps(t, OWNER)).toEqual(["modifica", "dove", "quando", "controlla"]);
+        expect(t.i).toBe(0);
+        expect(t.edit!.add).toBeUndefined();
+        expect(isDirty(t)).toBe(false);
+    });
+
+    it("da «Aggiungi»: già sul «Dove» con «Sì» acceso, come «Metti in onda»", () => {
+        const t = asCal(pronto(), OWNER, true);
+        expect(steps(t, OWNER)[t.i]).toBe("dove");
+        expect(t.onda).toBe("on");
+        expect(t.edit).toMatchObject({ cal: true, add: true, picked: ["dove", "quando"] });
+    });
+
+    it("in più regole il dove e il quando non si cambiano da qui: restano i passi di sempre", () => {
+        const t = asCal(pronto(2), OWNER, false);
+        expect(steps(t, OWNER)).toEqual(["modifica", "contenuto", "controlla"]);
     });
 });
