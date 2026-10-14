@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { formatPrice } from "@/utils/formatCurrency";
@@ -7,7 +7,7 @@ import { CompareBars } from "./AndamentoRows";
 import { ROW_ICONS } from "../utils/andamentoIcons";
 import { sedeColor } from "../utils/andamentoFormat";
 import type { AndamentoData } from "../utils/andamentoData";
-import { formatDelta, formatRating, lowReviews, type AndamentoRow, type AnswerPart, type RowKey, type SedeCompared } from "../utils/andamentoRows";
+import { compareValue, formatDelta, formatRating, lowReviews, type AndamentoRow, type AnswerPart, type RowKey, type SedeCompared } from "../utils/andamentoRows";
 import type { DailyChart } from "../utils/andamentoSeries";
 import { isBelowSample, type PeriodKey } from "../utils/periodComparison";
 import styles from "./AndamentoD.module.scss";
@@ -178,6 +178,10 @@ export function Voices({ rows, series, compare, selected, onSelect }: VoicesProp
                         <div key={row.key} className={styles.vrow} data-empty="">
                             {title}
                             <span className={styles.vx}>{row.empty.text}</span>
+                            <span className={styles.vk}>
+                                <b>{row.short.value}</b>
+                                <small>{row.short.label}</small>
+                            </span>
                             {row.empty.action && (
                                 <Link className={styles.lnk} to={row.empty.action.to}>
                                     {row.empty.action.label} ›
@@ -188,6 +192,7 @@ export function Voices({ rows, series, compare, selected, onSelect }: VoicesProp
                 }
                 const comparing = compare !== null && row.key !== "ricerche";
                 const spark = series[row.key];
+                const lead = comparing ? leader(row.key, compare) : null;
                 return (
                     <button
                         key={row.key}
@@ -212,11 +217,36 @@ export function Voices({ rows, series, compare, selected, onSelect }: VoicesProp
                                 )}
                             </>
                         )}
+                        {/* tablet e telefono: solo il numero (Visual Redesign 2, `.vk`) */}
+                        <span className={styles.vk}>
+                            {lead ? (
+                                <>
+                                    <b>{lead.label}</b>
+                                    <small>{lead.name} in testa</small>
+                                </>
+                            ) : (
+                                <>
+                                    <b>{row.short.value}</b>
+                                    <Delta value={row.delta} />
+                                    <small>{row.short.label}</small>
+                                </>
+                            )}
+                        </span>
                     </button>
                 );
             })}
         </div>
     );
+}
+
+/** Con più sedi a confronto, nella voce compatta: chi va meglio. */
+function leader(key: RowKey, sedi: readonly SedeCompared[]): { label: string; name: string } | null {
+    let best: { label: string; name: string; value: number } | null = null;
+    for (const s of sedi) {
+        const v = compareValue(key, s.numbers);
+        if (v && (!best || v.value > best.value)) best = { label: v.label, name: s.name, value: v.value };
+    }
+    return best;
 }
 
 // ── Il dettaglio della voce scelta ───────────────────────────────────
@@ -561,7 +591,13 @@ export function Heat({ data }: { data: AndamentoData }) {
                 <h3>Quando arrivano</h3>
                 <span>per ora del giorno</span>
             </div>
-            <div className={styles.heat} style={{ gridTemplateColumns: `auto repeat(${hours.length}, minmax(0, 1fr))` }}>
+            {/* per chi legge con lo screen reader basta il riassunto: le celle sono solo colore */}
+            <div
+                className={styles.heat}
+                style={{ gridTemplateColumns: `auto repeat(${hours.length}, minmax(0, 1fr))` }}
+                role="img"
+                aria-label={`${rows.map(r => r.label).join(", ")} per ora del giorno, dalle ${first} alle ${last + 1}. Il più pieno: ${peak}–${peak + 1}.`}
+            >
                 <span />
                 {hours.map(h => (
                     <span key={h} className={styles.hh}>
@@ -639,6 +675,15 @@ export function Brief({ data, featured }: { data: AndamentoData; featured: { tex
 
 // ── La pagina ────────────────────────────────────────────────────────
 
+/** Il primo contenitore sopra `el` che scorre davvero. */
+function scrollBox(el: HTMLElement): HTMLElement | null {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+        const y = getComputedStyle(p).overflowY;
+        if ((y === "auto" || y === "scroll") && p.scrollHeight > p.clientHeight) return p;
+    }
+    return null;
+}
+
 export interface AndamentoDProps {
     lead: string;
     loading: boolean;
@@ -660,6 +705,20 @@ export interface AndamentoDProps {
 
 export function AndamentoD(props: AndamentoDProps) {
     const { selected } = props;
+    const andRef = useRef<HTMLDivElement>(null);
+    // In tablet e telefono, se il grafico è più giù dello schermo, ci si porta
+    // sopra (Visual Redesign 2): scorre solo il riquadro del contenuto.
+    const onSelect = (key: RowKey) => {
+        props.onSelect(key);
+        const el = andRef.current;
+        if (!el || !window.matchMedia("(max-width: 1023px)").matches) return;
+        const box = scrollBox(el);
+        if (!box) return;
+        const r = el.getBoundingClientRect();
+        if (r.top <= window.innerHeight * 0.72) return;
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        box.scrollBy({ top: r.top - box.getBoundingClientRect().top - 12, behavior: reduce ? "auto" : "smooth" });
+    };
     return (
         <div className={styles.page}>
             <div className={`${styles.cmd} ${styles.rise} ${styles.k1}`}>
@@ -669,8 +728,9 @@ export function AndamentoD(props: AndamentoDProps) {
                 {props.commands}
             </div>
             {props.notice}
-            <Voices rows={props.rows} series={props.series} compare={props.compare} selected={selected?.key ?? null} onSelect={props.onSelect} />
-            <div className={styles.and} data-wide={selected?.key === "ricerche" ? "" : undefined}>
+            <p className={`${styles.vhint} ${styles.rise} ${styles.k3}`}>Tocca un numero: il grafico qui sotto mostra quello</p>
+            <Voices rows={props.rows} series={props.series} compare={props.compare} selected={selected?.key ?? null} onSelect={onSelect} />
+            <div ref={andRef} className={styles.and} data-wide={selected?.key === "ricerche" ? "" : undefined}>
                 {selected && (
                     <Detail row={selected} data={props.data} chart={props.chart} compare={props.compare} period={props.period} paths={props.paths} />
                 )}

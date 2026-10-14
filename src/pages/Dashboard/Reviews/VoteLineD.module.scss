@@ -229,6 +229,27 @@
   }
 }
 
+// Tablet e telefono: nella riga compatta solo «4,4 ★», alta come i comandi
+// (Visual Redesign 2).
+@media (max-width: 1023px) {
+  .vote[data-compact] {
+    box-sizing: border-box;
+    gap: 0;
+    height: var(--d-ctl);
+    padding: 5px 12px;
+
+    .bars,
+    .total {
+      display: none;
+    }
+  }
+}
+
+.vote[data-compact]:focus-visible {
+  outline: 2px solid var(--d-focus);
+  outline-offset: 2px;
+}
+
 @keyframes growx {
   from {
     transform: scaleX(0);

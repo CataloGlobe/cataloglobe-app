@@ -73,6 +73,19 @@ export function VoteLineD({
       data-f={stars ?? undefined}
       data-compact={compact ? "" : undefined}
       onClick={compact ? onExpand : undefined}
+      // compatta è un pulsante anche da tastiera: riporta in cima
+      role={compact ? "button" : undefined}
+      tabIndex={compact ? 0 : undefined}
+      title={compact ? "Torna in cima" : undefined}
+      onKeyDown={
+        compact
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              onExpand?.();
+            }
+          : undefined
+      }
     >
       {name && <span className={styles.name}>{name}</span>}
       <p className={styles.avg}>

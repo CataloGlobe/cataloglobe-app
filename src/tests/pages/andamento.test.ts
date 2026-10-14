@@ -102,6 +102,14 @@ describe("Andamento: le righe", () => {
         expect(row?.extras).toEqual(["«tiramisù» 2 volte", "«senza glutine» una volta"]);
     });
 
+    it("la voce compatta: il numero principale e due parole sotto", () => {
+        const rows = buildRows(makeData(), ctx);
+        const by = (k: string) => rows.find(r => r.key === k)?.short;
+        expect(by("pagina")).toEqual({ value: rows[0].answer[0].text, label: "visite" });
+        expect(by("ricerche")).toEqual({ value: "1", label: "ricerca a vuoto" });
+        expect(by("recensioni")?.value).toMatch(/★$/);
+    });
+
     it("senza il piano degli ordini la riga del tavolo non c'è", () => {
         const rows = buildRows(makeData({ orders: null }), { ...ctx, ordersFeature: false });
         expect(rows.some(r => r.key === "tavolo")).toBe(false);

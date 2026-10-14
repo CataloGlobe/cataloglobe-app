@@ -38,6 +38,9 @@ $d-type: (
   card-title: (family: display, size: 15px, weight: 700, tracking: -0.01em),
   // Il numero grande di una voce (`.va b`).
   voice-num: (family: display, size: calc(var(--d-num-size) * 0.85), weight: 700, tracking: -0.03em),
+  // Il numero di una voce compatta, tablet e telefono (Visual Redesign 2, `.vk b`).
+  voice-k: (family: num, size: 22px, weight: var(--d-num-weight), tracking: -0.03em),
+  voice-k-s: (family: num, size: 18px, weight: var(--d-num-weight), tracking: -0.03em),
   // I numeri sotto un grafico (`.f3 b`).
   fact-num: (family: display, size: 19px, weight: 700, tracking: -0.02em),
   // Testo corrente delle pagine (`.va`, `.brief li`).

@@ -660,9 +660,133 @@
   .legend {
     margin-left: 0;
   }
+}
 
-  // Al telefono una voce per riga, come la v28 a 390.
+// Dopo le regole di «Stretto»: in tablet e telefono vincono queste.
+// ── Tablet e telefono: le voci compatte (Visual Redesign 2, `.vk`, `.vhint`) ──
+.vk,
+.vhint {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .vhint {
+    @include d-type(note);
+
+    display: block;
+    margin: 0 0 -4px;
+    color: var(--d-muted);
+  }
+
   .voices {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .vrow {
+    gap: 6px;
+    padding: 12px 13px 13px;
+
+    // solo il titolo e il numero; le voci senza dati tengono il collegamento
+    > :not(.vt):not(.vk):not(.lnk) {
+      display: none;
+    }
+
+    &:has(.spark) .vt {
+      padding-right: 0;
+    }
+
+    .lnk {
+      @include d-type(hint);
+
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .vt {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .vk {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 6px;
+    min-width: 0;
+
+    b {
+      @include d-type(voice-k);
+
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .dl {
+      @include d-type(small);
+    }
+
+    small {
+      @include d-type(small);
+
+      flex-basis: 100%;
+      overflow: hidden;
+      color: var(--d-muted);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
+// Al telefono tre sopra e due sotto.
+@media (max-width: 640px) {
+  .voices {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .vrow {
+    gap: 4px;
+    padding: 10px 10px 11px;
+
+    &:nth-child(-n + 3) {
+      grid-column: span 2;
+    }
+
+    &:nth-child(n + 4) {
+      grid-column: span 3;
+    }
+  }
+
+  .vt {
+    @include d-type(hint);
+
+    gap: 6px;
+    min-height: 22px;
+  }
+
+  .vk {
+    b {
+      @include d-type(voice-k-s);
+
+      flex-basis: 100%;
+    }
+
+    .dl {
+      @include d-type(hint);
+
+      order: 2;
+    }
+
+    small {
+      @include d-type(hint);
+
+      flex: 1 1 0;
+      order: 3;
+    }
   }
 }

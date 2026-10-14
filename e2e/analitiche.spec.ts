@@ -254,6 +254,19 @@ test.describe("Andamento nella D", () => {
         );
     });
 
+    test("tablet e telefono: voci compatte con «Tocca un numero»; al computer no", async ({ page }) => {
+        await openPage(page);
+        test.skip(!(await lookD(page)), "solo con la D accesa");
+        const hint = main(page).getByText("Tocca un numero: il grafico qui sotto mostra quello");
+        await expect(hint).toBeHidden();
+        await page.setViewportSize({ width: 820, height: 1180 });
+        await expect(hint).toBeVisible();
+        const tavolo = voices(page).getByRole("button", { name: /Al tavolo/ });
+        await tavolo.click();
+        await expect(tavolo).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByRole("cell", { name: "Birra e2e" }).first()).toBeVisible();
+    });
+
     test("a 375 nessuno scroll orizzontale", async ({ page }) => {
         await openPage(page);
         test.skip(!(await lookD(page)), "solo con la D accesa");
