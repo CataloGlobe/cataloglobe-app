@@ -1,0 +1,168 @@
+/* Carosello «In evidenza» del redesign (spec §9, carosello C).
+   ⚠️ SYNC soglia mobile con publicBreakpoints.ts (max 640 / min 641). */
+
+.strip {
+  /* stesso marcatore del blocco di oggi: `.container` gli dà il ritmo verticale */
+  composes: pub-featured-wrapper from global;
+  width: 100%;
+}
+
+.track {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Al telefono la striscia arriva al bordo dello schermo; la prima card resta
+     sul filo del contenuto (gutter di `.container`, 1rem). */
+  @media (max-width: 640px) {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    scroll-padding-inline: 1rem;
+  }
+}
+
+/* Card all'80%: a 390 px la successiva si vede per circa 55 px
+   (larghezza utile meno 51 px = 1rem di bordo destro + 12 di spazio + ~23). */
+.card {
+  flex: 0 0 auto;
+  width: min(calc(100% - 51px), 440px);
+  scroll-snap-align: start;
+}
+
+.single {
+  width: 100%;
+
+  @container collection (min-width: 700px) {
+    max-width: 560px;
+    margin-inline: auto;
+  }
+}
+
+.moreItem {
+  flex: 0 0 auto;
+  display: flex;
+  /* come il mockup v38 (C): più stretta delle card, la fine della striscia */
+  width: min(160px, 36%);
+  scroll-snap-align: end;
+}
+
+.more {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 12px;
+  /* mockup v38 (C): un campo, non una card, perché non sembri un contenuto in più */
+  border: 0;
+  border-radius: var(--pub-radius, 16px);
+  background: color-mix(in srgb, var(--pub-bg-text) 6%, transparent);
+  color: var(--pub-bg-text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.moreCount {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.moreAction {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--pub-accent, var(--pub-primary)) 70%, var(--pub-bg-text));
+}
+
+/* Linea di avanzamento al posto dei puntini: la parte piena è la porzione
+   visibile, si sposta con lo scroll (solo transform, scritto da FeaturedStrip). */
+.line {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 3px;
+  margin: 12px auto 0;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--pub-bg-text) 16%, transparent);
+}
+
+.thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--pub-bg-text) 70%, transparent);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+
+/* Frecce: solo desktop (al telefono si scorre col dito e basta la linea). */
+.arrow {
+  display: none;
+}
+
+/* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts). Desktop come il
+   mockup v38 (vale più della spec §13): tre card a vista e un pezzo della quarta
+   (due e un pezzo fino a 1023 px), la linea resta, frecce ai lati. */
+@media (min-width: 641px) {
+  .strip {
+    position: relative;
+  }
+
+  .card {
+    width: calc((100% - 24px) / 2.25);
+  }
+
+  .moreItem {
+    width: 200px;
+  }
+
+  .line {
+    width: 64px;
+  }
+
+  .arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--pub-bg);
+    color: var(--pub-bg-text);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--pub-bg-text) 14%, transparent),
+      0 8px 20px -8px rgb(0 0 0 / 35%);
+    cursor: pointer;
+    /* centrata sulle card, non su card e linea */
+    transform: translateY(calc(-50% - 8px));
+
+    &[data-side="start"] {
+      left: -14px;
+    }
+
+    &[data-side="end"] {
+      right: -14px;
+    }
+  }
+}
+
+@media (min-width: 1024px) {
+  .card {
+    width: calc((100% - 36px) / 3.25);
+  }
+}

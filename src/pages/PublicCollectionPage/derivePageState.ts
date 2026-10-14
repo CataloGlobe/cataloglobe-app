@@ -51,6 +51,10 @@ type CatalogPageData = {
      *  Gate della voce "Prenota" nel MoreSheet, insieme a
      *  `business.enable_reservations`. Vedi `derivePageState`. */
     hasReservationHours: boolean;
+    /** Orari e chiusure GREZZI per il modulo di prenotazione nel foglio del
+     *  redesign, solo se la sede prenota (`enable_reservations` e una fascia
+     *  prenotabile): gli stessi che legge la pagina `/:slug/prenota`. */
+    reservationSchedule: { hours: OpeningHoursEntry[]; closures: UpcomingClosure[] } | null;
     allergens: Allergen[] | null;
     /** Il vertical mostra gli allergeni ma il payload non porta
      *  `public_allergens` (lettura fallita lato edge, o payload in cache
@@ -259,6 +263,10 @@ export function derivePageState(payload: ResolvedPayloadShape): DerivedPageState
         openingHours: menuHoursVisible ? opening_hours : undefined,
         upcomingClosures: menuHoursVisible ? upcoming_closures : undefined,
         hasReservationHours,
+        reservationSchedule:
+            business.enable_reservations && hasReservationHours
+                ? { hours: opening_hours ?? [], closures: upcoming_closures ?? [] }
+                : null,
         allergens,
         allergensUnavailable: allergens === null && verticalShowsAllergens(vertical_type),
         effectiveLanguage: effectiveLang,

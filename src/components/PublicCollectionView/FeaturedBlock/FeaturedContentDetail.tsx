@@ -4,6 +4,7 @@ import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { toFeaturedFraming } from "./featuredFraming";
+import { isReservationCta } from "./featuredCta";
 import { resolveFeaturedDisplayPrice } from "@utils/resolveFeaturedDisplayPrice";
 import { featuredBundleOriginalTotal } from "@utils/featuredBundleOriginalTotal";
 import styles from "./FeaturedPreviewModal.module.scss";
@@ -27,7 +28,17 @@ type Props = {
  * visibile, e si muove col pannello (nessuna animazione propria).
  * Null se il contenuto non ha CTA.
  */
-export function FeaturedCtaFooter({ block }: Props) {
+export function FeaturedCtaFooter({ block, onOpenReservation }: Props & { onOpenReservation?: () => void }) {
+    if (isReservationCta(block)) {
+        if (!block.cta_text || !onOpenReservation) return null;
+        return (
+            <div className={styles.ctaFooter}>
+                <button type="button" className={styles.ctaBtn} onClick={onOpenReservation}>
+                    {block.cta_text}
+                </button>
+            </div>
+        );
+    }
     const href = safeHttpHref(block.cta_url);
     if (!block.cta_text || !href) return null;
     return (

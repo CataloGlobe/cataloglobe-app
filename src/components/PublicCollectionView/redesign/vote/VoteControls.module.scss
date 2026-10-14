@@ -1,0 +1,178 @@
+@use "../sheets/sheet-tone" as *;
+
+/* Invito al voto (spec §11). Sopra 640 px la modale è una finestra in basso al centro
+   (D77: desktop come il telefono); il pulsante sta nella barra, che lì non c'è.
+   Mai backdrop-filter: la modale entra ed esce, il pulsante vola. */
+
+/* La modale piccola: nella geometria dei fogli (mockup v38), attaccata al fondo,
+   angoli in alto 26px; nessun velo, nessun blocco della pagina. La barra scende
+   finché c'è. Stesse misure di SheetHost (maniglia, ×, superficie): toccata una
+   stella il foglio entra al suo posto e sembra la stessa. */
+.card {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 140;
+  box-sizing: border-box;
+  border-radius: 26px 26px 0 0;
+  @include dark-sheet;
+
+  background: var(--pub-surface);
+  color: var(--pub-text);
+  box-shadow: 0 -14px 40px -18px rgb(0 0 0 / 50%);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  touch-action: none;
+  animation: entra 0.32s cubic-bezier(0.22, 1.14, 0.36, 1) backwards;
+
+  /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts). Larga come le finestre
+     dei fogli (SheetHost .panel), staccata dal fondo. */
+  @media (min-width: 641px) {
+    bottom: 24px;
+    width: min(440px, calc(100% - 48px));
+    margin: 0 auto;
+    border-radius: 26px;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--pub-text) 10%, transparent),
+      0 30px 60px -24px rgb(0 0 0 / 60%);
+    padding-bottom: 0;
+  }
+}
+
+/* SYNC con .handle di SheetHost.module.scss */
+.handle {
+  display: block;
+  width: 36px;
+  height: 5px;
+  margin: 8px auto 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--pub-text) 24%, transparent);
+
+  @media (min-width: 641px) {
+    visibility: hidden;
+  }
+}
+
+/* SYNC con .closeButton e .header[data-floating] di SheetHost.module.scss */
+.close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--pub-text) 9%, transparent);
+  }
+
+  svg {
+    position: relative;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, var(--pub-primary));
+    outline-offset: -2px;
+  }
+}
+
+/* SYNC con .body di VoteForm.module.scss */
+.body {
+  padding: 4px 20px 18px;
+}
+
+/* Il pulsante nella barra: alto come il cerchio dell'ordine, largo 155 o 88. */
+.vote {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 88px;
+  height: 56px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--pub-primary);
+  color: var(--pub-primary-text);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+
+  &[data-wide] {
+    width: 155px;
+    animation: pulsa 1.4s ease-in-out 0.5s 2;
+  }
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.94));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-primary-text);
+    outline-offset: -4px;
+  }
+}
+
+.label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  animation: compare 0.2s ease-out;
+}
+
+@keyframes entra {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes pulsa {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes compare {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation-name: compare;
+  }
+
+  .vote[data-wide],
+  .label {
+    animation: none;
+  }
+}

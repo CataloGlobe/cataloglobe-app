@@ -62,7 +62,10 @@ export default defineConfig(({ mode, isSsrBuild }) => ({
                               if (id.includes("/node_modules/react-dom/") || id.includes("/node_modules/scheduler/")) return "vendor-react";
                               if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-router")) return "vendor-react";
                               if (id.includes("/node_modules/@supabase/supabase-js/")) return "vendor-supabase";
-                              if (id.includes("/node_modules/framer-motion/")) return "vendor-motion";
+                              // Nel bundle pubblico niente chunk unico di framer: le feature
+                              // (domMax) vanno nel chunk lazy di MotionProvider, il resto
+                              // dove serve. Nel back office resta vendor-motion.
+                              if (mode !== "public-client" && id.includes("/node_modules/framer-motion/")) return "vendor-motion";
                           },
                       }),
             },

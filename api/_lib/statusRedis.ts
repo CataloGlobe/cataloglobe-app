@@ -14,7 +14,7 @@
  *   cataloglobe:{env}:status:v1:alert:{service}            JSON AlertState
  *   cataloglobe:{env}:status:v1:history                    JSON UptimeHistory (giorni chiusi, 1 volta al giorno)
  *
- * Giorni in UTC, come la vecchia aggregazione `get_daily_uptime`.
+ * Giorni in UTC.
  * Timeout: quello del client condiviso (`getRedis`, REDIS_TIMEOUT_MS).
  */
 

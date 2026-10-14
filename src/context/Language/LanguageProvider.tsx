@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { changePublicLanguage } from "@/i18n/loadLanguage";
 import { LanguageContext, type AvailableLanguage } from "./LanguageContext";
 
 type Props = {
@@ -23,7 +24,7 @@ export function LanguageProvider({
 
     useEffect(() => {
         if (i18n.language !== currentLang) {
-            i18n.changeLanguage(currentLang);
+            void changePublicLanguage(currentLang);
         }
     }, [currentLang, i18n]);
 

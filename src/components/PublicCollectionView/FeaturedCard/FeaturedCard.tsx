@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { toFeaturedFraming } from "@/components/PublicCollectionView/FeaturedBlock/featuredFraming";
+import { hasFeaturedCta, isReservationCta } from "@/components/PublicCollectionView/FeaturedBlock/featuredCta";
 import styles from "./FeaturedCard.module.scss";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
 
@@ -11,6 +12,8 @@ export type FeaturedCardProps = {
     onClick: () => void;
     /** Chiamato al click sul pulsante CTA (solo per analytics — la navigazione è gestita dall'<a>). */
     onCtaClick?: () => void;
+    /** Apre il form di prenotazione della sede: usato dal pulsante «Prenota» (cta_action = reservation). */
+    onOpenReservation?: () => void;
     className?: string;
     variant?: "card" | "highlight" | "compact";
     /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
@@ -23,6 +26,8 @@ export type FeaturedCardProps = {
     eager?: boolean;
     /** false in StyleEditor preview: card e CTA restano visive ma inerti (niente click/modale/navigazione). Default true. */
     interactive?: boolean;
+    /** Nome accessibile della card (redesign: «Tipo: titolo. sottotitolo. 1 di 8»). */
+    ariaLabel?: string;
 };
 
 function formatPrice(price: number): string {
@@ -42,8 +47,9 @@ function getTagKey(contentType: string | null): string {
     }
 }
 
-export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", showSubtitle: showSubtitleProp = true, showTitle: showTitleProp = true, showCta: showCtaProp = true, eager = false, interactive = true }: FeaturedCardProps) {
+export default function FeaturedCard({ block, onClick, onCtaClick, onOpenReservation, className, variant = "card", showSubtitle: showSubtitleProp = true, showTitle: showTitleProp = true, showCta: showCtaProp = true, eager = false, interactive = true, ariaLabel }: FeaturedCardProps) {
     const { t } = useTranslation("public");
+    const reservationCta = isReservationCta(block);
     const tagLabel = t(getTagKey(block.content_type));
     const hasImage = !!block.media_id;
     // I toggle Titolo/Descrizione/Pulsante hanno effetto solo su Highlight (testo
@@ -53,7 +59,39 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
     const showTitle = highlightControlsActive ? showTitleProp : true;
     const showSubtitle = highlightControlsActive ? showSubtitleProp : true;
     const showCta = highlightControlsActive ? showCtaProp : true;
-    const hasCta = showCta && !!block.cta_text && !!safeHttpHref(block.cta_url);
+    const hasCta = showCta && (reservationCta
+        ? hasFeaturedCta(block, !!onOpenReservation)
+        : !!block.cta_text && !!safeHttpHref(block.cta_url));
+    // Un solo punto per il pulsante: «Prenota» è un bottone che apre il form, il resto è un link.
+    const renderCta = (className: string) => interactive ? (
+        reservationCta ? (
+            <button
+                type="button"
+                className={className}
+                onClick={(e) => { e.stopPropagation(); onCtaClick?.(); onOpenReservation?.(); }}
+            >
+                {block.cta_text}
+            </button>
+        ) : (
+            <a
+                href={safeHttpHref(block.cta_url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={className}
+                onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
+            >
+                {block.cta_text}
+            </a>
+        )
+    ) : (
+        <span
+            className={className}
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+        >
+            {block.cta_text}
+        </span>
+    );
     const hasVisibleText = showTitle || (showSubtitle && !!block.subtitle) || hasCta;
     const keyHandler = (e: KeyboardEvent) => {
         if (!interactive) return;
@@ -64,6 +102,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
         return (
             <div
                 role="listitem"
+                aria-label={ariaLabel}
                 tabIndex={interactive ? 0 : -1}
                 className={`${styles.cardCompact} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
                 onClick={interactive ? onClick : undefined}
@@ -91,27 +130,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                     {block.pricing_mode === "bundle" && block.bundle_price != null && (
                         <span className={styles.cardCompactPrice}>{formatPrice(block.bundle_price)}</span>
                     )}
-                    {hasCta && (
-                        interactive ? (
-                            <a
-                                href={safeHttpHref(block.cta_url)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={styles.cardCompactCta}
-                                onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
-                            >
-                                {block.cta_text}
-                            </a>
-                        ) : (
-                            <span
-                                className={styles.cardCompactCta}
-                                tabIndex={-1}
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {block.cta_text}
-                            </span>
-                        )
-                    )}
+                    {hasCta && renderCta(styles.cardCompactCta)}
                 </div>
             </div>
         );
@@ -121,6 +140,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
         return (
             <div
                 role="listitem"
+                aria-label={ariaLabel}
                 tabIndex={interactive ? 0 : -1}
                 className={`${styles.card} ${styles.cardHighlight} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
                 onClick={interactive ? onClick : undefined}
@@ -152,25 +172,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                     )}
                     {hasCta && (
                         <div className={styles.highlightCtaWrapper}>
-                            {interactive ? (
-                                <a
-                                    href={safeHttpHref(block.cta_url)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={styles.highlightCta}
-                                    onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
-                                >
-                                    {block.cta_text}
-                                </a>
-                            ) : (
-                                <span
-                                    className={styles.highlightCta}
-                                    tabIndex={-1}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    {block.cta_text}
-                                </span>
-                            )}
+                            {renderCta(styles.highlightCta)}
                         </div>
                     )}
                 </div>
@@ -181,6 +183,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
     return (
         <div
             role="listitem"
+                aria-label={ariaLabel}
             tabIndex={interactive ? 0 : -1}
             className={`${styles.card} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
             onClick={interactive ? onClick : undefined}
@@ -212,25 +215,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                 )}
                 {hasCta && (
                     <div className={styles.cardCtaWrapper}>
-                        {interactive ? (
-                            <a
-                                href={safeHttpHref(block.cta_url)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={styles.cardCta}
-                                onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
-                            >
-                                {block.cta_text}
-                            </a>
-                        ) : (
-                            <span
-                                className={styles.cardCta}
-                                tabIndex={-1}
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {block.cta_text}
-                            </span>
-                        )}
+                        {renderCta(styles.cardCta)}
                     </div>
                 )}
             </div>

@@ -210,6 +210,7 @@
 }
 
 .name {
+  margin: 0;
   font-size: 0.875rem;
   font-weight: 600;
   color: #fff;
@@ -218,6 +219,12 @@
   text-overflow: ellipsis;
   font-family: var(--pub-font-family, sans-serif);
   line-height: 1.3;
+}
+
+/* Sulla pagina il nome è un h1: la regola globale dei titoli coi font a peso
+   unico (`[data-font-family] h1`) non deve cambiargli il peso. */
+.textBlock .name {
+  font-weight: 600;
 }
 
 .address {
