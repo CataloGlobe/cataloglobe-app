@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 .anchor {
     scroll-margin-top: 80px; // deep-link #utilizzo-ai sotto l'header fisso
 }
@@ -47,4 +49,12 @@
 
 .detailBar {
     min-width: 0;
+}
+
+// Direzione D (artifact v28, `.card.a-ai`): card lilla, senza ombra.
+.anchor > * {
+  @include look-d {
+    background: var(--d-tint-3);
+    box-shadow: none;
+  }
 }

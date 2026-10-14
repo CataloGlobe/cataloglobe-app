@@ -1,7 +1,63 @@
+@use "@styles/mixins" as *;
+
 // Lingue: striscia di stato + elenco in una Card. Solo disposizione.
 
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
+}
+
+// Direzione D (artifact v28, `.a-langs`): una card tinta per lingua; spenta,
+// tratteggiata e senza fondo.
+.langCard {
+  @include look-d {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+.langGrid {
+  @include look-d {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap: 12px;
+    padding: 0;
+
+    > [data-list-row] {
+      align-items: center;
+      padding: 14px;
+      border: 1.5px solid transparent;
+      border-radius: 22px;
+      background: var(--d-tint-1);
+      transition: transform var(--d-dur) var(--d-ease-move);
+
+      @media (hover: hover) and (pointer: fine) {
+        &:hover {
+          transform: translateY(-2px);
+        }
+      }
+    }
+
+    > [data-list-row]:nth-child(5n + 2) {
+      background: var(--d-tint-2);
+    }
+
+    > [data-list-row]:nth-child(5n + 3) {
+      background: var(--d-tint-3);
+    }
+
+    > [data-list-row]:nth-child(5n + 4) {
+      background: var(--d-tint-4);
+    }
+
+    > [data-list-row]:nth-child(5n) {
+      background: var(--d-tint-5);
+    }
+
+    > [data-list-row]:has(input:not(:checked)) {
+      background: none;
+      border: 1.5px dashed color-mix(in srgb, var(--text-muted) 30%, transparent);
+    }
+  }
 }

@@ -332,7 +332,7 @@ export default function SettingsLanguages() {
                                 })}. ${t("languages.progress.waiting_hint")}`}
                             </InlineBanner>
                         )}
-                        <Card flush>
+                        <Card flush className={styles.langCard} bodyClassName={styles.langGrid}>
                             {orderedLangs.map(lang => {
                                 const isBase = lang.code === "it";
                                 return (

@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 .page {
   display: flex;
   flex-direction: column;
@@ -32,4 +34,21 @@
 // Il logo nella riga: la miniatura, non a tutta larghezza.
 .logoEditor {
   max-width: 240px;
+}
+
+// Direzione D (artifact v28, `.a-two`): Azienda e Dati di fatturazione
+// affiancate quando c'è spazio, la zona pericolo sotto a tutta larghezza.
+.page {
+  @include look-d {
+    @media (min-width: 1120px) {
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+      gap: var(--d-gap);
+      align-items: start;
+
+      > :nth-child(n + 3) {
+        grid-column: 1 / -1;
+      }
+    }
+  }
 }
