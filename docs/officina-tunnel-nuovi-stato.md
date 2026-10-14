@@ -16,6 +16,8 @@ Vale la pagina: se una decisione vecchia dice altro, vale la pagina. Testi e dis
 3. **«Vedi il piatto»**: consiglio B, apre la scheda del piatto.
 4. **Cancellare una regola**: nello stesso pannello del Calendario, azione secondaria con conferma, sotto «Spegni» che resta il pulsante principale. Testi di oggi nel codice: «Togli» · «Togliere dal calendario? Non andrà più in onda.» · toast «Tolto dal calendario: X.».
 
+**2026-10-14, chiusura della pila (Alex):** i testi del blocco dicono cosa fare intanto: «Due menù insieme: si salva col database nuovo. Per ora scegli «al posto».» e «Al posto di «X», che oggi qui vince: si salva col database nuovo. Per ora lascia «X».» (anche nel riquadro delle sedi). D196 chiusa: i punti 2-7 sono quelli della pagina, già nel codice (punti 21, 23, 25, 26, 27).
+
 [int.] = resta dietro l'interruttore `DB.ready`.
 
 ## Prima: le prove e2e di `officina-pronto`
