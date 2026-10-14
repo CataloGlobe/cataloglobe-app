@@ -21,7 +21,7 @@ import { EV, changed, clonePer, cloneWhen, effWhen, hasDishes, thingName, type T
 import { saveSezioni } from "./menuSave";
 import { entriesOf } from "./creaLoad";
 import { styleConfig } from "./creaStyle";
-import type { SaveCtx, Saved } from "./creaSave";
+import { parts, type SaveCtx, type Saved } from "./creaSave";
 import type { CreaData } from "./useCreaData";
 
 export type EditCtx = Pick<SaveCtx, "tenantId" | "L" | "blockFiles" | "done"> & { names: CreaData["names"] };
@@ -119,7 +119,8 @@ async function saveQuando(t: Tunnel, c: EditCtx) {
     D.when = cloneWhen(effWhen(t));
     D.where = { all: t.where.all, activityIds: [...t.where.activityIds], groupIds: [...t.where.groupIds] };
     D.per = clonePer(t.per);
-    await saveDraft(D, c.L, c.tenantId);
+    // con le ore diverse per sede sono più regole: al «Riprova» quelle già nate non rinascono
+    await saveDraft(D, c.L, c.tenantId, parts(c, "rule:" + id));
 }
 
 export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {

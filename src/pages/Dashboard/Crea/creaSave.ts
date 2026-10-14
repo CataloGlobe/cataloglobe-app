@@ -53,7 +53,7 @@ async function once<T>(c: SaveCtx, key: string, run: () => Promise<T>): Promise<
     return v;
 }
 /** Le parti di regola già salvate, per `saveDraft`. */
-function parts(c: SaveCtx, key: string): Set<string> | undefined {
+export function parts(c: Pick<SaveCtx, "done">, key: string): Set<string> | undefined {
     if (!c.done) return undefined;
     if (!c.done.has(key)) c.done.set(key, new Set<string>());
     return c.done.get(key) as Set<string>;

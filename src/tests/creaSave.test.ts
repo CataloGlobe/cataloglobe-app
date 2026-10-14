@@ -40,6 +40,7 @@ vi.mock("@/utils/compressImage", () => ({ compressImage: vi.fn(), COMPRESS_PROFI
 
 import { addProductToCategory, createCatalog, createCategory, deleteCategory, removeProductFromCategory, updateCatalog, updateCategory } from "@/services/supabase/catalogs";
 import { createProduct, updateProduct } from "@/services/supabase/products";
+import { createPrimaryPriceFormat } from "@/services/supabase/productOptions";
 import { createStyle, updateStyle } from "@/services/supabase/styles";
 import { createRuleDraft, listLayoutRules } from "@/services/supabase/layoutScheduling";
 import { createFeaturedContent, updateFeaturedContent } from "@/services/supabase/featuredContents";
@@ -47,6 +48,7 @@ import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase
 import { createStory, updateStory } from "@/services/supabase/stories";
 import { newTunnel, type Dish, type Section } from "@/pages/Dashboard/Crea/creaModel";
 import { saveTunnel, type SaveCtx } from "@/pages/Dashboard/Crea/creaSave";
+import { productOf } from "@/pages/Dashboard/Crea/menuSave";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 
 // Review #360.2: se un passo del salvataggio fallisce, «Riprova» riparte da
@@ -220,5 +222,41 @@ describe("salvare il tunnel: «Riprova» dopo aver cambiato qualcosa", () => {
         expect(updateStyle).toHaveBeenCalledTimes(1);
         expect(vi.mocked(updateStyle).mock.calls[0].slice(0, 2)).toEqual(["st1", "Chiaro estivo"]);
         expect(vi.mocked(updateStyle).mock.calls[0][2]).toBeDefined();
+    });
+});
+
+describe("«Riprova»: il piatto nato al tentativo prima e poi cambiato (rilettura #472)", () => {
+    const dish = (o: Partial<Dish>): Dish => ({ key: "d1", productId: null, name: "Margherita", price: null, ...o });
+    const firstTry = async (d: Dish) => {
+        vi.mocked(createProduct).mockResolvedValue({ id: "p1" } as never);
+        const m = new Map<string, unknown>();
+        await productOf(d, "t1", m);
+        return m;
+    };
+
+    it("prezzo da vuoto a pieno: lo stesso prodotto prende il prezzo", async () => {
+        const m = await firstTry(dish({ price: null }));
+        await productOf(dish({ price: 8 }), "t1", m);
+        expect(createProduct).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(updateProduct).mock.calls[0][2]).toMatchObject({ base_price: 8 });
+    });
+
+    it("prezzo da pieno a vuoto: il prezzo si toglie", async () => {
+        const m = await firstTry(dish({ price: 8 }));
+        await productOf(dish({ price: null }), "t1", m);
+        expect(vi.mocked(updateProduct).mock.calls[0][2]).toMatchObject({ base_price: null });
+    });
+
+    it("varianti aggiunte a un piatto nato semplice: il prodotto passa a formati, senza prezzo base", async () => {
+        const m = await firstTry(dish({ price: 8 }));
+        await productOf(dish({ price: 8, formats: [{ name: "Piccola", price: 6 }, { name: "Grande", price: 10 }] }), "t1", m);
+        expect(vi.mocked(updateProduct).mock.calls[0][2]).toMatchObject({ base_price: null, product_type: "formats" });
+        expect(createPrimaryPriceFormat).toHaveBeenCalledTimes(2);
+    });
+
+    it("niente cambiato: nessun aggiornamento", async () => {
+        const m = await firstTry(dish({ price: 8 }));
+        await productOf(dish({ price: 8 }), "t1", m);
+        expect(updateProduct).not.toHaveBeenCalled();
     });
 });

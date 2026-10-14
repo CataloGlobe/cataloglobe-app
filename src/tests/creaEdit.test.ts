@@ -331,3 +331,23 @@ describe("modifica nel tunnel: il menù, le ore per sede e l'import aperto", () 
         expect(firstBlock(menu(), OWNER)).toBeNull();
     });
 });
+
+describe("modifica nel tunnel: «Riprova» del «Dove e quando» (rilettura #472)", () => {
+    beforeEach(() => {
+        calls.length = 0;
+        Object.assign(fail, { on: "", skip: 0 });
+    });
+
+    it("le parti della regola già salvate restano segnate fra un tentativo e l'altro: niente regole doppie", async () => {
+        const t = upd(menu(), x => void (x.where = { all: false, activityIds: ["s1"], groupIds: [] }));
+        const done = new Map<string, unknown>();
+        const ctx = { tenantId: "T", L: {}, names: {}, blockFiles: {}, done } as unknown as EditCtx;
+        fail.on = "saveDraft";
+        await expect(saveEdit(t, ctx)).rejects.toThrow();
+        await saveEdit(t, ctx);
+        const sets = calls.filter(c => c[0] === "saveDraft").map(c => c[4]);
+        expect(sets).toHaveLength(2);
+        expect(sets[0]).toBeInstanceOf(Set);
+        expect(sets[1]).toBe(sets[0]);
+    });
+});
