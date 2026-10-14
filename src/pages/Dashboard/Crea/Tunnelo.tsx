@@ -2,7 +2,7 @@
 // salvataggio e «E adesso?».
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Megaphone, Palette, Pencil, ScrollText, Smartphone, Sparkles, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Megaphone, Palette, Pencil, ScrollText, Smartphone, Sparkles, Store, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
@@ -35,6 +35,10 @@ import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { EvidContenuto } from "./EvidContenuto";
 import { evidWait, presetQuando } from "./evidData";
+import { ME, evOthers, ordIds, ordWait, syncOrd } from "./evidOrd";
+import { EvidOrdine } from "./EvidOrdine";
+import { Chip } from "./CreaUi";
+import ev from "./Evid.module.scss";
 import { StoriaOnda, StoriaTema, type OnAir } from "./StoriaTema";
 import { Adesso, Controlla, Dove, Modifica, MenuParti, Quando, QuandoOre, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
@@ -108,7 +112,11 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
 
     // nelle sue ore c'è già un altro, e il tuo può prenderne il posto: si sceglie nel «Quando»
     const clash = NEW_MODEL.multiMenu && NEW_MODEL.newestWins && owner && t.onda === "on" && (kind === "menu" || kind === "stile") && effect.scontri.some(x => x.vince);
-    const c = useMemo(() => ({ owner, multi: L.multi, clash }), [owner, L.multi, clash]);
+    // «L'ordine» (D187): gli altri contenuti in evidenza di ogni sede, e le sedi scelte dove ce n'è già uno
+    const others = useMemo(() => (kind === "evid" && NEW_MODEL.evid ? evOthers(entriesFromRules(data.rules, data.names), data.sedi, data.groups, romeToday()) : {}), [kind, data.rules, data.names, data.sedi, data.groups]);
+    const whereSedi = useMemo(() => (L.multi ? sediOf(t.where, data.sedi, data.groups) : data.sedi.map(x => x.id)), [L.multi, t.where, data.sedi, data.groups]);
+    const ordKey = ordIds(whereSedi, others).join(",");
+    const c = useMemo(() => ({ owner, multi: L.multi, clash, ordSedi: ordKey ? ordKey.split(",") : [] }), [owner, L.multi, clash, ordKey]);
     const u: U = useCallback(fn => setT(prev => {
         const n = structuredClone(prev);
         fn(n);
@@ -253,7 +261,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
     const calWhy = owner && draft && calTouched ? waitsForDb(draft) || (clash && kind === "stile" && t.insieme ? "Lascia gli altri stili: " + DB_WAIT : scontriWait(draft, effect.scontri)) : "";
     // i blocchi che «Avanti» non sa sistemare: lì il bottone resta spento, col motivo accanto
-    const dbWhy = calWhy || evidWait(t);
+    const dbWhy = calWhy || evidWait(t) || ordWait(t);
     const why = showAfter || !last ? "" : nothing ? "Non hai cambiato niente" : dbWhy;
     const updDraft = (fn: (d: Draft) => void) =>
         u(x => {
@@ -323,6 +331,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         u(x => {
             x.i = Math.max(0, Math.min(n, st.length - 1));
             if (st[x.i] === "quando") presetQuando(x, romeToday());
+            if (st[x.i] === "ordine") syncOrd(x, whereSedi, others);
             // manca la scelta «insieme o al posto»: si torna alla seconda parte del «Quando»
             if (st[x.i] === "quando" && fb?.why.startsWith("Scegli: ")) x.qPart = 2;
         });
@@ -344,6 +353,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             x.i = stepFrom(x, c, i, 1);
             x.seen = Math.max(x.seen, x.i);
             if (st[x.i] === "quando") presetQuando(x, romeToday());
+            if (st[x.i] === "ordine") syncOrd(x, whereSedi, others);
         });
         toTop();
     };
@@ -541,6 +551,9 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 // con più sedi il Dove è già stato scelto: qui solo le ore
                 body = L.multi && draft ? <QuandoOre t={t} u={u} L={L} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} L={L} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} />;
                 break;
+            case "ordine":
+                body = <EvidOrdine t={t} u={u} L={L} others={others} alone={whereSedi.filter(id => !t.ord[id])} />;
+                break;
             case "dove": {
                 const D = draft ?? draftFor(t, "featured", FAKE, null);
                 body = <Dove t={t} u={u} L={L} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} />;
@@ -567,11 +580,24 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             onEffect={setEffect}
         />
     );
+    // il telefono del passo «L'ordine»: la sede aperta, o la prima
+    const ordView = Object.keys(t.ord);
+    const ordSede = t.ordOpen && t.ord[t.ordOpen] ? t.ordOpen : ordView[0];
+    const stack = step === "ordine" && ordSede ? t.ord[ordSede].map(x => (x === ME ? null : others[ordSede]?.find(o => o.id === x)?.name ?? "Contenuto")) : undefined;
     const [qb, qp] = qcardText(t, showAfter ? "controlla" : step, L, t.kind === "stile" ? (t.base === "copy" ? baseStyle?.name ?? null : liveStyle?.name ?? null) : null);
     const right = week ? (
         <div className={s.week}>{preview}</div>
     ) : (
         <aside className={s.rside} ref={asideRef} aria-label="Così lo vede il cliente" style={fit.vars}>
+            {step === "ordine" && !showAfter && ordView.length > 1 && (
+                <div className={ev.sedechips} role="group" aria-label="Sede da guardare">
+                    {ordView.map(id => (
+                        <Chip key={id} on={id === ordSede} onClick={() => u(x => void (x.ordOpen = id))}>
+                            <Store size={13} aria-hidden /> {L.sedi.get(id) ?? "sede"}
+                        </Chip>
+                    ))}
+                </div>
+            )}
             <div className={cx(s.qcard, fit.slim && s.slim)}>
                 <span className={s.k}>
                     <Smartphone size={13} strokeWidth={1.75} aria-hidden />
@@ -581,7 +607,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 <p>{qp}</p>
             </div>
             <div className={s.phoneBox} ref={boxRef} style={fit.boxStyle}>
-                {realPhone ? <StilePhone look={peeking?.look ?? tk} business={business} menu={menus[0] ?? ""} /> : <CreaPhone t={phoneT} step={showAfter ? "controlla" : step} tk={tk} business={business} menus={menus} sample={sample} L={L} imageUrl={imageUrl} coverUrl={coverUrl} />}
+                {realPhone ? <StilePhone look={peeking?.look ?? tk} business={business} menu={menus[0] ?? ""} /> : <CreaPhone t={phoneT} stack={showAfter ? undefined : stack} step={showAfter ? "controlla" : step} tk={tk} business={business} menus={menus} sample={sample} L={L} imageUrl={imageUrl} coverUrl={coverUrl} />}
             </div>
             {realPhone && peeking && (
                 <button type="button" className={s.cmpb} aria-pressed onClick={() => onPeek(null)}>

@@ -19,6 +19,7 @@ import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calenda
 import type { AiMenuCategory } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyzeMenu";
 import { computeProductMatch } from "@/utils/importMatching";
 import { btnName, dateTxt, effBtn, newEvDate, type EvBtn, type EvDate } from "./evidData";
+import { hasOrd, ordSummary, posTxt } from "./evidOrd";
 import { adopt, allDishes, badFormat, clash, total } from "./menuTree";
 import { LIGHT_BG, lookKey, lum, sameHex } from "./stileLook";
 
@@ -203,6 +204,12 @@ export type Tunnel = {
     qset: boolean;
     /** Il giorno della card messo come fine del periodo (punto 14). */
     qauto: DayNum | null;
+    /** «L'ordine» (D187): per ogni sede con altri contenuti, chi sta sopra e chi sotto (`ME` = questo). */
+    ord: Record<string, string[]>;
+    /** Per primo in tutte le sedi: la risposta già data. */
+    ordSame: boolean;
+    /** La sede aperta nel passo «L'ordine»: è quella del telefono. */
+    ordOpen: string | null;
     // la storia
     kicker: string;
     cover: File | null;
@@ -278,6 +285,9 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: From | null = n
         btn: "",
         qset: false,
         qauto: null,
+        ord: {},
+        ordSame: true,
+        ordOpen: null,
         kicker: "",
         cover: null,
         coverUrl: null,
@@ -337,6 +347,7 @@ export type StepId =
     | "onda"
     | "quando"
     | "dove"
+    | "ordine"
     | "controlla";
 
 export const STEP_LABEL: Record<StepId, string> = {
@@ -354,12 +365,14 @@ export const STEP_LABEL: Record<StepId, string> = {
     onda: "In onda?",
     quando: "Quando",
     dove: "Dove",
+    ordine: "L'ordine",
     controlla: "Controlla"
 };
 
 /** Chi crea e dove: `owner` gestisce il Calendario (Dove e quando), `multi` ha più sedi. */
 /** `clash`: nelle sue ore c'è già un altro menù o stile, e si sceglie cosa fare (dal Calendario a destra). */
-export type Ctx = { owner: boolean; multi: boolean; clash?: boolean };
+/** `ordSedi`: le sedi scelte dove c'è già un altro contenuto in evidenza (passo «L'ordine»). */
+export type Ctx = { owner: boolean; multi: boolean; clash?: boolean; ordSedi?: readonly string[] };
 
 /** Il nome del passo: modificando un menù «Da dove parti» è solo il nome. */
 export const stepLabel = (t: Tunnel, s: StepId): string => (t.edit && s === "parti" ? "Il nome" : STEP_LABEL[s]);
@@ -379,7 +392,7 @@ export function oreSummary(t: Tunnel, ids: readonly string[]): string {
 }
 
 /** Tenuto pronto nel «Dove»: il «Quando» non serve, si salta. */
-export const skipped = (t: Tunnel, s: StepId, c: Ctx): boolean => s === "quando" && c.multi && t.onda === "off";
+export const skipped = (t: Tunnel, s: StepId, c: Ctx): boolean => (s === "quando" && c.multi && t.onda === "off") || (s === "ordine" && t.onda === "off");
 
 export function steps(t: Tunnel, c: Ctx): StepId[] {
     if (t.edit) return editSteps(t, c);
@@ -392,7 +405,8 @@ export function steps(t: Tunnel, c: Ctx): StepId[] {
                 ? ["contenuto"]
                 : ["serve", "tema", "racconto", "blocchi"];
     const when: StepId[] = c.owner ? calSteps(t, c) : [];
-    return [...content, ...when, "controlla"];
+    const ord: StepId[] = c.owner && hasOrd(t, c.ordSedi) ? ["ordine"] : [];
+    return [...content, ...when, ...ord, "controlla"];
 }
 
 const price = (s: string) => parseFloat(s.replace(",", "."));
@@ -818,6 +832,8 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
             return t.onda === "off" ? keepReady(t.kind) : t.per ? perText(t.per, L) : durLabel(effWhen(t));
         case "dove":
             return t.onda === "off" ? keepReady(t.kind) : whereText(t.where, L);
+        case "ordine":
+            return ordSummary(t, id => L.sedi.get(id) ?? "sede");
         default:
             return "";
     }
@@ -847,6 +863,10 @@ export function qcardText(t: Tunnel, step: StepId, L: DraftLookups, baseName: st
     switch (step) {
         case "modifica":
             return [thingName(t), "Com'è adesso. Cambia mentre modifichi."];
+        case "ordine": {
+            const ids = Object.keys(t.ord), sd = t.ordOpen && t.ord[t.ordOpen] ? t.ordOpen : ids[0];
+            return [ids.length > 1 ? "L'ordine a " + (L.sedi.get(sd) ?? "sede") : "L'ordine", `Uno sotto l'altro, in cima al menù: ${posTxt(t.ord[sd] ?? [])}.`];
+        }
         case "parti":
             return [t.name.trim() || "Il nome del menù", "Il cliente lo legge in cima, sopra le categorie."];
         case "sezioni":

@@ -163,3 +163,96 @@
         @include cal.fs(small);
     }
 }
+
+/* «L'ordine» (D187): le righe di una sede, da trascinare */
+.olist {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+
+    li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 4px 8px 4px 10px;
+        background: var(--surface);
+        cursor: grab;
+        @include cal.fs(text);
+
+        & + li {
+            border-top: 1px solid var(--border);
+        }
+
+        > svg {
+            flex: none;
+            color: var(--k-faint);
+        }
+
+        b {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+    }
+
+    .me {
+        background: color-mix(in srgb, var(--k, var(--brand-primary)) 8%, var(--surface));
+
+        b {
+            font-weight: 700;
+        }
+    }
+}
+
+.mine {
+    flex: none;
+    padding: 1px 7px;
+    border-radius: 999px;
+    color: var(--k, var(--brand-primary));
+    background: color-mix(in srgb, var(--k, var(--brand-primary)) 14%, transparent);
+    font-weight: 700;
+    @include cal.fs(small);
+}
+
+.sp {
+    flex: 1;
+}
+
+.xbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--k-muted);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        background: var(--k-surface);
+        color: var(--k-ink);
+    }
+
+    &:disabled {
+        opacity: 0.35;
+        cursor: default;
+    }
+}
+
+/* le sedi da guardare, sopra il telefono */
+.sedechips {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    gap: 6px;
+}

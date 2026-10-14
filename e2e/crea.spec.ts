@@ -848,6 +848,10 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await next(page);
+        // D187: nelle sedi c'è già altro in evidenza, quindi «L'ordine»; il nuovo parte per primo
+        await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true })).toBeVisible();
+        await expect(button(page, /^Mostralo per primo in tutte le sedi/)).toHaveAttribute("aria-pressed", "true");
+        await next(page);
         await button(page, "Metti in onda").click();
         await finito(page);
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
@@ -880,6 +884,24 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         // punto 14: il giorno della card diventa la fine del periodo, e lo si dice
         await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await expect(main(page).getByText("Fino al 23 set, il giorno del contenuto: puoi cambiarlo.", { exact: true })).toBeVisible();
+        await next(page);
+        // «L'ordine»: uguale in tutte le sedi, oppure sede per sede con le righe da spostare
+        await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true })).toBeVisible();
+        await main(page).getByRole("radio", { name: "No, cambia" }).click();
+        await expect(main(page).getByText("Apri la sede da cambiare.")).toBeVisible();
+        await button(page, /^Porto e2e.*Per primo · 4 contenuti.*Cambia$/).click();
+        const righe = main(page).getByRole("list", { name: "L'ordine" });
+        await expect(righe.getByRole("listitem")).toHaveCount(4);
+        await expect(righe.getByRole("listitem").first()).toContainText("Serata karaoke");
+        await righe.getByRole("button", { name: "Sposta giù: Serata karaoke" }).click();
+        await expect(righe.getByRole("listitem").nth(1)).toContainText("Serata karaoke");
+        await expect(button(page, /^Porto e2e.*2° di 4 · 4 contenuti.*Chiudi$/)).toBeVisible();
+        // sopra il telefono le sedi da guardare: quella aperta è scelta
+        const guarda = page.getByRole("group", { name: "Sede da guardare" });
+        await expect(guarda.getByRole("button", { name: "Porto e2e" })).toHaveAttribute("aria-pressed", "true");
+        // «Sì»: torna per primo dappertutto
+        await main(page).getByRole("radio", { name: "Sì", exact: true }).click();
+        await expect(button(page, /^Mostralo per primo in tutte le sedi/)).toHaveAttribute("aria-pressed", "true");
         await next(page);
         // le colonne della data arrivano col database nuovo: fino ad allora non si salva
         await expect(button(page, "Metti in onda")).toBeDisabled();

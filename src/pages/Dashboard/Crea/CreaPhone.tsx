@@ -1,6 +1,7 @@
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { bundlePrice, bundleTotal, euro, type StepId, type Tunnel } from "./creaModel";
+import { Fragment } from "react";
 import { CalendarDays } from "lucide-react";
 import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import { ideaOf } from "./evidIdee";
@@ -26,10 +27,12 @@ type PhoneProps = {
     L: DraftLookups;
     imageUrl: string | null;
     coverUrl: string | null;
+    /** Il passo «L'ordine»: i contenuti in evidenza della sede, dall'alto; null = questo. */
+    stack?: (string | null)[];
 };
 
 /** Il telefono a destra del tunnel (artifact, `phoneHTML`): com'è adesso quello che si crea. */
-export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, coverUrl }: PhoneProps) {
+export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, coverUrl, stack }: PhoneProps) {
     const head = (
         <div>
             <div className={s.pName}>{business || "Il tuo locale"}</div>
@@ -130,9 +133,22 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
         body = (
             <>
                 {head}
-                {t.slot === "before" && feat}
+                {stack ? (
+                    stack.map((n, i) =>
+                        n === null ? (
+                            <Fragment key="me">{feat}</Fragment>
+                        ) : (
+                            <div key={i} className={cx(s.pFeat, s.lite)}>
+                                <span className={s.k}>In evidenza</span>
+                                <b>{n}</b>
+                            </div>
+                        )
+                    )
+                ) : (
+                    t.slot === "before" && feat
+                )}
                 <MenuSample sample={sample.slice(0, 2)} tk={tk} />
-                {t.slot === "after" && feat}
+                {!stack && t.slot === "after" && feat}
             </>
         );
     } else if (step === "blocchi") {

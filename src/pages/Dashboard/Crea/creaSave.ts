@@ -9,6 +9,7 @@ import {
     syncFeaturedContentProducts,
     updateFeaturedContent,
     updateFeaturedContentProductNote,
+    upsertFeaturedContentPositions,
     type FeaturedContent
 } from "@/services/supabase/featuredContents";
 import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase/featuredScheduling";
@@ -23,7 +24,9 @@ import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { whenOfRule, whereOfRule, type CalKind, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { deriveTypeFields } from "@/pages/Dashboard/Highlights/featuredContentTypes";
 import { EV, clonePer, cloneWhen, effWhen, thingName, type Tunnel } from "./creaModel";
+import { DB, NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import { evidColumns } from "./evidData";
+import { ordRows } from "./evidOrd";
 import { writeSections } from "./menuSave";
 import { styleConfig } from "./creaStyle";
 
@@ -253,6 +256,8 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
 
     // la regola: quella del Calendario, ma col posto scelto nel tunnel (sopra o sotto il menù)
     const first = await writeEvidRules(t, c, id, name, true);
+    // l'ordine sede per sede (D187): solo col database nuovo
+    if (DB.ready && NEW_MODEL.evid && Object.keys(t.ord).length) await once(c, "positions", () => upsertFeaturedContentPositions(c.tenantId, ordRows(t, id, Object.keys(t.ord))));
     return { id, name, live: true, ruleId: first };
 }
 

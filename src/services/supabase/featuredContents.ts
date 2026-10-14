@@ -674,3 +674,16 @@ export async function listFeaturedPickerCatalog(tenantId: string): Promise<Featu
         groupItems: itemsRes.data ?? []
     };
 }
+
+/**
+ * L'ordine dei contenuti in evidenza di una sede (fase a del database nuovo):
+ * una riga per sede e contenuto, 0 = il primo in alto. Scrive chi ha
+ * `featured.write` su quella sede.
+ */
+export async function upsertFeaturedContentPositions(tenantId: string, rows: { activity_id: string; featured_content_id: string; position: number }[]): Promise<void> {
+    if (!rows.length) return;
+    const { error } = await supabase
+        .from("featured_content_positions")
+        .upsert(rows.map(r => ({ ...r, tenant_id: tenantId })), { onConflict: "activity_id,featured_content_id" });
+    if (error) throw error;
+}
