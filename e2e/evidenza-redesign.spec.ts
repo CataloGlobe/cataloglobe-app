@@ -139,8 +139,13 @@ for (const viewport of [
             await page.getByText("Antipasti 1", { exact: true }).waitFor();
             test.skip((await page.getByRole("button", { name: "Altre opzioni" }).count()) === 0, "pagina senza redesign");
             await expect(page.getByRole("list", { name: "Contenuti in evidenza" })).toBeVisible();
-            await expect(page.getByRole("button", { name: /In evidenza/ })).toHaveCount(0);
-            await expect(page.getByRole("link", { name: /In evidenza/ })).toHaveCount(0);
+            // Prima isola e barra a vista, poi i conteggi a zero: non passano a vuoto.
+            await expect(page.getByRole("button", { name: "Altre opzioni" })).toBeVisible();
+            if (viewport.width < 768) {
+                await expect(page.getByRole("navigation", { name: "Navigazione", exact: true })).toBeVisible();
+            }
+            await expect(page.getByRole("button", { name: /in evidenza/i })).toHaveCount(0);
+            await expect(page.getByRole("link", { name: /in evidenza/i })).toHaveCount(0);
         });
     });
 }
