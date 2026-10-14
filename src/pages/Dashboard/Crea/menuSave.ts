@@ -153,8 +153,20 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
             const name = sec.name.trim() || "Piatti";
             // la categoria nuova e il collegamento si ricordano come il prodotto: al «Riprova» non si rifanno (review #388);
             // chiavi diverse da «cat:» e «link:», che writeSections legge come righe sue
-            if (!sec.id) idOf.set(sec, await once(m, `sez-cat:${sec.key}`, async () => (await createCategory(tenantId, catalogId, name, level, parent, sort[i])).id));
-            else {
+            if (!sec.id) {
+                const key = `sez-cat:${sec.key}`, w = m.get(key) as CatW | undefined;
+                if (!w) m.set(key, { id: (await createCategory(tenantId, catalogId, name, level, parent, sort[i])).id, name, sort: sort[i], parent, level });
+                else {
+                    // rinominata o spostata prima del «Riprova»: si riallinea, come creando (rilettura #472, punto 4)
+                    const upd: Parameters<typeof updateCategory>[2] = {};
+                    if (w.name !== name) upd.name = name;
+                    if (w.sort !== sort[i]) upd.sort_order = sort[i];
+                    if (w.parent !== parent || w.level !== level) Object.assign(upd, { parent_category_id: parent, level });
+                    if (Object.keys(upd).length) await updateCategory(w.id, tenantId, upd);
+                    m.set(key, { ...w, name, sort: sort[i], parent, level });
+                }
+                idOf.set(sec, (m.get(key) as CatW).id);
+            } else {
                 idOf.set(sec, sec.id);
                 const o = was.get(sec.id);
                 const upd: Parameters<typeof updateCategory>[2] = {};
@@ -188,7 +200,18 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
             // il prodotto nuovo si ricorda per piatto: al «Riprova» non nasce una seconda volta
             const productId = await productOf(d, tenantId, m);
             // una variante sta nel menù col suo prodotto e sé stessa accanto
-            await once(m, `sez-link:${d.key}`, () => addProductToCategory(tenantId, catalogId, idOf.get(sec)!, d.parentId ?? productId, sort[j], d.parentId ? productId : null));
+            const key = `sez-link:${d.key}`, catId = idOf.get(sec)!, w = m.get(key) as LinkW | undefined;
+            if (w && w.catId !== catId) {
+                // spostato in un'altra categoria prima del «Riprova»: lascia il posto del primo tentativo
+                if (w.id) await removeProductFromCategory(tenantId, w.id);
+                m.delete(key);
+            }
+            const still = m.get(key) as LinkW | undefined;
+            if (!still) m.set(key, { id: (await addProductToCategory(tenantId, catalogId, catId, d.parentId ?? productId, sort[j], d.parentId ? productId : null))?.id, catId, productId, sort: sort[j] });
+            else if (still.sort !== sort[j]) {
+                if (still.id) await updateProductSortOrder(still.id, tenantId, sort[j]);
+                m.set(key, { ...still, sort: sort[j] });
+            }
         }
     }
 
