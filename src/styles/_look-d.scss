@@ -47,6 +47,16 @@ html[data-look="d"] {
   --d-s-ready-ink: #0c5f41;
   --d-s-wait-ink: #b0391c;
   --d-s-old: color-mix(in srgb, var(--d-muted) 13%, transparent);
+  // Il pallino di avviso su fondo indaco («In breve»).
+  --d-brief-warn: #ffb199;
+  // Recensioni: la stella e i colori del voto, dalla 5 alla 1 (v28 `SC`).
+  --d-star: #e2a40c;
+  --d-star-5: #1f9d6b;
+  --d-star-4: #7fcfa8;
+  --d-star-3: #b6b6c6;
+  --d-amber: #e8a33d;
+  --d-star-2: var(--d-amber);
+  --d-star-1: #d9822b;
 
   --d-r-card: 28px;
   --d-r-ctl: 16px;

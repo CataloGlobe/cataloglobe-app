@@ -3,6 +3,8 @@
    testo da leggere. Misure del prototipo «Clienti e numeri». */
 
 @use "@styles/scheda-type" as type;
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 .page {
     display: flex;
@@ -110,4 +112,227 @@
     @include type.fs(text);
     font-style: italic;
     color: var(--text-muted);
+}
+
+/* ── Direzione D (artifact v28, `#p-rec`) ─────────────── */
+// Fuori dalla D la testata non è un blocco: i figli restano nella colonna.
+.head {
+    display: contents;
+}
+
+.top {
+    display: none;
+}
+
+@include look-d {
+    .page {
+        gap: var(--d-gap);
+    }
+
+    // Il segnaposto in cima: uscito dalla vista, la testata si compatta.
+    .top {
+        display: block;
+        height: 24px;
+        margin-bottom: calc(-24px - var(--d-gap));
+        pointer-events: none;
+    }
+
+    .head {
+        display: grid;
+        gap: var(--d-gap);
+        min-width: 0;
+        position: sticky;
+        // Il contenuto ha 18 px sopra (cornice D): la testata si attacca al bordo.
+        top: -18px;
+        z-index: 7;
+    }
+
+    .bar {
+        view-transition-name: r-per;
+    }
+
+    .band {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        align-items: center;
+        padding: calc(var(--d-pad) * 0.7) var(--d-pad);
+        border-radius: var(--d-r-card);
+        background: var(--d-warm-soft);
+        @include d-type(body);
+        view-transition-name: r-band;
+
+        b {
+            font-weight: 700;
+        }
+
+        span {
+            color: var(--d-muted);
+        }
+    }
+
+    .filters {
+        gap: 6px;
+        view-transition-name: r-chips;
+    }
+
+    .sortSelect {
+        @include d-type(control);
+    }
+
+    // ── La riga compatta, attaccata sotto la testata ──
+    .head[data-compact] {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 0 calc(-1 * clamp(14px, 2.4vw, 28px));
+        padding: 28px clamp(14px, 2.4vw, 28px) 10px;
+        background: var(--d-bg);
+        box-shadow: 0 10px 18px -16px rgba(30, 20, 90, 0.45);
+
+        .bar,
+        .filters {
+            display: contents;
+        }
+
+        .band {
+            display: none;
+        }
+
+        // Cerca va in fondo a destra, come icona.
+        .searchButton,
+        .search {
+            order: 9;
+            margin-left: auto;
+        }
+
+        .searchButton {
+            width: 36px;
+            min-width: 36px;
+            padding: 0;
+            justify-content: center;
+            gap: 0;
+
+            // Solo la lente: la parola resta per chi legge con lo screen reader.
+            > :not(:has(svg)) {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            }
+        }
+
+        .filters > * {
+            flex: none;
+            white-space: nowrap;
+        }
+
+        // I chip prendono lo spazio che resta e scorrono di lato.
+        .filters > :first-child {
+            flex: 1 1 0;
+            min-width: 0;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+
+            [role="radiogroup"] {
+                flex-wrap: nowrap;
+            }
+        }
+
+        .sort {
+            margin-left: 0;
+            max-width: 168px;
+        }
+    }
+
+    // ── Elenco: card in griglia ──
+    .revs {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+        gap: var(--d-gap);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        view-transition-name: r-list;
+    }
+
+    .rev {
+        position: relative;
+        display: grid;
+        gap: 8px;
+        align-content: start;
+        padding: var(--d-pad);
+        border: 1px solid var(--d-line);
+        border-radius: var(--d-r-card);
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow);
+        animation: rise 300ms var(--d-ease) both;
+        animation-delay: calc(var(--i) * 40ms);
+
+        &[data-low] {
+            background: color-mix(in srgb, var(--d-warm) 5%, var(--d-surface));
+        }
+
+        &:has([aria-expanded="true"]) {
+            z-index: 5;
+        }
+    }
+
+    .rowTop {
+        gap: 6px 10px;
+        color: var(--d-muted);
+        @include d-type(note);
+    }
+
+    .stars {
+        letter-spacing: 1px;
+        color: color-mix(in srgb, var(--d-muted) 30%, transparent);
+        @include d-type(read);
+
+        b {
+            color: var(--d-star);
+            font-weight: 400;
+        }
+    }
+
+    .rev[data-low] .stars b {
+        color: var(--d-warm);
+    }
+
+    .rev .comment {
+        @include d-type(read);
+        line-height: 1.45;
+    }
+
+    .rev .noComment {
+        @include d-type(read);
+    }
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+
+// Il passaggio alla riga compatta: le parti scivolano con la molla della D.
+::view-transition-group(r-per),
+::view-transition-group(r-vote),
+::view-transition-group(r-chips),
+::view-transition-group(r-cerca),
+::view-transition-group(r-list),
+::view-transition-group(r-band) {
+    animation-duration: 440ms;
+    animation-timing-function: cubic-bezier(0.3, 1.22, 0.45, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rev {
+        animation: none;
+    }
 }

@@ -30,7 +30,33 @@ $d-type: (
   // Etichette in maiuscolo (`.am-l`, `.rtip.has .tt`).
   label: (size: 10.5px, weight: 700, tracking: 0.08em, upper: true),
   // Intestazioni delle tendine (`.pop .head`).
-  head: (size: 11px, weight: 700, tracking: 0.06em, upper: true)
+  head: (size: 11px, weight: 700, tracking: 0.06em, upper: true),
+  // --- Pagine (PR 2 e seguenti) ---
+  // La frase che risponde accanto ai comandi (`.cmd .answer`).
+  answer: (family: display, size: calc(var(--d-answer-size) * 0.75), weight: 600, tracking: -0.02em),
+  // Titoli delle card (`.card h3`).
+  card-title: (family: display, size: 15px, weight: 700, tracking: -0.01em),
+  // Il numero grande di una voce (`.va b`).
+  voice-num: (family: display, size: calc(var(--d-num-size) * 0.85), weight: 700, tracking: -0.03em),
+  // I numeri sotto un grafico (`.f3 b`).
+  fact-num: (family: display, size: 19px, weight: 700, tracking: -0.02em),
+  // Testo corrente delle pagine (`.va`, `.brief li`).
+  body: (size: 13.5px, weight: 500),
+  // Righe di tabella e liste (`table`, `.fn`, `.terms li`).
+  row: (size: 13px, weight: 500),
+  // Note e righe secondarie (`.cap`, `.vx`, `.hd > span`, `.dl`).
+  note: (size: 12.5px, weight: 500),
+  // Intestazioni di colonna (`th`).
+  th: (size: 11.5px, weight: 600),
+  // Assi dei grafici e ore della mappa (`.chart text`, `.heat`).
+  axis: (family: display, size: 11px, weight: 500),
+  // Il voto medio di Recensioni (`.vavg`) e la sua pillola compatta.
+  vote-avg: (family: num, size: calc(var(--d-num-size) * 1.6), weight: var(--d-num-weight), tracking: -0.04em),
+  vote-pill: (family: num, size: 21px, weight: var(--d-num-weight), tracking: -0.04em),
+  // La stella accanto al voto, metà del numero (`.vavg span`).
+  vote-star: (size: 0.5em),
+  // Testo da leggere: il commento di una recensione, le stelle (`.rev p`).
+  read: (size: 14px, weight: 400)
 );
 
 @mixin d-type($role) {
@@ -40,6 +66,8 @@ $d-type: (
   }
   @if map.get($t, "family") == display {
     font-family: var(--d-f-display);
+  } @else if map.get($t, "family") == num {
+    font-family: var(--d-f-num);
   }
   font-size: map.get($t, "size");
   font-weight: map.get($t, "weight");

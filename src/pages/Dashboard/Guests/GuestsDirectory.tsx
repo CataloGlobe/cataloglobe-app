@@ -17,7 +17,7 @@
 // esplicitato da `formatVisitCount`, e la nota in fondo spiega perché due
 // colleghi possono leggere numeri diversi.
 
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { BookUser } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { Card } from "@/components/ui/Card/Card";
@@ -110,13 +110,13 @@ export default function GuestsDirectory({
                     <span>Da sapere</span>
                 </div>
                 <ul className={styles.list} aria-label="Clienti">
-                    {guests.map(g => {
+                    {guests.map((g, i) => {
                         const activity = activityByGuest.get(g.id);
                         const tags = tagsByGuest.get(g.id);
                         const sedi = activity?.sedi.map(s => s.name).join(" · ");
                         const know = knowByGuest.get(g.id);
                         return (
-                            <li key={g.id}>
+                            <li key={g.id} style={{ "--i": Math.min(i, 12) } as CSSProperties}>
                                 <button
                                     type="button"
                                     className={styles.row}
