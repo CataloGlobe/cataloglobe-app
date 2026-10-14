@@ -18,10 +18,6 @@ import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/compone
 import type { HubTab } from "@/types/collectionStyle";
 import Text from "@/components/ui/Text/Text";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
-// NOTE: CollectionHero e PublicBrandHeader sono sostituiti da PublicCollectionHeader.
-// I file originali restano nel progetto come fallback potenziale.
-// import CollectionHero from "../CollectionHero/CollectionHero";
-// import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
 import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
 import PublicFooter from "../PublicFooter/PublicFooter";
 import { PublicFeeRows } from "../PublicFooter/PublicFees";
@@ -2951,7 +2947,7 @@ export default function CollectionView({
                 </div>
             )}
 
-            {/* ── HEADER: sostituisce PublicBrandHeader + CollectionHero ── */}
+            {/* ── HEADER ── */}
             {mode === "public" && headerSlot && hasHeader
                 ? headerSlot({
                       logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
