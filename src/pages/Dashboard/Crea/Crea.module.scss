@@ -825,6 +825,15 @@ select.in {
             border: 5px solid var(--c-brand);
         }
     }
+    /* un elenco lungo accanto (i menù del prodotto) va a capo da sé, senza schiacciare il nome */
+    .sub {
+        flex: 0 1 auto;
+        max-width: 55%;
+        text-align: right;
+    }
+    .lpn {
+        min-width: min(8em, 40%);
+    }
 }
 .lpn {
     flex: 1;
