@@ -17,8 +17,16 @@ $d-type: (
   nav: (size: 13.5px, weight: 500),
   // Schede e tendine (`.tabs button`, `.pop button`, `.sede`).
   control: (size: 13px, weight: 600),
+  // Testo corrente piccolo: messaggi vuoti, righe delle tendine (`.am-none`).
+  body-s: (size: 13px, weight: 500),
   // Righe secondarie: ruolo, conteggi, piè di tendina (`.acct span`, `.cn2`).
   small: (size: 12px, weight: 500),
+  // Iniziali nel quadratino dell'azienda (`.av.sq`).
+  initials: (size: 12px, weight: 700),
+  // Accanto a una voce: il piano di un'azienda (`.am-i small`).
+  hint: (size: 11.5px, weight: 500),
+  // Etichette piccole piene (`.only`, `.av.xs`).
+  micro: (size: 10.5px, weight: 700),
   // Etichette in maiuscolo (`.am-l`, `.rtip.has .tt`).
   label: (size: 10.5px, weight: 700, tracking: 0.08em, upper: true),
   // Intestazioni delle tendine (`.pop .head`).
