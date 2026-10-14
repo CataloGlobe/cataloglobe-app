@@ -202,6 +202,11 @@
       font-size: 13px;
       font-weight: 600;
     }
+
+    // La scelta la dice il fondo pieno: niente spunta (v28, `.chip`).
+    .check {
+      display: none;
+    }
   }
 }
 

@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import Text from "@/components/ui/Text/Text";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./Card.module.scss";
 
 /**
@@ -117,7 +118,7 @@ export function Card({
                         {(title || badge) && (
                             <span className={styles.titleRow}>
                                 {title && (
-                                    <Text as="span" id={titleId} variant="title-sm" weight={600} className={styles.title}>
+                                    <Text as="span" id={titleId} variant="title-sm" weight={LOOK_D ? 700 : 600} className={styles.title}>
                                         {title}
                                     </Text>
                                 )}
