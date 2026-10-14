@@ -137,11 +137,48 @@ test("dal carrello alla cucina: quantità, totale, invio, stato e Annulla ordine
     await expect(page.getByRole("button", { name: "Invia alla cucina" })).toHaveCount(0);
     await expect(dialog.getByRole("list", { name: "Stato dell'ordine" }).locator("[aria-current=step]")).toHaveText("Inviato");
     await expect(cart(page)).toHaveAccessibleName("Il tuo ordine");
+    // Un ordine in corso: il conto non si chiede ancora.
+    const bill = dialog.getByRole("button", { name: /Chiedi il conto/ });
+    await expect(bill).toBeDisabled();
 
     await dialog.getByRole("button", { name: "Annulla ordine" }).click();
     await dialog.getByRole("button", { name: "Sì, annulla" }).click();
     await expect(dialog.getByText("Annullato")).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Annulla ordine" })).toHaveCount(0);
+    // Nessun ordine più in corso: «Chiedi il conto» si accende subito, a foglio aperto.
+    await expect(bill).toBeEnabled();
+});
+
+test("«Chiama il cameriere»: conferma finché la sala non arriva, poi si può richiamare", async ({ page }) => {
+    await page.clock.install();
+    const calls: string[] = [];
+    await page.route("**/functions/v1/call-waiter**", async route => {
+        const at = new Date(await page.evaluate(() => Date.now())).toISOString();
+        calls.push(at);
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ waiter_called_at: at, rate_limited: false })
+        });
+    });
+    await openPage(page);
+    await page.getByRole("button", { name: "Aggiungi alla selezione" }).first().click();
+    await cart(page).click();
+    const dialog = sheet(page);
+
+    await dialog.getByRole("button", { name: "Chiama il cameriere" }).click();
+    const called = dialog.getByRole("button", { name: /Cameriere chiamato/ });
+    await expect(called).toContainText("Arriva a breve");
+    await expect(called).toBeDisabled();
+    expect(calls).toHaveLength(1);
+
+    // Passato un minuto senza che la sala lo segni arrivato: si può richiamare.
+    await page.clock.fastForward(61_000);
+    await expect(called).toContainText("Tocca per richiamare");
+    await expect(called).toBeEnabled();
+    await called.click();
+    await expect(called).toContainText("Arriva a breve");
+    expect(calls).toHaveLength(2);
 });
 
 test("dopo l'invio «Aggiungi altro» chiude il foglio e torna al menu", async ({ page }) => {
@@ -200,4 +237,59 @@ test("un piatto che il menu non ha più resta marcato e va tolto prima dell'invi
     await expect(dialog.getByRole("list", { name: "Stato dell'ordine" }).locator("[aria-current=step]")).toHaveText("Pronto");
     // Pronto: la cucina l'ha preso, non si annulla più.
     await expect(dialog.getByRole("button", { name: "Annulla ordine" })).toHaveCount(0);
+});
+
+test("un piatto spento dopo l'apertura: il server lo rifiuta e la riga dice quale togliere", async ({ page }) => {
+    const off = { id: "prod-0-1", name: "Antipasti 2", basePrice: 10, qty: 1, selectedFormat: null, selectedAddons: [], unitPrice: 10, note: null };
+    const ok = { id: "prod-0-2", name: "Antipasti 3", basePrice: 10, qty: 1, selectedFormat: null, selectedAddons: [], unitPrice: 10, note: null };
+    await openPage(page, { selection: [off, ok] });
+    // Registrato dopo quello di openPage: vince lui.
+    await page.route("**/functions/v1/submit-order**", route =>
+        route.fulfill({
+            status: 422,
+            contentType: "application/json",
+            body: JSON.stringify({
+                code: "INVALID_ITEMS",
+                message: "Uno o più prodotti non sono al momento disponibili.",
+                details: { reason: "UNAVAILABLE_PRODUCTS", unavailable_product_ids: ["prod-0-1"] }
+            })
+        })
+    );
+    await cart(page).click();
+    const dialog = sheet(page);
+    await expect(dialog.getByText("Non più disponibile")).toHaveCount(0);
+    await page.getByRole("button", { name: /^Invia alla cucina/ }).click();
+
+    await expect(dialog.getByRole("alert")).toContainText("non sono più disponibili");
+    await expect(dialog.getByRole("listitem").filter({ hasText: "Antipasti 2" }).getByText("Non più disponibile")).toBeVisible();
+    await expect(dialog.getByRole("listitem").filter({ hasText: "Antipasti 3" }).getByText("Non più disponibile")).toHaveCount(0);
+    await page.getByRole("button", { name: "Togli i piatti non più disponibili" }).click();
+    await dialog.getByRole("button", { name: "Rimuovi Antipasti 2" }).click();
+    await expect(page.getByRole("button", { name: /^Invia alla cucina · 10,00/ })).toBeVisible();
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+});
+
+test("ordini sospesi dal locale: lo scopre l'invio, l'avviso lo dice e «Invia» si spegne", async ({ page }) => {
+    const line = { id: "prod-0-1", name: "Antipasti 2", basePrice: 10, qty: 1, selectedFormat: null, selectedAddons: [], unitPrice: 10, note: null };
+    await openPage(page, { selection: [line] });
+    await page.route("**/functions/v1/submit-order**", route =>
+        route.fulfill({
+            status: 423,
+            contentType: "application/json",
+            body: JSON.stringify({
+                code: "ORDERING_UNAVAILABLE",
+                reason: "ordering_disabled",
+                message: "Il ristorante ha temporaneamente sospeso le ordinazioni tramite QR. Per favore, chiedi allo staff per ordinare."
+            })
+        })
+    );
+    await cart(page).click();
+    const dialog = sheet(page);
+    const send = page.getByRole("button", { name: /^Invia alla cucina/ });
+    await send.click();
+
+    await expect(dialog.getByRole("alert")).toContainText("sospeso le ordinazioni");
+    await expect(send).toBeDisabled();
+    // La riga resta: il cliente la mostra al cameriere.
+    await expect(dialog.getByRole("listitem").filter({ hasText: "Antipasti 2" })).toBeVisible();
 });

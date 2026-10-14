@@ -24,6 +24,8 @@ import { serviceSequence } from "@/pages/Dashboard/Reservations/seatingDrawer";
 import { useDetailParam } from "@/hooks/useDetailParam";
 import { useReservationDesk } from "@/pages/Dashboard/Reservations/hooks/useReservationDesk";
 import { useSeatingsRealtime } from "@/pages/Dashboard/Reservations/hooks/useSeatingsRealtime";
+import { useTablesLiveRealtime } from "@/components/Tables/TablesLiveView/useTablesLiveRealtime";
+import { tableRequestsById } from "@/utils/tableRequests";
 
 import styles from "./Servizio.module.scss";
 
@@ -75,6 +77,11 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
         onSalaChanged: reloadService
     });
     const { tenantId, effectiveReservations, tableLabel } = desk;
+
+    // Conto e cameriere: gli stessi conteggi delle tessere della Mappa, dal vivo
+    // (customer_sessions). Senza, la richiesta si vedeva solo nell'avviso di pochi secondi.
+    const { items: liveTables } = useTablesLiveRealtime(canReadService ? tenantId : null, activityId);
+    const tableRequests = useMemo(() => tableRequestsById(liveTables), [liveTables]);
 
     const loadService = useCallback(async () => {
         if (!tenantId || !canReadService) return;
@@ -272,6 +279,7 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
                     tableViews={desk.tableViews}
                     onOpenDetail={desk.handleOpenDetail}
                     onOpenSeating={handleOpenSeating}
+                    tableRequests={tableRequests}
                 />
             </div>
 

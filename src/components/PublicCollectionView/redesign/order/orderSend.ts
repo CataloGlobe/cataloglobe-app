@@ -45,11 +45,15 @@ export function orderRequest(
  */
 export function isLineUnavailable(
     findProduct: (productId: string) => { is_disabled?: boolean | null } | null,
-    line: Pick<SelectionItem, "id">
+    line: Pick<SelectionItem, "id">,
+    refused: ReadonlySet<string> = NONE_REFUSED
 ): boolean {
+    if (refused.has(line.id)) return true;
     const item = findProduct(line.id);
     return !item || item.is_disabled === true;
 }
+
+const NONE_REFUSED: ReadonlySet<string> = new Set();
 
 export const selectionTotal =(selection: SelectionItem[]): number =>
     selection.reduce((sum, line) => sum + line.unitPrice * line.qty, 0);
@@ -59,7 +63,7 @@ export type SendFailure =
     | { kind: "maintenance"; reason: OrderingStateReason; message: string }
     | { kind: "closed"; message: string }
     | { kind: "session" }
-    | { kind: "items" }
+    | { kind: "items"; productIds: string[] }
     | { kind: "empty" }
     | { kind: "other"; message: string | null };
 
@@ -72,6 +76,25 @@ export const ORDER_SENT_PREFIX = "order-sent:";
 export const orderSentIdOf = (key: string): string | null =>
     key.startsWith(ORDER_SENT_PREFIX) ? key.slice(ORDER_SENT_PREFIX.length) || null : null;
 
+/**
+ * I piatti che il server ha rifiutato (spenti o fuori menu dopo l'apertura della
+ * pagina, che non si aggiorna da sola): servono a segnare le righe da togliere.
+ */
+function refusedProductIds(error: Error): string[] {
+    const details = (error as Error & { details?: unknown }).details;
+    if (!details || typeof details !== "object") return [];
+    const { unavailable_product_ids, invalid_product_ids, invalid_items } = details as Record<string, unknown>;
+    const fromItems = Array.isArray(invalid_items)
+        ? invalid_items.map(item => (item && typeof item === "object" ? (item as { product_id?: unknown }).product_id : null))
+        : [];
+    const ids = [
+        ...(Array.isArray(unavailable_product_ids) ? unavailable_product_ids : []),
+        ...(Array.isArray(invalid_product_ids) ? invalid_product_ids : []),
+        ...fromItems
+    ];
+    return [...new Set(ids.filter((id): id is string => typeof id === "string"))];
+}
+
 export function sendFailure(error: unknown): SendFailure {
     if (!(error instanceof Error)) return { kind: "other", message: null };
     const { message } = error;
@@ -79,7 +102,7 @@ export function sendFailure(error: unknown): SendFailure {
     if (code === "ORDERING_UNAVAILABLE") return { kind: "maintenance", reason: reason ?? "ordering_disabled", message };
     if (code === "ORDERING_CLOSED") return { kind: "closed", message };
     if (message === "SESSION_EXPIRED" || message.toLowerCase().includes("scaduta")) return { kind: "session" };
-    if (message === "INVALID_ITEMS") return { kind: "items" };
+    if (message === "INVALID_ITEMS") return { kind: "items", productIds: refusedProductIds(error) };
     if (message === "EMPTY_CART") return { kind: "empty" };
     return { kind: "other", message: message || null };
 }

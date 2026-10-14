@@ -194,6 +194,30 @@ test.describe("Comande", () => {
         await expect(fixtureMenu(page)).toBeVisible();
     });
 
+    test("una chiamata del cameriere resta in cima finché è aperta, con «Vai alla sala»", async ({ page }) => {
+        // Il tavolo della fixture con una chiamata aperta: il resto della risposta è quello vero.
+        await page.route("**/rest/v1/v_tables_with_state?**", async route => {
+            const response = await route.fetch();
+            const rows = (await response.json()) as { label: string; waiter_called_count: number }[];
+            await route.fulfill({
+                response,
+                json: rows.map(r => (r.label === TAVOLO ? { ...r, waiter_called_count: 1 } : r))
+            });
+        });
+        // Diretto all'indirizzo delle Comande: la prova riguarda la striscia, non la navigazione.
+        await openBusinessPage(page, "locations", "Sedi");
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        const card = page.getByRole("main").getByRole("listitem").filter({ hasText: SEDE }).first();
+        await expect(card).toBeVisible({ timeout: 15_000 });
+        await card.getByRole("link").first().click();
+        await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
+        await page.goto(page.url().replace(/\/[a-z-]+$/, "/comande"));
+        await expect(fixtureMenu(page)).toBeVisible({ timeout: 15_000 });
+        const banner = page.getByRole("main").getByRole("status").filter({ hasText: "cameriere chiamato" });
+        await expect(banner).toContainText(TAVOLO);
+        await expect(banner.getByRole("link", { name: "Vai alla sala" })).toHaveAttribute("href", /\/servizio\?modo=mappa&tavolo=[0-9a-f-]+$/);
+    });
+
     test("«Crea ordine» apre il drawer a taglia lg, senza inviare niente", async ({ page }) => {
         await openComande(page);
         await page.getByRole("button", { name: "Crea ordine" }).click();

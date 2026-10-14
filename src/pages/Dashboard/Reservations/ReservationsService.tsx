@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
     Armchair,
+    Bell,
     History,
     Lock,
+    Receipt,
     ReceiptText,
     TriangleAlert
 } from "lucide-react";
@@ -24,6 +26,7 @@ import {
 } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import type { V2Reservation } from "@/types/reservation";
 import type { SeatingWithState } from "@/types/seating";
+import { seatingRequests, type TableRequests } from "@/utils/tableRequests";
 import {
     PREVIOUS_SERVICE_LABEL,
     isFromPreviousService,
@@ -82,6 +85,8 @@ interface Props {
     onOpenDetail: (r: V2Reservation) => void;
     /** Apre il drawer della tavolata (walk-in). */
     onOpenSeating: (s: SeatingWithState) => void;
+    /** Richieste aperte per tavolo (conto, cameriere), come sulle tessere della Mappa. */
+    tableRequests?: ReadonlyMap<string, TableRequests>;
 }
 
 const TIME_FORMATTER = new Intl.DateTimeFormat("it-IT", {
@@ -104,7 +109,8 @@ export default function ReservationsService({
     reservationsById,
     tableViews,
     onOpenDetail,
-    onOpenSeating
+    onOpenSeating,
+    tableRequests
 }: Props) {
     // "da 45 min" deve restare vero anche se non succede niente: un tick al
     // minuto, senza refetch. I dati cambiano via realtime, l'orologio da qui.
@@ -169,6 +175,9 @@ export default function ReservationsService({
         const covers = formatCovers(s.party_size);
         const stale = !done && isFromPreviousService(s, now);
         const pending = done ? 0 : s.pending_orders_count;
+        const requests = !done && tableRequests
+            ? seatingRequests(s.tables.map(t => t.table_id), tableRequests)
+            : null;
         const when = done
             ? s.closed_at
                 ? `liberato alle ${formatClock(s.closed_at)}`
@@ -216,6 +225,17 @@ export default function ReservationsService({
                             // Grigio: informa, non chiede un'azione.
                             <Badge variant="neutral">
                                 <History size={12} strokeWidth={2} aria-hidden /> {PREVIOUS_SERVICE_LABEL}
+                            </Badge>
+                        )}
+                        {requests?.waiter && (
+                            // Ambra come in Mappa: il tavolo aspetta qualcuno.
+                            <Badge variant="warning">
+                                <Bell size={12} strokeWidth={2} aria-hidden /> Cameriere chiamato
+                            </Badge>
+                        )}
+                        {requests?.bill && (
+                            <Badge variant="warning">
+                                <Receipt size={12} strokeWidth={2} aria-hidden /> Conto richiesto
                             </Badge>
                         )}
                         {pending > 0 && (
