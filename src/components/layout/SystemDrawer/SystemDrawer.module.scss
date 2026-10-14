@@ -59,3 +59,35 @@
     width: 100% !important; // vince anche sulla larghezza inline > 800
   }
 }
+
+// --- Direzione D (artifact v28, `#spane` e `#smodal`): velo indaco leggero
+// senza sfocatura; pannello staccato di 12 px in alto e in basso, tondo a
+// sinistra, ombra indaco verso la pagina, niente bordo. ---
+.backdrop {
+  @include look-d {
+    background-color: rgba(20, 20, 50, 0.34);
+    backdrop-filter: none;
+  }
+}
+
+.drawer {
+  @include look-d {
+    height: calc(100dvh - 24px);
+    margin-block: 12px;
+    border-left: none;
+    border-radius: var(--d-r-card) 0 0 var(--d-r-card);
+    box-shadow: var(--d-shadow-pane);
+    overflow: hidden;
+  }
+}
+
+@include phone {
+  .drawer {
+    @include look-d {
+      height: 100dvh;
+      margin: 0;
+      border-radius: 0;
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+  }
+}

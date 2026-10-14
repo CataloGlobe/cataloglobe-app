@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { ChevronDown, ChevronLeft, ChevronUp, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
+import { LOOK_D } from "@styles/lookD";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { useDetailPaneNav } from "@/components/layout/DetailPane/DetailPaneContext";
 import styles from "./DrawerLayout.module.scss";
@@ -85,7 +86,12 @@ export const DrawerLayout = ({
                             />
                         )}
                         {pane?.position && (
-                            <Text as="span" variant="caption" colorVariant="muted" className={styles.position}>
+                            <Text
+                                as="span"
+                                variant={LOOK_D ? "caption-xs" : "caption"}
+                                colorVariant="muted"
+                                className={styles.position}
+                            >
                                 {pane.position.index + 1} di {pane.position.total}
                             </Text>
                         )}

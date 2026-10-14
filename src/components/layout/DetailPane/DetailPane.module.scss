@@ -51,3 +51,37 @@
     transform: none;
   }
 }
+
+// --- Direzione D (artifact v28, `#spane`): tondo a sinistra, ombra indaco
+// verso l'elenco, niente velo; entra da 26 px con la molla. ---
+@keyframes paneInD {
+  from {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+}
+
+.pane {
+  @include look-d {
+    @media (prefers-reduced-motion: no-preference) {
+      animation: paneInD 320ms var(--d-ease-move) both;
+    }
+  }
+}
+
+.pane[data-place="slot"],
+.pane[data-place="fixed"] {
+  @include look-d {
+    border-left: none;
+    border-radius: var(--d-r-card) 0 0 var(--d-r-card);
+    box-shadow: var(--d-shadow-pane);
+    overflow: hidden;
+  }
+}
+
+.pane[data-place="fixed"] {
+  @include look-d {
+    top: 12px;
+    bottom: 12px;
+  }
+}

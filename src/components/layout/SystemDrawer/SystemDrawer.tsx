@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { resolveDrawerSize, SYSTEM_DRAWER_MOTION_MS, type SystemDrawerSize } from "./drawerSize";
+import { D_EASE_MOVE, LOOK_D } from "@styles/lookD";
 import styles from "./SystemDrawer.module.scss";
 
 export type { SystemDrawerSize } from "./drawerSize";
@@ -173,6 +174,14 @@ export const SystemDrawer = ({
     const transition = reducedMotion
         ? { duration: 0 }
         : { duration: SYSTEM_DRAWER_MOTION_MS / 1000, ease: [0.4, 0, 0.2, 1] as const };
+    // Direzione D (artifact v28, `#spane`): entra da 26 px con la molla in
+    // 320 ms, esce più svelto (190 ms) accelerando.
+    const drawerFrom = LOOK_D ? { x: 26, opacity: 0 } : { x: "100%", opacity: reducedMotion ? 1 : 0.6 };
+    const drawerTransition = reducedMotion || !LOOK_D ? transition : { duration: 0.32, ease: D_EASE_MOVE };
+    const drawerExit =
+        reducedMotion || !LOOK_D
+            ? drawerFrom
+            : { ...drawerFrom, transition: { duration: 0.19, ease: [0.4, 0, 1, 1] as const } };
 
     return createPortal(
         <AnimatePresence>
@@ -193,10 +202,10 @@ export const SystemDrawer = ({
                         className={`${styles.drawer} ${styles[`size_${size}`]}`}
                         ref={drawerRef}
                         style={explicitWidth !== undefined ? { width: explicitWidth } : undefined}
-                        initial={{ x: "100%", opacity: reducedMotion ? 1 : 0.6 }}
+                        initial={reducedMotion && LOOK_D ? false : drawerFrom}
                         animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: "100%", opacity: reducedMotion ? 1 : 0.6 }}
-                        transition={transition}
+                        exit={reducedMotion && LOOK_D ? undefined : drawerExit}
+                        transition={drawerTransition}
                         onAnimationComplete={() => {
                             if (!openRef.current || !autoFocusFirstInput) return;
                             const firstInput = drawerRef.current?.querySelector<HTMLElement>(FIRST_INPUT_SELECTOR);
