@@ -66,7 +66,7 @@ describe("traduzioni del redesign", () => {
         const missing: string[] = [];
         for (const [key, file] of keys) {
             for (const [lang, dict] of Object.entries(LOCALES)) {
-                if (lookup(dict, key) === undefined) missing.push(`${lang} ${key} (${file})`);
+                if (typeof lookup(dict, key) !== "string") missing.push(`${lang} ${key} (${file})`);
             }
         }
         expect(missing).toEqual([]);
