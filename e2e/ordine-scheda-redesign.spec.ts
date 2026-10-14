@@ -81,3 +81,18 @@ test("il + della lista aggiunge subito e dà lo stesso avviso", async ({ page })
     await expect(undo(page, "Antipasti 1")).not.toBeVisible();
     await expect(cart(page)).toHaveAccessibleName("Il tuo ordine (1)");
 });
+
+test("tavolo in manutenzione: si apre la scheda del redesign, con «Ordinazioni sospese» spento", async ({ page }) => {
+    await stubPublicPage(page, { ordering: true, details: true });
+    await page.goto(`/${SLUG}?maintenance=table_maintenance`);
+    await page.getByText("Antipasti 1", { exact: true }).waitFor();
+    test.skip((await page.getByRole("button", { name: "Altre opzioni" }).count()) === 0, "pagina senza redesign");
+
+    await page.getByText("Primi 1", { exact: true }).click();
+    // Il foglio del redesign (SheetHost, con `data-size`), non quello della scheda di oggi.
+    const sheet = page.locator("[role=dialog][data-size]");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "Primi 1" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Ordinazioni sospese" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Scegli il formato" })).toHaveCount(0);
+});

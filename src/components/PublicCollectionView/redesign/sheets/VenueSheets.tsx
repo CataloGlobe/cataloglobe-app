@@ -44,7 +44,7 @@ import SearchHeader from "../search/SearchHeader";
 import ProductPage, { ProductHeadPrice, ProductUnavailable } from "../product/ProductPage";
 import { productIdOf } from "../product/productSheet";
 import { loadStoryPage, pageBelow, storyRefOf } from "../story/storySheet";
-import { ProductOrderFooter, type OrderBinding } from "../order/OrderChoices";
+import { OrderSuspendedFooter, ProductOrderFooter, type OrderBinding } from "../order/OrderChoices";
 import { draftFromLine, draftToLine, type OrderDraft } from "../order/orderDraft";
 import { showAdded } from "../order/addedNoticeStore";
 import { useOrderDrafts } from "../order/useOrderDrafts";
@@ -194,6 +194,7 @@ export default function VenueSheets({
                         />
                     );
                 }
+                if (item && props.product.orderingSuspended) return <OrderSuspendedFooter />;
                 const block = featuredOf(page, props.featured.contents);
                 if (!block || !hasFeaturedCta(block, !!props.onOpenReservation)) return null;
                 // «Prenota», o un link alla prenotazione di questa sede: i passi nel foglio, senza lasciare il menu.
@@ -536,7 +537,10 @@ function MorePage({
                         icon={<Star size={18} strokeWidth={2} />}
                         label={t("more.rate_label")}
                         subtitle={t("page_end.rate_subtitle")}
-                        onClick={pushRateSheet}
+                        onClick={() => {
+                            rate.onOpen?.();
+                            pushRateSheet();
+                        }}
                     />
                 ) : null}
                 {/* Storia su desktop (deciso da Lorenzo il 2026-10-11): sul telefono sta nella barra in basso. */}
