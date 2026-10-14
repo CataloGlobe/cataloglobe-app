@@ -15,6 +15,7 @@ import App from "./App";
 import MotionProvider from "@/components/motion/MotionProvider";
 import { LOOK_D } from "@styles/lookD";
 import "@styles/global.scss";
+import "@styles/kinds.scss";
 import "./i18n";
 
 // Grafica nuova del back office (direzione D) dietro l'interruttore: la radice

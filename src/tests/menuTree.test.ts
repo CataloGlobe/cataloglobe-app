@@ -203,6 +203,14 @@ describe("salvare «Categorie e piatti» in modifica", () => {
         ]);
     });
 
+    it("una variante (da un menù copiato) si scrive col suo prodotto e sé stessa accanto", async () => {
+        await writeSections([S("Primi", [D("b", { parentId: "p-padre" })])], "m1", "T");
+        expect(calls).toEqual([
+            ["createCategory", "T", "m1", "Primi", 1, null, 0],
+            ["addProductToCategory", "T", "m1", "n1", "p-padre", 0, "p-b"]
+        ]);
+    });
+
     it("un menù nuovo si scrive con le sottocategorie al loro livello", async () => {
         const ids = await writeSections([S("Primi", [], [S("Terra", [D("b")])])], "m1", "T");
         expect(calls).toEqual([
@@ -211,5 +219,30 @@ describe("salvare «Categorie e piatti» in modifica", () => {
             ["addProductToCategory", "T", "m1", "n2", "p-b", 0]
         ]);
         expect(ids).toEqual(["p-b"]);
+    });
+
+    // il primo tentativo ha creato categoria e collegamento, poi qualcosa è fallito (rilettura #472, punto 4)
+    it("«Riprova» dopo aver rinominato la categoria nuova e spostato il piatto nuovo: si riallineano, niente nasce due volte", async () => {
+        const m = new Map<string, unknown>();
+        const first = menu();
+        first.push(S("Contorni", [D("e")]));
+        await saveSezioni(first, menu(), "m1", "T", m);
+        const again = menu();
+        again.push(S("Verdure", [], [], { key: "Contorni" }));
+        again[2].dishes.push(D("e"));
+        calls.length = 0;
+        await saveSezioni(again, menu(), "m1", "T", m);
+        expect(calls).toEqual([
+            ["updateCategory", "n1", "T", { name: "Verdure" }],
+            ["addProductToCategory", "T", "m1", "c4", "p-e", 10, null]
+        ]);
+        // il collegamento del primo tentativo aveva id vuoto nel finto servizio: con un id vero si toglie
+        const m2 = new Map<string, unknown>([["sez-link:e", { id: "le", catId: "n1", productId: "p-e", sort: 0 }]]);
+        calls.length = 0;
+        await saveSezioni(again.slice(0, 3), menu(), "m1", "T", m2);
+        expect(calls).toEqual([
+            ["removeProductFromCategory", "T", "le"],
+            ["addProductToCategory", "T", "m1", "c4", "p-e", 10, null]
+        ]);
     });
 });

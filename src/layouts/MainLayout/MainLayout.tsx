@@ -65,6 +65,13 @@ const CREA_TITLES: Record<string, string> = {
     evidenza: 'Nuovo contenuto in evidenza',
     storia: 'Nuova storia',
 };
+// con l'id in fondo il tunnel modifica: il titolo lo dice (giro del 2026-10-14, difetto 12)
+const CREA_EDIT_TITLES: Record<string, string> = {
+    menu: 'Modifica il menù',
+    stile: 'Modifica lo stile',
+    evidenza: 'Modifica il contenuto in evidenza',
+    storia: 'Modifica la storia',
+};
 
 /**
  * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
@@ -108,7 +115,7 @@ function resolvePageTitle(
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
     // I tunnel di creazione (D124): il titolo dice cosa si sta creando.
-    if (first === 'crea') return CREA_TITLES[second] ?? 'Crea';
+    if (first === 'crea') return (third ? CREA_EDIT_TITLES[second] : CREA_TITLES[second]) ?? 'Crea';
 
     // Una pagina, due parti: «Regole» e, con la vista, «Calendario».
     if (first === 'scheduling') return new URLSearchParams(search).get('vista') === 'calendario' ? 'Calendario' : 'Regole';

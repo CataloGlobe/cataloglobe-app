@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { listLayoutRuleOptions, listLayoutRules, type LayoutRule, type LayoutRuleOption } from "@/services/supabase/layoutScheduling";
+import { listCatalogProductPairs } from "@/services/supabase/catalogs";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { listBaseProductsForPickerWithCategory } from "@/services/supabase/products";
 import { listStyles, type V2Style } from "@/services/supabase/styles";
+import { listFeaturedContentPositions } from "@/services/supabase/featuredContents";
+import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { CalNames } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 
 export type CreaData = {
     rules: LayoutRule[];
     names: CalNames;
-    sedi: { id: string; name: string }[];
+    /** `off`: la sede è sospesa (la pagina pubblica non mostra il catalogo). */
+    sedi: { id: string; name: string; off?: true }[];
     groups: { id: string; name: string; activityIds: string[] }[];
     groupIdsByActivity: Record<string, string[]>;
     groupNames: Map<string, string>;
@@ -20,6 +24,10 @@ export type CreaData = {
     /** Oggi menù e stile vanno in coppia: quelli della regola di base, sempre e per tutte. */
     base: { catalogId: string; styleId: string } | null;
     systemStyleId: string | null;
+    /** In quali menù sta ogni prodotto (gli id dei menù): la storia di un prodotto si vede lì. */
+    menusOf: Map<string, string[]>;
+    /** L'ordine salvato dei contenuti in evidenza, sede per sede (col database nuovo; altrimenti vuoto). */
+    positions: Record<string, Record<string, number>>;
     L: DraftLookups;
 };
 
@@ -38,6 +46,8 @@ export function useCreaData(tenantId: string | null | undefined) {
         idsByGroup: Record<string, string[]>;
         pick: Awaited<ReturnType<typeof listBaseProductsForPickerWithCategory>>;
         styles: V2Style[];
+        pairs: Awaited<ReturnType<typeof listCatalogProductPairs>>;
+        positions: Record<string, Record<string, number>>;
     } | null>(null);
     const [failed, setFailed] = useState(false);
 
@@ -45,11 +55,14 @@ export function useCreaData(tenantId: string | null | undefined) {
         if (!tenantId) return;
         setFailed(false);
         try {
-            const [rules, opts, pick, styles] = await Promise.all([
+            const [rules, opts, pick, styles, pairs, positions] = await Promise.all([
                 listLayoutRules(tenantId),
                 listLayoutRuleOptions(tenantId),
                 listBaseProductsForPickerWithCategory(tenantId),
-                listStyles(tenantId)
+                listStyles(tenantId),
+                listCatalogProductPairs(tenantId),
+                // dove la tabella non c'è ancora (produzione) l'ordine resta quello delle regole
+                NEW_MODEL.evid ? listFeaturedContentPositions(tenantId).catch(() => ({})) : {}
             ]);
             const groups = opts.activityGroups.filter(g => !g.is_system);
             const idsByGroup = groups.length ? await listActivityIdsByGroup(groups.map(g => g.id)) : {};
@@ -62,6 +75,8 @@ export function useCreaData(tenantId: string | null | undefined) {
                 featured: opts.featuredContents,
                 idsByGroup,
                 pick,
+                pairs,
+                positions,
                 styles: styles.filter(st => st.is_active !== false)
             });
         } catch (error) {
@@ -92,7 +107,7 @@ export function useCreaData(tenantId: string | null | undefined) {
         };
         const groupIdsByActivity: Record<string, string[]> = {};
         for (const [g, ids] of Object.entries(raw.idsByGroup)) for (const id of ids) (groupIdsByActivity[id] ??= []).push(g);
-        const sedi = raw.activities.map(a => ({ id: a.id, name: a.name }));
+        const sedi = raw.activities.map(a => ({ id: a.id, name: a.name, ...(a.status === "inactive" ? { off: true as const } : {}) }));
         const groupNames = new Map(raw.groups.map(g => [g.id, g.name]));
         const baseRule = raw.rules.find(
             r =>
@@ -105,7 +120,15 @@ export function useCreaData(tenantId: string | null | undefined) {
                 r.layout?.catalog_id &&
                 r.layout?.style_id
         );
+        const menusOf = new Map<string, string[]>();
+        for (const x of raw.pairs) {
+            const l = menusOf.get(x.product_id);
+            if (!l) menusOf.set(x.product_id, [x.catalog_id]);
+            else if (!l.includes(x.catalog_id)) l.push(x.catalog_id);
+        }
         return {
+            menusOf,
+            positions: raw.positions,
             rules: raw.rules,
             names,
             sedi,

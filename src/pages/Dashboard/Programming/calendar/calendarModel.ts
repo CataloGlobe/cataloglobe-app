@@ -53,6 +53,10 @@ export type CalEntry = {
     add: boolean;
     rule: LayoutRule;
     preview?: boolean;
+    /** Regola spenta: «pronto, non in onda». Non gareggia, sta su una linea sua. */
+    spento?: boolean;
+    /** Nel tunnel: un menù lasciato da solo in quella sede, che vince sul tuo (punto 4). */
+    solo?: true;
 };
 
 export type CalNames = {
@@ -117,11 +121,16 @@ export const whereOfRule = (rule: LayoutRule): CalWhere => ({
 export const eur = (v: number) => v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const few = (names: string[]) => names.slice(0, 2).join(", ") + (names.length > 2 ? " +" + (names.length - 2) : "");
 
-/** Le regole in onda (accese, complete) diventano le voci delle corsie. */
-export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames): CalEntry[] {
+/**
+ * Le regole in onda (accese, complete) diventano le voci delle corsie. Con
+ * `spente`, al loro posto quelle spente di Menù, Stile e In evidenza: «pronto,
+ * non in onda» (le bozze incomplete restano fuori).
+ */
+export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames, spente = false): CalEntry[] {
     const out: CalEntry[] = [];
     for (const rule of rules) {
-        if (!rule.enabled || isLayoutRuleDraft(rule)) continue;
+        if (rule.enabled === spente || isLayoutRuleDraft(rule)) continue;
+        if (spente && rule.rule_type !== "layout" && rule.rule_type !== "featured") continue;
         const when = whenOfRule(rule);
         if (when.never) continue;
         const base = {
@@ -134,7 +143,7 @@ export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames):
             rule
         };
         const push = (kind: CalKind, thing: string, add: boolean, suffix: string = kind) =>
-            out.push({ ...base, id: `${rule.id}:${suffix}`, kind, thing, add });
+            out.push({ ...base, id: `${rule.id}:${suffix}`, kind, thing, add, ...(spente ? { spento: true } : {}) });
         if (rule.rule_type === "layout" && rule.layout) {
             const { catalog_id, style_id } = rule.layout;
             if (catalog_id) push("menu", names.catalogs.get(catalog_id) ?? "Menù", false);
@@ -155,6 +164,19 @@ export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames):
         }
     }
     return out;
+}
+
+/** L'id della cosa di una voce: il menù, lo stile, il contenuto in evidenza. */
+export const thingIdOf = (e: CalEntry): string | null =>
+    e.kind === "menu" ? (e.rule.layout?.catalog_id ?? null) : e.kind === "style" ? (e.rule.layout?.style_id ?? null) : e.kind === "featured" ? (e.id.split(":featured:")[1] ?? null) : null;
+
+/** Le voci che una cosa ha già nel Calendario: in quante regole sta, se una è in onda, e la prima (accesa, se c'è). */
+export type Voce = { count: number; on: boolean; entry: CalEntry };
+export function voceOf(on: readonly CalEntry[], off: readonly CalEntry[], kind: CalKind, thingId: string): Voce | null {
+    const mine = (l: readonly CalEntry[]) => l.filter(e => e.kind === kind && thingIdOf(e) === thingId);
+    const a = mine(on), b = mine(off);
+    const entry = a[0] ?? b[0];
+    return entry ? { count: new Set([...a, ...b].map(e => e.ruleId)).size, on: a.length > 0, entry } : null;
 }
 
 /* ---------- chi raggiunge la sede, quando ---------- */
@@ -212,10 +234,13 @@ export const tie = (w: CalEntry, l: CalEntry, seat: CalSeat) => (spec(w, seat) ?
 
 /** Perché `w` vince su `l`, in una frase. */
 export function why(w: CalEntry, l: CalEntry, seat: CalSeat, whereFor: (e: CalEntry) => string): string {
+    // nel tunnel, il menù che hai lasciato da solo in quella sede (punto 4)
+    if (w.solo) return "sta da solo in quelle ore";
     const sw = spec(w, seat) ?? -1, sl = spec(l, seat) ?? -1;
     if (sw !== sl) return `vale ${whereFor(w)}, l'altro ${whereFor(l)}: vince il più vicino alla sede`;
     if (w.tscore !== l.tscore) return "ha orari più stretti";
-    if (NEW_MODEL.newestWins) return "è l'ultimo che hai messo";
+    // le regole dei menù valgono «al posto» (D196, punto 1): vince quello messo per ultimo, al posto degli altri (G2)
+    if (NEW_MODEL.newestWins) return NEW_MODEL.soloMenu && w.kind === "menu" ? "hai scelto di mostrarlo al posto degli altri" : "è l'ultimo che hai messo";
     if (w.priority !== l.priority) return "ha la priorità più alta";
     return "c'era prima";
 }
@@ -230,8 +255,9 @@ export type Axis = { from: number; to: number };
 export function axisFor(entries: readonly CalEntry[]): Axis {
     let from = 8 * 60, to = 24 * 60;
     for (const e of entries) for (const [a, b] of e.when.ranges ?? []) {
+        // fin dove finisce l'ultima fascia, non oltre (punto 26)
         if (b > 1440) to = Math.max(to, Math.min(30 * 60, Math.ceil(b / 60) * 60));
-        else from = Math.min(from, Math.floor(a / 60) * 60);
+        from = Math.min(from, Math.floor(a / 60) * 60);
     }
     return { from: Math.max(0, from), to };
 }
@@ -333,6 +359,25 @@ export function fLines(ctx: DayCtx, axis: Axis): Line[] {
     }).filter(l => l.segs.length > 0 || l.preview); // una regola che quel giorno non c'è non fa linea
 }
 
+export type OffLine = { entry: CalEntry; segs: { from: number; to: number }[] };
+
+/** Le voci spente di un giorno: una linea per regola, nelle ore che avrebbe. */
+export function offLines(spente: readonly CalEntry[], kind: CalKind, seat: CalSeat, day: DayNum, axis: Axis): OffLine[] {
+    return dayCtx(spente, kind, seat, day)
+        .cands.map(entry => {
+            const segs: OffLine["segs"] = [];
+            for (let m = axis.from; m < axis.to; m += FSLOT) {
+                if (!inWin(entry.when, day, m)) continue;
+                const last = segs[segs.length - 1];
+                if (last && last.to === m) last.to = m + FSLOT;
+                else segs.push({ from: m, to: m + FSLOT });
+            }
+            return { entry, segs };
+        })
+        .filter(l => l.segs.length > 0)
+        .sort((a, b) => a.entry.thing.localeCompare(b.entry.thing, "it") || a.entry.created - b.entry.created);
+}
+
 /* ---------- testi ---------- */
 
 export const KIND_LABEL: Record<CalKind, string> = {
@@ -381,7 +426,7 @@ export function daysText(days?: readonly number[]): string {
 /** «10 ott – 12 ott · 19:00–23:30», «Lun–Ven · 11:00–15:00», «Sempre, tutto il giorno». */
 export function durLabel(w: CalWhen): string {
     const p: string[] = [];
-    if (w.period) p.push(dayShort(w.period.from) + " – " + dayShort(w.period.to));
+    if (w.period) p.push(w.period.from === w.period.to ? "Solo " + ([8, 11].includes(dayParts(w.period.from).day) ? "l'" : "il ") + dayShort(w.period.from) : dayShort(w.period.from) + " – " + dayShort(w.period.to));
     if (w.days && w.days.length < 7) p.push(daysText(w.days));
     else if (!w.period && (w.days || w.ranges)) p.push("Tutti i giorni");
     if (w.ranges) p.push(w.ranges.map(([a, b]) => hhmm(a) + "–" + hhmm(b)).join(", "));

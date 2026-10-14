@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import { blankDraft, quandoScontro, scontriWait, type Draft, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { order, tie, why, type CalEntry, type CalSeat } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { dayNum, durLabel, order, tie, why, type CalEntry, type CalSeat } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 
 const seat: CalSeat = { activityId: "porto", groupIds: ["nord"] };
@@ -41,6 +41,15 @@ describe("chi vince nel Calendario (D135 A)", () => {
         expect(why(nuovo, vecchio, seat, where)).toBe("è l'ultimo che hai messo");
     });
 
+    it("con i menù che stanno da soli: chi vince l'hai scelto al posto degli altri (G2), o l'hai lasciato da solo (punto 4)", () => {
+        const solo = NEW_MODEL.soloMenu;
+        NEW_MODEL.newestWins = NEW_MODEL.soloMenu = true;
+        const vecchio = menu("vecchio", { created: 1 }), nuovo = menu("nuovo", { created: 2 });
+        expect(why(nuovo, vecchio, seat, where)).toBe("hai scelto di mostrarlo al posto degli altri");
+        expect(why({ ...vecchio, solo: true }, nuovo, seat, where)).toBe("sta da solo in quelle ore");
+        NEW_MODEL.soloMenu = solo;
+    });
+
     it("finché il menù del cliente non cambia, il Calendario dice come va davvero: priorità, poi il più vecchio", () => {
         NEW_MODEL.newestWins = false;
         expect(first(menu("vecchio", { created: 1 }), menu("nuovo", { created: 2 }))).toBe("vecchio");
@@ -59,6 +68,8 @@ describe("l'avviso quando si accavalla (D135 A)", () => {
     it("dice i giorni e le ore a parole", () => {
         expect(quandoScontro([0, 1, 2, 3, 4].map(d => [d, 720, 840] as const))).toBe("dal lunedì al venerdì dalle 12 alle 14");
         expect(quandoScontro([[5, 690, 900]])).toBe("il sabato dalle 11:30 alle 15");
+        expect(quandoScontro([0, 1, 2, 3, 4, 5, 6].map(d => [d, 420, 1440] as const))).toBe("tutti i giorni dalle 7 a mezzanotte");
+        expect(quandoScontro([[4, 60, 180]])).toBe("il venerdì dall'una alle 3");
         expect(quandoScontro([0, 1, 2, 3, 4, 5, 6].map(d => [d, 720, 900] as const))).toBe("tutti i giorni dalle 12 alle 15");
     });
 
@@ -73,5 +84,14 @@ describe("l'avviso quando si accavalla (D135 A)", () => {
     it("dove resta l'altro perché c'era prima (fuori da localhost) si salva lo stesso", () => {
         NEW_MODEL.newestWins = false;
         expect(scontriWait(D(), [sc(false, true)])).toBe("");
+    });
+});
+
+describe("durLabel: un periodo di un giorno solo (difetto 13)", () => {
+    it("dice «Solo il 5 apr», non «5 apr – 5 apr»; «l'8» con l'apostrofo", () => {
+        const d5 = dayNum(2026, 3, 5), d8 = dayNum(2026, 3, 8);
+        expect(durLabel({ period: { from: d5, to: d5 } })).toBe("Solo il 5 apr · tutto il giorno");
+        expect(durLabel({ period: { from: d8, to: d8 } })).toBe("Solo l'8 apr · tutto il giorno");
+        expect(durLabel({ period: { from: d5, to: d8 } })).toBe("5 apr – 8 apr · tutto il giorno");
     });
 });

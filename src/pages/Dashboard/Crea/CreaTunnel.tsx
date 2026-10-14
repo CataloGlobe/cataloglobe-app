@@ -13,7 +13,7 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { canDoOnAnyActivity, canDoOnTenant, isTenantWide } from "@/lib/permissions";
 import { peekAside } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { asInside, type CreaKind } from "./creaModel";
+import { asCal, asInside, asMetti, type CreaKind } from "./creaModel";
 import { CAL_KIND } from "./creaSave";
 import { useCreaData } from "./useCreaData";
 import { Tunnelo } from "./Tunnelo";
@@ -33,7 +33,7 @@ const ORIGIN: Record<string, [string, string]> = {
     stili: ["Stili", "styles"],
     evidenza: ["In evidenza", "featured"],
     storie: ["Storie", "stories"],
-    calendario: ["Calendario", "scheduling"]
+    calendario: ["Calendario", "scheduling?vista=calendario"]
 };
 
 export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }) {
@@ -55,12 +55,19 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
 
     // modificare (D140): la cosa com'è oggi, letta una volta quando ci sono i dati del tunnel
     const [loaded, setLoaded] = useState<Loaded | "failed" | "system" | null>(null);
+    const [tries, setTries] = useState(0);
     const ready = !!data;
     useEffect(() => {
         if (!editId || !tenantId || !data || loaded) return;
         let off = false;
         loadTunnel(kind, editId, tenantId, data)
-            .then(x => !off && setLoaded(params.get("dentro") ? { ...x, t: asInside(x.t) } : x))
+            .then(x => {
+                if (off) return;
+                // «Metti in onda» dall'elenco (D189): dritti al «Dove e quando»
+                if (params.get("da") === "calendario") setLoaded({ ...x, t: asCal(x.t, { owner, multi: data.L.multi }, !!params.get("metti")) });
+                else if (params.get("metti")) setLoaded({ ...x, t: asMetti(x.t, { owner, multi: data.L.multi }) });
+                else setLoaded(params.get("dentro") ? { ...x, t: asInside(x.t) } : x);
+            })
             .catch(error => {
                 if (!(error instanceof SystemStyleError)) console.error("[Crea] la cosa da modificare non si è letta:", error);
                 if (!off) setLoaded(error instanceof SystemStyleError ? "system" : "failed");
@@ -70,7 +77,7 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
         };
         // i dati si rileggono dopo ogni salvataggio: la cosa si legge una volta sola
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [kind, editId, tenantId, ready]);
+    }, [kind, editId, tenantId, ready, tries]);
     // dal Calendario con una bozza tenuta da parte: il suo quando e il suo dove
     const [aside] = useState(() => {
         if (params.get("da") !== "calendario" || kind === "storia") return null;
@@ -98,7 +105,29 @@ export function CreaTunnel({ kind, editId }: { kind: CreaKind; editId?: string }
     const look = (!canWrite || paused) && kind === "stile" && editId ? data.styles.find(x => x.id === editId) : null;
     if (look) return <StileGuarda style={look} tenantId={tenantId} business={selectedTenant?.name ?? ""} menu="" why={canWrite ? "abbonamento" : "permesso"} back={() => navigate(`${b}/${path}`)} />;
     if (!canWrite) return <EmptyState title={editId ? "Non puoi modificarlo" : "Non puoi crearlo"} description={`Per ${editId ? "modificare" : "creare"} ${UN[kind]} serve il permesso di modifica. Chiedilo al proprietario.`} />;
-    if (editId && loaded === "failed") return <EmptyState title="Non si è aperto" description="Non siamo riusciti a leggerlo: forse non c'è più. Torna all'elenco e riprova." />;
+    // come il vecchio editor: si torna all'elenco o si riprova (rilettura #472, punto 7)
+    if (editId && loaded === "failed")
+        return (
+            <EmptyState
+                title="Non si è aperto"
+                description="Non siamo riusciti a leggerlo: forse non c'è più. Torna all'elenco e riprova."
+                action={
+                    <>
+                        <Button variant="secondary" onClick={() => navigate(`${b}/${path}`)}>
+                            Torna all'elenco
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setLoaded(null);
+                                setTries(n => n + 1);
+                            }}
+                        >
+                            Riprova
+                        </Button>
+                    </>
+                }
+            />
+        );
     if (editId && !loaded) return <Skeleton height={420} />;
     return (
         <Tunnelo

@@ -431,6 +431,43 @@ export function describeStoryAppearance(appearance: StoryAppearance): { label: s
     }
 }
 
+/** Di cosa parla una storia: un prodotto, oppure il locale (una sede, o tutte per le storie di prima). */
+export type StoryAbout = { kind: "product"; label: string } | { kind: "sede"; label: string };
+
+export function storyAbout(
+    story: { product_id: string | null; activity_id: string | null; product?: { name: string } | null },
+    activities: readonly AppearanceActivity[]
+): StoryAbout {
+    if (story.product_id) return { kind: "product", label: story.product?.name ?? "Un prodotto che non c'è più" };
+    if (activities.length <= 1) return { kind: "sede", label: "Il locale" };
+    if (!story.activity_id) return { kind: "sede", label: "Il locale · tutte le sedi" };
+    const seat = activities.find(activity => activity.id === story.activity_id);
+    return { kind: "sede", label: `Il locale · ${seat?.name ?? "una sede che non c'è più"}` };
+}
+
+export type StoryOnAirState = "on" | "off" | "unseen";
+export const STORY_UNSEEN_LABEL = "In onda, ma nessuno la vede";
+
+/**
+ * Lo stato di una storia nell'elenco. `productLive`: il suo prodotto è in un
+ * menù in onda; `null` = non si sa (o non conta ancora), e allora non si dice
+ * «nessuno la vede» per il prodotto.
+ */
+export function describeStoryOnAir(
+    story: { status: "draft" | "published" | string; activity_id: string | null; product_id: string | null },
+    activities: readonly AppearanceActivity[],
+    subscriptionInactive: boolean,
+    productLive: boolean | null
+): { state: StoryOnAirState; label: string; tone: SummaryTone; why?: string } {
+    const where = storyAppearance(story, activities, subscriptionInactive);
+    if (where.kind === "nowhere" && where.reason === "draft") return { state: "off", label: "Pronta, non in onda", tone: "neutral" };
+    if (where.kind === "nowhere") return { state: "unseen", label: STORY_UNSEEN_LABEL, tone: "warning", why: describeStoryAppearance(where).label };
+    if (story.product_id && productLive === false) {
+        return { state: "unseen", label: STORY_UNSEEN_LABEL, tone: "warning", why: "il prodotto oggi non è in nessun menù in onda" };
+    }
+    return { state: "on", label: "In onda", tone: "success" };
+}
+
 const NAMES_FORMAT = new Intl.ListFormat("it", { style: "long", type: "conjunction" });
 
 /** «Centro e Porto», «Centro, Porto e Lago»; oltre quattro, «… e altre N sedi». */

@@ -65,6 +65,14 @@ export interface FeaturedContent {
     cta_text: string | null;
     cta_url: string | null;
     cta_action?: "none" | "link" | "reservation" | "add_to_order" | "show_products";
+    /** La data scritta sulla card (fase a del database nuovo): solo un'informazione, non spegne niente. */
+    shown_date_kind?: "day" | "period" | "weekly" | null;
+    shown_date_from?: string | null;
+    shown_date_to?: string | null;
+    /** 0 = domenica, come nelle regole. */
+    shown_weekdays?: number[] | null;
+    shown_time_from?: string | null;
+    shown_time_to?: string | null;
     status: FeaturedContentStatus;
     layout_style: string | null;
     pricing_mode: FeaturedContentPricingMode;
@@ -665,4 +673,29 @@ export async function listFeaturedPickerCatalog(tenantId: string): Promise<Featu
         groups: groupsRes.data ?? [],
         groupItems: itemsRes.data ?? []
     };
+}
+
+/**
+ * L'ordine salvato dei contenuti in evidenza: sede → contenuto → posizione
+ * (0 = il primo in alto). Tabella della fase a del database nuovo.
+ */
+export async function listFeaturedContentPositions(tenantId: string): Promise<Record<string, Record<string, number>>> {
+    const { data, error } = await supabase.from("featured_content_positions").select("activity_id, featured_content_id, position").eq("tenant_id", tenantId);
+    if (error) throw error;
+    const out: Record<string, Record<string, number>> = {};
+    for (const r of data ?? []) (out[r.activity_id] ??= {})[r.featured_content_id] = r.position;
+    return out;
+}
+
+/**
+ * L'ordine dei contenuti in evidenza di una sede (fase a del database nuovo):
+ * una riga per sede e contenuto, 0 = il primo in alto. Scrive chi ha
+ * `featured.write` su quella sede.
+ */
+export async function upsertFeaturedContentPositions(tenantId: string, rows: { activity_id: string; featured_content_id: string; position: number }[]): Promise<void> {
+    if (!rows.length) return;
+    const { error } = await supabase
+        .from("featured_content_positions")
+        .upsert(rows.map(r => ({ ...r, tenant_id: tenantId })), { onConflict: "activity_id,featured_content_id" });
+    if (error) throw error;
 }
