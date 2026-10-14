@@ -137,11 +137,16 @@ test("dal carrello alla cucina: quantità, totale, invio, stato e Annulla ordine
     await expect(page.getByRole("button", { name: "Invia alla cucina" })).toHaveCount(0);
     await expect(dialog.getByRole("list", { name: "Stato dell'ordine" }).locator("[aria-current=step]")).toHaveText("Inviato");
     await expect(cart(page)).toHaveAccessibleName("Il tuo ordine");
+    // Un ordine in corso: il conto non si chiede ancora.
+    const bill = dialog.getByRole("button", { name: /Chiedi il conto/ });
+    await expect(bill).toBeDisabled();
 
     await dialog.getByRole("button", { name: "Annulla ordine" }).click();
     await dialog.getByRole("button", { name: "Sì, annulla" }).click();
     await expect(dialog.getByText("Annullato")).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Annulla ordine" })).toHaveCount(0);
+    // Nessun ordine più in corso: «Chiedi il conto» si accende subito, a foglio aperto.
+    await expect(bill).toBeEnabled();
 });
 
 test("dopo l'invio «Aggiungi altro» chiude il foglio e torna al menu", async ({ page }) => {

@@ -687,7 +687,11 @@
         "sent_summary_one": "{{count}} piatto · {{total}}",
         "sent_summary_other": "{{count}} piatti · {{total}}",
         "add_more": "Aggiungi altro",
-        "in_kitchen": "È già in cucina: per cambiare qualcosa chiedi al cameriere.",
+        "in_kitchen": "Per cambiare qualcosa chiedi al cameriere.",
+        "title_kitchen": "In preparazione",
+        "title_ready": "È pronto",
+        "hint_ready": "Arriva al tavolo tra poco.",
+        "hint_served": "Se vuoi altro, tocca «Aggiungi altro».",
         "enjoy": "Buon appetito!",
         "cancelled_note": "Ordine annullato: non arriva in cucina."
     },

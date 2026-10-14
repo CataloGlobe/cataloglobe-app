@@ -688,7 +688,11 @@
     "sent_summary_one": "{{count}} plat · {{total}}",
     "sent_summary_other": "{{count}} plats · {{total}}",
     "add_more": "Ajouter autre chose",
-    "in_kitchen": "Elle est déjà en cuisine : pour changer quelque chose, demandez au serveur.",
+    "in_kitchen": "Pour changer quelque chose, demandez au serveur.",
+    "title_kitchen": "En préparation",
+    "title_ready": "Elle est prête",
+    "hint_ready": "Elle arrive à votre table dans un instant.",
+    "hint_served": "Envie d'autre chose ? Touchez « Ajouter autre chose ».",
     "enjoy": "Bon appétit !",
     "cancelled_note": "Commande annulée : elle n'arrivera pas en cuisine."
   },
