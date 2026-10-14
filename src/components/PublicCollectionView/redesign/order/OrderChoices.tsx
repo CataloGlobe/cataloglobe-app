@@ -271,3 +271,15 @@ export function ProductOrderFooter({
         </div>
     );
 }
+
+/** Piede della scheda col tavolo in manutenzione: il pulsante c'è ma è spento, e dice perché (come la scheda di oggi). */
+export function OrderSuspendedFooter() {
+    const { t } = useTranslation("public");
+    return (
+        <div className={styles.footer}>
+            <button type="button" className={styles.add} disabled>
+                {t("ordering.suspended")}
+            </button>
+        </div>
+    );
+}

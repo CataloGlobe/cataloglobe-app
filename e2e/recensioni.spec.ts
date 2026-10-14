@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { sidebarLink } from "./nav";
-import { REVIEW, SEDE, TENANT_ID, stubRecensioni, type RecensioniStub } from "./recensioniStub";
+import { SEDE, TENANT_ID, stubRecensioni, type RecensioniStub } from "./recensioniStub";
 
 /**
  * Recensioni (lotto `ds-5-coda`, P0), rifatta come «Recensioni A» (D154): il
@@ -213,7 +213,8 @@ test.describe("Recensioni — vuoto ed errore", () => {
 /**
  * Feedback privato (R1): niente coda né stati. Le righe con gli stati della
  * vecchia moderazione (in attesa, nascosta) stanno nell'elenco come le altre,
- * il riepilogo le conta tutte, Elimina è su ogni riga con `reviews.delete`.
+ * il riepilogo le conta tutte. Nessuna riga si elimina (decisione di Alex
+ * del 2026-10-14): niente menu di riga, nemmeno con `reviews.delete`.
  * Nessuna PATCH: una write non registrata risponde 500 e farebbe fallire.
  */
 test.describe("Recensioni — feedback privato", () => {
@@ -259,24 +260,12 @@ test.describe("Recensioni — feedback privato", () => {
         await expect(rowOf(page, "Prova spam e2e")).toHaveCount(1);
     });
 
-    test("Elimina su ogni riga, con conferma", async ({ page }) => {
-        stub.onWrite("reviews.DELETE", () => [{ id: REVIEW.pizza }]);
+    test("nessun Elimina e nessun menu di riga, anche con reviews.delete", async ({ page }) => {
         await openPage(page);
-        await press(rowOf(page, "Pizza ottima e2e, torneremo.").getByRole("button", { name: /^Azioni/ }));
-        await expect(page.getByRole("menuitem")).toHaveText(["Elimina"]);
-        await page.getByRole("menuitem", { name: "Elimina" }).click();
-        expect(stub.writes.filter(w => w.key === "reviews.DELETE")).toHaveLength(0);
-        await page.getByRole("button", { name: "Elimina", exact: true }).last().click();
-        await expect(page.getByText("Recensione eliminata")).toBeVisible();
-        await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toHaveCount(0);
-        expect(stub.writes.find(w => w.key === "reviews.DELETE")?.params.get("id")).toBe(`eq.${REVIEW.pizza}`);
-    });
-
-    test("senza reviews.delete: nessun menu di riga", async ({ page }) => {
-        await stub.revoke("reviews.delete");
-        await openPage(page);
-        await stub.revoked;
+        await expect(main(page).getByText("Pizza ottima e2e, torneremo.")).toBeVisible();
         await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /Elimina/ })).toHaveCount(0);
+        expect(stub.writes.filter(w => w.key === "reviews.DELETE")).toHaveLength(0);
     });
 
     test("la voce di sidebar non ha badge", async ({ page }) => {

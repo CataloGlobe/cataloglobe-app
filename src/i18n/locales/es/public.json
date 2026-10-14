@@ -341,9 +341,6 @@
         "close_aria": "Cerrar",
         "close_label": "Cerrar"
     },
-    "hero": {
-        "aria": "Cabecera del catálogo"
-    },
     "section_nav": {
         "aria": "Navegación por las secciones del catálogo"
     },

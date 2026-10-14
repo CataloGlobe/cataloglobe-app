@@ -6,7 +6,8 @@
 //   - initialCss : i CSS dell'entry e dei suoi import statici
 //   - lazyJs     : tutti gli altri chunk JS (fogli, ricerca, prenotazioni...)
 // Un tetto = misura di oggi + margine; per alzarlo si cambia il JSON nella
-// stessa PR, con il motivo nella descrizione.
+// stessa PR, con il motivo nella descrizione. Con VITE_PUBLIC_REDESIGN=true
+// (build della pagina nuova, come su staging) valgono i tetti di `redesign`.
 //   node scripts/public-bundle-budget.mjs          stampa le misure e controlla
 //   node scripts/public-bundle-budget.mjs --check  idem, esce 1 se sfora
 import { readFileSync } from "node:fs";
@@ -16,7 +17,14 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join(root, "dist/public");
-const budget = JSON.parse(readFileSync(path.join(root, "scripts/public-bundle-budget.json"), "utf8"));
+const budgets = JSON.parse(readFileSync(path.join(root, "scripts/public-bundle-budget.json"), "utf8"));
+const redesign = process.env.VITE_PUBLIC_REDESIGN === "true";
+const budget = redesign ? budgets.redesign : budgets;
+if (!budget) {
+    console.error("Tetti `redesign` mancanti in scripts/public-bundle-budget.json.");
+    process.exit(2);
+}
+console.log(redesign ? "Pagina pubblica nuova (VITE_PUBLIC_REDESIGN=true)" : "Pagina pubblica di oggi");
 
 let manifest;
 try {

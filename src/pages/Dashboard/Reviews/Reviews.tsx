@@ -12,8 +12,7 @@ import { flushSync } from "react-dom";
 import { LOOK_D } from "@styles/lookD";
 import { FilterFit } from "@/components/ui/FilterFit/FilterFit";
 import { useTenantId } from "@/context/useTenantId";
-import { useToast } from "@/context/Toast/ToastContext";
-import { listReviews, deleteReview } from "@/services/supabase/reviews";
+import { listReviews } from "@/services/supabase/reviews";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/usePermissions";
@@ -29,12 +28,9 @@ import { Chip } from "@/components/ui/Chip/Chip";
 import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Rating } from "@/components/ui/Rating/Rating";
-import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
-import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import { PERIOD_OPTIONS, usePeriodParam } from "@/hooks/usePeriodParam";
 import { periodToDateRange } from "@/pages/Dashboard/Analytics/utils/periodComparison";
@@ -96,7 +92,6 @@ function voteStats(list: readonly Review[]): {
 
 export default function Reviews() {
   const tenantId = useTenantId();
-  const { showToast } = useToast();
 
   /* ── Due livelli (§51.10) ───────────────────────── */
   // Dentro la sede (`/locations/:activityId/recensioni`) la sede è nel path;
@@ -112,12 +107,6 @@ export default function Reviews() {
     (selectedActivity
       ? canDoOnActivity(permissions, "reviews.read", selectedActivity)
       : canDoOnAnyActivity(permissions, "reviews.read"));
-  // Eliminare resta di owner e admin (`reviews.delete`, per sede).
-  const canDelete = (review: Review) =>
-    permissions
-      ? canDoOnActivity(permissions, "reviews.delete", review.activity_id)
-      : false;
-
   /* ── Confronto con altre sedi (D159) ─────────────── */
   // Dentro una sede, con «Confronta con» in alto: il voto di ogni sede in
   // una riga sua, sotto quello della sede. L'elenco resta della sede.
@@ -195,13 +184,6 @@ export default function Reviews() {
   }, [top]);
   const backToTop = () =>
     top?.scrollIntoView({ block: "start", behavior: "smooth" });
-
-  // La recensione da eliminare: il DELETE è secco e l'ha scritta un
-  // cliente, quindi passa da un ConfirmDialog (regola delle azioni
-  // irreversibili), non da una conferma nella riga.
-  const [pendingDelete, setPendingDelete] = useState<Review | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   /* ── Fetch reviews quando cambia tenant o scope ────── */
   useEffect(() => {
@@ -375,31 +357,6 @@ export default function Reviews() {
       ? "oggi"
       : `negli ultimi ${PERIOD_OPTIONS.find((o) => o.value === period)?.label.toLowerCase() ?? ""}`;
 
-  /* ── Handlers ───────────────────────────────────── */
-  const requestDelete = (review: Review) => {
-    setDeleteError(null);
-    setPendingDelete(review);
-  };
-  async function handleConfirmDelete(): Promise<boolean> {
-    if (!tenantId || !pendingDelete) return false;
-    const target = pendingDelete;
-    setIsDeleting(true);
-    setDeleteError(null);
-    try {
-      await deleteReview(target.id, tenantId);
-      setReviews((prev) => prev.filter((r) => r.id !== target.id));
-      setPendingDelete(null);
-      showToast({ message: "Recensione eliminata", type: "success" });
-      return true;
-    } catch (error) {
-      console.error("Eliminazione recensione:", error);
-      setDeleteError("Non è stato possibile eliminare la recensione. Riprova.");
-      return false;
-    } finally {
-      setIsDeleting(false);
-    }
-  }
-
   /* ── Riga: «quando · sede» sopra il commento ──────── */
   const reviewMeta = (review: Review) =>
     [
@@ -426,7 +383,7 @@ export default function Reviews() {
       readPermission="reviews.read"
       activityId={selectedActivity || null}
     >
-      {({ canEdit }) => (
+      {() => (
         <div className={styles.page}>
           {/* In cima: quando esce dalla vista, la testata si compatta (D). */}
           {LOOK_D && <div ref={setTop} className={styles.top} aria-hidden />}
@@ -762,21 +719,6 @@ export default function Reviews() {
                           label="Invitata su Google"
                         />
                       ) : null}
-                      {canDelete(review) && (
-                        <div className={styles.rowActions}>
-                          <TableRowActions
-                            ariaLabel="Azioni recensione"
-                            actions={[
-                              rowAction.remove(() => requestDelete(review), {
-                                disabled: !canEdit,
-                                description: !canEdit
-                                  ? "L'abbonamento non è attivo."
-                                  : undefined,
-                              }),
-                            ]}
-                          />
-                        </div>
-                      )}
                     </div>
                     {review.comment?.trim() ? (
                       <p className={styles.comment}>{review.comment}</p>
@@ -791,20 +733,6 @@ export default function Reviews() {
             </ListShell>
           )}
 
-          <ConfirmDialog
-            isOpen={pendingDelete !== null}
-            onClose={() => {
-              setPendingDelete(null);
-              setDeleteError(null);
-            }}
-            onConfirm={handleConfirmDelete}
-            title="Eliminare la recensione?"
-            message="L'ha scritta un cliente: eliminata non torna, e non si recupera."
-            confirmLabel="Elimina"
-            confirmVariant="danger"
-            isLoading={isDeleting}
-            error={deleteError}
-          />
         </div>
       )}
     </PageGate>

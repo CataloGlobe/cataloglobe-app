@@ -66,6 +66,16 @@ test("isola estesa: campo di ricerca, «Filtri», pagine e categorie in seconda 
     await expect(page.getByRole("button", { name: "Filtri · 1" })).toBeVisible();
 });
 
+test("si scrive subito dopo il clic sul campo: nessuna lettera persa mentre arriva il foglio", async ({ page }) => {
+    await page.getByRole("button", { name: "Cerca un piatto o un ingrediente" }).click();
+    // Senza aspettare il foglio: le prime lettere vanno nel campo fantasma dell'isola.
+    await page.keyboard.type("dolci 7");
+    const input = page.getByRole("dialog").getByRole("searchbox");
+    await expect(input).toHaveValue("dolci 7");
+    await expect(input).toBeFocused();
+    await expect(page.getByRole("dialog").getByText("1 risultato")).toBeVisible();
+});
+
 test("una categoria porta alla sua sezione e l'isola resta su una riga, con la lente", async ({ page }) => {
     const categories = page.getByRole("navigation", { name: "Categorie" });
     await categories.getByRole("button", { name: "Secondi" }).click();

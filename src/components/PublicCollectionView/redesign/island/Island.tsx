@@ -192,7 +192,9 @@ export default function Island({
     const openSearch = (trigger: HTMLElement) => {
         // Focus sincrono in-gesto sul campo fantasma: la tastiera iOS sale subito.
         // Alla chiusura il fuoco torna a chi ha aperto, non al campo fantasma.
+        // Quello che si batte prima che il foglio sia pronto finisce qui: lo raccoglie SearchHeader.
         rememberSheetOpener(trigger);
+        if (primerRef.current) primerRef.current.value = "";
         primerRef.current?.focus();
         onSearchOpen();
     };
@@ -236,6 +238,7 @@ export default function Island({
                 type="text"
                 inputMode="search"
                 className={styles.primer}
+                data-search-primer=""
                 tabIndex={-1}
                 aria-hidden="true"
                 autoComplete="off"

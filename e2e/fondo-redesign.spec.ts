@@ -102,3 +102,22 @@ test("su un desktop stretto due colonne, e Contatti va sotto", async ({ page }) 
     expect(contacts.y).toBeGreaterThan(hours.y + hours.height);
     expect(Math.abs(contacts.x - hours.x)).toBeLessThan(2);
 });
+
+test("Lingua da «Altre opzioni»: la pagina passa in inglese e torna in italiano", async ({ page }) => {
+    const dialog = page.getByRole("dialog");
+    await page.getByRole("button", { name: "Altre opzioni" }).click();
+    await dialog.getByRole("button", { name: /^Lingua/ }).click();
+    await expect(dialog.getByRole("option", { name: /Italiano/ })).toHaveAttribute("aria-selected", "true");
+    await dialog.getByRole("option", { name: /English/ }).click();
+
+    await expect(page).toHaveURL(new RegExp(`/${SLUG}/en$`));
+    await expect(page.getByRole("button", { name: "More options" })).toBeVisible();
+    await expect(page.locator("footer", { hasText: "End of the menu" })).toHaveCount(1);
+
+    await page.getByRole("button", { name: "More options" }).click();
+    await dialog.getByRole("button", { name: /^Language/ }).click();
+    await expect(dialog.getByRole("option", { name: /English/ })).toHaveAttribute("aria-selected", "true");
+    await dialog.getByRole("option", { name: /Italiano/ }).click();
+    await expect(page).toHaveURL(new RegExp(`/${SLUG}$`));
+    await expect(page.getByRole("button", { name: "Altre opzioni" })).toBeVisible();
+});

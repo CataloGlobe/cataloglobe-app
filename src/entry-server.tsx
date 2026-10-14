@@ -28,7 +28,7 @@ import type { ResolvedPayloadShape } from "@/types/publicCatalog";
 export type RenderPublicArgs = {
     payload: ResolvedPayloadShape;
     slug: string;
-    /** URL per StaticRouter (pathname; default da slug). */
+    /** URL per StaticRouter (pathname, più `?menu=` se scelto; default da slug). */
     url?: string;
     /** Lingua dell'interfaccia: quella della pagina (`effective_language`,
         altrimenti la lingua base della sede), già validata dal chiamante.

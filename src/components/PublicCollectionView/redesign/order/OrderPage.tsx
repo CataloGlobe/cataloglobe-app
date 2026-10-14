@@ -62,7 +62,12 @@ type Props = {
 export default function OrderPage(props: Props) {
     const { t } = useTranslation("public");
     // La sessione del tavolo è finita mentre il foglio era aperto.
-    if (!props.ordering) return <p className={styles.alert}>{t("ordering.err_session_expired_table")}</p>;
+    if (!props.ordering)
+        return (
+            <p role="alert" className={styles.alert}>
+                {t("ordering.err_session_expired_table")}
+            </p>
+        );
     return <OrderContent {...props} ordering={props.ordering} />;
 }
 
