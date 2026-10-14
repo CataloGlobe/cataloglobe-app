@@ -197,6 +197,8 @@ export type SheetsSlotContext = {
         onTrackOpen: (item: CollectionViewSectionItem) => void;
         /** Solo quando si può ordinare dalla scheda: aggiunge la riga e restituisce il suo «Annulla». */
         order?: { add: (line: SelectionItem) => () => void };
+        /** Ordinazioni sospese (tavolo in manutenzione): scheda in lettura, col piede «Ordinazioni sospese». */
+        orderingSuspended?: boolean;
     };
     /** Foglio «Il tuo ordine · Tavolo N» (spec §7): solo col QR del tavolo. */
     ordering?: OrderingContext;

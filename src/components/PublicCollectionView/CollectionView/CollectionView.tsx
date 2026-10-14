@@ -1512,10 +1512,10 @@ export default function CollectionView({
 
     const openItemDetail = useCallback(
         (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
-            // Redesign: la scheda è una pagina del foglio unico (spec §6), anche
-            // in modo ordine col QR del tavolo (spec §7). Resta ItemDetail con
-            // l'ordine sospeso e fuori dalla tab Menu.
-            if (mode === "public" && sheetsSlot && !itemDetailOrderingDisabled && (!orderingActive || canOrderInDetail)) {
+            // Redesign: la scheda è sempre una pagina del foglio unico (spec §6):
+            // in modo ordine col QR del tavolo (spec §7), in lettura altrimenti,
+            // col piede «Ordinazioni sospese» se il tavolo è in manutenzione.
+            if (mode === "public" && sheetsSlot) {
                 sheetsSlot.openProduct(item);
             } else {
                 if (!opts?.keepPairingBackStack) setPairingBackStack([]);
@@ -1524,7 +1524,7 @@ export default function CollectionView({
             }
             trackProductOpen(item);
         },
-        [mode, sheetsSlot, orderingActive, itemDetailOrderingDisabled, canOrderInDetail, trackProductOpen]
+        [mode, sheetsSlot, trackProductOpen]
     );
 
     const addToSelection = useCallback((
@@ -3729,7 +3729,8 @@ export default function CollectionView({
                     showImage: style.productStyle !== "compact" && style.cardTemplate !== "no-image",
                     slug: slug ?? null,
                     onTrackOpen: trackProductOpen,
-                    order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined
+                    order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined,
+                    orderingSuspended: itemDetailOrderingDisabled
                 },
                 ordering: orderingActive && !shouldHideOrderingEntry
                     ? {
