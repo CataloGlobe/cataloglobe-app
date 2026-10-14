@@ -558,7 +558,7 @@
     }
 
     // Non ci stanno tutti: resta il chip scelto (v28, `.tight.cz`).
-    &[data-tight] [role="radiogroup"] > [role="radio"]:not([aria-checked="true"]) {
+    &[data-tight] .filters [role="radiogroup"] > [role="radio"]:not([aria-checked="true"]) {
       display: none;
     }
   }

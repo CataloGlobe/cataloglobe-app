@@ -245,9 +245,10 @@
         }
 
         // I chip prendono lo spazio che resta e scorrono di lato.
+        // Sotto i 140px non si legge nemmeno il chip scelto: vanno a capo.
         .filters > :first-child {
             flex: 1 1 0;
-            min-width: 0;
+            min-width: 140px;
             flex-wrap: nowrap;
             overflow-x: auto;
             scrollbar-width: none;
@@ -263,7 +264,7 @@
         }
 
         // Non ci stanno tutti: resta il chip scelto (v28, `.tight.cz`).
-        &[data-tight] [role="radiogroup"] > [role="radio"]:not([aria-checked="true"]) {
+        &[data-tight] .filters [role="radiogroup"] > [role="radio"]:not([aria-checked="true"]) {
             display: none;
         }
     }
@@ -320,6 +321,12 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        // I puntini tengono l'area da toccare ma non alzano la riga (v28
+        // `.more`, alto quanto il testo).
+        > .rowActions {
+            margin-block: -6px;
         }
     }
 
