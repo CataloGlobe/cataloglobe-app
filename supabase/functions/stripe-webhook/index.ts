@@ -2,6 +2,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
+import { notify, type NotifyInput } from "../_shared/notify.ts";
+import {
+    buildPaymentFailedNotify,
+    buildTrialEndingNotify,
+    type BillingTenant
+} from "../_shared/billingNotifications.ts";
 import {
     getInvoiceSubscriptionId,
     syncSubscriptionStatus
@@ -142,6 +148,36 @@ async function resolveInvoiceBillingInterval(
  * non il completion marker di stripe_processed_events (quello deduplica per
  * event_id/consegna, non per fattura).
  */
+/**
+ * Campanella dell'abbonamento all'owner (`_shared/billingNotifications.ts`).
+ * Sempre DOPO la logica dell'evento e mai bloccante: un errore qui non deve
+ * far rispondere 500 a Stripe (riproverebbe tutto l'evento). Tenant eliminato
+ * o non trovato → niente avviso.
+ */
+async function notifyBilling(
+    admin: ReturnType<typeof createClient>,
+    stripeCustomerId: string | null | undefined,
+    build: (tenant: BillingTenant) => NotifyInput | null
+): Promise<void> {
+    try {
+        if (!stripeCustomerId) return;
+        const { data: tenant, error } = await admin
+            .from("tenants")
+            .select("id, name")
+            .eq("stripe_customer_id", stripeCustomerId)
+            .is("deleted_at", null)
+            .maybeSingle();
+        if (error || !tenant) {
+            if (error) console.error("stripe-webhook: notifyBilling tenant lookup failed:", error.message);
+            return;
+        }
+        const input = build(tenant as BillingTenant);
+        if (input) await notify(admin, input, "stripe-webhook:");
+    } catch (err) {
+        console.error("stripe-webhook: notifyBilling threw:", err instanceof Error ? err.message : String(err));
+    }
+}
+
 async function recordCustomerInvoice(
     admin: ReturnType<typeof createClient>,
     invoice: Stripe.Invoice
@@ -474,6 +510,25 @@ Deno.serve(async req => {
                 if (event.type === "invoice.payment_succeeded") {
                     await recordCustomerInvoice(admin, invoice);
                 }
+
+                // Campanella all'owner, una per fattura (Stripe ritenta la
+                // stessa più volte). Dopo il sync, mai bloccante.
+                if (event.type === "invoice.payment_failed" && invoice.id) {
+                    await notifyBilling(admin, stripeCustomerId, tenant =>
+                        buildPaymentFailedNotify(tenant, invoice.id as string)
+                    );
+                }
+                break;
+            }
+
+            // Solo un avviso: lo stato non cambia (lo porta poi
+            // customer.subscription.updated). Va acceso nell'endpoint webhook
+            // di Stripe; arriva 3 giorni prima della fine della prova.
+            case "customer.subscription.trial_will_end": {
+                const subscription = event.data.object as Stripe.Subscription;
+                await notifyBilling(admin, subscription.customer as string, tenant =>
+                    buildTrialEndingNotify(tenant, subscription.id, subscription.trial_end)
+                );
                 break;
             }
 

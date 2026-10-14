@@ -59,5 +59,13 @@ export function resolveTargetPath(notification: Notification, fallbackTenantId: 
         const tenantId = notification.tenant_id ?? fallbackTenantId;
         return tenantId ? `/business/${tenantId}/settings/team` : null;
     }
+    // Abbonamento: la pagina Abbonamento dell'azienda.
+    if (
+        notification.event_type === "billing.payment_failed" ||
+        notification.event_type === "billing.trial_ending"
+    ) {
+        const tenantId = notification.tenant_id ?? fallbackTenantId;
+        return tenantId ? `/business/${tenantId}/settings/abbonamento` : null;
+    }
     return null;
 }

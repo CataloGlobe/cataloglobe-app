@@ -61,3 +61,11 @@ describe("resolveTargetPath — team", () => {
         }
     });
 });
+
+describe("resolveTargetPath — abbonamento", () => {
+    it("pagamento fallito e fine prova aprono Abbonamento", () => {
+        for (const event_type of ["billing.payment_failed", "billing.trial_ending"]) {
+            expect(resolveTargetPath(notification({ event_type }), null)).toBe("/business/t1/settings/abbonamento");
+        }
+    });
+});
