@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { VoteLineProps } from "./VoteLine";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { smoothPath } from "./voteTrend";
 import styles from "./VoteLineD.module.scss";
 
@@ -65,86 +66,107 @@ export function VoteLineD({
   const toggle = (n: number) => onStars?.(stars === n ? null : n);
   const staying = total - invited;
   const shown = ORDER.filter((n) => distribution[n] > 0);
+  const label = name ? `Il voto · ${name}` : "Il voto";
 
+  // Il Tooltip resta sempre attorno (spento finché non è compatta), così la
+  // pillola non rinasce quando la testata si stringe.
   return (
-    <section
-      className={styles.vote}
-      aria-label={name ? `Il voto · ${name}` : "Il voto"}
-      data-f={stars ?? undefined}
-      data-compact={compact ? "" : undefined}
-      onClick={compact ? onExpand : undefined}
+    <Tooltip
+      content="Torna in cima"
+      side="bottom"
+      open={compact ? undefined : false}
     >
-      {name && <span className={styles.name}>{name}</span>}
-      <p className={styles.avg}>
-        <span>{average !== null ? decimal(average) : "—"}</span>
-        <span className={styles.star} aria-hidden>
-          ★
-        </span>
-      </p>
-      <div className={styles.bars}>
-        {total > 0 ? (
-          <>
-            <div className={styles.stack} aria-hidden>
-              {shown.map((n, i) => (
-                <span
-                  key={n}
-                  data-on={stars === n ? "" : undefined}
-                  data-static={onStars ? undefined : ""}
-                  style={
-                    {
-                      "--w": distribution[n],
-                      "--c": `var(--d-star-${n})`,
-                      "--i": i,
-                    } as CSSProperties
-                  }
-                  onClick={onStars ? () => toggle(n) : undefined}
-                />
-              ))}
-            </div>
-            <div className={styles.legend}>
-              {ORDER.map((n) => {
-                const tint = { "--c": `var(--d-star-${n})` } as CSSProperties;
-                return !onStars ? (
-                  <span key={n} style={tint}>
-                    <i aria-hidden />
-                    {n} ★ <b>{distribution[n]}</b>
-                  </span>
-                ) : (
-                  <button
-                    key={n}
-                    type="button"
-                    style={tint}
-                    data-on={stars === n ? "" : undefined}
-                    aria-pressed={stars === n}
-                    aria-label={`${n} ${n === 1 ? "stella" : "stelle"}: ${distribution[n]}`}
-                    onClick={() => toggle(n)}
-                    disabled={distribution[n] === 0 && stars !== n}
-                  >
-                    <i aria-hidden />
-                    {n} ★ <b>{distribution[n]}</b>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <p className={styles.none}>Nessun voto nel periodo.</p>
-        )}
-      </div>
-      <div className={styles.total}>
-        <b>
-          {total} {total === 1 ? "recensione" : "recensioni"}
-        </b>
-        {total > 0 && (
-          <span>
-            {invited > 0
-              ? `${invited} invitat${invited === 1 ? "a" : "e"} su Google · `
-              : ""}
-            {staying} {staying === 1 ? "resta" : "restano"} a voi
+      <section
+        className={styles.vote}
+        aria-label={compact ? `${label}, torna in cima` : label}
+        data-f={stars ?? undefined}
+        data-compact={compact ? "" : undefined}
+        onClick={compact ? onExpand : undefined}
+        // compatta è un pulsante anche da tastiera: riporta in cima
+        role={compact ? "button" : undefined}
+        tabIndex={compact ? 0 : undefined}
+        onKeyDown={
+          compact
+            ? (e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                onExpand?.();
+              }
+            : undefined
+        }
+      >
+        {name && <span className={styles.name}>{name}</span>}
+        <p className={styles.avg}>
+          <span>{average !== null ? decimal(average) : "—"}</span>
+          <span className={styles.star} aria-hidden>
+            ★
           </span>
-        )}
-      </div>
-      {trend && trend.length >= 2 && <VoteTrend values={trend} />}
-    </section>
+        </p>
+        <div className={styles.bars}>
+          {total > 0 ? (
+            <>
+              <div className={styles.stack} aria-hidden>
+                {shown.map((n, i) => (
+                  <span
+                    key={n}
+                    data-on={stars === n ? "" : undefined}
+                    data-static={onStars ? undefined : ""}
+                    style={
+                      {
+                        "--w": distribution[n],
+                        "--c": `var(--d-star-${n})`,
+                        "--i": i,
+                      } as CSSProperties
+                    }
+                    onClick={onStars ? () => toggle(n) : undefined}
+                  />
+                ))}
+              </div>
+              <div className={styles.legend}>
+                {ORDER.map((n) => {
+                  const tint = { "--c": `var(--d-star-${n})` } as CSSProperties;
+                  return !onStars ? (
+                    <span key={n} style={tint}>
+                      <i aria-hidden />
+                      {n} ★ <b>{distribution[n]}</b>
+                    </span>
+                  ) : (
+                    <button
+                      key={n}
+                      type="button"
+                      style={tint}
+                      data-on={stars === n ? "" : undefined}
+                      aria-pressed={stars === n}
+                      aria-label={`${n} ${n === 1 ? "stella" : "stelle"}: ${distribution[n]}`}
+                      onClick={() => toggle(n)}
+                      disabled={distribution[n] === 0 && stars !== n}
+                    >
+                      <i aria-hidden />
+                      {n} ★ <b>{distribution[n]}</b>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <p className={styles.none}>Nessun voto nel periodo.</p>
+          )}
+        </div>
+        <div className={styles.total}>
+          <b>
+            {total} {total === 1 ? "recensione" : "recensioni"}
+          </b>
+          {total > 0 && (
+            <span>
+              {invited > 0
+                ? `${invited} invitat${invited === 1 ? "a" : "e"} su Google · `
+                : ""}
+              {staying} {staying === 1 ? "resta" : "restano"} a voi
+            </span>
+          )}
+        </div>
+        {trend && trend.length >= 2 && <VoteTrend values={trend} />}
+      </section>
+    </Tooltip>
   );
 }

@@ -556,6 +556,18 @@
     }
   }
 
+  // Tablet e telefono: sotto la testata ferma bastano 10 px, e i comandi
+  // sono alti 40 (Visual Redesign 2).
+  @media (max-width: 1023px) {
+    .lhead[data-compact] {
+      --d-ctl: 40px;
+      --d-ctl-s: 40px;
+      --control-height: 40px;
+
+      padding-top: 10px;
+    }
+  }
+
   // ── Elenco ──
   .head,
   .row {

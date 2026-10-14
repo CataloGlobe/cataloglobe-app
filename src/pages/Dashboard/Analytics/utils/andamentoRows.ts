@@ -20,6 +20,8 @@ export interface AndamentoRow {
     delta: number | null;
     /** Le due righe piccole a destra. */
     extras: string[];
+    /** Tablet e telefono (Visual Redesign 2): solo il numero principale e due parole sotto. */
+    short: { value: string; label: string };
     /** Senza dati nel periodo: la riga scende in fondo, in grigio, col perché. */
     empty: { text: string; action?: { label: string; to: string } } | null;
 }
@@ -124,6 +126,7 @@ export function buildRows(data: AndamentoData, ctx: RowsContext): AndamentoRow[]
             lastStep ? (small ? `${int(lastStep.session_count)} con una scelta` : `${share(lastStep.percentage)} scelgono qualcosa`) : null,
             mobile ? (small ? `${int(mobile.device_count)} dal telefono` : `${Math.round(mobile.percentage)}% dal telefono`) : null
         ].filter((x): x is string => x !== null),
+        short: { value: int(visits), label: visits === 1 ? "visita" : "visite" },
         empty: visits === 0 ? { text: `Nessuna visita alla pagina ${inPeriod}.` } : null
     });
 
@@ -141,6 +144,7 @@ export function buildRows(data: AndamentoData, ctx: RowsContext): AndamentoRow[]
             ],
             delta: countDelta(o?.revenue ?? 0, data.orders?.previous?.revenue ?? null),
             extras: o ? [`${formatPrice(o.avg_order_value)} a ordine`, `${Math.round(o.cancellation_rate)}% annullati`] : [],
+            short: { value: formatPrice(o?.revenue ?? 0), label: plural(count, "ordine", "ordini") },
             empty:
                 count === 0
                     ? {
@@ -167,6 +171,7 @@ export function buildRows(data: AndamentoData, ctx: RowsContext): AndamentoRow[]
             ],
             delta: countDelta(r?.covers ?? 0, data.reservations?.previous?.covers ?? null),
             extras: r ? [plural(r.confirmed_count, "confermata", "confermate"), `${int(r.online_count)} online · ${int(r.manual_count)} a mano`] : [],
+            short: { value: int(r?.covers ?? 0), label: (r?.covers ?? 0) === 1 ? "coperto" : "coperti" },
             empty:
                 count === 0
                     ? {
@@ -195,6 +200,7 @@ export function buildRows(data: AndamentoData, ctx: RowsContext): AndamentoRow[]
             low > 0 ? `${int(low)} ${low === 1 ? "bassa" : "basse"} da leggere` : "nessuna bassa",
             `${int(data.reviews?.google_redirects ?? 0)} passate su Google`
         ],
+        short: { value: reviews > 0 ? formatRating(data.reviews?.avg_rating ?? 0) : "—", label: plural(reviews, "recensione", "recensioni") },
         empty: reviews === 0 ? { text: `Nessuna recensione ${inPeriod}.` } : null
     });
 
@@ -214,6 +220,10 @@ export function buildRows(data: AndamentoData, ctx: RowsContext): AndamentoRow[]
                 : [{ text: int(searches), strong: true }, { text: searches === 1 ? " ricerca, tutte trovano qualcosa" : " ricerche, tutte trovano qualcosa" }],
         delta: null,
         extras: top.map(t => `«${t.search_term}» ${t.search_count === 1 ? "una volta" : `${int(t.search_count)} volte`}`),
+        short:
+            notFound.length > 0
+                ? { value: int(notFound.length), label: notFound.length === 1 ? "ricerca a vuoto" : "ricerche a vuoto" }
+                : { value: int(searches), label: searches === 1 ? "ricerca" : "ricerche" },
         empty: data.searchTerms.length === 0 ? { text: `Nessuna ricerca nel menù ${inPeriod}.` } : null
     });
 
