@@ -11,7 +11,7 @@ Pagine da portare nel codice, versione «proposte + Claude» (segno viola), cos�
 Vale la pagina: se una decisione vecchia dice altro, vale la pagina. Testi e disegni non si inventano: se manca o è ambiguo, si chiede ad Alex.
 
 ## Risposte di Alex (2026-10-13)
-1. **Database**: staging non entra nel ramo, nessun file in `supabase/migrations`. Ciò che scrive le colonne nuove resta dietro `DB.ready = false` (`src/pages/Dashboard/Programming/calendar/calendarFlags.ts`) con la scritta «si salva col database nuovo» (`DB_WAIT`), ma il codice per salvare si prepara già.
+1. **Database**: staging non entra nel ramo, nessun file in `supabase/migrations`. Ciò che scrive le colonne nuove resta dietro `DB.ready = false` (`src/pages/Dashboard/Programming/calendar/calendarFlags.ts`) con la scritta «si salva col database nuovo» (`DB_WAIT`), ma il codice per salvare si prepara già. **Dal 2026-10-14 (deciso da Alex)**: le novità (`NEW_MODEL`) si accendono anche in staging con `VITE_OFFICINA_CALENDARIO=true` su Vercel (la mette Lorenzo), così Lorenzo vede la versione nuova; `DB.ready` resta false, il salvataggio nel database nuovo lo scrive Lorenzo per ultimo partendo da questo ramo. Nelle prove (`MODE=test`) la variabile non conta.
 2. **Menù che stanno da soli**: il consiglio della pagina, cioè la scelta sede per sede, menù per menù; chiede il database nuovo [int.].
 3. **«Vedi il piatto»**: consiglio B, apre la scheda del piatto.
 4. **Cancellare una regola**: nello stesso pannello del Calendario, azione secondaria con conferma, sotto «Spegni» che resta il pulsante principale. Testi di oggi nel codice: «Togli» · «Togliere dal calendario? Non andrà più in onda.» · toast «Tolto dal calendario: X.».
