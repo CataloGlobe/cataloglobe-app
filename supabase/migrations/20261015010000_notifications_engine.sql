@@ -159,18 +159,27 @@ IMMUTABLE
 SET search_path TO ''
 AS $$
 DECLARE
-    v_out text := p_template;
-    v_kv  record;
+    -- Un solo passaggio sul modello: i valori inseriti non vengono riletti,
+    -- quindi un nome con «{x}» dentro resta com'è.
+    v_out  text := '';
+    v_rest text := p_template;
+    v_m    text[];
+    v_pos  integer;
 BEGIN
     IF p_template IS NULL THEN
         RETURN NULL;
     END IF;
 
-    FOR v_kv IN SELECT key, value FROM jsonb_each_text(coalesce(p_data, '{}'::jsonb)) LOOP
-        v_out := replace(v_out, '{' || v_kv.key || '}', coalesce(v_kv.value, ''));
+    LOOP
+        v_m := regexp_match(v_rest, '\{([a-z0-9_]+)\}');
+        EXIT WHEN v_m IS NULL;
+        v_pos  := strpos(v_rest, '{' || v_m[1] || '}');
+        v_out  := v_out || substr(v_rest, 1, v_pos - 1)
+                        || coalesce(coalesce(p_data, '{}'::jsonb) ->> v_m[1], '');
+        v_rest := substr(v_rest, v_pos + length(v_m[1]) + 2);
     END LOOP;
 
-    RETURN regexp_replace(v_out, '\{[a-z0-9_]+\}', '', 'g');
+    RETURN v_out || v_rest;
 END;
 $$;
 
