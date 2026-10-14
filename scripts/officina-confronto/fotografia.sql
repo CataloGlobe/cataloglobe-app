@@ -5,8 +5,8 @@
 --   psql "$DB_URL" -At -f scripts/officina-confronto/fotografia.sql > fotografia.json
 --
 -- (oppure la stessa query dall'SQL editor o dall'MCP, copiando il valore di `fotografia`).
--- Le tabelle della fase (a) (`schedule_slots`) si leggono già: vuote finché la (b)
--- non le riempie.
+-- Le tabelle della fase (a) si leggono già: fasce (riempite dal passo 1 della (b)),
+-- regole `menu`/`style`, `overlap_mode`, `on_air_since` (per il giudice nuovo).
 
 select json_build_object(
     'fonte', current_database(),
@@ -91,5 +91,38 @@ select json_build_object(
         ) order by sst.slot_id, st.target_type, st.target_id)
         from public.schedule_slot_targets sst
         join public.schedule_targets st on st.id = sst.schedule_target_id
+    ), '[]'::json),
+    -- Giudice nuovo (piano 9b, passo 3): colonne e tabelle della fase (a).
+    'schedule_extra', coalesce((
+        select json_agg(json_build_object(
+            'id', s.id,
+            'on_air_since', s.on_air_since,
+            'overlap_mode', s.overlap_mode
+        ) order by s.id)
+        from public.schedules s
+    ), '[]'::json),
+    'target_overlaps', coalesce((
+        select json_agg(json_build_object(
+            'schedule_id', st.schedule_id,
+            'target_type', st.target_type,
+            'target_id', st.target_id,
+            'overlap_mode', st.overlap_mode
+        ) order by st.schedule_id, st.target_id)
+        from public.schedule_targets st
+        where st.overlap_mode is not null
+    ), '[]'::json),
+    'menus', coalesce((
+        select json_agg(json_build_object(
+            'schedule_id', sm.schedule_id,
+            'catalog_id', sm.catalog_id
+        ) order by sm.schedule_id)
+        from public.schedule_menu sm
+    ), '[]'::json),
+    'styles', coalesce((
+        select json_agg(json_build_object(
+            'schedule_id', ss.schedule_id,
+            'style_id', ss.style_id
+        ) order by ss.schedule_id)
+        from public.schedule_style ss
     ), '[]'::json)
 ) as fotografia;
