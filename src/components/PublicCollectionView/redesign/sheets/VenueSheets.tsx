@@ -537,7 +537,10 @@ function MorePage({
                         icon={<Star size={18} strokeWidth={2} />}
                         label={t("more.rate_label")}
                         subtitle={t("page_end.rate_subtitle")}
-                        onClick={pushRateSheet}
+                        onClick={() => {
+                            rate.onOpen?.();
+                            pushRateSheet();
+                        }}
                     />
                 ) : null}
                 {/* Storia su desktop (deciso da Lorenzo il 2026-10-11): sul telefono sta nella barra in basso. */}

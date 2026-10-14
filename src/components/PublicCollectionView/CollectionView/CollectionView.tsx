@@ -1141,8 +1141,22 @@ export default function CollectionView({
     const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
     // Redesign: il voto inviato in questa visita trasforma il blocco del fondo in «Grazie».
     const [reviewSent, setReviewSent] = useState(false);
+    // Redesign: aprire il voto conta nelle Analitiche come aprire le recensioni
+    // della pagina di oggi (stesso `tab_switch` verso «reviews», D94).
+    const trackRateOpen = useCallback(() => {
+        if (mode === "public" && activityId) {
+            trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "reviews" });
+        }
+    }, [mode, activityId, activeTab]);
     // Redesign: il voto vive nel foglio unico (stesso modulo, stessi effetti del voto inviato).
-    const openRate = mode === "public" && reviewsProps ? sheetsSlot?.openRate : undefined;
+    const openRate = useMemo(() => {
+        const open = mode === "public" && reviewsProps ? sheetsSlot?.openRate : undefined;
+        if (!open) return undefined;
+        return (rating?: number, growFrom?: number) => {
+            trackRateOpen();
+            open(rating, growFrom);
+        };
+    }, [mode, reviewsProps, sheetsSlot, trackRateOpen]);
 
     // ── Indice categorie (sheet): trigger = retap sul tab "Menu" già attivo,
     // sostituisce lo scroll-to-top diretto (vedi handleHubTabTap più sotto).
@@ -3763,6 +3777,7 @@ export default function CollectionView({
                     ? {
                           props: reviewsProps,
                           onSubmitted: markReviewed,
+                          onOpen: trackRateOpen,
                           logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
                           venueName: businessName
                       }
