@@ -605,7 +605,7 @@ const storiaDirty = (t: Tunnel) =>
 /* ---------- modificare (D140) ---------- */
 
 /** I passi che cambiano la cosa, in ordine: il passo 0 e «Controlla» stanno attorno. */
-const EDIT_PARTS: readonly StepId[] = ["parti", "sezioni", "nome", "aspetto", "contenuto", "piatti", "tema", "racconto", "blocchi", "onda", "quando", "dove"];
+const EDIT_PARTS: readonly StepId[] = ["parti", "sezioni", "nome", "aspetto", "contenuto", "piatti", "tema", "racconto", "blocchi", "onda", "quando", "dove", "ordine"];
 
 function editSteps(t: Tunnel, c: Ctx): StepId[] {
     const content: StepId[] =
@@ -620,7 +620,9 @@ function editSteps(t: Tunnel, c: Ctx): StepId[] {
     // (allora la si crea mettendolo in onda); la storia non ha regole: ha «In onda?»
     const one = t.kind === "storia" || (t.edit?.rules ?? 0) <= 1;
     const when: StepId[] = c.owner && one ? calSteps(t, c) : [];
-    return ["modifica", ...(t.edit?.cal && when.length ? [] : content), ...when, "controlla"];
+    // dal Calendario (punti 22 e 24) solo il dove e il quando
+    const ord: StepId[] = when.length && !t.edit?.cal && hasOrd(t, c.ordSedi) ? ["ordine"] : [];
+    return ["modifica", ...(t.edit?.cal && when.length ? [] : content), ...when, ...ord, "controlla"];
 }
 
 const sorted = (x: readonly string[]) => [...x].sort();
@@ -659,6 +661,8 @@ function partOf(t: Tunnel, s: StepId): unknown {
             return [t.onda, t.where.all, sorted(t.where.activityIds), sorted(t.where.groupIds)];
         case "quando":
             return t.onda !== "on" ? t.onda : [t.onda, cloneWhen(effWhen(t)), t.per, !!t.insieme];
+        case "ordine":
+            return t.ord;
         default:
             return null;
     }
@@ -689,7 +693,8 @@ export function stepFrom(t: Tunnel, c: Ctx, i: number, dir: 1 | -1): number {
 
 /** Mette in piedi la modifica: `t` è la cosa com'è oggi, letta dal database. */
 export function asEdit(t: Tunnel, id: string, rule: { id: string | null; count: number; live: boolean }): Tunnel {
-    const orig: Tunnel = { ...t, i: 0, seen: 0, edit: null, onda: rule.live ? "on" : "off" };
+    // in modifica «L'ordine» parte da quello salvato di ogni sede: «Ogni sede tiene il suo ordine»
+    const orig: Tunnel = { ...t, i: 0, seen: 0, edit: null, onda: rule.live ? "on" : "off", ...(t.kind === "evid" ? { ordSame: false } : {}) };
     return { ...structuredClone(orig), seen: 99, edit: { id, picked: [], orig, ruleId: rule.id, rules: rule.count } };
 }
 

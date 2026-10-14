@@ -304,9 +304,18 @@ export type ProgrammazioneStub = RestStub;
 
 export async function stubProgrammazione(
     page: Page,
-    options: { matrix?: boolean; manySeats?: boolean; /** il locale con una sede sola: solo Porto */ oneSeat?: boolean; dbWritable?: readonly string[]; /** false: orologio vero, per le foto (Framer non si ferma) */ clock?: boolean } = {}
+    options: {
+        matrix?: boolean;
+        manySeats?: boolean;
+        /** il locale con una sede sola: solo Porto */ oneSeat?: boolean;
+        dbWritable?: readonly string[];
+        /** false: orologio vero, per le foto (Framer non si ferma) */ clock?: boolean;
+        /** l'ordine salvato dell'in evidenza (database nuovo): righe di `featured_content_positions` */
+        positions?: { activity_id: string; featured_content_id: string; position: number }[];
+    } = {}
 ): Promise<ProgrammazioneStub> {
     const tables = makeTables(Boolean(options.matrix), Boolean(options.manySeats), Boolean(options.oneSeat));
+    tables.featured_content_positions = (options.positions ?? []).map(r => ({ ...r, tenant_id: TENANT_ID }));
     const stub = await stubRest(page, {
         tables,
         // Il resolver del simulatore legge il menù come embedding di `schedules`.

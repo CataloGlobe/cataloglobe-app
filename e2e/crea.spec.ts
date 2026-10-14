@@ -303,6 +303,34 @@ test("in modifica «Controlla» dice com'era: «Prima: …» sotto ogni gruppo e
     expect(stub.writes).toEqual([]);
 });
 
+test("in modifica «L'ordine» parte da quello salvato di ogni sede: spostarlo aspetta il database nuovo (punto 15)", async ({ page }) => {
+    // a Porto ci sono anche «Serata jazz» e «Promo autunno»: l'ordine salvato mette «Luci di Natale» secondo
+    stub = await stubProgrammazione(page, {
+        positions: [
+            { activity_id: SEDE.porto, featured_content_id: FEATURED.jazz, position: 0 },
+            { activity_id: SEDE.porto, featured_content_id: FEATURED.natale, position: 1 },
+            { activity_id: SEDE.porto, featured_content_id: FEATURED.autunno, position: 2 }
+        ]
+    });
+    await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
+    await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+    await expect(main(page).getByRole("checkbox", { name: /^L'ordine 2° di 3/ })).toBeVisible();
+    await main(page).getByRole("checkbox", { name: /^L'ordine/ }).click();
+    await next(page);
+    await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true, level: 3 })).toBeVisible();
+    await expect(main(page).getByText("In cima al menù i contenuti in evidenza stanno uno sotto l'altro. Ogni sede tiene il suo ordine.")).toBeVisible();
+    await expect(button(page, /^Mostralo per primo/)).toHaveCount(0);
+    await button(page, /^Porto e2e/).click();
+    const righe = main(page).getByRole("list", { name: "L'ordine" }).getByRole("listitem");
+    await expect(righe).toHaveText([/^Serata jazz e2e/, /^Luci di Natale e2ein modifica/, /^Promo autunno e2e/]);
+    await button(page, "Sposta su: Luci di Natale e2e").click();
+    await expect(righe).toHaveText([/^Luci di Natale e2e/, /^Serata jazz e2e/, /^Promo autunno e2e/]);
+    await next(page);
+    await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+    await expect(main(page).getByText("«L'ordine»: si salva col database nuovo").first()).toBeVisible();
+    expect(stub.writes).toEqual([]);
+});
+
 test.describe("Tunnel di creazione — ingressi", () => {
     test.beforeEach(async ({ page }) => {
         stub = await stubProgrammazione(page);
@@ -966,7 +994,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await next(page);
         // D187: nelle sedi c'è già altro in evidenza, quindi «L'ordine»; il nuovo parte per primo
-        await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true })).toBeVisible();
+        await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true, level: 3 })).toBeVisible();
         await expect(button(page, /^Mostralo per primo in tutte le sedi/)).toHaveAttribute("aria-pressed", "true");
         await next(page);
         await button(page, "Metti in onda").click();
@@ -1003,7 +1031,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await expect(main(page).getByText("Fino al 23 set, il giorno del contenuto: puoi cambiarlo.", { exact: true })).toBeVisible();
         await next(page);
         // «L'ordine»: uguale in tutte le sedi, oppure sede per sede con le righe da spostare
-        await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true })).toBeVisible();
+        await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true, level: 3 })).toBeVisible();
         await main(page).getByRole("radio", { name: "No, cambia" }).click();
         await expect(main(page).getByText("Apri la sede da cambiare.")).toBeVisible();
         await button(page, /^Porto e2e.*Per primo · 4 contenuti.*Cambia$/).click();

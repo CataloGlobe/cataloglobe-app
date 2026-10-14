@@ -36,7 +36,7 @@ import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { EvidContenuto } from "./EvidContenuto";
 import { evidWait, presetQuando } from "./evidData";
-import { ME, evOthers, ordIds, ordWait, syncOrd } from "./evidOrd";
+import { ME, evOthers, ordIds, ordWait, syncOrd, type Others } from "./evidOrd";
 import { EvidOrdine } from "./EvidOrdine";
 import { Chip } from "./CreaUi";
 import ev from "./Evid.module.scss";
@@ -116,9 +116,20 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     // nelle sue ore c'è già un altro, e il tuo può prenderne il posto: si sceglie nel «Quando»
     const clash = NEW_MODEL.multiMenu && NEW_MODEL.newestWins && owner && t.onda === "on" && (kind === "menu" || kind === "stile") && effect.scontri.length > 0;
     // «L'ordine» (D187): gli altri contenuti in evidenza di ogni sede, e le sedi scelte dove ce n'è già uno
-    const others = useMemo(() => (kind === "evid" && NEW_MODEL.evid ? evOthers(entriesFromRules(data.rules, data.names), data.sedi, data.groups, romeToday()) : {}), [kind, data.rules, data.names, data.sedi, data.groups]);
+    // in modifica: `others` senza questo, `evAll` con questo al suo posto (l'ordine salvato)
+    const selfId = t.edit?.id ?? null;
+    const evAll = useMemo(
+        () => (kind === "evid" && NEW_MODEL.evid ? evOthers(entriesFromRules(data.rules, data.names), data.sedi, data.groups, romeToday(), null, data.positions) : {}),
+        [kind, data.rules, data.names, data.sedi, data.groups, data.positions]
+    );
+    const others = useMemo<Others>(() => (selfId ? Object.fromEntries(Object.entries(evAll).map(([id, l]) => [id, l.filter(x => x.id !== selfId)]).filter(([, l]) => l.length)) : evAll), [evAll, selfId]);
     const whereSedi = useMemo(() => (L.multi ? sediOf(t.where, data.sedi, data.groups) : data.sedi.map(x => x.id)), [L.multi, t.where, data.sedi, data.groups]);
     const ordKey = ordIds(whereSedi, others).join(",");
+    // in modifica l'ordine salvato c'è da subito: il riassunto di «Cosa vuoi modificare?» lo dice
+    const ordReady = !!t.edit && Object.keys(t.ord).length > 0;
+    useEffect(() => {
+        if (t.edit && !ordReady && ordKey) u(x => syncOrd(x, whereSedi, others, evAll));
+    }, [ordKey, ordReady]); // eslint-disable-line react-hooks/exhaustive-deps
     // in modifica: gli incroci di partenza; per uno nuovo (sede aggiunta, ore cambiate) si chiede la scelta (D196)
     const altriNow = useMemo(() => hAltri(effect.scontri), [effect.scontri]);
     const [hBase, setHBase] = useState<string[] | null>(null);
@@ -363,7 +374,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         u(x => {
             x.i = Math.max(0, Math.min(n, st.length - 1));
             if (st[x.i] === "quando") presetQuando(x, romeToday());
-            if (st[x.i] === "ordine") syncOrd(x, whereSedi, others);
+            if (st[x.i] === "ordine") syncOrd(x, whereSedi, others, evAll);
             // manca la scelta «insieme o al posto»: si torna alla seconda parte del «Quando»
             if (st[x.i] === "quando" && fb?.why.startsWith("Scegli: ")) x.qPart = 2;
         });
@@ -385,7 +396,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             x.i = stepFrom(x, c, i, 1);
             x.seen = Math.max(x.seen, x.i);
             if (st[x.i] === "quando") presetQuando(x, romeToday());
-            if (st[x.i] === "ordine") syncOrd(x, whereSedi, others);
+            if (st[x.i] === "ordine") syncOrd(x, whereSedi, others, evAll);
         });
         toTop();
     };

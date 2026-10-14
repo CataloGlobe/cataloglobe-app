@@ -41,7 +41,7 @@ export function OrdineRighe({ t, u, id, others }: { t: Tunnel; u: U; id: string;
                     >
                         <GripVertical size={15} aria-hidden />
                         <b>{name(x)}</b>
-                        {x === ME && <span className={e.mine}>il tuo</span>}
+                        {x === ME && <span className={e.mine}>{t.edit ? "in modifica" : "il tuo"}</span>}
                         <span className={e.sp} />
                         <button type="button" className={e.xbtn} aria-label={`Sposta su: ${name(x)}`} disabled={i === 0} onClick={() => move(i, i - 1)}>
                             <ArrowUp size={15} aria-hidden />
@@ -62,10 +62,14 @@ export function EvidOrdine({ t, u, L, others, alone }: { t: Tunnel; u: U; L: Dra
     const sname = (id: string) => L.sedi.get(id) ?? "sede";
     return (
         <>
-            <Sh title="L'ordine">In cima al menù i contenuti in evidenza stanno uno sotto l'altro. Il nuovo parte per primo: è la risposta già data.</Sh>
-            <div className={s.opts}>
-                <Opt on={t.ordSame} icon={<ArrowUpToLine size={18} />} title={`Mostralo per primo in ${many ? "tutte le sedi" : "cima"}`} text="Sopra gli altri contenuti in evidenza: è il più nuovo." onClick={() => u(ordFirst)} />
-            </div>
+            <Sh title="L'ordine">
+                In cima al menù i contenuti in evidenza stanno uno sotto l'altro.{t.edit ? " Ogni sede tiene il suo ordine." : " Il nuovo parte per primo: è la risposta già data."}
+            </Sh>
+            {!t.edit && (
+                <div className={s.opts}>
+                    <Opt on={t.ordSame} icon={<ArrowUpToLine size={18} />} title={`Mostralo per primo in ${many ? "tutte le sedi" : "cima"}`} text="Sopra gli altri contenuti in evidenza: è il più nuovo." onClick={() => u(ordFirst)} />
+                </div>
+            )}
             {many && (
                 <div className={cs.ifl}>
                     <h4>L'ordine è uguale in tutte le sedi?</h4>
@@ -74,7 +78,7 @@ export function EvidOrdine({ t, u, L, others, alone }: { t: Tunnel; u: U; L: Dra
                         value={t.ordSame ? "si" : "no"}
                         onChange={v => u(x => (v === "si" ? ordFirst(x) : void (x.ordSame = false)))}
                         options={[
-                            { value: "si", label: "Sì" },
+                            { value: "si", label: t.edit ? "Sì, per primo in tutte" : "Sì" },
                             { value: "no", label: "No, cambia" }
                         ]}
                     />

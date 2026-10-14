@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DB, NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
-import { newTunnel, skipped, stepSummary, steps, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import { asEdit, changed, newTunnel, skipped, stepSummary, steps, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import { ME, hasOrd, ordFirst, ordIds, ordMove, ordRows, ordSummary, ordWait, posTxt, syncOrd, type Others } from "@/pages/Dashboard/Crea/evidOrd";
 
 const ALL = { all: true, activityIds: [], groupIds: [] };
@@ -104,5 +104,25 @@ describe("in evidenza: «L'ordine» sede per sede (D187)", () => {
         expect(ordSummary(t, sede)).toBe("Per primo");
         ordMove(t, "a", 0, 2);
         expect(ordSummary(t, sede)).toBe("Per ultimo");
+    });
+    it("in modifica (punto 15): ogni sede parte dal suo ordine salvato, e solo uno spostamento è un cambio", () => {
+        const t = asEdit(evid(), "k", { id: "r", count: 1, live: true });
+        expect(t.ordSame).toBe(false);
+        expect(steps(t, { owner: true, multi: true, ordSedi: ["a"] })).toEqual(["modifica", "contenuto", "dove", "quando", "ordine", "controlla"]);
+        // a Centro era secondo, a Porto non c'era: lì parte per primo
+        const full: Others = { a: [{ id: "x", name: "Aperitivo" }, { id: "k", name: "Karaoke" }, { id: "y", name: "Brunch" }], b: [{ id: "x", name: "Aperitivo" }] };
+        syncOrd(t, ["a", "b"], OTHERS, full);
+        expect(t.ord).toEqual({ a: ["x", ME, "y"], b: [ME, "x"] });
+        expect(ordSummary(t, sede)).toBe("Centro: 2° di 3 · Porto: per primo");
+        expect(changed(t, "ordine")).toBe(false);
+        expect(ordWait(t)).toBe("");
+        ordMove(t, "a", 1, 0);
+        expect(changed(t, "ordine")).toBe(true);
+        expect(ordWait(t)).toBe("«L'ordine»: si salva col database nuovo");
+        // «Sì, per primo in tutte»: a Porto era già primo, a Centro no
+        ordFirst(t);
+        syncOrd(t, ["a", "b"], OTHERS, full);
+        expect(t.ord).toEqual({ a: [ME, "x", "y"], b: [ME, "x"] });
+        expect(changed(t, "ordine")).toBe(true);
     });
 });

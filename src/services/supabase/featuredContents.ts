@@ -676,6 +676,18 @@ export async function listFeaturedPickerCatalog(tenantId: string): Promise<Featu
 }
 
 /**
+ * L'ordine salvato dei contenuti in evidenza: sede → contenuto → posizione
+ * (0 = il primo in alto). Tabella della fase a del database nuovo.
+ */
+export async function listFeaturedContentPositions(tenantId: string): Promise<Record<string, Record<string, number>>> {
+    const { data, error } = await supabase.from("featured_content_positions").select("activity_id, featured_content_id, position").eq("tenant_id", tenantId);
+    if (error) throw error;
+    const out: Record<string, Record<string, number>> = {};
+    for (const r of data ?? []) (out[r.activity_id] ??= {})[r.featured_content_id] = r.position;
+    return out;
+}
+
+/**
  * L'ordine dei contenuti in evidenza di una sede (fase a del database nuovo):
  * una riga per sede e contenuto, 0 = il primo in alto. Scrive chi ha
  * `featured.write` su quella sede.

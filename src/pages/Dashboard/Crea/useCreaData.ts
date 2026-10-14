@@ -4,6 +4,8 @@ import { listCatalogProductPairs } from "@/services/supabase/catalogs";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { listBaseProductsForPickerWithCategory } from "@/services/supabase/products";
 import { listStyles, type V2Style } from "@/services/supabase/styles";
+import { listFeaturedContentPositions } from "@/services/supabase/featuredContents";
+import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { CalNames } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 
@@ -24,6 +26,8 @@ export type CreaData = {
     systemStyleId: string | null;
     /** In quali menù sta ogni prodotto (gli id dei menù): la storia di un prodotto si vede lì. */
     menusOf: Map<string, string[]>;
+    /** L'ordine salvato dei contenuti in evidenza, sede per sede (col database nuovo; altrimenti vuoto). */
+    positions: Record<string, Record<string, number>>;
     L: DraftLookups;
 };
 
@@ -43,6 +47,7 @@ export function useCreaData(tenantId: string | null | undefined) {
         pick: Awaited<ReturnType<typeof listBaseProductsForPickerWithCategory>>;
         styles: V2Style[];
         pairs: Awaited<ReturnType<typeof listCatalogProductPairs>>;
+        positions: Record<string, Record<string, number>>;
     } | null>(null);
     const [failed, setFailed] = useState(false);
 
@@ -50,12 +55,14 @@ export function useCreaData(tenantId: string | null | undefined) {
         if (!tenantId) return;
         setFailed(false);
         try {
-            const [rules, opts, pick, styles, pairs] = await Promise.all([
+            const [rules, opts, pick, styles, pairs, positions] = await Promise.all([
                 listLayoutRules(tenantId),
                 listLayoutRuleOptions(tenantId),
                 listBaseProductsForPickerWithCategory(tenantId),
                 listStyles(tenantId),
-                listCatalogProductPairs(tenantId)
+                listCatalogProductPairs(tenantId),
+                // dove la tabella non c'è ancora (produzione) l'ordine resta quello delle regole
+                NEW_MODEL.evid ? listFeaturedContentPositions(tenantId).catch(() => ({})) : {}
             ]);
             const groups = opts.activityGroups.filter(g => !g.is_system);
             const idsByGroup = groups.length ? await listActivityIdsByGroup(groups.map(g => g.id)) : {};
@@ -69,6 +76,7 @@ export function useCreaData(tenantId: string | null | undefined) {
                 idsByGroup,
                 pick,
                 pairs,
+                positions,
                 styles: styles.filter(st => st.is_active !== false)
             });
         } catch (error) {
@@ -120,6 +128,7 @@ export function useCreaData(tenantId: string | null | undefined) {
         }
         return {
             menusOf,
+            positions: raw.positions,
             rules: raw.rules,
             names,
             sedi,
