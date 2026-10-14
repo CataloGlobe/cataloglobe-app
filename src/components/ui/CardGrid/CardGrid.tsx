@@ -157,6 +157,8 @@ export interface CardGridItemProps {
     /** Link interno (react-router). */
     to?: string;
     className?: string;
+    /** Il tono della tessera per gli stili di chi la usa (es. lo stato di un tavolo). */
+    "data-tone"?: string;
     "aria-label"?: string;
 }
 
@@ -177,6 +179,7 @@ export function CardGridItem({
     onClick,
     to,
     className,
+    "data-tone": tone,
     "aria-label": ariaLabel
 }: CardGridItemProps) {
     const interactive = Boolean(onClick) || Boolean(to);
@@ -228,7 +231,7 @@ export function CardGridItem({
 
     if (to) {
         return (
-            <div className={classes} role="listitem" style={height ? { height } : undefined}>
+            <div className={classes} role="listitem" data-tone={tone} style={height ? { height } : undefined}>
                 <Link to={to} className={styles.surface} aria-current={selected || undefined} aria-label={ariaLabel}>
                     {body}
                 </Link>
@@ -247,7 +250,7 @@ export function CardGridItem({
             }
         };
         return (
-            <div className={classes} role="listitem" style={height ? { height } : undefined}>
+            <div className={classes} role="listitem" data-tone={tone} style={height ? { height } : undefined}>
                 <div
                     role="button"
                     tabIndex={0}
@@ -266,7 +269,7 @@ export function CardGridItem({
     }
 
     return (
-        <div className={classes} role="listitem" aria-label={ariaLabel}>
+        <div className={classes} role="listitem" data-tone={tone} aria-label={ariaLabel}>
             <div className={styles.surface}>{body}</div>
             {footerNode}
             {actionsNode}

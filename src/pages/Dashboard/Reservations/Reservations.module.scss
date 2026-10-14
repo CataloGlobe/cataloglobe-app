@@ -1,4 +1,5 @@
 @use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 // Prenotazioni — solo layout. Tipografia da `Text`, colori e misure dai token
 // (passo 2, P14): i contenitori sono Card, ListRow, DataTable, InlineBanner.
@@ -784,5 +785,31 @@
 
     > * {
         flex-shrink: 0;
+    }
+}
+
+// ── Direzione D: richieste da gestire (artifact v28, `.rq`) ──
+@include look-d {
+    // Righe senza separatori: le divide l'aria.
+    .reqRow {
+        border-top: 0;
+    }
+
+    .reqTime {
+        min-width: 44px;
+        color: var(--d-text);
+        @include d-type(time);
+        font-variant-numeric: tabular-nums;
+    }
+
+    // Il nome forte, le persone accanto più quiete.
+    .reqTitle {
+        color: var(--d-muted);
+        font-weight: 500;
+
+        > span {
+            color: var(--d-text);
+            font-weight: 700;
+        }
     }
 }

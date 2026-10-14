@@ -1,4 +1,5 @@
 @use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 // Board delle comande. Sopra 1024 tre corsie affiancate, a piena altezza,
 // con lo scroll nella corsia; sotto 1024 una lista sola, scelta dal
@@ -170,4 +171,133 @@
 
 @container board (max-width: 719px) {
     @include narrow-board;
+}
+
+@mixin narrow-board-d {
+    .stateTabs [role="tablist"] {
+        display: inline-flex;
+        gap: 0;
+        max-width: 100%;
+        padding: 3px;
+        overflow-x: auto;
+        border: 0;
+        border-radius: var(--d-r-pill);
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow);
+        scrollbar-width: none;
+
+        // Niente riga sotto: la scheda scelta è la pillola piena.
+        > :not([role="tab"]) {
+            display: none;
+        }
+    }
+
+    .stateTabs [role="tab"] {
+        gap: 0;
+        height: auto;
+        margin: 0;
+        padding: 4px 10px;
+        border-radius: var(--d-r-pill);
+        color: var(--d-muted);
+        white-space: nowrap;
+        @include d-type(small);
+        font-weight: 600;
+
+        &[aria-selected="true"] {
+            background: var(--d-brand-deep);
+            color: var(--on-brand);
+        }
+
+        // Il numero senza pillola, dopo il pallino dello stato (`&&` per
+        // vincere sullo stile del Badge).
+        > [role="presentation"][role="presentation"] {
+            min-width: 0;
+            height: auto;
+            padding: 0;
+            border: 0;
+            background: none;
+            color: inherit;
+            box-shadow: none;
+            font: inherit;
+
+            &::before {
+                content: "";
+                display: inline-block;
+                width: 7px;
+                height: 7px;
+                margin: 0 3px 1px 5px;
+                border-radius: 50%;
+                background: var(--d-s-new);
+            }
+        }
+
+        &:nth-child(2) > [role="presentation"]::before {
+            background: var(--d-s-work);
+        }
+
+        &:nth-child(3) > [role="presentation"]::before {
+            background: var(--d-s-ready);
+        }
+
+        &[aria-selected="true"] > [role="presentation"]::before {
+            box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
+        }
+    }
+
+    .column {
+        background: var(--lane-soft);
+        border-radius: 20px;
+    }
+
+    .columnList {
+        padding: 10px;
+    }
+}
+
+// ── Direzione D (artifact v28, `.lanes`/`.lane` L535-538) ──
+@include look-d {
+    .kanban {
+        gap: 10px;
+    }
+
+    .column {
+        border: 0;
+        border-radius: 20px;
+    }
+
+    .columnHeader {
+        padding: 14px 16px 6px;
+        @include d-type(control);
+    }
+
+    .columnHeader .laneTitle {
+        font: inherit;
+    }
+
+    .columnHeader .laneCount {
+        min-width: 22px;
+        padding: 1px 6px;
+        border: 0;
+        border-radius: var(--d-r-tag);
+        background: rgba(255, 255, 255, 0.8);
+        font-family: var(--d-f-num);
+        @include d-type(small);
+        font-weight: 700;
+    }
+
+    .columnList {
+        gap: 10px;
+        padding: 4px 10px 10px;
+    }
+
+    // Una corsia sola (v28 `.lanetabs`, sotto i 600 di board): il selettore è
+    // una pillola segmentata con il pallino dello stato accanto al numero, e
+    // le card restano sul fondo tinto della corsia.
+    @include below-sidebar {
+        @include narrow-board-d;
+    }
+
+    @container board (max-width: 719px) {
+        @include narrow-board-d;
+    }
 }

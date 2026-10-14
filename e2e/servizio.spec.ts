@@ -216,13 +216,19 @@ test.describe("Servizio", () => {
         await openMappa(page);
         const zona = main(page).getByRole("list", { name: "Senza zona" });
         await expect(zona.getByRole("listitem")).toHaveCount(2, { timeout: 15_000 });
-        // Un disegno per tessera.
-        // Solo il disegno (aria-hidden): anche il menu ⋯ di ogni tessera ha un data-state.
-        await expect(zona.locator('[aria-hidden="true"][data-state]')).toHaveCount(2);
-        // Il tavolo aperto è verde, o grigio se la sessione è di un servizio precedente.
-        // T TEST può stare in una zona qualsiasi dei dati di staging.
         const aperto = main(page).getByRole("listitem").filter({ hasText: TAVOLO });
-        await expect(aperto.locator('[aria-hidden="true"][data-state]')).toHaveAttribute("data-state", /^(open|previous)$/);
+        if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+            // Nella D le tessere della v28 non disegnano il tavolo: lo stato è il colore della tessera.
+            await expect(zona.locator('[aria-hidden="true"][data-state]')).toHaveCount(0);
+            await expect(aperto).toHaveAttribute("data-tone", /^(open|previous|wait)$/);
+        } else {
+            // Un disegno per tessera.
+            // Solo il disegno (aria-hidden): anche il menu ⋯ di ogni tessera ha un data-state.
+            await expect(zona.locator('[aria-hidden="true"][data-state]')).toHaveCount(2);
+            // Il tavolo aperto è verde, o grigio se la sessione è di un servizio precedente.
+            // T TEST può stare in una zona qualsiasi dei dati di staging.
+            await expect(aperto.locator('[aria-hidden="true"][data-state]')).toHaveAttribute("data-state", /^(open|previous)$/);
+        }
         // Oltre 12 ore è «Aperta da un servizio precedente», mai «da 390 h».
         await expect(main(page).getByText(/da \d{3,} h/)).toHaveCount(0);
     });
@@ -237,7 +243,12 @@ test.describe("Servizio", () => {
         await page.setViewportSize({ width: 768, height: 900 });
         await expect.poll(async () => new Set(await tops()).size).toBe(1);
         await page.setViewportSize({ width: 375, height: 900 });
-        await expect.poll(async () => new Set(await lefts()).size).toBe(1);
+        // Nella D tessere da 146 px come nella v28: al telefono due per riga.
+        if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+            await expect.poll(async () => new Set(await tops()).size).toBe(1);
+        } else {
+            await expect.poll(async () => new Set(await lefts()).size).toBe(1);
+        }
     });
 
     test("la Sala di Servizio: i tavoli, le zone, il nuovo tavolo; la capienza non c'è più", async ({ page }) => {
