@@ -92,7 +92,8 @@
   overflow: hidden;
   min-width: 0;
   padding: calc(var(--d-pad) * 0.7) calc(var(--d-pad) * 0.8);
-  border: 1px solid var(--d-line);
+  // Le voci tinte non hanno bordo (v28, `.mock[data-dir="c"] .vrow`).
+  border: 1px solid transparent;
   border-radius: var(--d-r-card);
   background: var(--d-surface);
   color: var(--d-text);
@@ -157,13 +158,19 @@
   align-items: center;
   gap: 8px;
   min-height: 26px;
-  color: var(--d-muted);
+  color: var(--d-text);
   font-weight: 600;
 
+  // L'icona su un quadratino bianco velato (v28, `.mock[data-fin] .vt svg`).
   svg {
     flex: none;
-    width: 16px;
-    height: 16px;
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    padding: 5px;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--d-surface) 70%, transparent);
+    color: var(--d-brand-deep);
     stroke-width: 1.8;
   }
 }
