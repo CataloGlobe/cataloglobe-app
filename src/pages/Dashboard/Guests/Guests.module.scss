@@ -505,7 +505,12 @@
 
   .filters {
     gap: 6px;
+    min-width: 0;
     view-transition-name: g-chips;
+
+    > * {
+      flex: 1 1 auto;
+    }
   }
 
   // «Passati da» è una pillola bianca senza bordo, come le tendine della v28.
@@ -540,26 +545,14 @@
       display: none;
     }
 
+    // I filtri prendono lo spazio che resta; se non ci stanno vanno sotto il pulsante.
     .filters {
       flex: 1 1 0;
-      flex-wrap: nowrap;
       min-width: 0;
-      overflow-x: auto;
-      scrollbar-width: none;
-
-      > * {
-        flex: none;
-        white-space: nowrap;
-      }
     }
 
     .bar > :first-child {
       order: 9;
-    }
-
-    // Non ci stanno tutti: resta il chip scelto (v28, `.tight.cz`).
-    &[data-tight] .filters [role="radiogroup"] > [role="radio"]:not([aria-checked="true"]) {
-      display: none;
     }
   }
 

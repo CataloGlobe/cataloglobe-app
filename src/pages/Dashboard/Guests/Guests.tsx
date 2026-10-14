@@ -20,7 +20,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { flushSync } from "react-dom";
 import { BookUser, Search, UserRoundX } from "lucide-react";
 import { LOOK_D } from "@styles/lookD";
-import { useTightRow } from "@/hooks/useTightRow";
+import { FilterFit, FilterFitSection } from "@/components/ui/FilterFit/FilterFit";
 import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -315,9 +315,6 @@ export default function Guests() {
     // Come in Recensioni: uscito dalla vista il segnaposto in cima, la parte
     // alta si stringe in una riga attaccata in alto; torna intera in cima.
     const [compact, setCompact] = useState(false);
-    const [filtersEl, setFiltersEl] = useState<HTMLDivElement | null>(null);
-    // Nella riga compatta i chip scorrono: se non ci stanno, resta solo lo scelto.
-    const tight = useTightRow(LOOK_D ? filtersEl : null, compact);
     const [top, setTop] = useState<HTMLDivElement | null>(null);
     const compactRef = useRef(false);
     useEffect(() => {
@@ -370,7 +367,7 @@ export default function Guests() {
         <>
             <div className={styles.page}>
                 {LOOK_D && <div ref={setTop} className={styles.top} aria-hidden />}
-                <div className={styles.lhead} data-compact={compact ? "" : undefined} data-tight={tight ? "" : undefined}>
+                <div className={styles.lhead} data-compact={compact ? "" : undefined}>
                 {/* ── Cerca a sinistra, «Chi non torna» a destra (D154) ── */}
                 {showTools && (
                     <div className={styles.bar}>
@@ -434,11 +431,62 @@ export default function Guests() {
                     </div>
                 )}
 
-                {showTools && (
-                    <div ref={setFiltersEl} className={styles.filters}>
+                {showTools && LOOK_D && (
+                    // Filtri della D: sotto un pulsante quando non ci stanno;
+                    // lì «Passati da» diventa un gruppo di pill.
+                    <div className={styles.filters}>
+                        <FilterFit
+                            active={(filter !== "all" ? 1 : 0) + (sedeFilter !== "" ? 1 : 0)}
+                            onClear={() => {
+                                setFilter("all");
+                                setSedeFilter("");
+                            }}
+                            aside={
+                                noteActivities.length > 1 && (
+                                    <Select
+                                        aria-label="Passati da"
+                                        containerClassName={styles.sede}
+                                        selectClassName={styles.sedeSelect}
+                                        value={sedeFilter}
+                                        onChange={e => setSedeFilter(e.target.value)}
+                                        options={sedeOptions}
+                                    />
+                                )
+                            }
+                            panelExtra={
+                                noteActivities.length > 1 && (
+                                    <FilterFitSection title="Passati da">
+                                        {[{ id: "", name: "Tutte le sedi" }, ...noteActivities].map(a => (
+                                            <Chip
+                                                key={a.id}
+                                                label={a.name}
+                                                selected={sedeFilter === a.id}
+                                                onClick={() => setSedeFilter(a.id)}
+                                            />
+                                        ))}
+                                    </FilterFitSection>
+                                )
+                            }
+                        >
+                            <ChipGroupSingle
+                                ariaLabel="Quali clienti"
+                                layout="auto"
+                                value={filter}
+                                onChange={setFilter}
+                                options={FILTER_LABELS.map(f => ({
+                                    value: f.value,
+                                    label: f.label,
+                                    count: counts[f.value],
+                                    tone: f.warning ? ("warning" as const) : undefined
+                                }))}
+                            />
+                        </FilterFit>
+                    </div>
+                )}
+                {showTools && !LOOK_D && (
+                    <div className={styles.filters}>
                         <ChipGroupSingle
                             ariaLabel="Quali clienti"
-                            layout={LOOK_D ? "auto" : undefined}
                             value={filter}
                             onChange={setFilter}
                             options={FILTER_LABELS.map(f => ({

@@ -10,7 +10,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { LOOK_D } from "@styles/lookD";
-import { useTightRow } from "@/hooks/useTightRow";
+import { FilterFit } from "@/components/ui/FilterFit/FilterFit";
 import { useTenantId } from "@/context/useTenantId";
 import { listReviews } from "@/services/supabase/reviews";
 import { useSedeScope } from "@/hooks/useSedeScope";
@@ -48,7 +48,7 @@ type SortOption = "newest" | "oldest" | "ratingAsc" | "ratingDesc";
 type ListFilter = "all" | "low" | "text";
 
 // Parole, non frecce: «Voto ↑» non diceva se in cima va il più alto (mockup).
-const SORT_OPTIONS = [
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "newest", label: "Dalle più recenti" },
   { value: "oldest", label: "Dalle meno recenti" },
   { value: "ratingDesc", label: "Dal voto più alto" },
@@ -159,12 +159,6 @@ export default function Reviews() {
   // attaccata in alto; torna intera solo di nuovo in cima. Il passaggio usa
   // le view transition, se ci sono e se il movimento non è ridotto.
   const [compact, setCompact] = useState(false);
-  const [filtersEl, setFiltersEl] = useState<HTMLDivElement | null>(null);
-  // Nella riga compatta i chip scorrono: se non ci stanno, resta solo lo scelto.
-  const tight = useTightRow(
-    LOOK_D ? ((filtersEl?.firstElementChild as HTMLElement | null) ?? null) : null,
-    compact,
-  );
   const [top, setTop] = useState<HTMLDivElement | null>(null);
   const compactRef = useRef(false);
   useEffect(() => {
@@ -396,7 +390,6 @@ export default function Reviews() {
           <div
             className={styles.head}
             data-compact={compact ? "" : undefined}
-            data-tight={tight ? "" : undefined}
           >
           {/* ── Periodo a sinistra, Cerca a destra (D154) ─── */}
           <div className={styles.bar}>
@@ -549,11 +542,46 @@ export default function Reviews() {
             )}
 
           {/* ── Filtri e ordine ─────────────────────── */}
-          {!loading && !loadError && counts.all > 0 && (
-            <div ref={setFiltersEl} className={styles.filters}>
+          {!loading && !loadError && counts.all > 0 && LOOK_D && (
+            // Filtri e ordine della D: sotto un pulsante quando non ci stanno.
+            <div className={styles.filters}>
+              <FilterFit
+                active={(listFilter !== "all" ? 1 : 0) + (filterStars !== null ? 1 : 0)}
+                onClear={() => {
+                  setListFilter("all");
+                  setFilterStars(null);
+                }}
+                short={compact}
+                sort={{
+                  label: "Ordina",
+                  value: sortBy,
+                  options: SORT_OPTIONS,
+                  onChange: setSortBy,
+                }}
+              >
+                <ChipGroupSingle
+                    ariaLabel="Quali recensioni"
+                    layout="auto"
+                    value={listFilter}
+                    onChange={setListFilter}
+                    options={listOptions}
+                  />
+                  {filterStars !== null && (
+                    <Chip
+                      label={`${filterStars} ★`}
+                      selected
+                      onRemove={() => setFilterStars(null)}
+                      removeLabel="Togli il filtro delle stelle"
+                    />
+                  )}
+              </FilterFit>
+            </div>
+          )}
+          {!loading && !loadError && counts.all > 0 && !LOOK_D && (
+            <div className={styles.filters}>
               <ChipGroupSingle
                 ariaLabel="Quali recensioni"
-                layout={LOOK_D ? "auto" : undefined}
+                
                 value={listFilter}
                 onChange={setListFilter}
                 options={listOptions}

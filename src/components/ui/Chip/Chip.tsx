@@ -74,7 +74,7 @@ export const Chip = memo(function Chip({
                 {label}
             </Text>
             {count !== undefined && (
-                <Text as="span" variant="caption" weight={700} className={styles.label}>
+                <Text as="span" variant="caption" weight={LOOK_D ? 500 : 700} className={`${styles.label} ${styles.count}`}>
                     {count}
                 </Text>
             )}
