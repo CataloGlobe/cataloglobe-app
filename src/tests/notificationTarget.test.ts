@@ -46,3 +46,18 @@ describe("resolveTargetPath — attività in eliminazione", () => {
         );
     });
 });
+
+describe("resolveTargetPath — team", () => {
+    it("invito ricevuto apre il Workspace", () => {
+        expect(resolveTargetPath(notification({ event_type: "team.invite_received", tenant_id: null }), null)).toBe(
+            "/workspace"
+        );
+    });
+
+    it("accettato e scaduto aprono il Team dell'azienda", () => {
+        for (const event_type of ["team.invite_accepted", "team.invite_expired"]) {
+            expect(resolveTargetPath(notification({ event_type }), null)).toBe("/business/t1/settings/team");
+            expect(resolveTargetPath(notification({ event_type, tenant_id: null }), null)).toBeNull();
+        }
+    });
+});
