@@ -106,7 +106,7 @@ function OrderContent({ ordering, findProduct, canEdit, sendState, sessionOrders
                                 key={`${index}-${line.id}`}
                                 line={line}
                                 index={index}
-                                unavailable={isLineUnavailable(findProduct, line)}
+                                unavailable={isLineUnavailable(findProduct, line, sendState.refused)}
                                 canEdit={canEdit}
                                 onQty={qty => ordering.setQty(index, qty)}
                                 onRemove={() => remove(index)}
@@ -429,7 +429,7 @@ export function OrderFooter({
 }) {
     const { t } = useTranslation("public");
     if (!ordering || ordering.selection.length === 0) return null;
-    const firstUnavailable = ordering.selection.findIndex(line => isLineUnavailable(findProduct, line));
+    const firstUnavailable = ordering.selection.findIndex(line => isLineUnavailable(findProduct, line, sendState.refused));
     const label = sendState.sending
         ? t("ordering.submitting")
         : firstUnavailable >= 0

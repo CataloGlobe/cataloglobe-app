@@ -365,6 +365,45 @@ test.describe("Elenco (lotto B-b)", () => {
         await expect(oggi).toContainText(/prenotazion/);
     });
 
+    test("l'Elenco mostra «Cameriere chiamato» e «Conto richiesto» come la Mappa", async ({ page }) => {
+        // La tavolata in sala sul tavolo 9 (finto), e il tavolo 9 con le due richieste aperte.
+        await page.route("**/rest/v1/v_seatings_with_state?**", route =>
+            route.fulfill({
+                json: [
+                    {
+                        id: "e2e-seating-9",
+                        status: "open",
+                        party_size: 4,
+                        opened_at: new Date(Date.now() - 30 * 60_000).toISOString(),
+                        closed_at: null,
+                        closed_reason: null,
+                        opened_by_user_id: null,
+                        tables: [{ table_id: "e2e-t9", label: "9", zone_name: null, deleted_at: null }],
+                        reservations: [
+                            { reservation_id: "e2e-r9", customer_name: "Marta Neri", reservation_time: "13:00:00", party_size: 4, status: "seated" }
+                        ],
+                        pending_orders_count: 0,
+                        pending_orders_deliverable: false
+                    }
+                ]
+            })
+        );
+        await page.route("**/rest/v1/v_tables_with_state?**", route =>
+            route.fulfill({
+                json: [
+                    { id: "e2e-t9", label: "9", current_total: 0, active_orders: [], bill_requested_count: 1, waiter_called_count: 1 },
+                    { id: "e2e-t2", label: "2", current_total: 0, active_orders: [], bill_requested_count: 0, waiter_called_count: 0 }
+                ]
+            })
+        );
+        const base = await sedePath(page);
+        await page.goto(`${base}/servizio?modo=elenco`);
+        const riga = main(page).getByRole("button").filter({ hasText: "Marta Neri" });
+        await expect(riga).toBeVisible({ timeout: 15_000 });
+        await expect(riga.getByText("Cameriere chiamato")).toBeVisible();
+        await expect(riga.getByText("Conto richiesto")).toBeVisible();
+    });
+
     test("SV1: la riga «Oggi» è la stessa nella Mappa, senza «Senza prenotazione»", async ({ page }) => {
         const base = await sedePath(page);
         await page.goto(`${base}/servizio?modo=mappa`);

@@ -4,9 +4,8 @@ import { useTranslation } from "react-i18next";
 import { useCustomerSession } from "@/context/CustomerSession/useCustomerSession";
 import { callWaiter, requestBill } from "@/services/supabase/customerSessions";
 import { getOrdersForSession } from "@/services/supabase/orders";
+import { msToNextWaiterPhase, waiterPhase, type WaiterPhase } from "./waiterPhase";
 import styles from "./AssistanceActions.module.scss";
-
-const COOLDOWN_S = 60;
 
 type Props = {
     /** Stato "Chiedi il conto" — single source of truth in CollectionView (synced via realtime). */
@@ -38,24 +37,18 @@ export default function AssistanceActions({
     const { t } = useTranslation("public");
     const { session } = useCustomerSession();
 
-    // ── Waiter cooldown countdown ─────────────────────────────────────────
-    const [cooldownLeft, setCooldownLeft] = useState(0);
+    // ── Fase della chiamata: si ricalcola solo quando cambia (1 min, 10 min) ──
+    const [phase, setPhase] = useState<WaiterPhase>(() => waiterPhase(waiterCalledAt, Date.now()));
     useEffect(() => {
-        if (!waiterCalledAt) {
-            setCooldownLeft(0);
-            return;
-        }
-        const compute = () => {
-            const elapsed = (Date.now() - new Date(waiterCalledAt).getTime()) / 1000;
-            return Math.max(0, Math.ceil(COOLDOWN_S - elapsed));
+        let id: ReturnType<typeof setTimeout> | undefined;
+        const update = () => {
+            const now = Date.now();
+            setPhase(waiterPhase(waiterCalledAt, now));
+            const next = msToNextWaiterPhase(waiterCalledAt, now);
+            if (next !== null) id = setTimeout(update, next + 50);
         };
-        setCooldownLeft(compute());
-        const id = setInterval(() => {
-            const rem = compute();
-            setCooldownLeft(rem);
-            if (rem === 0) clearInterval(id);
-        }, 1000);
-        return () => clearInterval(id);
+        update();
+        return () => clearTimeout(id);
     }, [waiterCalledAt]);
 
     // ── Gating conto: ha ordini in lavorazione? Fetch al mount (apertura
@@ -92,7 +85,7 @@ export default function AssistanceActions({
     const [billError, setBillError] = useState<string | null>(null);
 
     const handleCallWaiter = useCallback(async () => {
-        if (!session?.jwt || isCallingWaiter || cooldownLeft > 0) return;
+        if (!session?.jwt || isCallingWaiter || phase === "called") return;
         setIsCallingWaiter(true);
         setWaiterError(null);
         try {
@@ -103,7 +96,7 @@ export default function AssistanceActions({
         } finally {
             setIsCallingWaiter(false);
         }
-    }, [session?.jwt, isCallingWaiter, cooldownLeft, onWaiterCalledAtChange, t]);
+    }, [session?.jwt, isCallingWaiter, phase, onWaiterCalledAtChange, t]);
 
     const handleRequestBill = useCallback(async () => {
         if (!session?.jwt || isRequestingBill || !!billRequestedAt || hasInProgressOrders) return;
@@ -121,7 +114,17 @@ export default function AssistanceActions({
 
     if (!session?.jwt) return null;
 
-    const inCooldown = cooldownLeft > 0;
+    const waiterLabel = isCallingWaiter
+        ? t("assistance.waiter_cta_loading")
+        : phase === "idle"
+            ? t("assistance.waiter_title")
+            : layout === "bar" && phase === "recall"
+                ? t("assistance.waiter_recall")
+                : t("assistance.waiter_called");
+    // Riga sotto solo nei riquadri: il piede fisso non ha spazio.
+    const waiterHint = layout === "tiles" && !isCallingWaiter && phase !== "idle"
+        ? t(phase === "called" ? "assistance.waiter_called_hint" : "assistance.waiter_recall_hint")
+        : null;
 
     return (
         <div className={styles.footer} data-layout={layout}>
@@ -131,17 +134,15 @@ export default function AssistanceActions({
                 <button
                     type="button"
                     className={styles.waiterBtn}
-                    disabled={inCooldown || isCallingWaiter}
+                    data-phase={phase}
+                    disabled={phase === "called" || isCallingWaiter}
                     onClick={handleCallWaiter}
                     aria-busy={isCallingWaiter}
                 >
                     <Bell size={16} strokeWidth={1.9} />
-                    <span>
-                        {isCallingWaiter
-                            ? t("assistance.waiter_cta_loading")
-                            : inCooldown
-                                ? t("assistance.waiter_cta_cooldown", { count: cooldownLeft })
-                                : t("assistance.waiter_title")}
+                    <span className={styles.label} aria-live="polite">
+                        {waiterLabel}
+                        {waiterHint && <span className={styles.hint}>{waiterHint}</span>}
                     </span>
                 </button>
                 <button
