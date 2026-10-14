@@ -14,6 +14,8 @@ type Props = {
     onAllergiesConsentChange: (checked: boolean) => void;
     onChange: (name: keyof FormFields, value: string) => void;
     onBlur: (name: keyof FormFields) => void;
+    /** Senza la testata numerata: nel foglio del redesign il passo lo dice già «2 di 3». */
+    numbered?: boolean;
 };
 
 export default function NotesSection({
@@ -24,16 +26,23 @@ export default function NotesSection({
     allergiesConsent,
     onAllergiesConsentChange,
     onChange,
-    onBlur
+    onBlur,
+    numbered = true
 }: Props) {
     const { t } = useTranslation("public");
     return (
-        <section className={styles.section} aria-labelledby="sec-note">
-            <div className={styles.sectionHead}>
-                <span className={styles.sectionNum}>03</span>
-                <span id="sec-note" className={styles.sectionLabel}>{t("reservation.notes")}</span>
-                <span className={styles.sectionRule} aria-hidden="true" />
-            </div>
+        <section
+            className={styles.section}
+            aria-labelledby={numbered ? "sec-note" : undefined}
+            aria-label={numbered ? undefined : t("reservation.notes")}
+        >
+            {numbered ? (
+                <div className={styles.sectionHead}>
+                    <span className={styles.sectionNum}>03</span>
+                    <span id="sec-note" className={styles.sectionLabel}>{t("reservation.notes")}</span>
+                    <span className={styles.sectionRule} aria-hidden="true" />
+                </div>
+            ) : null}
 
             <div className={styles.field}>
                 <label htmlFor="notes" className={styles.label}>

@@ -89,6 +89,8 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
 
     await expect(sheet.getByRole("heading", { name: "I tuoi dati" })).toBeVisible();
     await expect(sheet.getByText("2 di 3 · I tuoi dati")).toBeVisible();
+    // Un titolo solo: niente «02 Chi» del modulo di /prenota sotto il passo.
+    await expect(sheet.getByText("02", { exact: true })).toHaveCount(0);
     await expect(sheet.getByRole("button", { name: "Indietro" })).toBeVisible();
     await sheet.getByRole("button", { name: "Continua", exact: true }).click();
     await expect(sheet.getByText("Il nome è obbligatorio.")).toBeVisible();
@@ -99,6 +101,7 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
     await expect(sheet.getByRole("heading", { name: "Riepilogo" })).toBeVisible();
     await expect(sheet.getByText("Sede e2e barra")).toBeVisible();
     await expect(sheet.locator("#booking-recap").getByText("20:00")).toBeVisible();
+    await expect(sheet.getByText("03", { exact: true })).toHaveCount(0);
     // Le note nel Riepilogo (v38).
     await sheet.locator("#booking-recap textarea").first().fill("Un seggiolone");
     await sheet.getByRole("button", { name: "Invia richiesta" }).click();

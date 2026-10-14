@@ -7,17 +7,25 @@ type Props = {
     errors: FieldErrors;
     onChange: (name: keyof FormFields, value: string) => void;
     onBlur: (name: keyof FormFields) => void;
+    /** Senza la testata numerata: nel foglio del redesign il passo lo dice già «2 di 3». */
+    numbered?: boolean;
 };
 
-export default function WhoSection({ values, errors, onChange, onBlur }: Props) {
+export default function WhoSection({ values, errors, onChange, onBlur, numbered = true }: Props) {
     const { t } = useTranslation("public");
     return (
-        <section className={styles.section} aria-labelledby="sec-chi">
-            <div className={styles.sectionHead}>
-                <span className={styles.sectionNum}>02</span>
-                <span id="sec-chi" className={styles.sectionLabel}>{t("reservation.who")}</span>
-                <span className={styles.sectionRule} aria-hidden="true" />
-            </div>
+        <section
+            className={styles.section}
+            aria-labelledby={numbered ? "sec-chi" : undefined}
+            aria-label={numbered ? undefined : t("reservation.who")}
+        >
+            {numbered ? (
+                <div className={styles.sectionHead}>
+                    <span className={styles.sectionNum}>02</span>
+                    <span id="sec-chi" className={styles.sectionLabel}>{t("reservation.who")}</span>
+                    <span className={styles.sectionRule} aria-hidden="true" />
+                </div>
+            ) : null}
 
             <div className={styles.field}>
                 <label htmlFor="customer_name" className={styles.label}>
