@@ -24,9 +24,9 @@
 //   - option_value_id IS NOT NULL → value-level override; replaces absolute_price
 //                                 of that single value (and wins over the
 //                                 product-level one).
-//   - Products WITHOUT a PRIMARY_PRICE group fall back to products.base_price
-//     and are NOT affected by product-level overrides (matches the rendering
-//     contract: what the customer sees in the catalog is what they pay).
+//   - Products WITHOUT a PRIMARY_PRICE group: the product-level override
+//     replaces products.base_price, as the public page does for single-price
+//     products (what the customer sees in the catalog is what they pay).
 //
 // Trust boundary: every sensitive field (tenant_id, activity_id, table_id,
 // order_group_id, customer_name) is rederived from the customer_sessions row
@@ -785,11 +785,13 @@ function _validateAndSnapshotItem(
             );
         }
     } else {
-        // Product without PRIMARY_PRICE: fall back to base_price. Product-level
-        // price overrides are intentionally NOT applied here to match the
-        // public rendering contract (resolveActivityCatalogs only patches
-        // PRIMARY_PRICE values).
-        if (product.base_price === null) {
+        // Product without PRIMARY_PRICE: the price rule's product-level
+        // override wins over base_price, as on the public page
+        // (applyPriceOverridesToCatalog, single-price product).
+        const productOverride = overrides?.productLevelOverride ?? null;
+        if (productOverride !== null) {
+            unitPrice = productOverride;
+        } else if (product.base_price === null) {
             throw new ValidateOrderItemsError(
                 "INVALID_OPTIONS",
                 "Questo prodotto non ha un prezzo configurato.",
@@ -798,8 +800,9 @@ function _validateAndSnapshotItem(
                     reason: "product_missing_base_price"
                 }
             );
+        } else {
+            unitPrice = product.base_price;
         }
-        unitPrice = product.base_price;
     }
 
     const addonsSnapshot: OptionsSnapshotAddon[] = addonSelections.map(({ group, value }) => {
