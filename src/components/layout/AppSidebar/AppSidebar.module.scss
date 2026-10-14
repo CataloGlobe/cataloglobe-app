@@ -1098,15 +1098,15 @@ $sub-height: 34px;
 
   // Le sfumature ai lati: c'è altro da quella parte (v30, 36 px).
   &[data-mr] {
-    mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+    mask-image: linear-gradient(90deg, black calc(100% - 36px), transparent);
   }
 
   &[data-ml] {
-    mask-image: linear-gradient(90deg, transparent, #000 36px);
+    mask-image: linear-gradient(90deg, transparent, black 36px);
   }
 
   &[data-ml][data-mr] {
-    mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+    mask-image: linear-gradient(90deg, transparent, black 36px, black calc(100% - 36px), transparent);
   }
 }
 

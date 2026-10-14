@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Store } from "lucide-react";
 import { LOOK_D } from "@styles/lookD";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { ACTIVITY_SEARCH_THRESHOLD, filterActivityOptions } from "@/components/ui/ActivityMultiSelect/activityFilter";
@@ -262,6 +263,9 @@ export function SediBottone(props: SediBottoneProps) {
     const popRef = useRef<HTMLDivElement>(null);
     const id = useId();
 
+    // il foglio copre tutto lo schermo: il Tab resta dentro finché è aperto
+    useFocusTrap(popRef, open && sheet);
+
     // si mette dove c'è posto: a fianco o sotto, dentro la finestra
     useLayoutEffect(() => {
         if (!open || sheet) return;
@@ -316,11 +320,12 @@ export function SediBottone(props: SediBottoneProps) {
         };
     }, [open]);
 
-    // aperto, il fuoco va sulla ricerca o sulla prima scelta
+    // aperto, il fuoco va sulla ricerca o sulla prima scelta; anche quando la
+    // finestra passa la soglia dei 641 e il pannello rinasce come foglio (o viceversa)
     useEffect(() => {
         if (!open) return setPos(AWAY);
         popRef.current?.querySelector<HTMLElement>("input, [role=checkbox], [role=radio]")?.focus({ preventScroll: true });
-    }, [open]);
+    }, [open, sheet]);
 
     const panel = oneCloses(props, () => {
         setOpen(false);
@@ -354,7 +359,7 @@ export function SediBottone(props: SediBottoneProps) {
                 createPortal(
                     sheet ? (
                         <div className={s.sheet}>
-                            <div ref={popRef} id={id} className={`${s.pop} ${s.popSheet}`} role="dialog" aria-label={props.title ?? "Sedi"}>
+                            <div ref={popRef} id={id} className={`${s.pop} ${s.popSheet}`} role="dialog" aria-modal="true" aria-label={props.title ?? "Sedi"}>
                                 <SediPannello {...panel} />
                             </div>
                         </div>

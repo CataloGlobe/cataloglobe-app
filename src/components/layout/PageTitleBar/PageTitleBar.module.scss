@@ -263,6 +263,13 @@
       transition: opacity 200ms ease;
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      .bar,
+      .sectionTitle {
+        transition: none;
+      }
+    }
+
     :global([data-compact]) .bar {
       padding-block: 6px;
       background: var(--d-bg);
