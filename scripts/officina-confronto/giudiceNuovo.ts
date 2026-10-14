@@ -15,6 +15,7 @@
 
 import {
     judge,
+    temporalScore,
     type CompetitionRuleType,
     type JudgeRule,
     type JudgeRuleType,
@@ -110,6 +111,7 @@ export function buildJudgeRules(snapshot: Snapshot): NuovoCache {
                 ov.filter(o => o.target_type === "activity_group").map(o => [o.target_id, o.overlap_mode])
             )
         };
+        if (type === "layout") rule.todayTemporalScore = temporalScore(s);
         if (type === "layout" || type === "menu") rule.hasMenu = (menuOf.get(s.id) ?? null) !== null;
         if (type === "layout" || type === "style") rule.hasStyle = (styleOf.get(s.id) ?? null) !== null;
         push(rulesByTenant, s.tenant_id, rule);
