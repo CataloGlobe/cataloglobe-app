@@ -284,6 +284,16 @@ describe("resolveActivityCatalogs col giudice nuovo", () => {
         ]);
     });
 
+    it("solo un menù più tardi: niente catalogo né `hasRenderableItems`, «nessun menù adesso» come oggi", async () => {
+        tables.schedules = tables.schedules.filter(row => row.id === "m-dinner");
+        const result = await resolveBoth();
+        // Regola configurata ma nessuna adesso: `derivePageState` va su `isEmpty`.
+        expect(result).toEqual({
+            featured: { before_catalog: [], after_catalog: [] },
+            hasConfiguredCatalogRule: true
+        });
+    });
+
     it("nessun menù in onda né più tardi: niente catalogo, come oggi", async () => {
         tables.schedules = [];
         const result = await resolveBoth();

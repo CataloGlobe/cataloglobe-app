@@ -9,6 +9,7 @@ import {
     judge,
     activeWindowToday,
     laterMenusToday,
+    temporalScore,
     type CompetitionSpecificity,
     type JudgeEntry,
     type JudgeRule,
@@ -360,7 +361,9 @@ async function listCandidateRulesForActivity(
         activityIds: activityTargetIds.has(row.id) ? [activityId] : [],
         groupIds: groupTargetIdsBySchedule.get(row.id) ?? [],
         slots: [],
-        overlap_mode: row.overlap_mode ?? null
+        overlap_mode: row.overlap_mode ?? null,
+        // Le layout si ordinano ancora come oggi (D83), coi punti delle colonne di oggi.
+        ...(row.rule_type === "layout" ? { todayTemporalScore: temporalScore(row) } : {})
     });
 
     const rowsById = new Map<string, JudgeRule>();

@@ -1692,7 +1692,10 @@ export async function resolveActivityCatalogs(
         }
     }
 
-    if (ruleResolution.menus.length === 0) {
+    // Nessun menù adesso (anche se ce n'è uno più tardi): come prima del giudice,
+    // niente `hasRenderableItems`, così la pagina dice «nessun menù adesso» e non
+    // «menù vuoto»; e non si caricano cataloghi che servirebbero solo ai conteggi.
+    if (!ruleResolution.menus.some(menu => menu.state === "now")) {
         return { featured, hasConfiguredCatalogRule: ruleResolution.layoutCandidateCount > 0 };
     }
 
