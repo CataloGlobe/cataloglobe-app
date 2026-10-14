@@ -590,7 +590,7 @@ export function QuandoOre({
                         Cambia
                     </Button>
                 </div>
-                <InsiemeBox t={t} u={u} scontri={scontri} multi />
+                <InsiemeBox t={t} u={u} scontri={scontri} multi sedi={sedi.filter(x => ids.includes(x.id))} onSede={onSede} />
             </>
         );
     // da «E adesso?»: prima si confermano gli orari ereditati (D194)

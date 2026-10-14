@@ -161,6 +161,9 @@ export type Tunnel = {
      * stile true = «Lascia gli altri». Non ancora scelto: undefined.
      */
     insieme?: boolean;
+    /** «È uguale per tutte le sedi?»: con «no» ogni sede ha le sue scelte in `hm` (`sede|altro`). */
+    hSame?: "si" | "no";
+    hm?: Record<string, "ins" | "pos">;
     /** La parte del «Quando» che si vede: 1 le ore, 2 «In onda insieme». Solo schermo. */
     qPart?: 1 | 2;
     name: string;

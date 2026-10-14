@@ -254,7 +254,7 @@ export function waitsForDb(D: Draft): string {
  * `vince`: la bozza prende il suo posto; `pari`: solo perché è l'ultima messa
  * (con `vince` false: resta l'altro perché c'era prima, il Calendario di oggi).
  */
-export type Scontro = { sedi: string[]; con: string; quando: string; vince: boolean; pari: boolean };
+export type Scontro = { sedi: string[]; con: string; quando: string; vince: boolean; pari: boolean; /** Le stesse sedi, per id. */ ids?: string[] };
 /** «Cosa cambia nel calendario» e gli scontri, nella settimana che si vede. */
 /** Una sede, nella settimana che si vede: quanto va in onda e chi incrocia; `incroci`: i giorni in cui tocca un altro. */
 export type SedeEff = { id: string; name: string; mins: number; days: number; cov: string[]; by: string[]; incroci: number };

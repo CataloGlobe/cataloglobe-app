@@ -1070,8 +1070,10 @@ export default function CalendarioView({
             for (const [key, t] of tocchi) {
                 const quando = quandoScontro(t.tratti), con = key.slice(0, key.lastIndexOf("|"));
                 const sk = [con, t.vince, t.pari, quando].join("|"), prev = sc.get(sk);
-                if (prev) prev.sedi.push(x.name);
-                else sc.set(sk, { sedi: [x.name], con, quando, vince: t.vince, pari: t.pari });
+                if (prev) {
+                    prev.sedi.push(x.name);
+                    prev.ids?.push(x.id);
+                } else sc.set(sk, { sedi: [x.name], ids: [x.id], con, quando, vince: t.vince, pari: t.pari });
             }
         }
         // le sedi con lo stesso risultato stanno insieme

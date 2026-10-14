@@ -3,15 +3,17 @@
 import { Layers, Replace } from "lucide-react";
 import { listIt, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { thingName, type Tunnel } from "./creaModel";
+import { SedePer } from "./SedePer";
 import s from "./Crea.module.scss";
 
 const q = (x: string) => "«" + x + "»";
 
 /**
  * «In onda insieme» (menù) o «Con gli altri stili»: nelle sue ore c'è già un altro,
- * e si sceglie se stanno insieme o se il tuo prende il posto. Sede per sede arriva dopo.
+ * e si sceglie se stanno insieme o se il tuo prende il posto; sotto, sede per sede (`SedePer`).
+ * `sedi`: le sedi della bozza, per dire quelle senza incroci.
  */
-export function InsiemeBox({ t, u, scontri, multi }: { t: Tunnel; u: (fn: (x: Tunnel) => void) => void; scontri: readonly Scontro[]; multi: boolean }) {
+export function InsiemeBox({ t, u, scontri, multi, sedi, onSede }: { t: Tunnel; u: (fn: (x: Tunnel) => void) => void; scontri: readonly Scontro[]; multi: boolean; sedi?: readonly { id: string; name: string }[]; onSede?: (id: string) => void }) {
     const stile = t.kind === "stile", none = t.insieme == null, name = q(thingName(t));
     const vinti = scontri.filter(x => x.vince);
     const altri = new Set(vinti.map(x => x.con)).size, dove = [...new Set(vinti.flatMap(x => x.sedi))];
@@ -47,11 +49,15 @@ export function InsiemeBox({ t, u, scontri, multi }: { t: Tunnel; u: (fn: (x: Tu
                     )}
                 </div>
             </div>
-            {vinti.map((x, j) => (
-                <p key={j} className={s.hint}>
-                    {multi ? `A ${listIt(x.sedi)}, ${x.quando}, c'è già ${q(x.con)}.` : `${x.quando.charAt(0).toUpperCase()}${x.quando.slice(1)} c'è già ${q(x.con)}.`}
-                </p>
-            ))}
+            {sedi ? (
+                <SedePer t={t} u={u} scontri={scontri} sedi={sedi} onSede={onSede} />
+            ) : (
+                vinti.map((x, j) => (
+                    <p key={j} className={s.hint}>
+                        {multi ? `A ${listIt(x.sedi)}, ${x.quando}, c'è già ${q(x.con)}.` : `${x.quando.charAt(0).toUpperCase()}${x.quando.slice(1)} c'è già ${q(x.con)}.`}
+                    </p>
+                ))
+            )}
         </div>
     );
 }

@@ -40,6 +40,7 @@ import { EvidOrdine } from "./EvidOrdine";
 import { Chip } from "./CreaUi";
 import ev from "./Evid.module.scss";
 import { StoriaOnda, StoriaTema, type OnAir } from "./StoriaTema";
+import { hAltri, sedePerWait } from "./creaSedePer";
 import { Adesso, Controlla, Dove, Modifica, MenuParti, Quando, QuandoOre, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
@@ -260,7 +261,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     // tenuto pronto non tocca il Calendario (D189)
     const calTouched = t.onda === "on" && (!t.edit || changed(t, "dove") || changed(t, "quando"));
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
-    const calWhy = owner && draft && calTouched ? waitsForDb(draft) || (clash && kind === "stile" && t.insieme ? "Lascia gli altri stili: " + DB_WAIT : scontriWait(draft, effect.scontri)) : "";
+    const calWhy = owner && draft && calTouched ? waitsForDb(draft) || (clash && kind === "stile" && t.insieme ? "Lascia gli altri stili: " + DB_WAIT : scontriWait(draft, effect.scontri) || sedePerWait(t, hAltri(effect.scontri))) : "";
     // i blocchi che «Avanti» non sa sistemare: lì il bottone resta spento, col motivo accanto
     const dbWhy = calWhy || evidWait(t) || ordWait(t);
     const why = showAfter || !last ? "" : nothing ? "Non hai cambiato niente" : dbWhy;

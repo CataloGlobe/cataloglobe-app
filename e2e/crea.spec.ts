@@ -465,7 +465,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByText("Le ore: Lun–Ven · 12:00–15:00")).toBeVisible();
         await expect(main(page).getByText("In quelle ore c'è già un altro menù a Porto e2e.")).toBeVisible();
         await expect(main(page).getByText("Come li mostri ai clienti?")).toBeVisible();
-        await expect(main(page).getByText("A Porto e2e, dal lunedì al venerdì dalle 12 alle 15, c'è già «Carta e2e».")).toBeVisible();
+        await expect(main(page).getByText("Scegli una risposta: sotto compaiono gli altri menù con cui si incrocia.")).toBeVisible();
         // finché non si sceglie non si va avanti
         await stuck(page, "Scegli: insieme o al posto degli altri");
         await expect(main(page).getByRole("group", { name: "Insieme o al posto" })).toHaveClass(/bad/);
@@ -475,6 +475,15 @@ test.describe("Tunnel di creazione — menù", () => {
         await next(page);
         await insieme(page, "Mostralo al posto degli altri");
         await expect(main(page).getByRole("button", { name: /^Mostralo al posto degli altri/ })).toHaveAttribute("aria-pressed", "true");
+        // una sede sola: sotto, menù per menù, con quello che vede il cliente
+        await expect(main(page).getByRole("heading", { name: "A Porto e2e, menù per menù" })).toBeVisible();
+        await expect(main(page).getByText("Dal lunedì al venerdì dalle 12 alle 15", { exact: true })).toBeVisible();
+        const voce = main(page).getByRole("group", { name: "Porto e2e, Carta e2e" });
+        await expect(voce.getByRole("button", { name: "Al posto" })).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).locator("[data-insieme]").getByText("Al posto di", { exact: true })).toBeVisible();
+        await voce.getByRole("button", { name: "Insieme" }).click();
+        await expect(main(page).locator("[data-insieme]").getByText("Al posto di", { exact: true })).toHaveCount(0);
+        await voce.getByRole("button", { name: "Al posto" }).click();
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(main(page).getByText(/dal lunedì al venerdì, dalle 12:00 alle 15:00/)).toBeVisible();
@@ -560,6 +569,28 @@ test.describe("Tunnel di creazione — menù", () => {
         await next(page);
         // il conto vale per tutte le sedi scelte, non solo per la prima: a Porto c'è già la carta
         await insieme(page, "Mostralo al posto degli altri");
+        // «È uguale per tutte e tre le sedi?»: con «No, cambia» le sedi dove si incrocia, una per riga
+        const box = main(page).locator("[data-insieme]");
+        const uguale = box.getByRole("group", { name: "È uguale per tutte e tre le sedi?" });
+        await uguale.getByRole("button", { name: "No, cambia" }).click();
+        await expect(box.getByText("1 di 2 sedi viste")).toBeVisible();
+        await expect(box.getByRole("button", { name: /Lago e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
+        await expect(box.getByText("Centro e2e non ha altri menù: niente da scegliere.")).toBeVisible();
+        // la prossima sede si apre da sola, e la settimana a destra passa a lei
+        await box.getByRole("button", { name: "Prossima sede: Porto e2e" }).click();
+        await expect(box.getByText("2 di 2 sedi viste")).toBeVisible();
+        await expect(box.getByText("Le hai viste tutte.")).toBeVisible();
+        await expect(box.getByRole("button", { name: /Porto e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
+        await expect(main(page).getByRole("combobox", { name: "Sede da guardare" }).locator("option:checked")).toHaveText(/^Porto e2e/);
+        // una sede diversa dalle altre si vede, ma il database di oggi tiene una risposta sola
+        await box.getByRole("group", { name: "Porto e2e, Carta e2e" }).getByRole("button", { name: "Insieme" }).click();
+        await expect(box.getByText("diversa", { exact: true })).toBeVisible();
+        await expect(box.getByText("· 1 diversa")).toBeVisible();
+        await next(page);
+        await expect(main(page).getByText("Scelte diverse fra le sedi: si salva col database nuovo").first()).toBeVisible();
+        await button(page, "Indietro").click();
+        await uguale.getByRole("button", { name: "Sì, uguale" }).click();
+        await expect(box.getByText(/^In tutte e tre le sedi «.+» si vede da solo, al posto degli altri menù\.$/)).toBeVisible();
         await next(page);
         await button(page, "Metti in onda").click();
         await button(page, /^Dagli i tuoi colori/).click({ timeout: 15_000 });
