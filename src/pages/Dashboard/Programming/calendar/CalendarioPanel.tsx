@@ -279,9 +279,12 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
                 ) : (
                     <>
                         {p.writable && p.onEnable && !spento && (
-                            <Button size="sm" variant="secondary" leftIcon={<Power size={16} />} disabled={offLater} data-tip={offLater ? "Arriva col database nuovo" : undefined} aria-label={offLater ? `Spegni: ${DB_LATER}` : undefined} onClick={() => setConfirm("off")}>
-                                Spegni
-                            </Button>
+                            // un pulsante spento non riceve il mouse: il perché sta sul suo involucro (difetto 10)
+                            <span data-tip={offLater ? `Arriva col database nuovo\n~Oggi lo stile sta nella stessa regola di «${p.pairedName}»: spegnerlo spegnerebbe anche il menù.` : undefined} style={offLater ? { display: "inline-flex", cursor: "not-allowed" } : { display: "contents" }}>
+                                <Button size="sm" variant="secondary" leftIcon={<Power size={16} />} disabled={offLater} style={offLater ? { pointerEvents: "none" } : undefined} aria-label={offLater ? `Spegni: ${DB_LATER}` : undefined} onClick={() => setConfirm("off")}>
+                                    Spegni
+                                </Button>
+                            </span>
                         )}
                         {p.writable && (
                             <Button size="sm" variant="ghost" className={s.dangerT} leftIcon={<Trash2 size={16} />} aria-label="Togli dal calendario" onClick={() => setConfirm("all")}>
