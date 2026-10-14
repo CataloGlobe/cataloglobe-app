@@ -939,11 +939,13 @@ $sub-height: 34px;
 }
 
 // Il pulsante tondo a cavallo del bordo (`#railb`): fuori dalla carta, che
-// taglia ciò che sborda; `left` lo muove `AppSidebar` con la larghezza.
+// taglia ciò che sborda; lo sposta `AppSidebar` (transform x) con la larghezza.
+// Sta subito prima della barra nel DOM: col Tab non arriva dopo tutte le voci.
 .railToggle {
   position: absolute;
   z-index: calc(var(--z-sticky) + 1);
   top: 33px;
+  left: 0;
   display: grid;
   place-items: center;
   width: 26px;
@@ -971,9 +973,6 @@ $sub-height: 34px;
     color: var(--d-brand-deep);
   }
 
-  &:active {
-    transform: scale(0.9);
-  }
 }
 
 /* ===== Direzione D, telefono (artifact v28 sotto 861: `.side` in alto) ===== */
@@ -1030,7 +1029,7 @@ $sub-height: 34px;
     flex: none;
     display: inline-flex;
     align-items: center;
-    min-height: 40px;
+    min-height: 44px;
     padding: 8px 12px;
     border-radius: var(--d-r-ctl);
     white-space: nowrap;
@@ -1041,9 +1040,11 @@ $sub-height: 34px;
       color var(--d-dur) ease,
       background-color var(--d-dur) ease;
 
-    &:hover {
-      color: var(--d-text);
-      text-decoration: none;
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        color: var(--d-text);
+        text-decoration: none;
+      }
     }
 
     &[aria-current="page"] {

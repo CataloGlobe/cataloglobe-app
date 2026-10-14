@@ -176,10 +176,17 @@ export function SidebarAccount({ items, profile, collapsed, isMobile, onRequestC
     const companyLine = [sedi ?? (readableActivities.length === 1 ? "1 sede" : null), tenantPlan(selectedTenant?.plan)]
         .filter(Boolean)
         .join(" · ");
+    // Cambiando vista il fuoco va al campo di ricerca o alla prima voce, non si perde.
+    const focusFirstItem = (from: Element | null, skipField = false) => {
+        const menu = from?.closest('[role="menu"]');
+        const field = skipField ? null : menu?.querySelector<HTMLElement>("input");
+        (field ?? menu?.querySelector<HTMLElement>('[role="menuitem"]:not([data-disabled])'))?.focus();
+    };
     const stayOpen = (next: "main" | "tenants") => (event: Event) => {
         event.preventDefault();
         setQuery("");
         setView(next);
+        requestAnimationFrame(() => focusFirstItem(document.querySelector(`.${styles.menuD}`)));
     };
     const signal = (item: AppSidebarNavItem) =>
         typeof item.badge === "number" ? (
@@ -215,7 +222,11 @@ export function SidebarAccount({ items, profile, collapsed, isMobile, onRequestC
                 <Menu.Item
                     onSelect={stayOpen("tenants")}
                     className={styles.dCompany}
-                    leading={<span className={styles.dSquare}>{initials(selectedTenant.name)}</span>}
+                    leading={
+                        <span className={styles.dSquare} aria-hidden="true">
+                            {initials(selectedTenant.name)}
+                        </span>
+                    }
                     description={companyLine || undefined}
                     trailing={
                         <span className={styles.dGo}>
@@ -278,12 +289,19 @@ export function SidebarAccount({ items, profile, collapsed, isMobile, onRequestC
                         value={query}
                         onChange={event => setQuery(event.target.value)}
                         // Le lettere vanno al campo, non alla ricerca per iniziale del menù.
+                        // Frecce e Tab restano al menù: dal campo si scende alle aziende.
                         onKeyDown={event => {
-                            if (event.key !== "Escape") event.stopPropagation();
+                            if (event.key === "ArrowDown") {
+                                event.preventDefault();
+                                focusFirstItem(event.currentTarget, true);
+                                return;
+                            }
+                            if (!["Escape", "ArrowUp", "Tab"].includes(event.key)) event.stopPropagation();
                         }}
-                        placeholder="Cerca un'azienda"
+                        placeholder="Cerca un'azienda…"
                         aria-label="Cerca un'azienda"
                         autoComplete="off"
+                        spellCheck={false}
                     />
                 </label>
             )}
@@ -292,13 +310,19 @@ export function SidebarAccount({ items, profile, collapsed, isMobile, onRequestC
                     key={t.id}
                     onSelect={() => chooseTenant(t.id)}
                     className={`${styles.row} ${t.id === selectedTenantId ? styles.rowHere : ""}`}
-                    leading={<span className={`${styles.dSquare} ${styles.dSquareXs}`}>{initials(t.name)}</span>}
+                    leading={
+                        <span className={`${styles.dSquare} ${styles.dSquareXs}`} aria-hidden="true">
+                            {initials(t.name)}
+                        </span>
+                    }
                     trailing={tenantPlan(t.plan) ? <small className={styles.dSmall}>{tenantPlan(t.plan)}</small> : undefined}
                 >
                     {t.name}
                 </Menu.Item>
             ))}
-            {foundTenants.length === 0 && <p className={styles.dNone}>Nessuna azienda con questo nome</p>}
+            <p className={styles.dNone} role="status">
+                {foundTenants.length === 0 ? "Nessuna azienda con questo nome" : ""}
+            </p>
             <Menu.Separator />
             <Menu.Item icon={LayoutGrid} onSelect={() => go("/workspace")} className={styles.row}>
                 Le tue aziende

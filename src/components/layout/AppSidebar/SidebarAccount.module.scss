@@ -311,6 +311,10 @@
 .rowHere,
 .rowHere[data-highlighted] {
   @include look-d {
+    &[data-highlighted] {
+      box-shadow: inset 0 0 0 2px var(--d-focus);
+    }
+
     background: var(--d-soft);
     color: var(--d-brand-deep);
     font-weight: 700;
@@ -418,6 +422,10 @@
       transform: scale(0.98);
     }
 
+    &[data-highlighted] {
+      box-shadow: inset 0 0 0 2px var(--d-focus);
+    }
+
     // Il nome dell'azienda in Bricolage, sotto sedi e piano.
     > span:nth-child(2) {
       @include d-type(card-name);
@@ -499,6 +507,10 @@
     padding: 8px 10px 10px;
     background: transparent;
 
+    &[data-highlighted] {
+      box-shadow: inset 0 0 0 2px var(--d-focus);
+    }
+
     svg {
       color: var(--d-brand-deep);
     }
@@ -525,6 +537,8 @@
       color: var(--d-text);
       font: inherit;
       outline: none;
+
+      @include touch-input-font;
     }
 
     &:focus-within {
@@ -551,12 +565,19 @@
 
   font-weight: 400;
   text-align: center;
+
+  &:empty {
+    padding: 0;
+  }
 }
 
 /* ===== Direzione D, telefono: solo l'avatar (v28 sotto 861) ===== */
 .trigger[data-phone] {
   @include look-d {
+    justify-content: center;
     width: auto;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     background: none;
 

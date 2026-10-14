@@ -173,6 +173,11 @@
     gap: 10px 18px;
   }
 
+  // Quando va a capo, la sede e la campanella restano a destra (v28 a 390).
+  .actions {
+    margin-left: auto;
+  }
+
   .sectionTitle {
     @include d-type(page-title);
     color: var(--d-text);
@@ -191,9 +196,17 @@
       color var(--d-dur) ease,
       background-color var(--d-dur) ease;
 
-    &:hover {
-      background: var(--d-soft);
-      color: var(--d-brand-deep);
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: var(--d-soft);
+        color: var(--d-brand-deep);
+      }
+    }
+
+    @media (max-width: 860px) {
+      display: inline-flex;
+      align-items: center;
+      min-height: var(--d-ctl);
     }
   }
 

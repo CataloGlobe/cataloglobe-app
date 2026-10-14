@@ -169,6 +169,20 @@
   }
 }
 
+// Il rientro per la lente e per la X resta anche nella D.
+.startAdornment + .input {
+  @include look-d {
+    padding-left: 36px;
+  }
+}
+
+.inputShell:has(.endAdornment) .input,
+.inputShell:has(.endAction) .input {
+  @include look-d {
+    padding-right: 36px;
+  }
+}
+
 .hasError .input {
   @include look-d {
     border-color: var(--d-warm);

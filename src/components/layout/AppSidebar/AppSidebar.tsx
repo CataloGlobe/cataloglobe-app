@@ -482,8 +482,9 @@ export function AppSidebar({
                 aria-expanded={!collapsed}
                 aria-keyshortcuts="Meta+B Control+B"
                 initial={false}
-                animate={{ left: SIDEBAR_D_MARGIN + cardWidth - RAIL_TOGGLE_HALF }}
-                transition={{ left: widthTransition }}
+                animate={{ x: SIDEBAR_D_MARGIN + cardWidth - RAIL_TOGGLE_HALF }}
+                transition={{ x: widthTransition }}
+                whileTap={reduceMotion ? undefined : { scale: 0.9 }}
             >
                 <ChevronLeft size={14} strokeWidth={2.2} aria-hidden="true" />
             </motion.button>
@@ -561,6 +562,7 @@ export function AppSidebar({
                 />
             )}
 
+            {railToggle}
             <motion.aside
                 className={[styles.sidebar, isMobile ? styles.mobile : styles.desktop].join(" ")}
                 data-collapsed={collapsed}
@@ -683,7 +685,6 @@ export function AppSidebar({
                     )}
                 </nav>
             </motion.aside>
-            {railToggle}
         </>
     );
 }

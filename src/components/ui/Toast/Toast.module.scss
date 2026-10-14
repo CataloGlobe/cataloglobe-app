@@ -275,6 +275,11 @@
       background: rgba(255, 255, 255, 0.26);
       color: var(--on-brand);
     }
+
+    // Sul toast scuro l'anello indaco non si vede: bianco.
+    &:focus-visible {
+      outline-color: var(--d-surface);
+    }
   }
 }
 
@@ -284,6 +289,11 @@
 
     &:hover {
       color: var(--on-brand);
+    }
+
+    // Sul toast scuro l'anello indaco non si vede: bianco.
+    &:focus-visible {
+      outline-color: var(--d-surface);
     }
   }
 }
