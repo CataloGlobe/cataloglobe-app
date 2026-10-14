@@ -22,7 +22,7 @@ export async function once<T>(m: Memo, key: string, run: () => Promise<T>): Prom
     return v;
 }
 
-type ProdW = { id: string; name: string; description: string | null; price: number | null };
+type ProdW = { id: string; name: string; description: string | null; price: number | null; type: "formats" | "simple" };
 type CatW = { id: string; name: string; parent: string | null; level: number; sort: number };
 type LinkW = { id: string | undefined; catId: string; productId: string; sort: number };
 
@@ -31,15 +31,17 @@ export async function productOf(d: Dish, tenantId: string, m: Memo = new Map()):
     if (d.productId) return d.productId;
     const formats = (d.formats ?? []).filter((f): f is { name: string; price: number } => !!f.name.trim() && f.price !== null);
     const name = d.name.trim(), description = d.description ?? null, price = formats.length ? null : d.price;
+    const type = formats.length ? "formats" : "simple";
     const key = "prod:" + d.key;
     const w = m.get(key) as ProdW | undefined;
     if (!w) {
-        const id = (await createProduct(tenantId, { name, description, base_price: price, product_type: formats.length ? "formats" : "simple" })).id;
-        m.set(key, { id, name, description, price });
-    } else if (w.name !== name || w.description !== description || (w.price !== null && price !== null && w.price !== price)) {
+        const id = (await createProduct(tenantId, { name, description, base_price: price, product_type: type })).id;
+        m.set(key, { id, name, description, price, type });
+    } else if (w.name !== name || w.description !== description || w.price !== price || w.type !== type) {
         // il piatto è nato al tentativo prima ed è cambiato sullo schermo: lo stesso prodotto, coi dati di adesso
-        await updateProduct(w.id, tenantId, { name, description, ...(w.price !== null && price !== null ? { base_price: price } : {}) });
-        m.set(key, { ...w, name, description, price: w.price !== null && price !== null ? price : w.price });
+        // (anche il prezzo che si riempie o si svuota, e le varianti aggiunte a un piatto nato semplice)
+        await updateProduct(w.id, tenantId, { name, description, base_price: price, ...(w.type !== type ? { product_type: type } : {}) });
+        m.set(key, { ...w, name, description, price, type });
     }
     const id = (m.get(key) as ProdW).id;
     for (const [k, f] of formats.entries()) await once(m, `format:${id}:${k}`, () => createPrimaryPriceFormat(id, tenantId, f.name.trim(), f.price));
