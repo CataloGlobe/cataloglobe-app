@@ -100,7 +100,7 @@ test.describe("Contesto di sede", () => {
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/anagrafica$/, { timeout: 15_000 });
         await menuRows(page).getByRole("link", { name: "Sedi", exact: true }).click();
         await expect(page).toHaveURL(/\/locations$/, { timeout: 15_000 });
-        await expect(nav(page).getByRole("link", { name: "Panoramica", exact: true })).toBeVisible();
+        await expect(nav(page).getByRole("link", { name: /^(Panoramica|Home)$/ })).toBeVisible();
     });
 
     test("le voci senza piano portano alle rotte della sede", async ({ page }) => {
@@ -156,10 +156,23 @@ test.describe("Contesto di sede", () => {
         const name = await openFirstLocation(page);
         await page.setViewportSize({ width: 375, height: 800 });
         await page.goto(page.url().replace(/\/locations\/([^/]+).*$/, "/locations/$1/servizio"));
-        await expect(sedeSwitcher(page)).toContainText(name, { timeout: 15_000 });
 
-        await page.getByRole("button", { name: "Apri menù di navigazione" }).click();
         const sidebar = nav(page);
+        if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+            // Sotto 860 la sede è un'icona nella barra alta: il nome sta
+            // nell'etichetta del pulsante, non nel testo.
+            await expect(sedeSwitcher(page)).toHaveAccessibleName(`Sede: ${name}`, { timeout: 15_000 });
+            // Nella D (v28) le sezioni stanno nella carta in alto, le parti
+            // nelle schede della testata.
+            await expect(sidebar.getByRole("link", { name: "Servizio", exact: true })).toHaveAttribute("aria-current", "page", {
+                timeout: 15_000
+            });
+            await expect(sidebar.getByRole("link", { name: "Sedi", exact: true })).toBeAttached();
+            await expect(page.getByRole("navigation", { name: /^Parti di/ }).getByRole("link", { name: "In servizio" })).toBeVisible();
+            return;
+        }
+        await expect(sedeSwitcher(page)).toContainText(name, { timeout: 15_000 });
+        await page.getByRole("button", { name: "Apri menù di navigazione" }).click();
         await expect(sidebar.getByRole("link", { name: "In servizio", exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(sidebar.getByRole("link", { name: "Sedi", exact: true })).toBeVisible();
     });

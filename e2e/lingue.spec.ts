@@ -57,7 +57,9 @@ test.describe("Lingue", () => {
         await expect(main(page).getByText("alcune da risolvere")).toBeVisible();
         await expect(main(page).getByText("Lingua base")).toBeVisible();
         await expect(main(page).getByText(/50 elementi · sorgente delle traduzioni/)).toBeVisible();
-        await expect(main(page).getByText("Aggiornata", { exact: true })).toBeVisible();
+        // Nella D la lingua aggiornata non ha badge: lo dice il sottotesto.
+        const lookD = await page.evaluate(() => document.documentElement.dataset.look === "d");
+        if (!lookD) await expect(main(page).getByText("Aggiornata", { exact: true })).toBeVisible();
         await expect(main(page).getByText("2 da rivedere")).toBeVisible();
         await expect(main(page).getByText("3 da riprovare")).toBeVisible();
         await expect(main(page).getByText("47 / 50 aggiornati")).toBeVisible();

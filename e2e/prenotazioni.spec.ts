@@ -307,9 +307,11 @@ test.describe("Prenotazioni", () => {
         await expect(drawer).toBeVisible();
         // Il dettaglio sta accanto all'elenco (D131): `--detail-pane`,
         // clamp(380px, 30vw, 460px), e l'elenco resta in vista a sinistra.
+        // Nella D il pannello della v28: clamp(350px, 29%, 440px).
+        const lookD = await page.evaluate(() => document.documentElement.dataset.look === "d");
         const box = await drawer.boundingBox();
-        expect(box?.width ?? 0).toBeGreaterThanOrEqual(380);
-        expect(box?.width ?? 0).toBeLessThanOrEqual(460);
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(lookD ? 350 : 380);
+        expect(box?.width ?? 0).toBeLessThanOrEqual(lookD ? 440 : 460);
         await expect(main(page).getByText("Giulia Bianchi").first()).toBeVisible();
         await expect(drawer.getByRole("button", { name: "Chiudi" })).toBeVisible();
         await expect(drawer.getByText("Confermata", { exact: true })).toBeVisible();

@@ -85,7 +85,7 @@ test.describe("Recensioni", () => {
         await expect(vote.getByText(/^3,4$/)).toBeVisible();
         await expect(vote.getByText("5 recensioni", { exact: true })).toBeVisible();
         // 4-5 stelle a Centro, che ha il link: Pizza e la senza commento.
-        await expect(vote.getByText("2 invitate su Google · 3 restate a voi", { exact: true })).toBeVisible();
+        await expect(vote.getByText(/^2 invitate su Google · 3 (restate|restano) a voi$/)).toBeVisible();
         await expect(vote.getByRole("button", { name: "5 stelle: 2" })).toBeVisible();
         await expect(vote.getByRole("button", { name: "3 stelle: 0" })).toBeDisabled();
     });
@@ -242,8 +242,9 @@ test.describe("Recensioni — feedback privato", () => {
             row.getByText(/^Cameriere scortese e2e/).boundingBox()
         ]);
         expect(ratingBox!.y + ratingBox!.height).toBeLessThanOrEqual(commentBox!.y);
-        // 70 caratteri, non tutta la riga.
-        expect(commentBox!.width).toBeLessThan(rowBox!.width - 100);
+        // 70 caratteri, non tutta la riga (nella D ogni recensione è una card stretta).
+        if (!(await page.evaluate(() => document.documentElement.dataset.look === "d")))
+            expect(commentBox!.width).toBeLessThan(rowBox!.width - 100);
         await expect(row.getByText("Solo a voi", { exact: true })).toBeVisible();
     });
 

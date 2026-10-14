@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import { NavbarBreadcrumb } from "@components/layout/AppHeader/NavbarBreadcrumb";
 import Text from "@/components/ui/Text/Text";
+import { LOOK_D } from "@styles/lookD";
 import type { AppSidebarNavGroup } from "@/components/layout/AppSidebar/AppSidebar";
 import { currentItem, isItemRoot } from "@/components/layout/AppSidebar/isItemActive";
 import { useReadPageHeader } from "@/context/useReadPageHeader";
@@ -13,6 +15,30 @@ interface PageTitleBarProps {
     actions?: ReactNode;
     /** Le sezioni della sidebar: sulla pagina di una parte, le sorelle come tab. */
     groups?: AppSidebarNavGroup[];
+    /** Le voci del menù dell'account: nella D le pagine dell'azienda sono tab in testata. */
+    account?: AppSidebarNavGroup["items"];
+    /**
+     * D al telefono: sede e campanella stanno nella barra in alto, come icone
+     * (v30 sotto 861); qui la testata tiene solo titolo e schede.
+     */
+    actionsHost?: HTMLElement | null;
+}
+
+/** Direzione D (artifact v28): Azienda, Team, Abbonamento e Lingue come tab di «Azienda». */
+const D_ACCOUNT_TABS: Record<string, string> = {
+    settings: "Azienda",
+    team: "Team",
+    billing: "Abbonamento",
+    languages: "Lingue"
+};
+
+/** La sezione «Azienda» della D, se la pagina aperta è una delle sue parti. */
+function accountSection(account: AppSidebarNavGroup["items"], pathname: string): AppSidebarNavGroup | null {
+    const items = account
+        .filter(item => item.id !== undefined && item.id in D_ACCOUNT_TABS)
+        .map(item => ({ ...item, label: D_ACCOUNT_TABS[item.id ?? ""] }));
+    if (items.length < 2 || !items.some(item => item.to === pathname)) return null;
+    return { key: "account", title: "Azienda", items };
 }
 
 /**
@@ -24,7 +50,7 @@ interface PageTitleBarProps {
  * (`PageHeaderSlot`); accanto al titolo solo un commutatore di vista della
  * pagina, se lo dichiara (`titleSide`).
  */
-export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
+export function PageTitleBar({ actions, actionsHost = null, groups = [], account = [] }: PageTitleBarProps) {
     const { pathname, search } = useLocation();
     const side = useReadPageHeader()?.titleSide;
 
@@ -47,13 +73,18 @@ export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
             break;
         }
     }
+    if (!section && LOOK_D) {
+        const group = accountSection(account, pathname);
+        const current = group?.items.find(item => item.to === pathname);
+        if (group && current) section = { group, current };
+    }
 
     return (
         <div className={styles.bar}>
             <div className={styles.path}>
                 {section ? (
                     <div className={styles.section}>
-                        <Text as="span" variant="body" weight={600} className={styles.sectionTitle}>
+                        <Text as="span" variant="body" weight={LOOK_D ? 700 : 600} className={styles.sectionTitle}>
                             {section.group.title}
                         </Text>
                         <nav className={styles.tabs} aria-label={`Parti di ${section.group.title}`}>
@@ -80,11 +111,20 @@ export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
                 )}
                 {side && <div className={styles.side}>{side}</div>}
             </div>
-            {/* Al telefono le notifiche stanno nella testata: qui restano le sedi. */}
-            <div className={styles.actions}>
-                <SediInAlto {...open} />
-                {actions}
-            </div>
+            {actionsHost ? (
+                createPortal(
+                    <div className={`${styles.actions} ${styles.actionsTop}`}>
+                        <SediInAlto {...open} compact />
+                        {actions}
+                    </div>,
+                    actionsHost
+                )
+            ) : (
+                <div className={styles.actions}>
+                    <SediInAlto {...open} />
+                    {actions}
+                </div>
+            )}
         </div>
     );
 }

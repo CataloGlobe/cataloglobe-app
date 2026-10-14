@@ -18,10 +18,6 @@ import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/compone
 import type { HubTab } from "@/types/collectionStyle";
 import Text from "@/components/ui/Text/Text";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
-// NOTE: CollectionHero e PublicBrandHeader sono sostituiti da PublicCollectionHeader.
-// I file originali restano nel progetto come fallback potenziale.
-// import CollectionHero from "../CollectionHero/CollectionHero";
-// import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
 import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
 import PublicFooter from "../PublicFooter/PublicFooter";
 import { PublicFeeRows } from "../PublicFooter/PublicFees";
@@ -1157,8 +1153,22 @@ export default function CollectionView({
     const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
     // Redesign: il voto inviato in questa visita trasforma il blocco del fondo in «Grazie».
     const [reviewSent, setReviewSent] = useState(false);
+    // Redesign: aprire il voto conta nelle Analitiche come aprire le recensioni
+    // della pagina di oggi (stesso `tab_switch` verso «reviews», D94).
+    const trackRateOpen = useCallback(() => {
+        if (mode === "public" && activityId) {
+            trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "reviews" });
+        }
+    }, [mode, activityId, activeTab]);
     // Redesign: il voto vive nel foglio unico (stesso modulo, stessi effetti del voto inviato).
-    const openRate = mode === "public" && reviewsProps ? sheetsSlot?.openRate : undefined;
+    const openRate = useMemo(() => {
+        const open = mode === "public" && reviewsProps ? sheetsSlot?.openRate : undefined;
+        if (!open) return undefined;
+        return (rating?: number, growFrom?: number) => {
+            trackRateOpen();
+            open(rating, growFrom);
+        };
+    }, [mode, reviewsProps, sheetsSlot, trackRateOpen]);
 
     // ── Indice categorie (sheet): trigger = retap sul tab "Menu" già attivo,
     // sostituisce lo scroll-to-top diretto (vedi handleHubTabTap più sotto).
@@ -1530,10 +1540,10 @@ export default function CollectionView({
 
     const openItemDetail = useCallback(
         (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
-            // Redesign: la scheda è una pagina del foglio unico (spec §6), anche
-            // in modo ordine col QR del tavolo (spec §7). Resta ItemDetail con
-            // l'ordine sospeso e fuori dalla tab Menu.
-            if (mode === "public" && sheetsSlot && !itemDetailOrderingDisabled && (!orderingActive || canOrderInDetail)) {
+            // Redesign: la scheda è sempre una pagina del foglio unico (spec §6):
+            // in modo ordine col QR del tavolo (spec §7), in lettura altrimenti,
+            // col piede «Ordinazioni sospese» se il tavolo è in manutenzione.
+            if (mode === "public" && sheetsSlot) {
                 sheetsSlot.openProduct(item);
             } else {
                 if (!opts?.keepPairingBackStack) setPairingBackStack([]);
@@ -1542,7 +1552,7 @@ export default function CollectionView({
             }
             trackProductOpen(item);
         },
-        [mode, sheetsSlot, orderingActive, itemDetailOrderingDisabled, canOrderInDetail, trackProductOpen]
+        [mode, sheetsSlot, trackProductOpen]
     );
 
     const addToSelection = useCallback((
@@ -2951,7 +2961,7 @@ export default function CollectionView({
                 </div>
             )}
 
-            {/* ── HEADER: sostituisce PublicBrandHeader + CollectionHero ── */}
+            {/* ── HEADER ── */}
             {mode === "public" && headerSlot && hasHeader
                 ? headerSlot({
                       logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
@@ -3721,7 +3731,8 @@ export default function CollectionView({
                     showImage: style.productStyle !== "compact" && style.cardTemplate !== "no-image",
                     slug: slug ?? null,
                     onTrackOpen: trackProductOpen,
-                    order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined
+                    order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined,
+                    orderingSuspended: itemDetailOrderingDisabled
                 },
                 ordering: orderingActive && !shouldHideOrderingEntry
                     ? {
@@ -3754,6 +3765,7 @@ export default function CollectionView({
                     ? {
                           props: reviewsProps,
                           onSubmitted: markReviewed,
+                          onOpen: trackRateOpen,
                           logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
                           venueName: businessName
                       }

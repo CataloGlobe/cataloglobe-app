@@ -52,11 +52,28 @@ async function accountPages(page: Page): Promise<string[]> {
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
     const items = await menu.evaluate(el => {
+        const clean = (node: Element) => (node.textContent ?? "").trim().replace(/\s*\d+\+?$/, "");
+        if (document.documentElement.dataset.look === "d") {
+            // Direzione D (v28): dopo la card dell'azienda («Cambia») le pagine
+            // dell'azienda fino al divisore, con «Azienda» al posto di
+            // «Impostazioni»; Assistenza sta sotto «Tu». Si riporta alla forma
+            // di sempre, così le attese restano una.
+            const rows = Array.from(el.querySelectorAll('[role="menuitem"], [role="separator"]'));
+            const out: string[] = [];
+            for (const row of rows) {
+                if (row.getAttribute("role") === "separator") break;
+                const text = clean(row);
+                if (/Cambia/.test(text)) continue;
+                out.push(text === "Azienda" ? "Impostazioni" : text);
+            }
+            if (rows.some(row => clean(row) === "Assistenza")) out.push("Assistenza");
+            return out;
+        }
         const out: string[] = [];
         for (const child of Array.from(el.children)) {
             if (child.getAttribute("role") === "separator" && out.length > 0) break;
             if (child.getAttribute("role") === "menuitem") {
-                out.push((child.textContent ?? "").trim().replace(/\s*\d+\+?$/, ""));
+                out.push(clean(child));
             }
         }
         return out;
@@ -213,11 +230,16 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
     /** La sidebar desktop: l'`aside` che contiene il menu. */
     const aside = (page: Page) => page.locator("aside").filter({ has: nav(page) });
 
+    /** Con VITE_BACKOFFICE_D acceso (`data-look="d"`) la barra è la carta della v28: 224 / 68. */
+    const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
+    const widths = async (page: Page) => ((await lookD(page)) ? { open: 224, closed: 68 } : { open: 232, closed: 64 });
+
     async function ensureOpen(page: Page): Promise<void> {
         const expand = page.getByRole("button", { name: "Espandi menù laterale" });
         if (await expand.isVisible()) await expand.click();
         await expect(page.getByRole("button", { name: "Comprimi menù laterale" })).toBeVisible();
-        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(232);
+        const W = await widths(page);
+        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(W.open);
     }
 
     /** La y delle righe del menu, dall'alto: aperta e chiusa devono coincidere. */
@@ -233,18 +255,19 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         await page.goto(`${businessRoot(paths[0])}/overview`);
         await expect(sectionRow(page, SERVIZIO[0])).toBeVisible({ timeout: 15_000 });
         await ensureOpen(page);
+        const W = await widths(page);
         await expect(menuRows(page).locator(':scope > button[aria-expanded="true"]')).toHaveCount(0);
         const open = await rowTops(page);
         await page.getByRole("button", { name: "Comprimi menù laterale" }).click();
-        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(64);
+        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(W.closed);
         const closed = await rowTops(page);
 
-        // Chiusa la riga sta nei 64 meno i margini (64 − bordo − 2 × 11): il
-        // testo è tagliato, non a vista.
-        const widths = await menuRows(page).evaluateAll(rows =>
+        // Chiusa la riga sta nei 64 meno i margini (64 − bordo − 2 × 11; nella
+        // D 68 − 2 × 12): il testo è tagliato, non a vista.
+        const rowWidths = await menuRows(page).evaluateAll(rows =>
             rows.map(r => Math.round((r.querySelector("a, button") ?? r).getBoundingClientRect().width))
         );
-        for (const w of widths) expect(w).toBeLessThanOrEqual(42);
+        for (const w of rowWidths) expect(w).toBeLessThanOrEqual(W.open === 224 ? 44 : 42);
         // Le righe restano alla stessa distanza fra loro.
         expect(closed.length).toBe(open.length);
         closed.forEach((y, i) => expect(Math.abs(y - closed[0] - (open[i] - open[0]))).toBeLessThanOrEqual(1));
@@ -256,12 +279,13 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         expect(voci).toEqual(SERVIZIO[1]);
         await closeSections(page);
         await page.getByRole("button", { name: "Espandi menù laterale" }).click();
-        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(232);
+        await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(W.open);
     });
 
     test("righe 40, parti sotto la sezione 34; chiusa, il pannello a destra, almeno 208, come il nome di Panoramica", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
+        test.skip(await lookD(page), "nella D righe e pannelli hanno le misure della v28, confrontate a foto");
         await ensureOpen(page);
         // Finché le sedi caricano la sidebar non ha righe: si misura dopo.
         await expect(sectionRow(page, MENU_VETRINA[0])).toBeVisible({ timeout: 15_000 });
@@ -299,9 +323,20 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         const paths = await locationPaths(page);
         await page.setViewportSize({ width: 900, height: 800 });
         await page.goto(`${businessRoot(paths[0])}/products`);
-        await expect.poll(async () => (await aside(page).boundingBox())?.width, { timeout: 15_000 }).toBe(64);
+        const W = await widths(page);
+        await expect.poll(async () => (await aside(page).boundingBox())?.width, { timeout: 15_000 }).toBe(W.closed);
 
         await page.setViewportSize({ width: 375, height: 800 });
+        if (W.closed === 68) {
+            // Nella D sotto 861 la barra è una carta in alto (v28): sezioni che
+            // scorrono di lato, niente pulsante menu né apri/chiudi.
+            const top = page.getByRole("banner").filter({ has: nav(page) });
+            await expect(top).toBeVisible();
+            await expect(nav(page).getByRole("link", { name: MENU_VETRINA[0], exact: true })).toBeVisible();
+            await expect(page.getByRole("button", { name: "Apri menù di navigazione" })).toHaveCount(0);
+            await expect(page.getByRole("button", { name: /menù laterale/ })).toHaveCount(0);
+            return;
+        }
         await page.getByRole("button", { name: "Apri menù di navigazione" }).click();
         await expect(nav(page).getByRole("link", { name: "Prodotti", exact: true })).toBeVisible();
         const box = (await aside(page).boundingBox())!;
@@ -434,6 +469,10 @@ test.describe("Sede in alto a destra (D152)", () => {
         await openBusinessPage(page, "overview", "Panoramica");
         await accountButton(page).click();
         const menu = page.getByRole("menu");
+        // Nella D (v28) l'elenco delle aziende si apre dalla card con «Cambia».
+        if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+            await menu.getByRole("menuitem", { name: /Cambia/ }).click();
+        }
         await expect(menu.getByText("Cambia azienda", { exact: true })).toBeVisible();
         await menu.getByRole("menuitem", { name: "Altra azienda e2e" }).click();
         await expect(page).toHaveURL(new RegExp(`/business/${ALTRA}`), { timeout: 15_000 });
@@ -454,7 +493,13 @@ test.describe("Sede in alto a destra (D152)", () => {
         await page.setViewportSize({ width: 375, height: 800 });
         await page.goto(`${paths[0]}/comande`);
         await expect(sedeSwitcher(page)).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByRole("banner").getByRole("button", { name: "Apri menù di navigazione" })).toBeVisible();
+        if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+            // Nella D (v28) al telefono la barra è una carta in alto, con l'account.
+            await expect(page.getByRole("banner").getByRole("navigation", { name: "Menu principale" })).toBeVisible();
+            await expect(page.getByRole("banner").getByRole("button", { name: /^Account:/ })).toBeVisible();
+        } else {
+            await expect(page.getByRole("banner").getByRole("button", { name: "Apri menù di navigazione" })).toBeVisible();
+        }
         // L'azienda si cambia dal menù dell'account, non dalla testata.
         await expect(page.getByRole("button", { name: /^Azienda:/ })).toHaveCount(0);
         const sede = (await sedeSwitcher(page).boundingBox())!;
@@ -576,6 +621,15 @@ test.describe("Impostazioni, Team e Abbonamento (§51.12, D170)", () => {
         await expect(accountButton(page)).toHaveAttribute("aria-current", "page", { timeout: 15_000 });
         expect(await accountPages(page)).toEqual(ACCOUNT);
         await expect(settingsTabs(page)).toHaveCount(0);
+        // Nella D (artifact v28) le pagine dell'azienda tornano tab di «Azienda» in testata, come link.
+        if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+            const parti = page.getByRole("navigation", { name: "Parti di Azienda" });
+            await expect(parti.getByRole("link")).toHaveText(["Azienda", "Team", "Abbonamento", "Lingue"]);
+            await expect(parti.getByRole("link", { name: "Azienda" })).toHaveAttribute("aria-current", "page");
+            await parti.getByRole("link", { name: "Lingue" }).click();
+            await expect(page).toHaveURL(new RegExp(`${root}/languages$`), { timeout: 15_000 });
+            await expect(parti.getByRole("link", { name: "Lingue" })).toHaveAttribute("aria-current", "page");
+        }
 
         await page.goto(`${root}/settings/team`);
         await expect(page).toHaveTitle(/^Team · /, { timeout: 15_000 });

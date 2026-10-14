@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
+    ArrowRight,
     ClipboardList,
     Copy,
     Download,
@@ -20,6 +21,8 @@ import {
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageHeader } from "@/context/usePageHeader";
+import { ROUTE_LABELS } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
+import { LOOK_D } from "@styles/lookD";
 import { usePermissions } from "@/context/usePermissions";
 import { useToast } from "@/context/Toast/ToastContext";
 import { canDoOnActivity, canDoOnAnyActivity, canDoOnTenant, isOwnerOrAdmin } from "@/lib/permissions";
@@ -364,7 +367,7 @@ export default function OverviewPage() {
                 : `${activeCount} sedi nel tuo ruolo · le altre non si vedono`
             : undefined;
 
-    usePageHeader({ title: "Panoramica" });
+    usePageHeader({ title: ROUTE_LABELS.overview });
 
     if (tenantLoading || !selectedTenant || permissions == null) {
         // La forma della pagina che arriva: la vetrina (due righe) e le basi.
@@ -903,6 +906,7 @@ export default function OverviewPage() {
                                 size="sm"
                                 level="M"
                                 fileName={`${location.slug}-qr`}
+                                className={LOOK_D ? styles.rowQr : undefined}
                             />
                         }
                         title={publicLink(location, styles.name, location.name)}
@@ -934,12 +938,18 @@ export default function OverviewPage() {
                                     <span className={styles.createIcon} aria-hidden="true">
                                         {option.icon}
                                     </span>
-                                    <Text as="span" variant="body-sm" weight={600}>
+                                    <Text as="span" variant="body-sm" weight={600} className={styles.createTitle}>
                                         {option.title}
                                     </Text>
-                                    <Text as="span" variant="caption" colorVariant="muted">
+                                    <Text as="span" variant="caption" colorVariant="muted" className={styles.createText}>
                                         {option.text}
                                     </Text>
+                                    {/* Direzione D (v28): l'invito in fondo alla tessera. */}
+                                    {LOOK_D && (
+                                        <span className={styles.createGo}>
+                                            Crea <ArrowRight aria-hidden="true" />
+                                        </span>
+                                    )}
                                 </Link>
                             </li>
                         ))}

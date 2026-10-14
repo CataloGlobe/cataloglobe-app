@@ -29,6 +29,7 @@ import { deriveTableStatus } from "@/utils/tableState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useTablesLiveRealtime } from "./useTablesLiveRealtime";
 import { TableSketch, type TableSketchState } from "./TableSketch";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./TablesLiveView.module.scss";
 
 export interface TablesLiveViewProps {
@@ -388,7 +389,7 @@ export function TablesLiveView({
                                     {group.tables.length} {group.tables.length === 1 ? "tavolo" : "tavoli"}
                                 </Text>
                             </header>
-                            <CardGrid aria-label={group.name}>
+                            <CardGrid aria-label={group.name} minColumnWidth={LOOK_D ? 146 : undefined}>
                                 {group.tables.map(t => {
                                     const status = deriveTableStatus(t) as TableStatus;
                                     const statusLabel = STATUS_LABELS[status];
@@ -433,21 +434,44 @@ export function TablesLiveView({
                                     return (
                                         <CardGridItem
                                             key={t.id}
-                                            title={t.label}
+                                            // Nella D il conto sta sulla riga del nome (v28 `.tile`).
+                                            title={
+                                                LOOK_D ? (
+                                                    <span className={styles.name}>
+                                                        <span>{t.label}</span>
+                                                        {status === "occupied" && <span>{formatEur(t.current_total)}</span>}
+                                                    </span>
+                                                ) : (
+                                                    t.label
+                                                )
+                                            }
                                             subtitle={subtitle || undefined}
-                                            media={<TableSketch seats={t.seats ?? null} state={sketchState} />}
-                                            mediaHeight={120}
+                                            // Nella D la tessera è un dato: niente disegno del tavolo.
+                                            media={LOOK_D ? undefined : <TableSketch seats={t.seats ?? null} state={sketchState} />}
+                                            mediaHeight={LOOK_D ? undefined : 120}
+                                            className={styles.tile}
+                                            data-tone={
+                                                t.bill_requested_count > 0 || t.waiter_called_count > 0
+                                                    ? "wait"
+                                                    : sketchState
+                                            }
                                             badge={
                                                 <span className={styles.badges}>
                                                     <StatusBadge
                                                         variant={sketchState === "previous" ? "neutral" : STATUS_VARIANTS[status]}
                                                         label={statusLabel}
                                                     />
-                                                    {submitted > 0 && (
-                                                        <Badge variant="brand">
-                                                            {submitted} {submitted === 1 ? "nuova" : "nuove"}
-                                                        </Badge>
-                                                    )}
+                                                    {submitted > 0 &&
+                                                        (LOOK_D ? (
+                                                            <StatusBadge
+                                                                variant="new"
+                                                                label={`${submitted} ${submitted === 1 ? "nuova" : "nuove"}`}
+                                                            />
+                                                        ) : (
+                                                            <Badge variant="brand">
+                                                                {submitted} {submitted === 1 ? "nuova" : "nuove"}
+                                                            </Badge>
+                                                        ))}
                                                     {t.bill_requested_count > 0 && (
                                                         <StatusBadge variant="warning" label="Conto richiesto" />
                                                     )}
@@ -463,9 +487,11 @@ export function TablesLiveView({
                                                         <Text as="span" variant="body-sm" colorVariant="muted">
                                                             {activeOrdersText}
                                                         </Text>
-                                                        <Text as="span" variant="body-sm" weight={600}>
-                                                            {formatEur(t.current_total)}
-                                                        </Text>
+                                                        {!LOOK_D && (
+                                                            <Text as="span" variant="body-sm" weight={600}>
+                                                                {formatEur(t.current_total)}
+                                                            </Text>
+                                                        )}
                                                     </span>
                                                 ) : undefined
                                             }

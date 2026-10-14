@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Menu — scheda «Menu»: un elenco di azioni che galleggia. Pannello
 // --surface con bordo, raggio --radius-surface, ombra --shadow-float,
 // --z-float, padding 6, larghezza min 200. Voce 36, padding 0 10, raggio
@@ -207,5 +209,141 @@
     .content[data-state="open"],
     .content[data-state="closed"] {
         animation: none;
+    }
+}
+
+// --- Direzione D (artifact v28, `.pop`): pannello bianco con un filo lilla e
+// l'ombra lunga, arriva con la molla; voce scelta su fondo tenue con la spunta,
+// la distruttiva in corallo. ---
+@keyframes menuInD {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(-4px);
+    }
+}
+
+.content {
+    @include look-d {
+        border-color: color-mix(in srgb, var(--d-muted) 20%, transparent);
+        border-radius: var(--d-r-ctl);
+        min-width: 210px;
+        box-shadow: 0 18px 40px -14px rgba(30, 25, 90, 0.35);
+
+        &[data-state="open"] {
+            animation: menuInD 180ms var(--d-ease-move);
+        }
+        &[data-state="closed"] {
+            animation: menuOut 140ms ease;
+        }
+    }
+}
+
+// D sotto 641 (v30): il pannello è un foglio in mezzo allo schermo. Radix lo
+// mette in un involucro posizionato accanto al bottone: qui l'involucro copre
+// la finestra e fa da velo, senza prendere i tocchi; un tocco sul velo è un
+// tocco fuori e chiude.
+:global([data-radix-popper-content-wrapper]):has(> .sheet) {
+    @include look-d {
+        inset: 0 !important;
+        transform: none !important;
+        min-width: 0 !important;
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        background: var(--d-veil);
+        pointer-events: none;
+        animation: sheetVeilIn 180ms ease both;
+    }
+}
+
+.sheet {
+    @include look-d {
+        pointer-events: auto;
+        width: min(360px, 100%);
+        min-width: 0;
+        max-height: calc(100dvh - 48px);
+        overflow: auto;
+        padding: 8px;
+        border: 0;
+        border-radius: 22px;
+        box-shadow: var(--d-shadow-sheet);
+
+        &[data-state="open"] {
+            animation: sheetPopIn 220ms var(--d-ease) both;
+        }
+
+        .item {
+            white-space: normal;
+            padding: 10px 12px;
+        }
+    }
+}
+
+@keyframes sheetVeilIn {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes sheetPopIn {
+    from {
+        opacity: 0;
+        transform: scale(0.94) translateY(8px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :global([data-radix-popper-content-wrapper]):has(> .sheet),
+    .sheet[data-state="open"] {
+        animation: none;
+    }
+}
+
+.item {
+    @include look-d {
+        height: auto;
+        min-height: 34px;
+        padding: 8px 10px;
+        gap: 10px;
+        border-radius: calc(var(--d-r-ctl) * 0.6);
+        font-size: 13px;
+        font-weight: 500;
+        transition: background-color 120ms ease;
+
+        &[data-highlighted] {
+            background-color: var(--d-soft);
+        }
+
+        &[data-state="checked"],
+        &[aria-checked="true"] {
+            font-weight: 700;
+            color: var(--d-brand-deep);
+            background-color: var(--d-soft);
+        }
+    }
+}
+
+.separator {
+    @include look-d {
+        margin: 4px 0;
+        background-color: color-mix(in srgb, var(--d-muted) 18%, transparent);
+    }
+}
+
+.danger {
+    @include look-d {
+        color: var(--d-warm);
+        font-weight: 600;
+
+        &[data-highlighted] {
+            background-color: var(--d-warm-soft);
+            color: var(--d-warm);
+        }
+    }
+}
+
+.accent {
+    @include look-d {
+        color: var(--d-brand-deep);
     }
 }

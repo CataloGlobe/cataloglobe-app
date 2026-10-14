@@ -8,6 +8,8 @@
  */
 
 @use "@styles/scheda-type" as type;
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 .page {
   display: flex;
@@ -376,4 +378,380 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* ── Direzione D (artifact v28, `#p-cli`) ─────────────── */
+
+// Fuori dalla D la testata non è un blocco: i figli restano nella colonna.
+.lhead {
+  display: contents;
+}
+
+.top {
+  display: none;
+}
+
+@include look-d {
+  .page {
+    gap: var(--d-gap);
+  }
+
+  .top {
+    display: block;
+    height: 24px;
+    margin-bottom: calc(-24px - var(--d-gap));
+    pointer-events: none;
+  }
+
+  .lhead {
+    display: grid;
+    gap: var(--d-gap);
+    min-width: 0;
+    position: sticky;
+    // Il contenuto ha 18 px sopra (cornice D): la testata si attacca al bordo.
+    top: -18px;
+    z-index: 7;
+  }
+
+  // «Chi non torna» a sinistra, Cerca a destra.
+  .bar {
+    view-transition-name: g-cerca;
+
+    > :first-child {
+      order: 2;
+      margin-left: auto;
+    }
+  }
+
+  .lostToggle {
+    order: 1;
+    margin-left: 0;
+    @include d-type(control);
+    color: var(--d-muted);
+
+    input {
+      appearance: none;
+      position: relative;
+      flex: none;
+      width: 36px;
+      height: 22px;
+      margin: 0;
+      border-radius: var(--d-r-pill);
+      background: color-mix(in srgb, var(--d-muted) 32%, transparent);
+      cursor: pointer;
+      transition: background-color var(--d-dur) ease;
+
+      &::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow-knob);
+        transition: transform var(--d-dur) var(--d-ease-move);
+      }
+
+      &:checked {
+        background: var(--d-brand);
+
+        &::after {
+          transform: translateX(14px);
+        }
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--d-focus);
+        outline-offset: 2px;
+      }
+    }
+  }
+
+  .lostLine {
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    padding: calc(var(--d-pad) * 0.7) var(--d-pad);
+    border-radius: var(--d-r-card);
+    background: var(--d-warm-soft);
+    @include d-type(body);
+    view-transition-name: g-band;
+
+    b {
+      font-weight: 700;
+    }
+  }
+
+  .lostWhy {
+    color: var(--d-muted);
+  }
+
+  .faces {
+    display: flex;
+    flex: none;
+  }
+
+  .face {
+    width: 30px;
+    height: 30px;
+    margin-left: -8px;
+    box-shadow: 0 0 0 2px var(--d-warm-soft);
+
+    &:first-child {
+      margin-left: 0;
+    }
+  }
+
+  .filters {
+    gap: 6px;
+    view-transition-name: g-chips;
+  }
+
+  // «Passati da» è una pillola bianca senza bordo, come le tendine della v28.
+  .filters .sedeSelect {
+    @include d-type(control);
+
+    border-color: transparent;
+    border-radius: var(--d-r-pill);
+    background-color: var(--d-surface);
+    box-shadow: var(--d-shadow);
+    color: var(--d-text);
+  }
+
+  // ── La riga compatta, attaccata in alto ──
+  .lhead[data-compact] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 calc(-1 * clamp(14px, 2.4vw, 28px));
+    padding: 28px clamp(14px, 2.4vw, 28px) 10px;
+    background: var(--d-bg);
+    box-shadow: 0 10px 18px -16px rgba(30, 20, 90, 0.45);
+
+    .bar {
+      display: contents;
+    }
+
+    .lostToggle,
+    .lostLine,
+    > p {
+      display: none;
+    }
+
+    .filters {
+      flex: 1 1 0;
+      flex-wrap: nowrap;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+
+      > * {
+        flex: none;
+        white-space: nowrap;
+      }
+    }
+
+    .bar > :first-child {
+      order: 9;
+    }
+
+    // Non ci stanno tutti: resta il chip scelto (v28, `.tight.cz`).
+    &[data-tight] .filters [role="radiogroup"] > [role="radio"]:not([aria-checked="true"]) {
+      display: none;
+    }
+  }
+
+  // ── Elenco ──
+  .head,
+  .row {
+    grid-template-columns: 34px minmax(0, 1.5fr) 190px 104px minmax(0, 1.2fr);
+    gap: 12px;
+    padding-inline: var(--d-pad);
+
+    @container (max-width: 760px) {
+      grid-template-columns: 34px minmax(0, 1.5fr) 190px 104px;
+    }
+
+    @media (max-width: 860px) {
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      row-gap: 6px;
+
+      > :nth-child(3),
+      > :nth-child(5) {
+        grid-column: 2 / 4;
+      }
+
+      > :nth-child(3) {
+        display: flex;
+      }
+
+      > :nth-child(5) {
+        display: block;
+      }
+    }
+  }
+
+  .head {
+    border-bottom: 0;
+    @include d-type(th);
+    color: var(--d-muted);
+
+    @media (max-width: 860px) {
+      display: none;
+    }
+  }
+
+  .list {
+    padding: 6px 0;
+    view-transition-name: g-list;
+
+    > li + li {
+      border-top: 1px solid color-mix(in srgb, var(--d-muted) 14%, transparent);
+    }
+
+    > li {
+      animation: rise 280ms var(--d-ease) both;
+      animation-delay: calc(var(--i) * 30ms);
+
+      @media (prefers-reduced-motion: reduce) {
+        animation: none;
+      }
+    }
+
+    > li:nth-child(4n + 1) .row > :first-child {
+      background: var(--d-tint-2);
+    }
+
+    > li:nth-child(4n + 2) .row > :first-child {
+      background: var(--d-tint-4);
+    }
+
+    > li:nth-child(4n + 3) .row > :first-child {
+      background: var(--d-tint-5);
+    }
+  }
+
+  .row {
+    padding-block: 11px;
+    transition: background-color var(--d-dur) ease;
+
+    &:hover {
+      background: none;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: color-mix(in srgb, var(--d-brand) 5%, transparent);
+      }
+    }
+
+    &:active {
+      background: var(--d-soft);
+    }
+
+    &[aria-current="true"] {
+      background: var(--d-soft);
+      box-shadow: inset 3px 0 0 var(--d-brand);
+    }
+
+    &:focus-visible {
+      outline-color: var(--d-focus);
+    }
+  }
+
+  .name {
+    @include d-type(read);
+    font-weight: 600;
+  }
+
+  .sign {
+    padding: 2px 7px;
+    border-radius: var(--d-r-tag);
+    background: var(--d-soft);
+    color: var(--d-brand-deep);
+    @include d-type(micro);
+  }
+
+  // «nuovo» in verde (v28, `.tag.g`).
+  .signNew {
+    background: color-mix(in srgb, var(--d-good) 12%, var(--d-surface));
+    color: var(--d-good);
+  }
+
+  // Le iniziali in viola pieno, in grassetto (v28, `.av`).
+  .row > :first-child {
+    color: var(--d-brand-deep);
+    font-weight: 700;
+
+    * {
+      color: inherit;
+      font-weight: inherit;
+    }
+  }
+
+  .phone,
+  .yearCount {
+    color: var(--d-muted);
+    @include d-type(note);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .year {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .last {
+    @include d-type(row);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .know {
+    color: var(--d-muted);
+    @include d-type(row);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+::view-transition-group(g-cerca),
+::view-transition-group(g-band),
+::view-transition-group(g-chips),
+::view-transition-group(g-list) {
+  animation-duration: 440ms;
+  animation-timing-function: cubic-bezier(0.3, 1.22, 0.45, 1);
+}
+
+// Sotto i 1024 «Cerca» è solo la lente, tonda da 38 (artifact v30, `.search>.btn`).
+.searchButton {
+    @include look-d {
+        @media (max-width: 1023px) {
+            width: 38px;
+            min-width: 38px;
+            height: 38px;
+            padding: 0;
+            justify-content: center;
+            gap: 0;
+
+            // La parola resta per chi legge con lo screen reader.
+            > :not(:has(svg)) {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            }
+        }
+    }
 }

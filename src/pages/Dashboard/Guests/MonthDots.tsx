@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { MonthMark } from "./guestActivity";
 import styles from "./MonthDots.module.scss";
 
@@ -22,6 +23,7 @@ export function MonthDots({ months, today = new Date() }: { months?: readonly Mo
                         className={styles.dot}
                         data-mark={m === 1 ? "came" : m === 2 ? "absent" : undefined}
                         title={month}
+                        style={{ "--j": i } as CSSProperties}
                     />
                 );
             })}

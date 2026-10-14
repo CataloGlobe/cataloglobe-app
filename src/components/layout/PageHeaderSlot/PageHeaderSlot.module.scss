@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 .slot {
   position: relative;
   // A tema: con #fff fisso, in scuro la tab attiva (--text, chiara) spariva.
@@ -125,4 +127,58 @@
   // altrimenti mangia lo spazio delle tab prima del necessario.
   justify-self: end;
   min-width: 0;
+}
+
+// --- Direzione D: la banda della pagina sta sul lilla come la testata (v28),
+// senza fondo bianco né filo, allineata al contenuto. ---
+.slot,
+.subtitle {
+  @include look-d {
+    padding-inline: clamp(14px, 2.4vw, 28px);
+    border-bottom: none;
+    background: transparent;
+  }
+}
+
+.subtitleAlone {
+  @include look-d {
+    border-bottom: none;
+  }
+}
+
+// D, tablet e telefono (artifact v30): nella riga dei comandi ogni pulsante è
+// alto 40. `--control-height` va ridetto qui: sulla radice è già risolto.
+.slot {
+  @include look-d {
+    @media (max-width: 1023px) {
+      --d-ctl: 40px;
+      --d-ctl-s: 40px;
+      --control-height: 40px;
+    }
+  }
+}
+
+// Compattata (sotto 860): la riga si stacca dal contenuto con l'ombra della
+// testata e scorre di lato, così nessun pulsante sparisce.
+.slot {
+  @include look-d {
+    transition: box-shadow 200ms ease;
+  }
+}
+
+@include look-d {
+  @media (max-width: 860px) {
+    :global([data-compact]) .slot {
+      background: var(--d-bg);
+      box-shadow: var(--d-shadow-bar);
+    }
+
+    :global([data-compact]) .rawRow,
+    :global([data-compact]) .actions {
+      gap: 6px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+    }
+  }
 }

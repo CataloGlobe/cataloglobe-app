@@ -2,6 +2,7 @@ import { CSSProperties, PropsWithChildren } from "react";
 import Text from "../Text/Text";
 import styles from "./Badge.module.scss";
 import clsx from "clsx";
+import { LOOK_D } from "@styles/lookD";
 
 /**
  * `neutral`, `brand` e `outline` sono le varianti del sistema (scheda «Badge»).
@@ -103,7 +104,8 @@ export const Badge = ({
     return (
         <Text
             variant="caption-xs"
-            weight={500}
+            // Nella D le etichette sono a 600 (v28 `.st`).
+            weight={LOOK_D ? 600 : 500}
             className={clsx(styles.badge, styles[resolved], absolute && styles.absolute, className)}
             style={style}
             role={role}

@@ -36,8 +36,10 @@ import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useSediVista } from "@/hooks/useSediVista";
 
 import { DetailPaneHostContext, type DetailPaneHost } from "@/components/layout/DetailPane/DetailPaneContext";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./MainLayout.module.scss";
 import { isCanceledAllowedPath } from "./canceledAllowedPath";
+import { useCompactOnScroll } from "./useCompactOnScroll";
 
 const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
 
@@ -127,7 +129,8 @@ export default function MainLayout() {
     // Sotto 768 la sidebar è un cassetto; fra 768 e 1024 parte collassata
     // (design system §2, breakpoint-sidebar): la scelta manuale resta
     // possibile, ma non viene salvata finché la finestra è stretta.
-    const isMobile = useMediaQuery("(max-width: 767px)");
+    // Nella D la barra passa in alto sotto 861 (v28); fuori dalla D, sotto 768.
+    const isMobile = useMediaQuery(LOOK_D ? "(max-width: 860px)" : "(max-width: 767px)");
     const isNarrow = useMediaQuery("(max-width: 1023px)");
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
@@ -163,6 +166,9 @@ export default function MainLayout() {
     usePageTitle(pageName && tenantName ? `${pageName} · ${tenantName}` : pageName);
 
     const contentRef = useRef<HTMLDivElement>(null);
+    // D, tablet e telefono (v30): scorrendo, testata e riga dei comandi si compattano.
+    const compactSpacerRef = useRef<HTMLDivElement>(null);
+    const compact = useCompactOnScroll(contentRef, compactSpacerRef, LOOK_D && isNarrow);
     // L'aside del dettaglio dal vivo: le pagine ci aprono il loro `DetailPane`.
     const [detailSlot, setDetailSlot] = useState<HTMLElement | null>(null);
     const [detailCount, setDetailCount] = useState(0);
@@ -175,6 +181,8 @@ export default function MainLayout() {
         [detailSlot, detailCount, registerDetail]
     );
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    // D al telefono: sede e campanella salgono nella barra in alto (v30).
+    const [phoneActionsSlot, setPhoneActionsSlot] = useState<HTMLElement | null>(null);
     const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
         if (typeof window === "undefined") return false;
         try {
@@ -387,7 +395,9 @@ export default function MainLayout() {
     };
     // Notifiche in alto a destra della pagina (Lorenzo, 2026-10-09), non più
     // in cima alla sidebar. Sotto 768 le tiene la testata (`AppHeader`).
-    const titleBarActions = isMobile ? undefined : (
+    const detailAside = <aside ref={setDetailSlot} className={styles.detail} aria-label="Dettaglio" />;
+
+    const titleBarActions = isMobile && !LOOK_D ? undefined : (
         <>
             <AiUsagePill usage={aiUsage.usage} />
             <HeaderNotifications scope="tenant" tenantId={selectedTenant?.id ?? null} />
@@ -395,14 +405,14 @@ export default function MainLayout() {
     );
 
     return (
-        <div className={styles.appLayout}>
+        <div className={styles.appLayout} data-compact={compact || undefined}>
             <DrawerProvider>
                 <BreadcrumbProvider>
                     <PageHeaderProvider>
                         <OperationalAlerts />
                         {/* Sul desktop la sidebar va a tutta altezza e prende logo,
                             campanella e dove sei (Officina): la testata resta al telefono. */}
-                        {isMobile && (
+                        {isMobile && !LOOK_D && (
                             <header className={styles.globalHeader}>
                                 <AppHeader
                                     onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
@@ -421,10 +431,16 @@ export default function MainLayout() {
                                 onRequestClose={() => setMobileSidebarOpen(false)}
                                 onToggleCollapse={() => setSidebarCollapsed(v => !v)}
                                 brand={sidebarBrand}
+                                phoneActionsRef={setPhoneActionsSlot}
                             />
 
                             <main className={styles.main}>
-                                <PageTitleBar actions={titleBarActions} groups={nav.groups} />
+                                <PageTitleBar
+                                    actions={titleBarActions}
+                                    actionsHost={LOOK_D && isMobile ? phoneActionsSlot : null}
+                                    groups={nav.groups}
+                                    account={nav.account}
+                                />
                                 {/* Il dettaglio dal vivo si apre nell'aside, accanto al
                                     contenuto (D131): la pagina si stringe, non si copre. */}
                                 <div className={styles.split}>
@@ -435,11 +451,15 @@ export default function MainLayout() {
                                             <DetailPaneHostContext.Provider value={detailHost}>
                                                 <Outlet context={outletContext} />
                                             </DetailPaneHostContext.Provider>
+                                            {LOOK_D && <div ref={compactSpacerRef} className={styles.compactSpacer} aria-hidden />}
                                         </div>
                                     </div>
-                                    <aside ref={setDetailSlot} className={styles.detail} aria-label="Dettaglio" />
+                                    {!LOOK_D && detailAside}
                                 </div>
                             </main>
+                            {/* Nella D il riquadro è una colonna sua, alta quanto
+                                la finestra, accanto a testata e contenuto (v28). */}
+                            {LOOK_D && detailAside}
                         </div>
 
                         {/* Drawer import AI: reso a livello di layout, FUORI dall'Outlet,

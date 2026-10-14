@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Switch — scheda «Switch»: traccia 36×20 (--gray-300 / --brand-primary),
 // pomello 16 bianco; `sm` 28×16 dentro le righe. Bersaglio 44 col padding.
 // Solo token; nessun override dark.
@@ -89,4 +91,51 @@
 
 .description {
   color: var(--text-muted);
+}
+
+// --- Direzione D (artifact v28, `.check`): binario 36×22, spento grigio-lilla,
+// acceso marca, pallino bianco da 16 che scatta con la molla. `.wrapper` e
+// `.input` non si toccano (correzione bceb822). ---
+.track {
+  @include look-d {
+    width: 36px;
+    height: 22px;
+    background: color-mix(in srgb, var(--d-muted) 32%, transparent);
+    transition: background-color var(--d-dur) ease;
+  }
+}
+
+.thumb {
+  @include look-d {
+    top: 3px;
+    left: 3px;
+    box-shadow: var(--d-shadow-knob);
+    transition: transform var(--d-dur) var(--d-ease-move);
+  }
+}
+
+.input:checked + .track {
+  @include look-d {
+    background: var(--d-brand);
+  }
+}
+
+.input:checked + .track .thumb {
+  @include look-d {
+    transform: translateX(14px);
+  }
+}
+
+.wrapper:hover .input:not(:checked) + .track {
+  @include look-d {
+    background: color-mix(in srgb, var(--d-muted) 42%, transparent);
+  }
+}
+
+.input:focus-visible + .track {
+  @include look-d {
+    box-shadow: none;
+    outline: 2px solid var(--d-focus);
+    outline-offset: 2px;
+  }
 }

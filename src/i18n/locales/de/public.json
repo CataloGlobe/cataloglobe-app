@@ -341,9 +341,6 @@
         "close_aria": "Schließen",
         "close_label": "Schließen"
     },
-    "hero": {
-        "aria": "Kopfzeile des Katalogs"
-    },
     "section_nav": {
         "aria": "Navigation im Katalogbereich"
     },

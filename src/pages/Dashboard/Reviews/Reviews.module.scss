@@ -3,6 +3,8 @@
    testo da leggere. Misure del prototipo «Clienti e numeri». */
 
 @use "@styles/scheda-type" as type;
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 .page {
     display: flex;
@@ -106,4 +108,312 @@
     @include type.fs(text);
     font-style: italic;
     color: var(--text-muted);
+}
+
+/* ── Direzione D (artifact v28, `#p-rec`) ─────────────── */
+// Fuori dalla D la testata non è un blocco: i figli restano nella colonna.
+.head {
+    display: contents;
+}
+
+.top {
+    display: none;
+}
+
+@include look-d {
+    .page {
+        gap: var(--d-gap);
+    }
+
+    // Il segnaposto in cima: uscito dalla vista, la testata si compatta.
+    .top {
+        display: block;
+        height: 24px;
+        margin-bottom: calc(-24px - var(--d-gap));
+        pointer-events: none;
+    }
+
+    .head {
+        display: grid;
+        gap: var(--d-gap);
+        min-width: 0;
+        position: sticky;
+        // Il contenuto ha 18 px sopra (cornice D): la testata si attacca al bordo.
+        top: -18px;
+        z-index: 7;
+    }
+
+    .bar {
+        view-transition-name: r-per;
+    }
+
+    .band {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        align-items: center;
+        padding: calc(var(--d-pad) * 0.7) var(--d-pad);
+        border-radius: var(--d-r-card);
+        background: var(--d-warm-soft);
+        @include d-type(body);
+        view-transition-name: r-band;
+
+        > b {
+            font-weight: 700;
+        }
+
+        // Solo la frase: l'etichetta di «Vedi quali» è anch'essa uno span.
+        > span {
+            color: var(--d-muted);
+        }
+    }
+
+    // «Vedi quali» in fondo alla fascia, col testo caldo (v28, `.band .btn`).
+    .band .bandBtn {
+        margin-left: auto;
+        color: var(--d-warm);
+    }
+
+    .filters {
+        gap: 6px;
+        view-transition-name: r-chips;
+    }
+
+    // L'ordine è una pillola bianca senza bordo, come le tendine della v28.
+    .filters .sortSelect {
+        @include d-type(control);
+
+        border-color: transparent;
+        border-radius: var(--d-r-pill);
+        background-color: var(--d-surface);
+        box-shadow: var(--d-shadow);
+        color: var(--d-text);
+    }
+
+    // ── La riga compatta, attaccata sotto la testata ──
+    .head[data-compact] {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 0 calc(-1 * clamp(14px, 2.4vw, 28px));
+        padding: 28px clamp(14px, 2.4vw, 28px) 10px;
+        background: var(--d-bg);
+        box-shadow: 0 10px 18px -16px rgba(30, 20, 90, 0.45);
+
+        .bar,
+        .filters {
+            display: contents;
+        }
+
+        .band {
+            display: none;
+        }
+
+        // Cerca va in fondo a destra, come icona.
+        .searchButton,
+        .search {
+            order: 9;
+            margin-left: auto;
+        }
+
+        .searchButton {
+            width: 36px;
+            min-width: 36px;
+            padding: 0;
+            justify-content: center;
+            gap: 0;
+
+            // Solo la lente: la parola resta per chi legge con lo screen reader.
+            > :not(:has(svg)) {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            }
+        }
+
+        .filters > * {
+            flex: none;
+            white-space: nowrap;
+        }
+
+        // I chip prendono lo spazio che resta e scorrono di lato.
+        // Sotto i 140px non si legge nemmeno il chip scelto: vanno a capo.
+        .filters > :first-child {
+            flex: 1 1 0;
+            min-width: 140px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+
+            [role="radiogroup"] {
+                flex-wrap: nowrap;
+            }
+        }
+
+        .sort {
+            margin-left: 0;
+            max-width: 168px;
+        }
+
+        // Non ci stanno tutti: resta il chip scelto (v28, `.tight.cz`).
+        &[data-tight] .filters [role="radiogroup"] > [role="radio"]:not([aria-checked="true"]) {
+            display: none;
+        }
+    }
+
+    // ── Elenco: card in griglia ──
+    .revs {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+        gap: var(--d-gap);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        view-transition-name: r-list;
+    }
+
+    .rev {
+        position: relative;
+        display: grid;
+        gap: 8px;
+        align-content: start;
+        padding: var(--d-pad);
+        border: 1px solid var(--d-line);
+        border-radius: var(--d-r-card);
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow);
+        animation: rise 300ms var(--d-ease) both;
+        animation-delay: calc(var(--i) * 40ms);
+
+        &[data-low] {
+            background: color-mix(in srgb, var(--d-warm) 5%, var(--d-surface));
+        }
+
+        &:has([aria-expanded="true"]) {
+            z-index: 5;
+        }
+    }
+
+    // Stelle, data, etichetta e puntini su una riga (v28, `.rtop`): la data
+    // con la sede si accorcia, l'etichetta e i puntini restano interi.
+    .rev .rowTop {
+        flex-wrap: nowrap;
+        gap: 6px 10px;
+        min-width: 0;
+        color: var(--d-muted);
+        @include d-type(note);
+
+        > * {
+            flex: none;
+        }
+
+        > .meta {
+            flex: 0 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        // I puntini tengono l'area da toccare ma non alzano la riga (v28
+        // `.more`, alto quanto il testo).
+        > .rowActions {
+            margin-block: -6px;
+        }
+    }
+
+    .tag {
+        @include d-type(hint);
+
+        padding: 2px 8px;
+        border-radius: var(--d-r-tag);
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .tagW {
+        background: var(--d-warm-soft);
+        color: var(--d-warm);
+    }
+
+    .tagG {
+        background: color-mix(in srgb, var(--d-good) 12%, var(--d-surface));
+        color: var(--d-good);
+    }
+
+    .stars {
+        letter-spacing: 1px;
+        color: color-mix(in srgb, var(--d-muted) 30%, transparent);
+        @include d-type(read);
+
+        b {
+            color: var(--d-star);
+            font-weight: 400;
+        }
+    }
+
+    .rev[data-low] .stars b {
+        color: var(--d-warm);
+    }
+
+    .rev .comment {
+        @include d-type(read);
+        line-height: 1.45;
+    }
+
+    .rev .noComment {
+        @include d-type(read);
+    }
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+
+// Il passaggio alla riga compatta: le parti scivolano con la molla della D.
+::view-transition-group(r-per),
+::view-transition-group(r-vote),
+::view-transition-group(r-chips),
+::view-transition-group(r-cerca),
+::view-transition-group(r-list),
+::view-transition-group(r-band) {
+    animation-duration: 440ms;
+    animation-timing-function: cubic-bezier(0.3, 1.22, 0.45, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rev {
+        animation: none;
+    }
+}
+
+// Sotto i 1024 «Cerca» è solo la lente, tonda da 38 (artifact v30, `.search>.btn`).
+.searchButton {
+    @include look-d {
+        @media (max-width: 1023px) {
+            width: 38px;
+            min-width: 38px;
+            height: 38px;
+            padding: 0;
+            justify-content: center;
+            gap: 0;
+
+            // La parola resta per chi legge con lo screen reader.
+            > :not(:has(svg)) {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            }
+        }
+    }
 }

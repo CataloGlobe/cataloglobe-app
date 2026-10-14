@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 .row {
   display: flex;
   align-items: center;
@@ -28,4 +31,17 @@
   display: flex;
   align-items: center;
   min-width: 0;
+}
+
+// --- Direzione D: nelle pagine fuori dalle sezioni l'ultimo pezzo del
+// percorso è il titolo della pagina, come `.titlebar h1` della v28. ---
+.inBar {
+  @include look-d {
+    [aria-current="page"],
+    [aria-current="page"] * {
+      @include d-type(page-title);
+
+      color: var(--d-text);
+    }
+  }
 }

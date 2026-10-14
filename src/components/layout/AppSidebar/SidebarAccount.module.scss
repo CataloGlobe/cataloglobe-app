@@ -3,6 +3,8 @@
 // (32) resta al suo posto e chiusa cade al centro dei 64:
 // 11 (contenitore) + 5 (pulsante) + 16 = 32 = 64 / 2. Si taglia il testo,
 // non si sposta niente. Solo token.
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 .trigger {
   display: flex;
@@ -113,4 +115,490 @@
   height: 7px;
   border-radius: var(--radius-pill);
   background: var(--brand-primary);
+}
+
+// ===== Direzione D (artifact v28, `.acct` e `#amenu`) =====
+// Il pulsante: avatar viola, nome pieno, sotto azienda e ruolo; bianco
+// quando il menù è aperto o sei in una sua pagina. Ridotta, solo l'avatar.
+.trigger {
+  @include look-d {
+    gap: 10px;
+    padding: 8px;
+    border-radius: var(--d-r-ctl);
+    color: var(--d-text);
+    transition: background-color var(--d-dur) ease;
+
+    &:hover {
+      background: transparent;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: color-mix(in srgb, var(--d-side-muted) 12%, transparent);
+      }
+    }
+
+    &[data-state="open"],
+    &[aria-current="page"],
+    &[data-state="open"]:hover,
+    &[aria-current="page"]:hover {
+      background: var(--d-surface);
+    }
+
+    &:active .avatar {
+      transform: scale(0.94);
+    }
+
+    &[data-collapsed] {
+      width: 44px;
+      padding-inline: 5px;
+    }
+  }
+}
+
+.avatar {
+  @include look-d {
+    transition: transform 0.12s ease-out;
+
+    > [role="img"] {
+      background: var(--d-brand);
+      color: var(--on-brand);
+    }
+  }
+}
+
+// Il pallino corallo sull'avatar (`.adot`): c'è qualcosa da vedere.
+.pending {
+  @include look-d {
+    top: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
+    background: var(--d-warm);
+    box-shadow: 0 0 0 2px var(--d-side-bg);
+  }
+}
+
+.name {
+  @include look-d {
+    font-weight: 600;
+  }
+}
+
+.plan {
+  @include look-d {
+    @include d-type(small);
+
+    color: var(--d-side-muted);
+  }
+}
+
+.chevron {
+  @include look-d {
+    width: 15px;
+    height: 15px;
+    color: var(--d-side-muted);
+    transition: transform var(--d-dur) var(--d-ease-move);
+
+    .trigger[data-state="open"] & {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+// Il menù: carta bianca a 24, larga 290, arriva con la molla dal pulsante.
+@keyframes amInD {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+}
+
+@keyframes amRowD {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes amViewD {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+.menuD {
+  @include look-d {
+    width: 290px;
+    max-height: calc(100dvh - 110px);
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    padding: 8px;
+    border: none;
+    border-radius: 24px;
+    box-shadow: var(--d-shadow-pop);
+    transform-origin: 30px 100%;
+
+    &[data-state="open"] {
+      animation: amInD 320ms var(--d-ease-move) both;
+    }
+
+    &[data-side="right"] {
+      transform-origin: 0 calc(100% - 20px);
+    }
+
+    &[data-side="bottom"] {
+      transform-origin: calc(100% - 22px) 0;
+    }
+
+    @include phone {
+      width: calc(100vw - 20px);
+    }
+  }
+}
+
+.view {
+  @include look-d {
+    display: grid;
+    // Una colonna larga quanto il menù: un'email lunga si accorcia, non lo
+    // allarga (e non spinge fuori «Cambia» e il ruolo).
+    grid-template-columns: minmax(0, 1fr);
+    animation: amViewD 260ms var(--d-ease) both;
+  }
+}
+
+.view[data-view="main"] {
+  @include look-d {
+    animation: none;
+  }
+}
+
+// Le righe entrano una dopo l'altra (22 ms l'una, dopo 40).
+.view[data-view="main"] > .row {
+  @include look-d {
+    animation: amRowD 320ms var(--d-ease) both;
+
+    @for $i from 1 through 12 {
+      &:nth-child(#{$i}) {
+        animation-delay: #{($i - 1) * 22 + 40}ms;
+      }
+    }
+  }
+}
+
+.row {
+  @include look-d {
+    @include d-type(nav);
+
+    min-height: var(--d-ctl);
+    padding: 0 10px;
+    border-radius: 12px;
+    color: var(--d-text);
+
+    svg {
+      width: 16px;
+      height: 16px;
+      color: var(--d-muted);
+    }
+
+    &[data-highlighted] {
+      background: color-mix(in srgb, var(--d-brand) 7%, transparent);
+    }
+  }
+}
+
+.rowHere,
+.rowHere[data-highlighted] {
+  @include look-d {
+    &[data-highlighted] {
+      box-shadow: inset 0 0 0 2px var(--d-focus);
+    }
+
+    background: var(--d-soft);
+    color: var(--d-brand-deep);
+    font-weight: 700;
+
+    svg {
+      color: var(--d-brand-deep);
+    }
+  }
+}
+
+.count {
+  @include look-d {
+    @include d-type(small);
+
+    padding: 1px 7px;
+    border-radius: var(--d-r-tag);
+    background: var(--d-soft2);
+    color: var(--d-brand-deep);
+    font-family: var(--d-f-num);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.dot {
+  @include look-d {
+    width: 8px;
+    height: 8px;
+    background: var(--d-warm);
+  }
+}
+
+// Chi sei: avatar, nome ed email, il ruolo in un'etichetta.
+.dWho {
+  @include look-d {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 10px;
+  }
+}
+
+.dAvatar > [role="img"] {
+  @include look-d {
+    background: var(--d-brand);
+    color: var(--on-brand);
+  }
+}
+
+.dWhoText {
+  flex: 1;
+  min-width: 0;
+
+  b,
+  small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  b {
+    @include look-d {
+      @include d-type(nav);
+
+      font-weight: 700;
+    }
+  }
+
+  small {
+    @include look-d {
+      @include d-type(small);
+
+      color: var(--d-muted);
+      font-weight: 400;
+    }
+  }
+}
+
+.dRole {
+  @include look-d {
+    @include d-type(small);
+
+    flex: none;
+    padding: 2px 8px;
+    border-radius: var(--d-r-tag);
+    background: var(--d-soft);
+    color: var(--d-brand-deep);
+    font-weight: 600;
+  }
+}
+
+// La card dell'azienda, con «Cambia».
+.dCompany,
+.dCompany[data-highlighted] {
+  @include look-d {
+    gap: 10px;
+    margin-bottom: 6px;
+    padding: 10px;
+    border-radius: 18px;
+    background: var(--d-tint-1);
+    transition: transform var(--d-dur) var(--d-ease-move);
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    &[data-highlighted] {
+      box-shadow: inset 0 0 0 2px var(--d-focus);
+    }
+
+    // Il nome dell'azienda in Bricolage, sotto sedi e piano.
+    > span:nth-child(2) {
+      @include d-type(card-name);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        transform: translateY(-1px) rotate(-0.4deg);
+      }
+    }
+  }
+}
+
+.dSquare {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--d-brand-deep);
+  @include d-type(initials);
+}
+
+.dSquareXs {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--d-soft2);
+  @include d-type(micro);
+}
+
+.dGo {
+  @include look-d {
+    @include d-type(small);
+
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    color: var(--d-brand-deep);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}
+
+.dSection {
+  @include look-d {
+    @include d-type(label);
+
+    padding: 8px 10px 2px;
+    color: var(--d-muted);
+  }
+}
+
+.dOnly {
+  @include look-d {
+    padding: 2px 7px;
+    border-radius: 7px;
+    background: var(--d-s-old);
+    color: var(--d-muted);
+    @include d-type(micro);
+
+    white-space: nowrap;
+  }
+}
+
+.dExit {
+  @include look-d {
+    color: var(--d-muted);
+  }
+}
+
+.dBack,
+.dBack[data-highlighted] {
+  @include look-d {
+    @include d-type(card-name);
+
+    gap: 6px;
+    padding: 8px 10px 10px;
+    background: transparent;
+
+    &[data-highlighted] {
+      box-shadow: inset 0 0 0 2px var(--d-focus);
+    }
+
+    svg {
+      color: var(--d-brand-deep);
+    }
+  }
+}
+
+.dSearch {
+  @include look-d {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 2px 8px;
+    padding: 0 12px;
+    min-height: var(--d-ctl);
+    border: 1px solid var(--d-field-line);
+    border-radius: var(--d-r-pill);
+    color: var(--d-muted);
+
+    input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      color: var(--d-text);
+      font: inherit;
+      outline: none;
+
+      @include touch-input-font;
+    }
+
+    &:focus-within {
+      border-color: color-mix(in srgb, var(--d-brand) 55%, transparent);
+      box-shadow: 0 0 0 4px var(--d-soft);
+    }
+  }
+}
+
+.dSmall {
+  @include look-d {
+    @include d-type(hint);
+
+    color: var(--d-muted);
+    white-space: nowrap;
+  }
+}
+
+.dNone {
+  margin: 0;
+  padding: 14px 10px;
+  color: var(--d-muted);
+  @include d-type(body-s);
+
+  font-weight: 400;
+  text-align: center;
+
+  &:empty {
+    padding: 0;
+  }
+}
+
+/* ===== Direzione D, telefono: solo l'avatar (v28 sotto 861) ===== */
+.trigger[data-phone] {
+  @include look-d {
+    justify-content: center;
+    width: auto;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    background: none;
+
+    .who,
+    .chevron {
+      display: none;
+    }
+
+    &[aria-expanded="true"] .avatar {
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 3px var(--d-surface),
+        0 0 0 5px var(--d-brand-deep);
+    }
+  }
+}
+
+.menuD[data-side="bottom"] {
+  @include look-d {
+    @media (max-width: 640px) {
+      width: calc(100vw - 20px);
+    }
+  }
 }

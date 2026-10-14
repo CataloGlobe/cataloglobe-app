@@ -11,6 +11,7 @@ import { useTenant } from "@/context/useTenant";
 import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
+import { ROUTE_LABELS } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { canDoOnAnyActivity, canDoOnTenant, isTenantWide } from "@/lib/permissions";
 import { peekAside } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { asCal, asInside, asMetti, type CreaKind } from "./creaModel";
@@ -28,7 +29,7 @@ const UN: Record<CreaKind, string> = { menu: "un menù", stile: "uno stile", evi
 
 /** Da dove si è partiti (`?da=`): lì riporta il percorso, e «Esci». */
 const ORIGIN: Record<string, [string, string]> = {
-    panoramica: ["Panoramica", "overview"],
+    panoramica: [ROUTE_LABELS.overview, "overview"],
     menu: ["Menù", "catalogs"],
     stili: ["Stili", "styles"],
     evidenza: ["In evidenza", "featured"],

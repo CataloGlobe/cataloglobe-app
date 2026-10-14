@@ -63,6 +63,13 @@ test.describe("Testata — due righe prima della barra compatta", () => {
         await stubProdotti(page);
         await openBusinessPage(page, "products", "Prodotti");
         await page.setViewportSize({ width: 1024, height: 900 });
+        // Nella D a 1024 la barra laterale è a binario e la banda entra in una riga.
+        const lookD = await page.evaluate(() => document.documentElement.dataset.look === "d");
+        if (lookD) {
+            await expect(page.getByRole("radio", { name: /^Gruppi/ })).toBeInViewport();
+            await expect(page.getByPlaceholder(/^Cerca/).first()).toBeInViewport();
+            return;
+        }
         await stacked(page.getByRole("radio", { name: /^Gruppi/ }), page.getByPlaceholder(/^Cerca/).first());
     });
 

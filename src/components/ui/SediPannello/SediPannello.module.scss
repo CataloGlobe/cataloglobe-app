@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Il pannello delle sedi (D128, D151): lo stesso dove si scelgono sedi.
 
 .btn {
@@ -46,6 +48,54 @@
     box-shadow: var(--shadow-overlay);
     font-size: 13px;
     color: var(--text);
+}
+
+// D al telefono (v30, sotto 641): il pannello in mezzo, sopra un velo; un
+// tocco sul velo chiude come un clic fuori.
+.sheet {
+    @include look-d {
+        position: fixed;
+        inset: 0;
+        z-index: var(--z-overlay);
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        background: var(--d-veil);
+        animation: sheetIn 180ms ease both;
+    }
+}
+
+.popSheet {
+    @include look-d {
+        position: static;
+        width: min(360px, 100%);
+        max-width: none;
+        max-height: calc(100dvh - 48px);
+        border: 0;
+        border-radius: 22px;
+        box-shadow: var(--d-shadow-sheet);
+        animation: sheetPop 220ms var(--d-ease) both;
+    }
+}
+
+@keyframes sheetIn {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes sheetPop {
+    from {
+        opacity: 0;
+        transform: scale(0.94) translateY(8px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sheet,
+    .popSheet {
+        animation: none;
+    }
 }
 
 .panel {

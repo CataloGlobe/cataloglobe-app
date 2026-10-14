@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Chip — scheda «Chip» (era Pill). Altezza 32, padding 0 10, gap 6, raggio
 // --radius-pill. Selected = fondo + bordo + testo brand E la spunta 14:
 // mai solo il colore. Solo token.
@@ -159,4 +161,65 @@
 .disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+// --- Direzione D (artifact v28, `.chip`): pillola bianca con l'ombra indaco,
+// testo secondario; scelta = indaco scuro pieno con testo bianco. ---
+.chip {
+  @include look-d {
+    padding: 6px 12px;
+    border-color: transparent;
+    box-shadow: var(--d-shadow);
+    color: var(--d-muted);
+    font-weight: 600;
+    transition:
+      background-color var(--d-dur) ease,
+      color var(--d-dur) ease,
+      transform 0.12s ease-out;
+
+    &:active {
+      transform: scale(0.97);
+    }
+
+    &:focus-visible {
+      box-shadow: var(--d-shadow);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: color-mix(in srgb, var(--d-brand) 9%, var(--d-surface));
+      }
+    }
+
+    &[aria-checked="true"],
+    &[aria-pressed="true"] {
+      background: var(--d-brand-deep);
+      border-color: var(--d-brand-deep);
+      color: var(--on-brand);
+    }
+
+    .label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    // La scelta la dice il fondo pieno: niente spunta (v28, `.chip`).
+    .check {
+      display: none;
+    }
+  }
+}
+
+.warning {
+  @include look-d {
+    background: var(--d-surface);
+    color: var(--d-warm);
+
+    &[aria-checked="true"],
+    &[aria-pressed="true"] {
+      background: var(--d-warm);
+      border-color: var(--d-warm);
+      color: var(--on-brand);
+    }
+  }
 }

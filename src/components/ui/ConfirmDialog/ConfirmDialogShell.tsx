@@ -4,6 +4,7 @@ import FocusLock from "react-focus-lock";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Text from "@/components/ui/Text/Text";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { D_EASE_MOVE, LOOK_D } from "@styles/lookD";
 import styles from "./ConfirmDialog.module.scss";
 
 export interface ConfirmDialogShellProps {
@@ -99,6 +100,11 @@ export function ConfirmDialogShell({
     const transition = reducedMotion
         ? { duration: 0 }
         : { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
+    // Direzione D (artifact v28, `#smodal`): il velo sfuma in 180 ms, la finestra
+    // cresce da .95 con la molla in 220 ms.
+    const overlayTransition = reducedMotion || !LOOK_D ? transition : { duration: 0.18, ease: "easeOut" as const };
+    const panelTransition = reducedMotion || !LOOK_D ? transition : { duration: 0.22, ease: D_EASE_MOVE };
+    const panelFrom = LOOK_D ? { opacity: 0, scale: 0.95 } : { opacity: 0, scale: 0.98, y: 8 };
 
     return createPortal(
         <AnimatePresence>
@@ -117,7 +123,7 @@ export function ConfirmDialogShell({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={transition}
+                    transition={overlayTransition}
                 >
                     <FocusLock autoFocus={false} returnFocus={false}>
                         <motion.div
@@ -131,10 +137,10 @@ export function ConfirmDialogShell({
                             aria-labelledby={titleId}
                             aria-describedby={message ? descriptionId : undefined}
                             tabIndex={-1}
-                            initial={reducedMotion ? false : { opacity: 0, scale: 0.98, y: 8 }}
+                            initial={reducedMotion ? false : panelFrom}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={reducedMotion ? undefined : { opacity: 0, scale: 0.98, y: 8 }}
-                            transition={transition}
+                            exit={reducedMotion ? undefined : panelFrom}
+                            transition={panelTransition}
                         >
                             <Text as="h2" id={titleId} variant="title-sm" weight={600} className={styles.title}>
                                 {title}

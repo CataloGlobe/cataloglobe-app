@@ -1,5 +1,16 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import {
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { flushSync } from "react-dom";
+import { LOOK_D } from "@styles/lookD";
+import { useTightRow } from "@/hooks/useTightRow";
 import { useTenantId } from "@/context/useTenantId";
 import { listReviews } from "@/services/supabase/reviews";
 import { useSedeScope } from "@/hooks/useSedeScope";
@@ -24,6 +35,8 @@ import { formatRelativeTime } from "@/utils/relativeTime";
 import { PERIOD_OPTIONS, usePeriodParam } from "@/hooks/usePeriodParam";
 import { periodToDateRange } from "@/pages/Dashboard/Analytics/utils/periodComparison";
 import { VoteLine } from "./VoteLine";
+import { VoteLineD } from "./VoteLineD";
+import { weeklyAverages } from "./voteTrend";
 import { useSediVista, useConfrontoQui } from "@/hooks/useSediVista";
 
 import styles from "./Reviews.module.scss";
@@ -46,6 +59,11 @@ const SORT_OPTIONS = [
 const isLow = (r: Review) => r.rating <= 3;
 
 /* ── Component ───────────────────────────────────────── */
+
+/** L'elenco sta in una card; nella D ogni recensione è una card sua. */
+export function ListShell({ children }: { children: ReactNode }) {
+  return LOOK_D ? <>{children}</> : <Card flush>{children}</Card>;
+}
 
 /** La media (a un decimale) e il conteggio per stelle di un gruppo di voti. */
 function voteStats(list: readonly Review[]): {
@@ -135,6 +153,43 @@ export default function Reviews() {
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
+
+  /* ── Riga compatta (D, artifact v28 `.cz`) ──────────── */
+  // Scorrendo oltre il segnaposto in cima la testata si stringe in una riga
+  // attaccata in alto; torna intera solo di nuovo in cima. Il passaggio usa
+  // le view transition, se ci sono e se il movimento non è ridotto.
+  const [compact, setCompact] = useState(false);
+  const [filtersEl, setFiltersEl] = useState<HTMLDivElement | null>(null);
+  // Nella riga compatta i chip scorrono: se non ci stanno, resta solo lo scelto.
+  const tight = useTightRow(
+    LOOK_D ? ((filtersEl?.firstElementChild as HTMLElement | null) ?? null) : null,
+    compact,
+  );
+  const [top, setTop] = useState<HTMLDivElement | null>(null);
+  const compactRef = useRef(false);
+  useEffect(() => {
+        if (!LOOK_D || !top) return;
+    const swap = (next: boolean) => {
+      if (compactRef.current === next) return;
+      compactRef.current = next;
+      const apply = () => flushSync(() => setCompact(next));
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!still && typeof document.startViewTransition === "function")
+        document.startViewTransition(apply);
+      else apply();
+    };
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (!e.isIntersecting) swap(true);
+        else if (e.intersectionRatio >= 0.99) swap(false);
+      },
+      { threshold: [0, 1] },
+    );
+    io.observe(top);
+    return () => io.disconnect();
+  }, [top]);
+  const backToTop = () =>
+    top?.scrollIntoView({ block: "start", behavior: "smooth" });
 
   /* ── Fetch reviews quando cambia tenant o scope ────── */
   useEffect(() => {
@@ -242,6 +297,19 @@ export default function Reviews() {
     [periodFilteredReviews, isInvited],
   );
 
+  // Il voto delle ultime sette settimane, sulla sede (o le sedi) di questa vista.
+  const trend = useMemo(
+    () =>
+      LOOK_D
+        ? weeklyAverages(
+            selectedActivity
+              ? reviews.filter((r) => r.activity_id === selectedActivity)
+              : reviews,
+          )
+        : [],
+    [reviews, selectedActivity],
+  );
+
   /* ── Final filtered + sorted reviews ────────────── */
   const displayedReviews = useMemo(() => {
     let result = [...periodFilteredReviews];
@@ -323,6 +391,13 @@ export default function Reviews() {
     >
       {() => (
         <div className={styles.page}>
+          {/* In cima: quando esce dalla vista, la testata si compatta (D). */}
+          {LOOK_D && <div ref={setTop} className={styles.top} aria-hidden />}
+          <div
+            className={styles.head}
+            data-compact={compact ? "" : undefined}
+            data-tight={tight ? "" : undefined}
+          >
           {/* ── Periodo a sinistra, Cerca a destra (D154) ─── */}
           <div className={styles.bar}>
             <SegmentedControl
@@ -347,7 +422,7 @@ export default function Reviews() {
               </div>
             ) : (
               <Button
-                variant="ghost"
+                variant={LOOK_D ? "secondary" : "ghost"}
                 size="sm"
                 className={styles.searchButton}
                 leftIcon={<Search size={15} aria-hidden />}
@@ -368,6 +443,19 @@ export default function Reviews() {
           ) : (
             !loadError &&
             (compareLines.length === 0 ? (
+              LOOK_D ? (
+                <VoteLineD
+                  average={average}
+                  total={counts.all}
+                  invited={counts.invited}
+                  distribution={distribution}
+                  stars={filterStars}
+                  onStars={setFilterStars}
+                  trend={trend}
+                  compact={compact}
+                  onExpand={backToTop}
+                />
+              ) : (
               <VoteLine
                 average={average}
                 total={counts.all}
@@ -376,12 +464,26 @@ export default function Reviews() {
                 stars={filterStars}
                 onStars={setFilterStars}
               />
+              )
             ) : (
               <div
                 className={styles.votes}
                 aria-label="Il voto delle sedi a confronto"
                 role="group"
               >
+                {LOOK_D ? (
+                  <VoteLineD
+                    name={activityNameMap.get(selectedActivity) ?? "Questa sede"}
+                    average={average}
+                    total={counts.all}
+                    invited={counts.invited}
+                    distribution={distribution}
+                    stars={filterStars}
+                    onStars={setFilterStars}
+                    compact={compact}
+                    onExpand={backToTop}
+                  />
+                ) : (
                 <VoteLine
                   name={activityNameMap.get(selectedActivity) ?? "Questa sede"}
                   average={average}
@@ -391,7 +493,20 @@ export default function Reviews() {
                   stars={filterStars}
                   onStars={setFilterStars}
                 />
-                {compareLines.map((line) => (
+                )}
+                {compareLines.map((line) =>
+                  LOOK_D ? (
+                    <VoteLineD
+                      key={line.id}
+                      name={line.name}
+                      average={line.average}
+                      total={line.total}
+                      invited={line.invited}
+                      distribution={line.distribution}
+                      compact={compact}
+                      onExpand={backToTop}
+                    />
+                  ) : (
                   <VoteLine
                     key={line.id}
                     name={line.name}
@@ -400,16 +515,45 @@ export default function Reviews() {
                     invited={line.invited}
                     distribution={line.distribution}
                   />
-                ))}
+                  ),
+                )}
               </div>
             ))
           )}
 
+          {/* ── Le basse da leggere (D, artifact `#lowband`) ── */}
+          {LOOK_D &&
+            !loading &&
+            !loadError &&
+            counts.low > 0 &&
+            listFilter !== "low" && (
+              <div className={styles.band}>
+                <b>
+                  {counts.low === 1
+                    ? "1 recensione bassa da leggere."
+                    : `${counts.low} recensioni basse da leggere.`}
+                </b>
+                <span>Restano a voi: non vanno su Google.</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className={styles.bandBtn}
+                  onClick={() => {
+                    setListFilter("low");
+                    setFilterStars(null);
+                  }}
+                >
+                  Vedi quali
+                </Button>
+              </div>
+            )}
+
           {/* ── Filtri e ordine ─────────────────────── */}
           {!loading && !loadError && counts.all > 0 && (
-            <div className={styles.filters}>
+            <div ref={setFiltersEl} className={styles.filters}>
               <ChipGroupSingle
                 ariaLabel="Quali recensioni"
+                layout={LOOK_D ? "auto" : undefined}
                 value={listFilter}
                 onChange={setListFilter}
                 options={listOptions}
@@ -432,6 +576,7 @@ export default function Reviews() {
               />
             </div>
           )}
+          </div>
 
           {/* ── Elenco ──────────────────────────────── */}
           {loading ? (
@@ -492,14 +637,53 @@ export default function Reviews() {
           ) : (
             // Stelle, quando e dove sono andate sopra; il commento sotto,
             // largo come un testo da leggere.
-            <Card flush>
-              <ul className={styles.list} aria-label="Recensioni">
-                {displayedReviews.map((review) => (
-                  <li key={review.id} className={styles.row}>
+            <ListShell>
+              <ul
+                className={LOOK_D ? styles.revs : styles.list}
+                aria-label="Recensioni"
+              >
+                {displayedReviews.map((review, i) => (
+                  <li
+                    key={review.id}
+                    className={LOOK_D ? styles.rev : styles.row}
+                    data-low={LOOK_D && isLow(review) ? "" : undefined}
+                    style={
+                      LOOK_D
+                        ? ({ "--i": Math.min(i, 10) } as CSSProperties)
+                        : undefined
+                    }
+                  >
                     <div className={styles.rowTop}>
-                      <Rating value={review.rating} showValue={false} />
-                      <span>{reviewMeta(review)}</span>
-                      {isLow(review) ? (
+                      {LOOK_D ? (
+                        <span
+                          className={styles.stars}
+                          role="img"
+                          aria-label={`${review.rating} stelle su 5`}
+                        >
+                          <b>{"★".repeat(review.rating)}</b>
+                          {"★".repeat(Math.max(0, 5 - review.rating))}
+                        </span>
+                      ) : (
+                        <Rating value={review.rating} showValue={false} />
+                      )}
+                      <span
+                        className={LOOK_D ? styles.meta : undefined}
+                        title={
+                          LOOK_D
+                            ? `${formatRelativeTime(review.created_at)}, ore ${new Date(review.created_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`
+                            : undefined
+                        }
+                      >
+                        {reviewMeta(review)}
+                      </span>
+                      {LOOK_D ? (
+                        // Etichette piatte della v28 (`.tag.w`, `.tag.g`), senza pallino.
+                        isLow(review) ? (
+                          <span className={`${styles.tag} ${styles.tagW}`}>Solo a voi</span>
+                        ) : isInvited(review) ? (
+                          <span className={`${styles.tag} ${styles.tagG}`}>Invitata su Google</span>
+                        ) : null
+                      ) : isLow(review) ? (
                         <StatusBadge variant="warning" label="Solo a voi" />
                       ) : isInvited(review) ? (
                         <StatusBadge
@@ -518,7 +702,7 @@ export default function Reviews() {
                   </li>
                 ))}
               </ul>
-            </Card>
+            </ListShell>
           )}
 
         </div>

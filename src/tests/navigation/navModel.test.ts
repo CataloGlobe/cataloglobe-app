@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { UserPermissions, UserRole } from "@/lib/permissions";
 import type { PlanFeature } from "@/lib/planFeatures";
 import {
@@ -15,6 +15,9 @@ import {
     switchSedePath,
     type NavContext
 } from "@/utils/navModel";
+
+// I nomi di oggi: nella D la Panoramica si chiama «Home» (lo dice l'e2e).
+vi.mock("@styles/lookD", () => ({ LOOK_D: false }));
 
 const SEDE = "sede-1";
 const ALTRA = "sede-2";

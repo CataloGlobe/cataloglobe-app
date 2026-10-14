@@ -1,0 +1,85 @@
+@use "sass:map";
+
+// La scala dei testi della direzione D (artifact v28): le misure stanno
+// qui, come in `_typography.scss`, e i componenti del guscio le chiedono per
+// ruolo con `@include d-type(nav)`. Va usata dentro `@include look-d`.
+
+$d-type: (
+  // Titolo della pagina nella testata (`.titlebar h2`).
+  page-title: (family: display, size: 20px, weight: 700, tracking: -0.015em),
+  // Titolo di pannelli e finestre (`.dh h3`, `#smodal h3`).
+  pane-title: (family: display, size: 18px, weight: 700, tracking: -0.01em),
+  // Nome dell'azienda nella card del menù dell'account (`.am-co b`).
+  card-name: (family: display, size: 15px, weight: 700, tracking: -0.01em),
+  // Logo scritto (`.logo`).
+  logo: (family: display, size: 16px, weight: 700, tracking: -0.01em),
+  // Voci della barra laterale e del menù dell'account (`.nav a`, `.am-i`).
+  nav: (size: 13.5px, weight: 500),
+  // Schede e tendine (`.tabs button`, `.pop button`, `.sede`).
+  control: (size: 13px, weight: 600),
+  // Testo corrente piccolo: messaggi vuoti, righe delle tendine (`.am-none`).
+  body-s: (size: 13px, weight: 500),
+  // Righe secondarie: ruolo, conteggi, piè di tendina (`.acct span`, `.cn2`).
+  small: (size: 12px, weight: 500),
+  // Iniziali nel quadratino dell'azienda (`.av.sq`).
+  initials: (size: 12px, weight: 700),
+  // Accanto a una voce: il piano di un'azienda (`.am-i small`).
+  hint: (size: 11.5px, weight: 500),
+  // Etichette piccole piene (`.only`, `.av.xs`).
+  micro: (size: 10.5px, weight: 700),
+  // Etichette in maiuscolo (`.am-l`, `.rtip.has .tt`).
+  label: (size: 10.5px, weight: 700, tracking: 0.08em, upper: true),
+  // Intestazioni delle tendine (`.pop .head`).
+  head: (size: 11px, weight: 700, tracking: 0.06em, upper: true),
+  // --- Pagine (PR 2 e seguenti) ---
+  // La frase che risponde accanto ai comandi (`.cmd .answer`).
+  answer: (family: display, size: calc(var(--d-answer-size) * 0.75), weight: 600, tracking: -0.02em),
+  // Titoli delle card (`.card h3`).
+  card-title: (family: display, size: 15px, weight: 700, tracking: -0.01em),
+  // Il numero grande di una voce (`.va b`).
+  voice-num: (family: display, size: calc(var(--d-num-size) * 0.85), weight: 700, tracking: -0.03em),
+  // I numeri sotto un grafico (`.f3 b`).
+  fact-num: (family: display, size: 19px, weight: 700, tracking: -0.02em),
+  // Testo corrente delle pagine (`.va`, `.brief li`).
+  body: (size: 13.5px, weight: 500),
+  // Righe di tabella e liste (`table`, `.fn`, `.terms li`).
+  row: (size: 13px, weight: 500),
+  // Note e righe secondarie (`.cap`, `.vx`, `.hd > span`, `.dl`).
+  note: (size: 12.5px, weight: 500),
+  // Intestazioni di colonna (`th`).
+  th: (size: 11.5px, weight: 600),
+  // Assi dei grafici e ore della mappa (`.chart text`, `.heat`).
+  axis: (family: display, size: 11px, weight: 500),
+  // Il voto medio di Recensioni (`.vavg`) e la sua pillola compatta.
+  vote-avg: (family: num, size: calc(var(--d-num-size) * 1.6), weight: var(--d-num-weight), tracking: -0.04em),
+  vote-pill: (family: num, size: 21px, weight: var(--d-num-weight), tracking: -0.04em),
+  // La stella accanto al voto, metà del numero (`.vavg span`).
+  vote-star: (size: 0.5em),
+  // Testo da leggere: il commento di una recensione, le stelle (`.rev p`).
+  read: (size: 14px, weight: 400),
+  // Servizio: tavolo della comanda, nome della tessera, ora delle righe.
+  ticket: (family: display, size: 17px, weight: 700, tracking: -0.01em),
+  tile-num: (family: num, size: 13px, weight: 700),
+  time: (family: num, size: 15px, weight: 700),
+  now: (family: display, size: clamp(14px, 1.3cqi, 19px), weight: 600, tracking: -0.015em)
+);
+
+@mixin d-type($role) {
+  $t: map.get($d-type, $role);
+  @if not $t {
+    @error "d-type: ruolo sconosciuto «#{$role}»";
+  }
+  @if map.get($t, "family") == display {
+    font-family: var(--d-f-display);
+  } @else if map.get($t, "family") == num {
+    font-family: var(--d-f-num);
+  }
+  font-size: map.get($t, "size");
+  font-weight: map.get($t, "weight");
+  @if map.has-key($t, "tracking") {
+    letter-spacing: map.get($t, "tracking");
+  }
+  @if map.get($t, "upper") {
+    text-transform: uppercase;
+  }
+}

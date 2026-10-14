@@ -6,6 +6,7 @@ import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import type { AppSidebarNavItem } from "./AppSidebar";
 import { currentItem } from "./isItemActive";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./AppSidebar.module.scss";
 import fly from "./SidebarFlyout.module.scss";
 
@@ -139,6 +140,65 @@ export function SidebarSection({
 
     if (inline) {
         const listId = `${panelId}-list`;
+        const list = (
+            <ul id={listId} className={styles.subList} aria-label={title}>
+                {items.map(item => {
+                    const active = item === current;
+                    const body = (
+                        <>
+                            <Text as="span" variant="body-sm" className={styles.label}>
+                                {item.label}
+                            </Text>
+                            <span className={styles.trailing}>
+                                {item.state && (
+                                    <span className={styles.subState}>
+                                        {item.stateTone && (
+                                            <span className={styles.navDot} data-tone={item.stateTone} aria-hidden="true" />
+                                        )}
+                                        {item.state}
+                                    </span>
+                                )}
+                                {item.locked && (
+                                    <span className={styles.subLock} aria-label="Funzione del piano Pro">
+                                        <Lock size={14} strokeWidth={1.5} />
+                                    </span>
+                                )}
+                                {item.badge !== undefined ? (
+                                    <span title={item.badgeLabel} aria-label={item.badgeLabel}>
+                                        <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
+                                    </span>
+                                ) : (
+                                    (item.showDot || item.loading) && (
+                                        <span
+                                            className={styles.navDot}
+                                            role="status"
+                                            aria-label={item.dotLabel ?? item.loadingLabel ?? "In corso"}
+                                        />
+                                    )
+                                )}
+                            </span>
+                        </>
+                    );
+                    return (
+                        <li key={item.to}>
+                            {item.disabled ? (
+                                <span className={`${styles.link} ${styles.subLink} ${styles.disabled}`} aria-disabled="true">
+                                    {body}
+                                </span>
+                            ) : (
+                                <Link
+                                    to={item.to}
+                                    className={[styles.link, styles.subLink, active ? styles.active : ""].join(" ")}
+                                    aria-current={active ? "page" : undefined}
+                                >
+                                    {body}
+                                </Link>
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
+        );
         return (
             <li>
                 <button
@@ -165,64 +225,19 @@ export function SidebarSection({
                         <ChevronRight size={16} className={styles.sectionChevron} aria-hidden="true" />
                     </span>
                 </button>
-                {expanded && (
-                    <ul id={listId} className={styles.subList} aria-label={title}>
-                        {items.map(item => {
-                            const active = item === current;
-                            const body = (
-                                <>
-                                    <Text as="span" variant="body-sm" className={styles.label}>
-                                        {item.label}
-                                    </Text>
-                                    <span className={styles.trailing}>
-                                        {item.state && (
-                                            <span className={styles.subState}>
-                                                {item.stateTone && (
-                                                    <span className={styles.navDot} data-tone={item.stateTone} aria-hidden="true" />
-                                                )}
-                                                {item.state}
-                                            </span>
-                                        )}
-                                        {item.locked && (
-                                            <span className={styles.subLock} aria-label="Funzione del piano Pro">
-                                                <Lock size={14} strokeWidth={1.5} />
-                                            </span>
-                                        )}
-                                        {item.badge !== undefined ? (
-                                            <span title={item.badgeLabel} aria-label={item.badgeLabel}>
-                                                <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
-                                            </span>
-                                        ) : (
-                                            (item.showDot || item.loading) && (
-                                                <span
-                                                    className={styles.navDot}
-                                                    role="status"
-                                                    aria-label={item.dotLabel ?? item.loadingLabel ?? "In corso"}
-                                                />
-                                            )
-                                        )}
-                                    </span>
-                                </>
-                            );
-                            return (
-                                <li key={item.to}>
-                                    {item.disabled ? (
-                                        <span className={`${styles.link} ${styles.subLink} ${styles.disabled}`} aria-disabled="true">
-                                            {body}
-                                        </span>
-                                    ) : (
-                                        <Link
-                                            to={item.to}
-                                            className={[styles.link, styles.subLink, active ? styles.active : ""].join(" ")}
-                                            aria-current={active ? "page" : undefined}
-                                        >
-                                            {body}
-                                        </Link>
-                                    )}
-                                </li>
-                            );
-                        })}
-                    </ul>
+                {LOOK_D ? (
+                    // D: le liste ci sono sempre e si aprono o chiudono insieme,
+                    // la vecchia si chiude mentre la nuova si apre (artifact v30).
+                    <div
+                        className={styles.subWrap}
+                        data-on={expanded || undefined}
+                        inert={!expanded}
+                        aria-hidden={!expanded || undefined}
+                    >
+                        {list}
+                    </div>
+                ) : (
+                    expanded && list
                 )}
             </li>
         );
@@ -239,6 +254,12 @@ export function SidebarSection({
             onPointerLeave={event => event.pointerType === "mouse" && onHoverEnd()}
             onKeyDown={onPanelKeyDown}
         >
+            {/* Direzione D (artifact v28, `#rtip`): in cima il nome della sezione. */}
+            {LOOK_D && (
+                <b className={fly.title} aria-hidden="true">
+                    {title}
+                </b>
+            )}
             <ul className={fly.list}>
                 {items.map(item => {
                     const active = item === current;

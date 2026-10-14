@@ -1,6 +1,7 @@
 // DrawerLayout — header 16 24 (titolo title-sm · chiudi) · body 24 con
 // scroll proprio · footer 16 24 con bordo sopra e safe-area in basso.
 // Solo token.
+@use "@styles/mixins" as *;
 
 .container {
   display: flex;
@@ -119,4 +120,36 @@
   justify-content: flex-end;
   gap: var(--space-12);
   z-index: 1;
+}
+
+// --- Direzione D (artifact v28, `.dh` `.db` `.df`): testata 16 20 con il
+// titolo in Bricolage 18 (`title-sm`), corpo 16 20, piede 14 20 bianco; linee leggere. ---
+.header {
+  @include look-d {
+    padding: 16px 20px;
+    border-bottom-color: var(--d-line);
+  }
+}
+
+// Carattere e misura del titolo vengono da `title-sm` nella D (Text).
+.title {
+  @include look-d {
+    font-weight: 700;
+  }
+}
+
+.body {
+  @include look-d {
+    padding: 16px 20px;
+  }
+}
+
+.footer {
+  @include look-d {
+    gap: 10px;
+    padding: 14px 20px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top-color: var(--d-line);
+    background-color: var(--d-surface);
+  }
 }

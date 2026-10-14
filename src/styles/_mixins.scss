@@ -1,3 +1,5 @@
+@use "@styles/look-d-build";
+
 // Soglie del back office (design system §2, Misure fisse): sotto 768 una
 // colonna e drawer al 100%; sotto 1024 la sidebar si collassa da sola.
 // Variabili Sass, non custom property: una var() non funziona dentro @media.
@@ -21,6 +23,26 @@ $bp-sidebar: 1024px;
 @mixin below-sidebar {
   @media (max-width: $bp-sidebar - 1) {
     @content;
+  }
+}
+
+// Stili della grafica nuova (direzione D), validi solo con l'interruttore
+// VITE_BACKOFFICE_D acceso (`data-look="d"` sulla radice, vedi `lookD.ts`).
+// Dentro un modulo: `.btn { @include look-d { ... } }`.
+@mixin look-d {
+  // Fuori dalle build della parte pubblica (`_look-d-build.scss`).
+  @if look-d-build.$on {
+    // Dentro una regola: `html[data-look=d] .regola`. Al primo livello del file
+    // (nessun genitore) i selettori del blocco finiscono sotto la radice.
+    @if & {
+      :global(html[data-look="d"]) & {
+        @content;
+      }
+    } @else {
+      :global(html[data-look="d"]) {
+        @content;
+      }
+    }
   }
 }
 

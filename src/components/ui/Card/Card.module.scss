@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Card — contenitore con nome e confine (design system §5, scheda Card).
 // Token da _theme.scss: tema scuro gratis via --surface/--border/--text.
 // Nessuna transizione su transform, nessun lift: la card non è interattiva.
@@ -177,5 +179,80 @@
 
   .title {
     color: var(--text-danger);
+  }
+}
+
+// --- Direzione D (artifact v28, `.card` e `.hd`): angoli da 28, ombra indaco,
+// niente bordo né righe divisorie; titolo in Bricolage. ---
+.card {
+  @include look-d {
+    border-color: transparent;
+    border-radius: var(--d-r-card);
+    box-shadow: var(--d-shadow);
+  }
+}
+
+.header {
+  @include look-d {
+    gap: 10px;
+    padding: var(--d-pad) var(--d-pad) 0;
+    border-bottom: none;
+  }
+}
+
+.row .header {
+  @include look-d {
+    padding-block: var(--d-pad);
+  }
+}
+
+.title {
+  @include look-d {
+    font-family: var(--d-f-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+}
+
+.tabs {
+  @include look-d {
+    padding: 10px var(--d-pad) 0;
+    border-bottom: none;
+  }
+}
+
+.body {
+  @include look-d {
+    padding: var(--d-pad);
+  }
+}
+
+.header ~ .body {
+  @include look-d {
+    padding-top: 12px;
+  }
+}
+
+.flush {
+  @include look-d {
+    padding: var(--space-8) 0;
+
+    [data-list-row] {
+      padding-inline: var(--d-pad);
+    }
+  }
+}
+
+// La zona pericolo della v28 (`.a-dz`): niente fondo, bordo corallo tratteggiato.
+.danger {
+  @include look-d {
+    background: transparent;
+    box-shadow: none;
+    border: 1.5px dashed color-mix(in srgb, var(--d-warm) 45%, transparent);
+
+    .title {
+      color: var(--d-s-wait-ink);
+    }
   }
 }
