@@ -15,6 +15,13 @@ import path from "path";
 //                                                         → bundle server (isSsrBuild)
 //   - `vite build --mode public-client`                   → bundle hydration client,
 //                                                           dist/public + manifest
+// Build della parte pubblica: pagina pubblica (client e server SSR) e landing.
+// Lì non c'è il back office, quindi niente stili della grafica D (vedi
+// src/styles/_look-d-build.scss). Client e server SSR insieme, perché i nomi
+// delle classi dei CSS module dipendono dal contenuto e devono coincidere.
+const isPublicBuild = (mode: string, isSsrBuild?: boolean) =>
+    mode === "public-client" || mode === "landing" || !!isSsrBuild;
+
 export default defineConfig(({ mode, isSsrBuild }) => ({
     plugins: [react()],
     // Asset client SSR serviti da dist/public → URL pubblici /public/assets/*.
@@ -73,6 +80,9 @@ export default defineConfig(({ mode, isSsrBuild }) => ({
     },
     resolve: {
         alias: {
+            ...(isPublicBuild(mode, isSsrBuild)
+                ? { "@styles/look-d-build": path.resolve(__dirname, "./src/styles/_look-d-build-off.scss") }
+                : {}),
             "@": path.resolve(__dirname, "./src"),
             "@context": path.resolve(__dirname, "./src/context"),
             "@components": path.resolve(__dirname, "./src/components"),
