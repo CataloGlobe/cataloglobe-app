@@ -432,7 +432,7 @@ export function OndaOff({ t }: { t: Tunnel }) {
 const ondaSub = (t: Tunnel) => `Prima decidi se i clienti ${ONDA[t.kind].lo} vedono. Si cambia quando vuoi.`;
 
 /** Il Quando, con una sede sola; `bare` è solo «Sempre o in certi momenti», dentro «Dove e quando». */
-export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri, nuovi, L }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean; clash?: boolean; scontri?: readonly Scontro[]; nuovi?: Nuovi; L?: DraftLookups }) {
+export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri, nuovi, L, eff }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean; clash?: boolean; scontri?: readonly Scontro[]; nuovi?: Nuovi; L?: DraftLookups; eff?: Impatto }) {
     // da «E adesso?»: prima si confermano gli orari ereditati (D194)
     const ask = !!L && inhAsk(t), asking = ask && t.inhQ !== "cambio";
     const choice = (
@@ -484,7 +484,7 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri
                                 : KIND_TXT[t.kind]}
                         </p>
                     )}
-                    {clash && <InsiemeBox t={t} u={u} scontri={scontri ?? []} multi={false} nuovi={nuovi} />}
+                    {clash && <InsiemeBox t={t} u={u} scontri={scontri ?? []} multi={false} nuovi={nuovi} eff={eff} />}
                 </>
             )}
         </>
@@ -537,8 +537,11 @@ export function QuandoOre({
     onPart,
     onSede,
     nuovi,
-    L
+    L,
+    eff
 }: {
+    /** Gli effetti nel calendario: la tinta dei menù e i giorni di ogni sede. */
+    eff?: Impatto;
     /** La sede da guardare nella settimana a destra. */
     onSede?: (id: string) => void;
     /** In modifica: le sedi con un incrocio nuovo, ancora senza risposta. */
@@ -594,7 +597,7 @@ export function QuandoOre({
                         Cambia
                     </Button>
                 </div>
-                <InsiemeBox t={t} u={u} scontri={scontri} multi sedi={sedi.filter(x => ids.includes(x.id))} onSede={onSede} nuovi={nuovi} />
+                <InsiemeBox t={t} u={u} scontri={scontri} multi sedi={sedi.filter(x => ids.includes(x.id))} onSede={onSede} nuovi={nuovi} eff={eff} />
             </>
         );
     // da «E adesso?»: prima si confermano gli orari ereditati (D194)

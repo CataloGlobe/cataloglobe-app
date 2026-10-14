@@ -627,6 +627,15 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(box.getByText("1 di 3 sedi viste")).toBeVisible();
         await expect(box.getByRole("button", { name: /Centro e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
         await expect(box.getByText("Al posto di «Pranzo e2e», che oggi qui vince: si salva col database nuovo.")).toBeVisible();
+        // ogni menù col pallino del suo colore, e sotto la sede aperta i suoi giorni: solo quando la settimana a destra non c'è
+        await expect(box.locator("li[style*='--c']").filter({ hasText: "Pranzo e2e" })).toHaveCount(1);
+        const giorni = box.getByRole("list", { name: "I giorni di Centro e2e", includeHidden: true });
+        await expect(giorni).toContainText(/^.+\d\d:\d\d–\d\d:\d\d: Pranzo e2e/);
+        await expect(giorni).toBeHidden();
+        const vp = page.viewportSize()!;
+        await page.setViewportSize({ width: 1000, height: vp.height });
+        await expect(giorni).toBeVisible();
+        await page.setViewportSize(vp);
         // la prossima sede si apre da sola, e la settimana a destra passa a lei
         await box.getByRole("button", { name: "Prossima sede: Lago e2e" }).click();
         await box.getByRole("button", { name: "Prossima sede: Porto e2e" }).click();

@@ -1,7 +1,7 @@
 // La seconda parte del «Quando»: nelle sue ore c'è già un altro menù o un altro
 // stile, e si sceglie cosa vede il cliente.
 import { Layers, Replace } from "lucide-react";
-import { listIt, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { listIt, type Impatto, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { thingName, type Tunnel } from "./creaModel";
 import { SedePer } from "./SedePer";
 import { hCopreText } from "./creaSedePer";
@@ -17,7 +17,7 @@ const q = (x: string) => "«" + x + "»";
 /** In modifica: le sedi con un incrocio nuovo (per nome) e la loro chiave, da segnare quando si risponde. */
 export type Nuovi = { names: readonly string[]; key: string };
 
-export function InsiemeBox({ t, u: u0, scontri, multi, sedi, onSede, nuovi }: { t: Tunnel; u: (fn: (x: Tunnel) => void) => void; scontri: readonly Scontro[]; multi: boolean; sedi?: readonly { id: string; name: string }[]; onSede?: (id: string) => void; nuovi?: Nuovi }) {
+export function InsiemeBox({ t, u: u0, scontri, multi, sedi, onSede, nuovi, eff }: { t: Tunnel; u: (fn: (x: Tunnel) => void) => void; scontri: readonly Scontro[]; multi: boolean; sedi?: readonly { id: string; name: string }[]; onSede?: (id: string) => void; nuovi?: Nuovi; eff?: Impatto }) {
     // una risposta qualsiasi qui dentro vale come risposta agli incroci nuovi
     const u = (fn: (x: Tunnel) => void) =>
         u0(x => {
@@ -67,7 +67,7 @@ export function InsiemeBox({ t, u: u0, scontri, multi, sedi, onSede, nuovi }: { 
                 </div>
             </div>
             {sedi || one ? (
-                <SedePer t={t} u={u} scontri={scontri} sedi={sedi ?? [one!]} onSede={onSede} />
+                <SedePer t={t} u={u} scontri={scontri} sedi={sedi ?? [one!]} onSede={onSede} eff={eff} />
             ) : (
                 scontri.map((x, j) => (
                     <p key={j} className={s.hint}>

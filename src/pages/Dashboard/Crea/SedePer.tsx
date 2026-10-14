@@ -1,10 +1,10 @@
 // «È uguale per tutte le sedi?»: sotto la scelta «insieme / al posto», le sedi
 // dove la bozza si incrocia, una riga per sede; aperta, menù per menù (o stile
 // per stile). Aprendo una sede la settimana a destra passa a lei.
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { ArrowRight, Check, ChevronDown, CircleCheck, Eye, Search } from "lucide-react";
 import { Button } from "@components/ui/Button/Button";
-import { DB_WAIT, listIt, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { DB_WAIT, listIt, type Impatto, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { thingName, type Tunnel } from "./creaModel";
 import { hAltri, hCopreText, hDiff, hDiverse, hEsito, hSet, hVal, nTutteSedi, type HAltro, type HVal } from "./creaSedePer";
 import s from "./Crea.module.scss";
@@ -39,14 +39,15 @@ export function Esito({ t, sede, altri }: { t: Tunnel; sede: string; altri: read
     );
 }
 
-export function Voci({ t, u, sede, altri }: { t: Tunnel; u: U; sede: Sede; altri: readonly HAltro[] }) {
+export function Voci({ t, u, sede, altri, colori }: { t: Tunnel; u: U; sede: Sede; altri: readonly HAltro[]; colori?: Impatto["colori"] }) {
     const opts: [HVal, string][] = t.kind === "stile" ? [["pos", "Prende il posto"], ["ins", "Lascia l'altro"]] : [["ins", "Insieme"], ["pos", "Al posto"]];
     return (
         <ul className={s.hms}>
             {altri.map(a => {
                 const v = hVal(t, sede.id, a.con), why = hCopreText(t, a, v);
                 return (
-                    <li key={a.con} className={s.hmn}>
+                    <li key={a.con} className={s.hmn} style={colori?.[a.con] ? ({ "--c": colori[a.con] } as CSSProperties) : undefined}>
+                        <span className={s.dot} aria-hidden="true" />
                         <span className={s.hmt}>
                             <b>{a.con}</b>
                             <span>{cap(a.quando)}</span>
@@ -66,7 +67,22 @@ export function Voci({ t, u, sede, altri }: { t: Tunnel; u: U; sede: Sede; altri
     );
 }
 
-export function SedePer({ t, u, scontri, sedi, onSede }: { t: Tunnel; u: U; scontri: readonly Scontro[]; sedi: readonly Sede[]; onSede?: (id: string) => void }) {
+// i giorni della sede aperta in breve: si vedono solo quando la settimana a destra non c'è (sotto i 1100px)
+function Giorni({ sede, eff }: { sede: Sede; eff?: Impatto }) {
+    const g = eff?.sedi?.find(x => x.id === sede.id)?.giorni;
+    if (!g?.length) return null;
+    return (
+        <ul className={s.hdays} aria-label={`I giorni di ${sede.name}`}>
+            {g.map(x => (
+                <li key={x.days + x.txt}>
+                    <b>{x.days}</b> {x.txt}
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+export function SedePer({ t, u, scontri, sedi, onSede, eff }: { t: Tunnel; u: U; scontri: readonly Scontro[]; sedi: readonly Sede[]; onSede?: (id: string) => void; eff?: Impatto }) {
     const [open, setOpen] = useState<string | null>(null);
     const [seen, setSeen] = useState<ReadonlySet<string>>(new Set());
     const [qv, setQv] = useState("");
@@ -84,7 +100,7 @@ export function SedePer({ t, u, scontri, sedi, onSede }: { t: Tunnel; u: U; scon
                 <h4>
                     A {x.name}, {stile ? "stile per stile" : "menù per menù"}
                 </h4>
-                <Voci t={t} u={u} sede={x} altri={altri.get(x.id) ?? []} />
+                <Voci t={t} u={u} sede={x} altri={altri.get(x.id) ?? []} colori={eff?.colori} />
                 <Esito t={t} sede={x.id} altri={altri.get(x.id) ?? []} />
             </div>
         );
@@ -175,7 +191,8 @@ export function SedePer({ t, u, scontri, sedi, onSede }: { t: Tunnel; u: U; scon
                                         <Esito t={t} sede={x.id} altri={l} />
                                         <ChevronDown size={16} aria-hidden />
                                     </button>
-                                    {on && <Voci t={t} u={u} sede={x} altri={l} />}
+                                    {on && <Voci t={t} u={u} sede={x} altri={l} colori={eff?.colori} />}
+                                    {on && <Giorni sede={x} eff={eff} />}
                                 </li>
                             );
                         })}

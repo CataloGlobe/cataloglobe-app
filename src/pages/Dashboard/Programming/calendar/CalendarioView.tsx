@@ -165,6 +165,17 @@ const weekLong = (w: DayNum) => {
         : `${a.day} ${MONTHS[a.month]} – ${b.day} ${MONTHS[b.month]} ${b.year}`;
 };
 const fH = (g: { from: number; to: number }) => hhmm(g.from) + "–" + hhmm(g.to);
+// i giorni della settimana (0 = la prima): «Tutti i giorni», «Lun–Ven, Dom»
+const dayRuns = (ds: number[]) => {
+    if (ds.length === 7) return "Tutti i giorni";
+    const runs: [number, number][] = [];
+    for (const d of ds) {
+        const l = runs[runs.length - 1];
+        if (l && l[1] === d - 1) l[1] = d;
+        else runs.push([d, d]);
+    }
+    return runs.map(([a, b]) => (a === b ? DAYS[a] : DAYS[a] + "–" + DAYS[b])).join(", ");
+};
 
 /* ---------- il tooltip leggero: segue il puntatore, si legge subito ---------- */
 // prima riga in grassetto, righe che cominciano con ~ in grigio (il perché)
@@ -1054,11 +1065,22 @@ export default function CalendarioView({
                 tocchi.set(k, t);
             };
             let mins = 0, off = 0, days = 0, incroci = 0;
+            // i giorni della sede in breve: dove si incrocia, chi si vede (al telefono, sotto la sede aperta)
+            const gg = new Map<string, number[]>();
             for (let i = 0; i < 7; i++) {
                 let on = 0, touched = false;
-                const d = dayOfWeek(week + i);
-                for (const l of fLines(dayCtx(judged, draft.kind, seat, week + i), pvAx).filter(l => l.preview))
+                const d = dayOfWeek(week + i), ls = fLines(dayCtx(judged, draft.kind, seat, week + i), pvAx);
+                const seen = new Set<string>();
+                for (const l of ls.filter(l => l.preview))
                     for (const g of l.segs) {
+                        if (g.covers.length || g.by) {
+                            const vis = [...ls].sort((a, b) => +b.preview - +a.preview).filter(o => o.segs.some(z => z.state === "on" && z.from < g.to && z.to > g.from));
+                            const k = fH(g) + ": " + vis.map(o => o.thing).join(" + ");
+                            if (vis.length && !seen.has(k)) {
+                                seen.add(k);
+                                gg.set(k, [...(gg.get(k) ?? []), i]);
+                            }
+                        }
                         const m = g.to - g.from;
                         if (g.state === "on") {
                             on += m;
@@ -1086,7 +1108,8 @@ export default function CalendarioView({
                 }
                 if (touched) incroci++;
             }
-            effSedi.push({ id: x.id, name: x.name, mins, days, cov: [...cov], by: [...by], incroci });
+            const giorni = [...gg].map(([txt, ds]) => ({ days: dayRuns(ds), txt }));
+            effSedi.push({ id: x.id, name: x.name, mins, days, cov: [...cov], by: [...by], incroci, ...(giorni.length ? { giorni } : {}) });
             const out: string[] = [], pd = mainWhen(draft).period;
             if (!mins && !off)
                 out.push(`${wk} non c'è${pd && pd.from > week + 6 ? ": comincia " + (elides(pd.from) ? "l'" : "il ") + mShort(pd.from) : pd && pd.to < week ? ": è già finito" : ""}.`);
@@ -1153,7 +1176,8 @@ export default function CalendarioView({
             if (multi) r[0] = "A " + listIt(ss) + ": " + r[0].charAt(0).toLowerCase() + r[0].slice(1);
             return r;
         });
-        return { lines, scontri: [...sc.values()], sedi: effSedi, ...(prima ? { prima } : {}), ...(pvPair?.kind === "style" ? { pair: pvPair.thing } : {}) };
+        const tk = draft.kind + ":", colori = Object.fromEntries([...shade].filter(([k]) => k.startsWith(tk)).map(([k, v]) => [k.slice(tk.length), v]));
+        return { lines, scontri: [...sc.values()], sedi: effSedi, colori, ...(prima ? { prima } : {}), ...(pvPair?.kind === "style" ? { pair: pvPair.thing } : {}) };
     };
 
     // le durate che ci sono già, prima quelle dello stesso tipo: al massimo sei

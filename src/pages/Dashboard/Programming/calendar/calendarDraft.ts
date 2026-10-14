@@ -258,9 +258,11 @@ export function waitsForDb(D: Draft): string {
 export type Scontro = { sedi: string[]; con: string; quando: string; vince: boolean; pari: boolean; copre?: true; /** Le stesse sedi, per id. */ ids?: string[] };
 /** «Cosa cambia nel calendario» e gli scontri, nella settimana che si vede. */
 /** Una sede, nella settimana che si vede: quanto va in onda e chi incrocia; `incroci`: i giorni in cui tocca un altro. */
-export type SedeEff = { id: string; name: string; mins: number; days: number; cov: string[]; by: string[]; incroci: number };
+/** `giorni`: dove si incrocia, giorno per giorno in breve («Lun–Ven», «12:00–15:00: Pranzo + Brunch»). */
+export type Giorno = { days: string; txt: string };
+export type SedeEff = { id: string; name: string; mins: number; days: number; cov: string[]; by: string[]; incroci: number; giorni?: Giorno[] };
 /** `pair`: lo stile che il menù porta con sé; `prima`: in modifica, gli stessi fatti per la voce com'era salvata. */
-export type Impatto = { lines: string[]; scontri: Scontro[]; sedi?: SedeEff[]; prima?: SedeEff[]; pair?: string };
+export type Impatto = { lines: string[]; scontri: Scontro[]; sedi?: SedeEff[]; prima?: SedeEff[]; pair?: string; /** La tinta di ogni menù o stile, come nel calendario. */ colori?: Record<string, string> };
 export const NO_IMPATTO: Impatto = { lines: [], scontri: [] };
 
 export const ore = (m: number) => hhmm(m).replace(/:00$/, "").replace(/^0(\d)/, "$1");

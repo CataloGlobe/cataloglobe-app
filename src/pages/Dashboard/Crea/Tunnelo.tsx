@@ -600,7 +600,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 break;
             case "quando":
                 // con più sedi il Dove è già stato scelto: qui solo le ore
-                body = L.multi && draft ? <QuandoOre onSede={setWkSede} t={t} u={u} L={L} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} nuovi={nuoviP} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} L={L} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} nuovi={nuoviP} />;
+                body = L.multi && draft ? <QuandoOre onSede={setWkSede} t={t} u={u} L={L} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} eff={effect} nuovi={nuoviP} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} L={L} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} eff={effect} nuovi={nuoviP} />;
                 break;
             case "ordine":
                 body = <EvidOrdine t={t} u={u} L={L} others={others} alone={whereSedi.filter(id => !t.ord[id])} />;
