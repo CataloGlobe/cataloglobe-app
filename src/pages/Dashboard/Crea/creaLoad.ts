@@ -8,6 +8,8 @@ import { getStory } from "@/services/supabase/stories";
 import { getStyle, type V2Style } from "@/services/supabase/styles";
 import { entriesFromRules, whenOfRule, whereOfRule, type CalEntry } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { EV, asEdit, cloneWhen, key, newTunnel, type CreaKind, type EvType, type Section, type Tunnel } from "./creaModel";
+import { DB, NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
+import { readEvid } from "./evidData";
 import { tokensOf } from "./creaStyle";
 import type { CreaData } from "./useCreaData";
 
@@ -102,6 +104,7 @@ async function loadEvid(t: Tunnel, id: string, tenantId: string): Promise<boolea
     }
     const sorted = [...rows].sort((a, b) => a.sort_order - b.sort_order);
     t.dishes = sorted.map(r => r.product_id);
+    if (DB.ready && NEW_MODEL.evid) readEvid(t, c);
     t.notes = Object.fromEntries(sorted.filter(r => r.note).map(r => [r.product_id, r.note!]));
     t.bundle = c.bundle_price == null ? "" : String(c.bundle_price).replace(".", ",");
     t.showOrig = !!c.show_original_total;

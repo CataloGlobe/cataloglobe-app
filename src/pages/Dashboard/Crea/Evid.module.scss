@@ -124,3 +124,42 @@
     display: inline-flex;
     color: var(--k-brand-ink);
 }
+
+/* «Quando succede» e «Il pulsante» (D187) */
+.erow {
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 8px;
+    color: var(--k-muted);
+    @include cal.fs(small);
+}
+
+.day {
+    width: auto;
+}
+
+.hour {
+    width: 84px;
+}
+
+.brow {
+    align-items: flex-start;
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.6;
+    }
+}
+
+.btx {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+
+    small {
+        color: var(--k-muted);
+        @include cal.fs(small);
+    }
+}

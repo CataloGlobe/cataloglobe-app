@@ -4,7 +4,9 @@
 import { useId, type ReactNode } from "react";
 import { CalendarHeart, ChefHat, Megaphone, MousePointerClick, Plus, Tag, UtensilsCrossed } from "lucide-react";
 import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import { hasDishes, type Tunnel } from "./creaModel";
+import { EvidPulsante, EvidQuandoSuccede } from "./EvidNuovo";
 import { IDEE, dropDishes, dropIdea, ideaOf, pickIdea, type IdeaId } from "./evidIdee";
 import { EvidPiatti, type U } from "./CreaSteps";
 import { Field, Sh } from "./CreaUi";
@@ -93,10 +95,12 @@ export function EvidAggiungi({ title, why, onClick }: { title: string; why: stri
     );
 }
 
-export function EvidContenuto({ t, u, imageUrl, pick, L }: { t: Tunnel; u: U; imageUrl: string | null; pick: readonly PickProduct[]; L: DraftLookups }) {
+export function EvidContenuto({ t, u, imageUrl, pick, L, pro }: { t: Tunnel; u: U; imageUrl: string | null; pick: readonly PickProduct[]; L: DraftLookups; pro: boolean }) {
     const ids = { title: useId(), sub: useId(), text: useId(), inner: useId(), cta: useId(), link: useId(), img: useId() };
     const ex = ideaOf(t.idea)?.ex ?? ["Giovedì karaoke", "Facoltativo", "Come lo diresti al tavolo."];
     const dishes = hasDishes(t);
+    // un contenuto salvato col link libero lo tiene finché c'è: il pulsante nuovo arriva tolto quello
+    const fresh = NEW_MODEL.evid && !t.cta;
     return (
         <>
             <Sh title="Il contenuto">Quello che diresti a voce arrivando al tavolo. I piatti e il pulsante si aggiungono solo se servono.</Sh>
@@ -133,6 +137,7 @@ export function EvidContenuto({ t, u, imageUrl, pick, L }: { t: Tunnel; u: U; im
                         </div>
                     </div>
                 </EvidParte>
+                {NEW_MODEL.evid && <EvidQuandoSuccede t={t} u={u} />}
                 {dishes && (
                     <EvidParte
                         icon={<UtensilsCrossed size={17} />}
@@ -158,10 +163,11 @@ export function EvidContenuto({ t, u, imageUrl, pick, L }: { t: Tunnel; u: U; im
                         </div>
                     </EvidParte>
                 )}
-                {(!dishes || !t.cta) && (
+                {fresh && <EvidPulsante t={t} u={u} pro={pro} />}
+                {(!dishes || (!t.cta && !fresh)) && (
                     <div className={e.adds}>
                         {!dishes && <EvidAggiungi title="Dei piatti" why="Per far ordinare adesso: consigli, offerte, un menù a prezzo unico" onClick={() => u(x => void (x.evType = "promo"))} />}
-                        {!t.cta && <EvidAggiungi title="Un pulsante" why="Porta a una pagina: prenotazioni, biglietti, un modulo" onClick={() => u(x => void (x.cta = true))} />}
+                        {!t.cta && !fresh && <EvidAggiungi title="Un pulsante" why="Porta a una pagina: prenotazioni, biglietti, un modulo" onClick={() => u(x => void (x.cta = true))} />}
                     </div>
                 )}
             </div>

@@ -16,6 +16,7 @@ import { OreSedi, QuandoPasso, ScontriAvviso, SediPasso, type PassoGruppo, type 
 import { NEW_MODEL, invalid, sediOf, type Draft, type DraftLookups, type Impatto, type PickProduct, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
+import { qautoNote } from "./evidData";
 import { KIND, ONDA, inhAsk, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, nTutte, offLater, ondaChange, oreSummary, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel, type CreaKind } from "./creaModel";
 import { hidFeatured } from "./stileLook";
 import s from "./Crea.module.scss";
@@ -472,6 +473,7 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri
                     {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
                     {t.edit?.ruleId && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
                     {ask && L && <InhBox t={t} u={u} k="quando" L={L} />}
+                    {qautoNote(t) && <Inherited>{qautoNote(t)}</Inherited>}
                     {!asking && choice}
                     {!asking && (
                         <p className={s.hint}>
@@ -599,6 +601,7 @@ export function QuandoOre({
         <>
             {head}
             {ask && <InhBox t={t} u={u} k="quando" L={L} />}
+            {qautoNote(t) && <Inherited>{qautoNote(t)}</Inherited>}
             <div className={s.opts}>
                 <Opt
                     on={sel === "sempre"}

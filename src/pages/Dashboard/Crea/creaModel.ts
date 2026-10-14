@@ -14,10 +14,11 @@ import type { StoryBlock } from "@/services/supabase/stories";
 import type { FeaturedContentType } from "@/services/supabase/featuredContents";
 import { DEFAULT_STYLE_TOKENS, type FontFamily, type StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { DB_LATER, NEW_MODEL, daysLong, elides, listIt, mShort, perGroups, perText, whereFor, whereText, type Draft, type DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { durLabel, hhmm, type CalWhen, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { durLabel, hhmm, romeToday, type CalWhen, type CalWhere, type DayNum } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import type { PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { AiMenuCategory } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyzeMenu";
 import { computeProductMatch } from "@/utils/importMatching";
+import { btnName, dateTxt, effBtn, newEvDate, type EvBtn, type EvDate } from "./evidData";
 import { adopt, allDishes, badFormat, clash, total } from "./menuTree";
 import { LIGHT_BG, lookKey, lum, sameHex } from "./stileLook";
 
@@ -194,6 +195,14 @@ export type Tunnel = {
     notes: Record<string, string>;
     bundle: string;
     showOrig: boolean;
+    /** «Quando succede» (D187): la data scritta sulla card, solo un'informazione. */
+    date: EvDate;
+    /** «Il pulsante» (D187): una scelta fra quattro; `cta` resta il link libero di un contenuto salvato prima. */
+    btn: EvBtn;
+    /** Al «Quando» ci si è già arrivati: la data non lo riscrive una seconda volta. */
+    qset: boolean;
+    /** Il giorno della card messo come fine del periodo (punto 14). */
+    qauto: DayNum | null;
     // la storia
     kicker: string;
     cover: File | null;
@@ -265,6 +274,10 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: From | null = n
         notes: {},
         bundle: "",
         showOrig: true,
+        date: newEvDate(romeToday()),
+        btn: "",
+        qset: false,
+        qauto: null,
         kicker: "",
         cover: null,
         coverUrl: null,
@@ -438,6 +451,7 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
         case "aspetto":
             return "";
         case "contenuto":
+            if (NEW_MODEL.evid && t.date.k === "period" && t.date.to < t.date.from) return "La fine del periodo viene prima dell'inizio";
             if (t.cta && t.ctaLink.trim() && !/^https:\/\//.test(t.ctaLink.trim())) return "Il link del bottone deve cominciare con https://";
             if (t.cta && !t.ctaText.trim()) return "Manca il testo del bottone";
             if (!t.title.trim()) return "Manca il titolo";
@@ -595,7 +609,7 @@ function partOf(t: Tunnel, s: StepId): unknown {
             return lookKey(t.look);
         case "contenuto":
             // i piatti stanno nel passo del contenuto (D187): cambiarli è cambiare il contenuto
-            return [t.title.trim(), t.sub.trim(), t.inner.trim(), t.text.trim(), !!t.image, t.imageUrl, t.cta && [t.ctaText.trim(), t.ctaLink.trim()], t.slot, partOf(t, "piatti")];
+            return [t.title.trim(), t.sub.trim(), t.inner.trim(), t.text.trim(), !!t.image, t.imageUrl, t.cta && [t.ctaText.trim(), t.ctaLink.trim()], t.slot, partOf(t, "piatti"), dateTxt(t.date), effBtn(t)];
         case "piatti":
             if (!hasDishes(t)) return null;
             return [t.evType, t.dishes, t.evType === "bundle" ? [t.bundle.trim(), t.showOrig] : t.dishes.map(d => t.notes[d]?.trim() ?? "")];
@@ -776,7 +790,14 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
                 t.look.card.productStyle === "compact" ? "piatti in elenco" : "piatti a riquadri"
             ].join(" · ");
         case "contenuto":
-            return `${t.title.trim()}${t.slot === "after" ? " · sotto il menù" : ""}${t.cta ? ` · pulsante «${t.ctaText.trim()}»` : ""}${hasDishes(t) ? " · " + stepSummary(t, "piatti", L, styleName) : ""}`;
+            return [
+                t.title.trim() + (t.slot === "after" ? " · sotto il menù" : ""),
+                dateTxt(t.date),
+                t.cta ? `pulsante «${t.ctaText.trim()}»` : effBtn(t) ? `pulsante «${btnName(t)}»` : NEW_MODEL.evid ? "senza pulsante" : "",
+                hasDishes(t) ? stepSummary(t, "piatti", L, styleName) : ""
+            ]
+                .filter(Boolean)
+                .join(" · ");
         case "piatti":
             return t.evType === "bundle"
                 ? `${t.dishes.map(product).join(", ")} · ${t.bundle.trim()} €${t.showOrig ? " · totale di prima barrato" : ""}`

@@ -856,6 +856,36 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         expect(bodyOf(stub, "schedule_featured_contents.POST")).toMatchObject({ featured_content_id: ID.featured, slot: "before_catalog" });
     });
 
+    test("in evidenza: la data sulla card, il pulsante a scelta e «Fino al…» nel Quando (D187)", async ({ page }) => {
+        await open(page, "evidenza", "evidenza");
+        await main(page).getByLabel("Titolo", { exact: true }).fill("Serata karaoke");
+        // «Quando succede»: solo un'informazione, scritta sulla card
+        const data = main(page).getByRole("region", { name: "Quando succede" });
+        await expect(data.getByRole("button", { name: "Nessuna data" })).toHaveAttribute("aria-pressed", "true");
+        await data.getByRole("button", { name: "Un giorno" }).click();
+        await expect(data.getByText("facoltativa · sulla card: Mercoledì 23 set", { exact: true })).toBeVisible();
+        await data.getByRole("textbox", { name: "Ora" }).fill("21");
+        await data.getByRole("textbox", { name: "Ora" }).blur();
+        await expect(data.getByText("facoltativa · sulla card: Mercoledì 23 set, dalle 21", { exact: true })).toBeVisible();
+        // «Il pulsante»: niente link libero; senza piatti «Vedi il piatto» e «Aggiungi all'ordine» sono spenti
+        await expect(button(page, /^Un pulsante/)).toHaveCount(0);
+        const pulsante = main(page).getByRole("radiogroup", { name: "Il pulsante" });
+        await expect(pulsante.getByRole("radio", { name: /^Nessun pulsante/ })).toBeChecked();
+        await expect(pulsante.getByRole("radio", { name: /^Vedi il piatto.*Solo con dei piatti collegati\./ })).toBeDisabled();
+        await expect(pulsante.getByRole("radio", { name: /^Aggiungi all'ordine/ })).toBeDisabled();
+        await next(page);
+        await onAir(page);
+        await allSedi(page).click();
+        await next(page);
+        // punto 14: il giorno della card diventa la fine del periodo, e lo si dice
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
+        await expect(main(page).getByText("Fino al 23 set, il giorno del contenuto: puoi cambiarlo.", { exact: true })).toBeVisible();
+        await next(page);
+        // le colonne della data arrivano col database nuovo: fino ad allora non si salva
+        await expect(button(page, "Metti in onda")).toBeDisabled();
+        await expect(main(page).getByText("«Quando succede»: si salva col database nuovo")).toBeVisible();
+    });
+
     test("storia di un prodotto: di cosa parla, racconto e blocchi, in onda senza sedi né orari (D191)", async ({ page }) => {
         stub.onWrite("stories.POST", ({ body }) => ({ id: ID.story, ...first(body) }));
         stub.onWrite("stories.PATCH", ({ body }) => ({ id: ID.story, ...first(body) }));

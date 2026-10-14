@@ -32,7 +32,9 @@ import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
 import { allSecs } from "./menuTree";
 import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
+import { usePlanFeatures } from "@/lib/planFeatures";
 import { EvidContenuto } from "./EvidContenuto";
+import { evidWait, presetQuando } from "./evidData";
 import { StoriaOnda, StoriaTema, type OnAir } from "./StoriaTema";
 import { Adesso, Controlla, Dove, Modifica, MenuParti, Quando, QuandoOre, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
@@ -102,6 +104,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const [blockFiles, setBlockFiles] = useState<Record<string, File>>({});
     const [productOptions, setProductOptions] = useState<StoryProductOptions>({ items: null, failed: false });
     const refreshAiUsage = useBusinessOutletContext()?.refreshAiUsage;
+    const pro = usePlanFeatures().hasFeature("table_reservation");
 
     // nelle sue ore c'è già un altro, e il tuo può prenderne il posto: si sceglie nel «Quando»
     const clash = NEW_MODEL.multiMenu && NEW_MODEL.newestWins && owner && t.onda === "on" && (kind === "menu" || kind === "stile") && effect.scontri.some(x => x.vince);
@@ -250,7 +253,8 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
     const calWhy = owner && draft && calTouched ? waitsForDb(draft) || (clash && kind === "stile" && t.insieme ? "Lascia gli altri stili: " + DB_WAIT : scontriWait(draft, effect.scontri)) : "";
     // i blocchi che «Avanti» non sa sistemare: lì il bottone resta spento, col motivo accanto
-    const why = showAfter || !last ? "" : nothing ? "Non hai cambiato niente" : calWhy;
+    const dbWhy = calWhy || evidWait(t);
+    const why = showAfter || !last ? "" : nothing ? "Non hai cambiato niente" : dbWhy;
     const updDraft = (fn: (d: Draft) => void) =>
         u(x => {
             const D = draftFor(x, calKind ?? "featured", FAKE, pair);
@@ -318,6 +322,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const jump = (n: number) =>
         u(x => {
             x.i = Math.max(0, Math.min(n, st.length - 1));
+            if (st[x.i] === "quando") presetQuando(x, romeToday());
             // manca la scelta «insieme o al posto»: si torna alla seconda parte del «Quando»
             if (st[x.i] === "quando" && fb?.why.startsWith("Scegli: ")) x.qPart = 2;
         });
@@ -338,6 +343,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         u(x => {
             x.i = stepFrom(x, c, i, 1);
             x.seen = Math.max(x.seen, x.i);
+            if (st[x.i] === "quando") presetQuando(x, romeToday());
         });
         toTop();
     };
@@ -357,9 +363,9 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         // un ref, non lo stato: due clic nello stesso istante vedrebbero tutti e due `saving` falso
         if (savingNow.current || !ensureActive()) return false;
         // anche da «Salva le modifiche ed esci»: gli stessi controlli del bottone «Salva»
-        if (t.edit && (fb || nothing || calWhy)) {
+        if (t.edit && (fb || nothing || dbWhy)) {
             setLeave(false);
-            showToast({ message: fb ? `${fb.why}: torna a «${stepLabel(t, st[fb.i])}».` : nothing ? "Non hai cambiato niente." : calWhy, type: "error" });
+            showToast({ message: fb ? `${fb.why}: torna a «${stepLabel(t, st[fb.i])}».` : nothing ? "Non hai cambiato niente." : dbWhy, type: "error" });
             return false;
         }
         savingNow.current = true;
@@ -500,7 +506,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 body = <StileAspetto t={t} u={u} tenantId={tenantId} rules={t.edit ? styleById.get(t.edit.id)?.usage_count ?? 0 : 0} onPeek={onPeek} seen={seen} />;
                 break;
             case "contenuto":
-                body = <EvidContenuto t={t} u={u} imageUrl={imageUrl} pick={data.pickList} L={L} />;
+                body = <EvidContenuto t={t} u={u} imageUrl={imageUrl} pick={data.pickList} L={L} pro={pro} />;
                 break;
             case "racconto":
                 body = <StoriaRacconto t={t} u={u} coverUrl={coverUrl} />;

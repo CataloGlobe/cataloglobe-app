@@ -1,7 +1,10 @@
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { bundlePrice, bundleTotal, euro, type StepId, type Tunnel } from "./creaModel";
+import { CalendarDays } from "lucide-react";
+import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import { ideaOf } from "./evidIdee";
+import { btnLabel, dateTxt, effBtn } from "./evidData";
 import { phoneVars } from "./creaStyle";
 import { allSecs } from "./menuTree";
 import s from "./Crea.module.scss";
@@ -91,6 +94,11 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
                 {imageUrl && <img src={imageUrl} alt="" />}
                 <b>{t.title.trim() || ex[0]}</b>
                 {t.sub.trim() && <span style={{ fontWeight: 600 }}>{t.sub.trim()}</span>}
+                {NEW_MODEL.evid && dateTxt(t.date) && (
+                    <span className={s.pDate}>
+                        <CalendarDays size={12} aria-hidden /> {dateTxt(t.date)}
+                    </span>
+                )}
                 <span>{t.text.trim() || ex[1]}</span>
                 {t.evType === "promo" &&
                     dishes.map(d => (
@@ -111,6 +119,12 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
                     </>
                 )}
                 {t.cta && <span className={s.cta}>{t.ctaText.trim() || "Prenota"}</span>}
+                {!t.cta && NEW_MODEL.evid && effBtn(t) && (
+                    <span className={s.cta}>
+                        {btnLabel(t)}
+                        {effBtn(t) === "ordine" && " · " + euro(bundlePrice(t))}
+                    </span>
+                )}
             </div>
         );
         body = (

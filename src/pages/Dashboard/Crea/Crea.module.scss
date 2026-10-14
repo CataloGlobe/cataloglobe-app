@@ -1363,6 +1363,14 @@ select.in {
         @include sch.fs(body);
         line-height: 1.25;
     }
+    .pDate {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: 600;
+        color: var(--pacc, var(--kind-featured));
+        @include sch.fs(badge);
+    }
     .fd {
         display: flex;
         justify-content: space-between;

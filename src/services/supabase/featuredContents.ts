@@ -65,6 +65,14 @@ export interface FeaturedContent {
     cta_text: string | null;
     cta_url: string | null;
     cta_action?: "none" | "link" | "reservation" | "add_to_order" | "show_products";
+    /** La data scritta sulla card (fase a del database nuovo): solo un'informazione, non spegne niente. */
+    shown_date_kind?: "day" | "period" | "weekly" | null;
+    shown_date_from?: string | null;
+    shown_date_to?: string | null;
+    /** 0 = domenica, come nelle regole. */
+    shown_weekdays?: number[] | null;
+    shown_time_from?: string | null;
+    shown_time_to?: string | null;
     status: FeaturedContentStatus;
     layout_style: string | null;
     pricing_mode: FeaturedContentPricingMode;

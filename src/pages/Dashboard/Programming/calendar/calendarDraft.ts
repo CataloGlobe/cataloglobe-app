@@ -259,7 +259,7 @@ export type Scontro = { sedi: string[]; con: string; quando: string; vince: bool
 export type Impatto = { lines: string[]; scontri: Scontro[] };
 export const NO_IMPATTO: Impatto = { lines: [], scontri: [] };
 
-const ore = (m: number) => hhmm(m).replace(/:00$/, "").replace(/^0(\d)/, "$1");
+export const ore = (m: number) => hhmm(m).replace(/:00$/, "").replace(/^0(\d)/, "$1");
 
 /** «dal lunedì al venerdì dalle 12 alle 14»: i tratti di una settimana, giorno (0 = lunedì) → [da, a]. */
 export function quandoScontro(tratti: readonly (readonly [number, number, number])[]): string {
@@ -349,7 +349,7 @@ export function perText(per: NonNullable<Draft["per"]>, L: DraftLookups): string
 /* ---------- le frasi ---------- */
 
 const MONTH_SHORT = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
-const DAYS_L = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
+export const DAYS_L = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
 export const mShort = (d: DayNum) => dayParts(d).day + " " + MONTH_SHORT[dayParts(d).month];
 /** dall'8, all'11 */
 export const elides = (d: DayNum) => [8, 11].includes(dayParts(d).day);

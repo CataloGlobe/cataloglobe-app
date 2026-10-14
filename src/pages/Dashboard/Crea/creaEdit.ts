@@ -18,6 +18,7 @@ import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarD
 import { dropDraft, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { deriveTypeFields, parsePrice } from "@/pages/Dashboard/Highlights/featuredContentTypes";
 import { EV, changed, clonePer, cloneWhen, effWhen, hasDishes, thingName, type Tunnel } from "./creaModel";
+import { evidColumns } from "./evidData";
 import { saveSezioni } from "./menuSave";
 import { allEntriesOf } from "./creaLoad";
 import { styleConfig } from "./creaStyle";
@@ -38,7 +39,8 @@ async function saveContenuto(t: Tunnel, orig: Tunnel, tenantId: string) {
         subtitle: t.sub.trim() || null,
         description: t.text.trim() || null,
         cta_text: t.cta ? t.ctaText.trim() || null : null,
-        cta_url: t.cta ? t.ctaLink.trim() || null : null
+        cta_url: t.cta ? t.ctaLink.trim() || null : null,
+        ...evidColumns(t)
     };
     // la foto si riscrive solo se è nuova o è stata tolta: così resta la sua inquadratura
     if (t.image) {

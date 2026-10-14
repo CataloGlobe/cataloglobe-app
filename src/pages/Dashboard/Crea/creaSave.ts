@@ -23,6 +23,7 @@ import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { whenOfRule, whereOfRule, type CalKind, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { deriveTypeFields } from "@/pages/Dashboard/Highlights/featuredContentTypes";
 import { EV, clonePer, cloneWhen, effWhen, thingName, type Tunnel } from "./creaModel";
+import { evidColumns } from "./evidData";
 import { writeSections } from "./menuSave";
 import { styleConfig } from "./creaStyle";
 
@@ -221,6 +222,7 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
         description: t.text.trim() || null,
         cta_text: t.cta ? t.ctaText.trim() || null : null,
         cta_url: t.cta ? t.ctaLink.trim() || null : null,
+        ...evidColumns(t),
         status: c.live ? "published" : "draft",
         ...deriveTypeFields({ type, bundlePrice: t.bundle, showOriginalTotal: t.showOrig, showImages: false })
     };
