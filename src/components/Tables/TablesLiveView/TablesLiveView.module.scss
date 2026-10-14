@@ -107,6 +107,29 @@
       @include d-type(card-title);
     }
 
+    // Nome a sinistra, conto a destra; il peso qui, perché quello in linea
+    // della CardGridItem è medio.
+    .name {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 700;
+
+      > :first-child {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      > :last-child:not(:first-child) {
+        @include d-type(tile-num);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+    }
+
     > [role="button"] > div > :nth-child(2),
     > a > div > :nth-child(2) {
       @include d-type(small);
@@ -159,7 +182,8 @@
     border: 1.5px dashed color-mix(in srgb, var(--d-muted) 30%, transparent);
     background: none;
 
-    > [role="button"] > div > :first-child {
+    > [role="button"] > div > :first-child,
+    .name {
       color: var(--d-muted);
       font-weight: 600;
     }
