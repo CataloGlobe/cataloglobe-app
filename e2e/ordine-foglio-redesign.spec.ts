@@ -268,3 +268,28 @@ test("un piatto spento dopo l'apertura: il server lo rifiuta e la riga dice qual
     await expect(page.getByRole("button", { name: /^Invia alla cucina · 10,00/ })).toBeVisible();
     await expect(dialog.getByRole("alert")).toHaveCount(0);
 });
+
+test("ordini sospesi dal locale: lo scopre l'invio, l'avviso lo dice e «Invia» si spegne", async ({ page }) => {
+    const line = { id: "prod-0-1", name: "Antipasti 2", basePrice: 10, qty: 1, selectedFormat: null, selectedAddons: [], unitPrice: 10, note: null };
+    await openPage(page, { selection: [line] });
+    await page.route("**/functions/v1/submit-order**", route =>
+        route.fulfill({
+            status: 423,
+            contentType: "application/json",
+            body: JSON.stringify({
+                code: "ORDERING_UNAVAILABLE",
+                reason: "ordering_disabled",
+                message: "Il ristorante ha temporaneamente sospeso le ordinazioni tramite QR. Per favore, chiedi allo staff per ordinare."
+            })
+        })
+    );
+    await cart(page).click();
+    const dialog = sheet(page);
+    const send = page.getByRole("button", { name: /^Invia alla cucina/ });
+    await send.click();
+
+    await expect(dialog.getByRole("alert")).toContainText("sospeso le ordinazioni");
+    await expect(send).toBeDisabled();
+    // La riga resta: il cliente la mostra al cameriere.
+    await expect(dialog.getByRole("listitem").filter({ hasText: "Antipasti 2" })).toBeVisible();
+});
