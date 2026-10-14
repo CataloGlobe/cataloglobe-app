@@ -16,6 +16,7 @@ interface ImportMetaEnv {
     // Redesign della pagina pubblica: "true" → componenti di
     // PublicCollectionView/redesign/; assente/altro → pagina di oggi. Solo staging.
     readonly VITE_PUBLIC_REDESIGN?: string;
+    readonly VITE_BACKOFFICE_D?: string;
     readonly VITE_OFFICINA_CALENDARIO?: string;
     // aggiungi qui eventuali altre variabili
 }

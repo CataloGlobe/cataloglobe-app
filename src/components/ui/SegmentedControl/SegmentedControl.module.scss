@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // SegmentedControl — scheda «SegmentedControl». Contenitore --hover-bg con
 // raggio --radius-control e padding 2; segmenti md 34 (totale 38 =
 // --control-height), sm 26 (totale 30); attivo su --surface + --shadow-rest.
@@ -116,4 +118,92 @@
   transition:
     transform var(--timing-motion-base) var(--easing-surface),
     width var(--timing-motion-base) var(--easing-surface);
+}
+
+// --- Direzione D (artifact v28, `.seg` + `.thumb`): binario bianco a pillola con
+// l'ombra indaco, cursore indaco scuro che scorre con la molla, scelta in bianco. ---
+.wrapper {
+  @include look-d {
+    height: auto;
+    padding: 4px;
+    gap: 0;
+    background: var(--d-surface);
+    border-radius: var(--d-r-pill);
+    box-shadow: var(--d-shadow);
+  }
+}
+
+.wrapperSm {
+  @include look-d {
+    padding: 3px;
+  }
+}
+
+.item {
+  @include look-d {
+    height: auto;
+    padding: 6px 13px;
+    border-radius: var(--d-r-pill);
+    color: var(--d-muted);
+    font-weight: 600;
+    transition:
+      color var(--d-dur) ease,
+      transform 0.12s ease-out;
+
+    &:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    &:focus-visible {
+      box-shadow: none;
+    }
+  }
+}
+
+.itemLabel {
+  @include look-d {
+    font-size: 13px;
+    font-weight: 600;
+  }
+}
+
+.itemSm {
+  @include look-d {
+    padding: 4px 10px;
+
+    .itemLabel {
+      font-size: 12px;
+    }
+  }
+}
+
+.item[aria-checked="true"] {
+  @include look-d {
+    color: var(--on-brand);
+  }
+}
+
+.indicator {
+  @include look-d {
+    top: 4px;
+    height: calc(100% - 8px);
+    background: var(--d-brand-deep);
+    border-radius: calc(var(--d-r-pill) - 2px);
+    box-shadow: none;
+  }
+}
+
+.wrapperSm .indicator {
+  @include look-d {
+    top: 3px;
+    height: calc(100% - 6px);
+  }
+}
+
+.animate {
+  @include look-d {
+    transition:
+      transform var(--d-dur) var(--d-ease-move),
+      width var(--d-dur) var(--d-ease-move);
+  }
 }

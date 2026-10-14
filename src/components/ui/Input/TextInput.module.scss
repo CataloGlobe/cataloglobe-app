@@ -133,3 +133,59 @@
   width: 0;
   height: 0;
 }
+
+// --- Direzione D (artifact v28, `.inp`): campo a 16 px con il filo
+// grigio-lilla, a fuoco filo indaco e alone tenue; errore in corallo. ---
+.input {
+  @include look-d {
+    border-radius: var(--d-r-ctl);
+    border-color: var(--d-field-line);
+    padding-inline: 13px;
+    font-size: 13.5px;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+
+    &::placeholder {
+      color: color-mix(in srgb, var(--d-muted) 70%, transparent);
+    }
+
+    &:hover:not(:disabled):not(:focus-visible) {
+      border-color: color-mix(in srgb, var(--d-brand) 35%, transparent);
+    }
+
+    &:focus,
+    &:focus-visible {
+      border-color: color-mix(in srgb, var(--d-brand) 55%, transparent);
+      box-shadow: 0 0 0 4px var(--d-soft);
+    }
+
+    &:disabled {
+      background: color-mix(in srgb, var(--d-brand) 5%, var(--d-surface));
+      color: var(--d-muted);
+    }
+
+    @include touch-input-font;
+  }
+}
+
+// Il rientro per la lente e per la X resta anche nella D.
+.startAdornment + .input {
+  @include look-d {
+    padding-left: 36px;
+  }
+}
+
+.inputShell:has(.endAdornment) .input,
+.inputShell:has(.endAction) .input {
+  @include look-d {
+    padding-right: 36px;
+  }
+}
+
+.hasError .input {
+  @include look-d {
+    border-color: var(--d-warm);
+    box-shadow: 0 0 0 4px var(--d-warm-soft);
+  }
+}

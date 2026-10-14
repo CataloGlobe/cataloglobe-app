@@ -1,4 +1,5 @@
 @use "@styles/typography" as typography;
+@use "@styles/mixins" as *;
 
 .text {
   // Back office: --font-sans (_theme.scss). Pagina pubblica: il font del tenant
@@ -76,4 +77,15 @@
 }
 .color-white {
   color: var(--text-color-white, var(--on-brand));
+}
+
+/* --- Direzione D (artifact v28): i titoli piccoli (testata dei pannelli,
+   finestre di conferma) in Bricolage 18, a ogni larghezza. Il peso resta
+   quello della variante o della prop `weight`. --- */
+.title-sm {
+  @include look-d {
+    font-family: var(--d-f-display);
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
 }

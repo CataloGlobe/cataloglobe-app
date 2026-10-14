@@ -6,6 +6,7 @@ import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import type { AppSidebarNavItem } from "./AppSidebar";
 import { currentItem } from "./isItemActive";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./AppSidebar.module.scss";
 import fly from "./SidebarFlyout.module.scss";
 
@@ -239,6 +240,12 @@ export function SidebarSection({
             onPointerLeave={event => event.pointerType === "mouse" && onHoverEnd()}
             onKeyDown={onPanelKeyDown}
         >
+            {/* Direzione D (artifact v28, `#rtip`): in cima il nome della sezione. */}
+            {LOOK_D && (
+                <b className={fly.title} aria-hidden="true">
+                    {title}
+                </b>
+            )}
             <ul className={fly.list}>
                 {items.map(item => {
                     const active = item === current;

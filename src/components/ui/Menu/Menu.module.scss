@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Menu — scheda «Menu»: un elenco di azioni che galleggia. Pannello
 // --surface con bordo, raggio --radius-surface, ombra --shadow-float,
 // --z-float, padding 6, larghezza min 200. Voce 36, padding 0 10, raggio
@@ -207,5 +209,80 @@
     .content[data-state="open"],
     .content[data-state="closed"] {
         animation: none;
+    }
+}
+
+// --- Direzione D (artifact v28, `.pop`): pannello bianco con un filo lilla e
+// l'ombra lunga, arriva con la molla; voce scelta su fondo tenue con la spunta,
+// la distruttiva in corallo. ---
+@keyframes menuInD {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(-4px);
+    }
+}
+
+.content {
+    @include look-d {
+        border-color: color-mix(in srgb, var(--d-muted) 20%, transparent);
+        border-radius: var(--d-r-ctl);
+        min-width: 210px;
+        box-shadow: 0 18px 40px -14px rgba(30, 25, 90, 0.35);
+
+        &[data-state="open"] {
+            animation: menuInD 180ms var(--d-ease-move);
+        }
+        &[data-state="closed"] {
+            animation: menuOut 140ms ease;
+        }
+    }
+}
+
+.item {
+    @include look-d {
+        height: auto;
+        min-height: 34px;
+        padding: 8px 10px;
+        gap: 10px;
+        border-radius: calc(var(--d-r-ctl) * 0.6);
+        font-size: 13px;
+        font-weight: 500;
+        transition: background-color 120ms ease;
+
+        &[data-highlighted] {
+            background-color: var(--d-soft);
+        }
+
+        &[data-state="checked"],
+        &[aria-checked="true"] {
+            font-weight: 700;
+            color: var(--d-brand-deep);
+            background-color: var(--d-soft);
+        }
+    }
+}
+
+.separator {
+    @include look-d {
+        margin: 4px 0;
+        background-color: color-mix(in srgb, var(--d-muted) 18%, transparent);
+    }
+}
+
+.danger {
+    @include look-d {
+        color: var(--d-warm);
+        font-weight: 600;
+
+        &[data-highlighted] {
+            background-color: var(--d-warm-soft);
+            color: var(--d-warm);
+        }
+    }
+}
+
+.accent {
+    @include look-d {
+        color: var(--d-brand-deep);
     }
 }

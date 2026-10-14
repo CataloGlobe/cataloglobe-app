@@ -2,6 +2,7 @@ import { memo, type ReactNode } from "react";
 import clsx from "clsx";
 import { Check, X } from "lucide-react";
 import Text from "../Text/Text";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./Chip.module.scss";
 
 /**
@@ -69,7 +70,7 @@ export const Chip = memo(function Chip({
                     {icon}
                 </span>
             )}
-            <Text as="span" variant="caption" weight={500} className={styles.label}>
+            <Text as="span" variant="caption" weight={LOOK_D ? 600 : 500} className={styles.label}>
                 {label}
             </Text>
             {count !== undefined && (
