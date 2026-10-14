@@ -906,6 +906,7 @@ export default function OverviewPage() {
                                 size="sm"
                                 level="M"
                                 fileName={`${location.slug}-qr`}
+                                className={LOOK_D ? styles.rowQr : undefined}
                             />
                         }
                         title={publicLink(location, styles.name, location.name)}
@@ -937,10 +938,10 @@ export default function OverviewPage() {
                                     <span className={styles.createIcon} aria-hidden="true">
                                         {option.icon}
                                     </span>
-                                    <Text as="span" variant="body-sm" weight={600}>
+                                    <Text as="span" variant="body-sm" weight={600} className={styles.createTitle}>
                                         {option.title}
                                     </Text>
-                                    <Text as="span" variant="caption" colorVariant="muted">
+                                    <Text as="span" variant="caption" colorVariant="muted" className={styles.createText}>
                                         {option.text}
                                     </Text>
                                     {/* Direzione D (v28): l'invito in fondo alla tessera. */}
