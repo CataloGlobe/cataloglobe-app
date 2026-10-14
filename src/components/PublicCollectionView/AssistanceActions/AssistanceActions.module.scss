@@ -87,6 +87,59 @@
     }
 }
 
+// Redesign (mockup v38): «Al tavolo» come due riquadri nel corpo del foglio,
+// icona sopra e testo sotto, prima il conto. Niente piede fisso.
+.footer[data-layout="tiles"] {
+    padding: 0;
+    border-top: 0;
+    background: none;
+
+    .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .waiterBtn,
+    .billBtn {
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-start;
+        gap: 8px;
+        min-height: 0;
+        padding: 12px 14px;
+        border: 0;
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+        color: var(--pub-text);
+        font-size: 0.875rem;
+        font-weight: 700;
+        line-height: 1.25;
+        text-align: left;
+        white-space: normal;
+
+        svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        span {
+            overflow: visible;
+        }
+
+        @media (hover: hover) {
+            &:not(:disabled):hover {
+                opacity: 1;
+                background: color-mix(in srgb, var(--pub-text) 10%, transparent);
+            }
+        }
+    }
+
+    .billBtn {
+        order: -1;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .waiterBtn,
     .billBtn {

@@ -77,6 +77,18 @@ describe("sheetReducer", () => {
         expect(sheetReducer(back, { type: "pop" })).toBe(CLOSED_SHEET);
     });
 
+    it("openAt apre già sulla figlia con la madre sotto: «‹» torna alla madre", () => {
+        const at = sheetReducer(CLOSED_SHEET, { type: "openAt", pages: [info, hours] });
+        expect(at).toEqual({ pages: [info, hours], move: "open" });
+        expect(sheetReducer(at, { type: "pop" })).toEqual({ pages: [info], move: "pop" });
+    });
+
+    it("openAt senza pagine chiude, e da chiuso non cambia nulla", () => {
+        const open = sheetReducer(CLOSED_SHEET, { type: "open", page: info });
+        expect(sheetReducer(open, { type: "openAt", pages: [] })).toBe(CLOSED_SHEET);
+        expect(sheetReducer(CLOSED_SHEET, { type: "openAt", pages: [] })).toBe(CLOSED_SHEET);
+    });
+
     it("close svuota e da chiuso è un no-op", () => {
         const open = sheetReducer(CLOSED_SHEET, { type: "open", page: info });
         expect(sheetReducer(open, { type: "close" })).toBe(CLOSED_SHEET);

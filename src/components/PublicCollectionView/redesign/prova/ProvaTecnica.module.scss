@@ -1,51 +1,15 @@
-.pagina {
+.banco {
+    --pub-bg: #fff;
+    --pub-border: #e5e5e5;
+
     position: relative;
     min-height: 100svh;
     background: #fff;
     color: #111;
 }
 
-.sentinellaAlta,
-.sentinellaBassa {
-    position: absolute;
-    left: 0;
-    width: 1px;
-    height: 1px;
-    pointer-events: none;
-}
-
-.isola {
-    position: fixed;
-    top: 10px;
-    left: 50%;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: calc(100% - 24px);
-    max-width: 560px;
-    padding: 14px 18px;
-    border-radius: 22px;
-    background: #111;
-    color: #fff;
-    transform: translateX(-50%);
-    // Solo transform e opacity: l'altezza e il blur non si animano.
-    transition: transform 220ms ease, opacity 220ms ease;
-
-    &[data-compact="true"] {
-        transform: translateX(-50%) scale(0.86);
-        opacity: 0.92;
-    }
-}
-
-.stato {
-    margin-left: auto;
-    font-size: 13px;
-    opacity: 0.7;
-}
-
 .contenuto {
-    padding: 96px 16px 140px;
+    padding: 0 16px 160px;
 }
 
 .azioni {
@@ -70,21 +34,29 @@
     color: #555;
 }
 
-.riempitivo {
-    margin: 0 0 14px;
-    color: #777;
+.sezione {
+    scroll-margin-top: 124px;
+
+    h2 {
+        margin: 24px 0 12px;
+        font-size: 20px;
+    }
 }
 
-.barra {
-    position: fixed;
-    bottom: 34px;
-    left: 50%;
-    z-index: 100;
-    padding: 14px 22px;
-    border-radius: 999px;
-    background: rgb(17 17 17 / 90%);
-    color: #fff;
-    transform: translateX(-50%);
+.storia {
+    padding-top: 16px;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.stati {
+    display: flex;
+    gap: 4px;
+
+    [aria-pressed="true"] {
+        background: #fff;
+        color: #111;
+    }
 }
 
 .volante {
@@ -111,4 +83,85 @@
         padding: 14px 0;
         border-bottom: 1px solid #eee;
     }
+}
+
+.scheda {
+    margin: 0 0 12px;
+    padding: 28px 16px;
+    border-radius: 16px;
+    background: #f2c14e;
+    color: #1b1b1b;
+
+    &[data-pari] {
+        background: #6aa9d9;
+    }
+}
+
+.pannello {
+    position: fixed;
+    bottom: 112px;
+    left: 8px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 210px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgb(0 0 0 / 80%);
+    color: #fff;
+    font: 12px/1.3 ui-monospace, monospace;
+
+    label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+}
+
+.numeri {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.mini {
+    padding: 2px 8px;
+    border: 1px solid #fff;
+    border-radius: 8px;
+    background: transparent;
+    color: #fff;
+    font: inherit;
+}
+
+/* Interruttori degli effetti: agiscono sui componenti veri dall'esterno
+   (le classi dei moduli restano `_nome_hash`). */
+.banco[data-isola-blur] header > div[aria-hidden] {
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    background: rgb(20 20 20 / 62%);
+}
+
+/* Il materiale di prima: blur sulla barra ferma (si spegne quando parte per nascondersi). */
+.banco[data-barra-blur] [class*="_wrap_"]:not([data-hidden]) > [class*="_capsula_"],
+.banco[data-barra-blur] [class*="_wrap_"]:not([data-hidden]) > [class*="_ordine_"] {
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    backdrop-filter: blur(18px) saturate(1.4);
+    background: color-mix(in srgb, #fff 66%, transparent);
+}
+
+.banco[data-senza-ombre] [class*="_capsula_"],
+.banco[data-senza-ombre] [class*="_ordine_"] {
+    box-shadow: none;
+}
+
+/* Strato fisso (`will-change: transform`): la barra lo ha di suo, qui si toglie;
+   ai testi dell'isola si aggiunge. */
+.banco[data-senza-strato-barra] [class*="_wrap_"]:has(> [class*="_ordine_"]) {
+    will-change: auto;
+}
+
+.banco[data-strato-isola] header [class*="_testi_"] {
+    will-change: transform;
 }

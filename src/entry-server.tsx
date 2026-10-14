@@ -1,8 +1,9 @@
 import { PassThrough } from "node:stream";
 
 import { renderToPipeableStream } from "react-dom/server";
+import { I18nextProvider } from "react-i18next";
 
-import "@/i18n";
+import i18n from "@/i18n";
 
 import PublicProviders from "@/components/public/PublicProviders";
 import PublicCatalogReady from "@/pages/PublicCollectionPage/PublicCatalogReady";
@@ -29,6 +30,10 @@ export type RenderPublicArgs = {
     slug: string;
     /** URL per StaticRouter (pathname; default da slug). */
     url?: string;
+    /** Lingua dell'interfaccia: quella della pagina (`effective_language`,
+        altrimenti la lingua base della sede), già validata dal chiamante.
+        Senza, o per una lingua che non abbiamo: italiano. */
+    lang?: string;
 };
 
 export type RenderPublicResult =
@@ -52,17 +57,25 @@ export async function renderPublic(args: RenderPublicArgs): Promise<RenderPublic
         return { kind: "non-ready", status: state.status };
     }
 
+    // Un'istanza di i18n per richiesta, nella lingua della pagina: la stessa
+    // funzione può rendere in parallelo sedi in lingue diverse. Il client carica
+    // la stessa lingua prima dell'hydration (`<html lang>`, entry-client).
+    const lng = args.lang && i18n.hasResourceBundle(args.lang, "public") ? args.lang : "it";
+    const i18nForRequest = i18n.cloneInstance({ lng, initAsync: false });
+
     const app = (
-        <PublicProviders router="static" location={url}>
-            <PublicCatalogReady
-                slug={slug}
-                data={state}
-                orderingMaintenance={null}
-                onRetry={noop}
-                activeTab="menu"
-                onTabChange={noop}
-            />
-        </PublicProviders>
+        <I18nextProvider i18n={i18nForRequest}>
+            <PublicProviders router="static" location={url}>
+                <PublicCatalogReady
+                    slug={slug}
+                    data={state}
+                    orderingMaintenance={null}
+                    onRetry={noop}
+                    activeTab="menu"
+                    onTabChange={noop}
+                />
+            </PublicProviders>
+        </I18nextProvider>
     );
 
     const html = await new Promise<string>((resolve, reject) => {

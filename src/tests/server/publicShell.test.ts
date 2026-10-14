@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
     applyTenantHead,
     buildClientAssets,
+    MOTION_FEATURES_KEY,
     buildSsrShell,
     escapeHtml,
     serializeCatalogPayload,
@@ -310,6 +311,12 @@ describe("buildSsrShell", () => {
         expect(afterApp).not.toContain("/src/main.tsx");
     });
 
+    it("<html lang> nella lingua in cui il server rende la pagina, italiano di default", () => {
+        expect(build().beforeApp).toMatch(/<html lang="it"/);
+        expect(build({ lang: "en" }).beforeApp).toMatch(/<html lang="en"/);
+        expect(build({ lang: 'x"><script>' }).beforeApp).toContain('<html lang="x&quot;&gt;&lt;script&gt;"');
+    });
+
     it("css dell'entry client nell'head, placeholder env sostituito", () => {
         const { beforeApp } = build();
         expect(beforeApp).toContain('rel="stylesheet" href="/public/assets/entry-client-C00LWXyq.css"');
@@ -338,5 +345,36 @@ describe("buildSsrShell", () => {
             afterApp.indexOf('</script>') // unico </script> = chiusura dei tag legittimi
         );
     });
+    });
+});
+
+describe("buildClientAssets", () => {
+    it("aggiunge un modulepreload per ogni chunk chiesto che c'è nel manifest", () => {
+        const manifest: ViteManifest = {
+            ...MANIFEST,
+            "src/i18n/locales/en/public.json": { file: "assets/public-Bq1.js" }
+        };
+        const { styleTags, scriptTag } = buildClientAssets(manifest, "src/entry-client.tsx", "/public/", [
+            "src/i18n/locales/en/public.json",
+            "src/i18n/locales/en/common.json"
+        ]);
+        expect(styleTags).toContain('<link rel="stylesheet" href="/public/assets/entry-client-C00LWXyq.css" />');
+        expect(styleTags).toContain('<link rel="modulepreload" href="/public/assets/public-Bq1.js" />');
+        expect(styleTags).not.toContain("common");
+        expect(scriptTag).toBe('<script type="module" src="/public/assets/entry-client-Dx27gO3c.js"></script>');
+    });
+
+    it("le feature di framer-motion si scaricano sempre subito, se il build le ha in un chunk", () => {
+        const manifest: ViteManifest = {
+            ...MANIFEST,
+            [MOTION_FEATURES_KEY]: { file: "assets/motionFeatures-Ab1.js" }
+        };
+        const { styleTags } = buildClientAssets(manifest, "src/entry-client.tsx", "/public/");
+        expect(styleTags).toContain('<link rel="modulepreload" href="/public/assets/motionFeatures-Ab1.js" />');
+    });
+
+    it("senza chunk chiesti resta solo il CSS dell'entry", () => {
+        const { styleTags } = buildClientAssets(MANIFEST, "src/entry-client.tsx", "/public/");
+        expect(styleTags).toBe('<link rel="stylesheet" href="/public/assets/entry-client-C00LWXyq.css" />');
     });
 });

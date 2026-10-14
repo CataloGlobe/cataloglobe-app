@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronDown } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import Text from "@/components/ui/Text/Text";
 import styles from "./CollectionSectionNav.module.scss";
 
@@ -291,7 +291,7 @@ export default function CollectionSectionNav({
             {mounted && createPortal(
                 <AnimatePresence>
                     {openDropdownId && openSection?.children && (
-                        <motion.div
+                        <m.div
                             ref={dropdownRef}
                             className={styles.dropdown}
                             data-font-family={portalFontFamily}
@@ -322,7 +322,7 @@ export default function CollectionSectionNav({
                                     {child.name}
                                 </button>
                             ))}
-                        </motion.div>
+                        </m.div>
                     )}
                 </AnimatePresence>,
                 document.body

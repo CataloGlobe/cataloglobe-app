@@ -1,0 +1,258 @@
+/* Scheda prodotto nel foglio unico (spec §6). Colori del locale (--pub-*),
+   nessun movimento proprio: entra con la spinta del foglio. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.image {
+  /* FramedMedia riempie il contenitore posizionato più vicino: senza, la foto usciva sul foglio */
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  aspect-ratio: 4 / 3;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+}
+
+/* Prezzo sotto il nome, in testata (mockup v38 .mx-hs) */
+.priceLine {
+  display: flex;
+  gap: 8px;
+  margin: 5px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.original {
+  color: color-mix(in srgb, var(--pub-text) 50%, transparent);
+  font-weight: 400;
+}
+
+.description {
+  margin: 0;
+  color: color-mix(in srgb, var(--pub-text) 82%, transparent);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.blockTitle {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+.rule {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-weight: 600;
+}
+
+/* Riquadro dei gruppi, dei Dettagli e di Perfetto con (mockup v38 .pd-box):
+   fondo leggero, angoli da 18, filo tra le righe. */
+.box {
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
+  list-style: none;
+
+  > * + * {
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+  }
+}
+
+.optionRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 11px 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.price,
+.surcharge {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 6px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.surcharge {
+  color: inherit;
+}
+
+/* «Mostra tutti (8) ⌄» sotto il riquadro, sul posto */
+.showAll {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Dettagli: etichetta smorzata a sinistra, valore forte a destra */
+.detailRow {
+  display: grid;
+  grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 11px 0;
+
+  dt {
+    color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 700;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Ingredienti in testo con le virgole (D70) */
+.ingredients {
+  margin: 0;
+  color: color-mix(in srgb, var(--pub-text) 82%, transparent);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+/* Caratteristiche e Allergeni: dopo un filo, etichette in maiuscoletto e chip */
+.meta {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+}
+
+.metaLabel {
+  margin: 0 0 8px;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px 7px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.none {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.note,
+.muted {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+}
+
+.note {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* La storia: card quieta, «La storia» in maiuscoletto sopra il titolo */
+.story {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px 10px 10px;
+  border: 0;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.storyCover {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--pub-text) 7%, transparent);
+}
+
+.storyText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.eyebrow {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.storyTitle {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}

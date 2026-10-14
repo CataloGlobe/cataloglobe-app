@@ -1051,6 +1051,7 @@ export type Database = {
           id: string
           kind: string | null
           name: string
+          sort_order: number
           style: Json | null
           tenant_id: string
           updated_at: string
@@ -1062,6 +1063,7 @@ export type Database = {
           id?: string
           kind?: string | null
           name: string
+          sort_order: number
           style?: Json | null
           tenant_id: string
           updated_at?: string
@@ -1073,6 +1075,7 @@ export type Database = {
           id?: string
           kind?: string | null
           name?: string
+          sort_order?: number
           style?: Json | null
           tenant_id?: string
           updated_at?: string
@@ -2880,6 +2883,45 @@ export type Database = {
         }
         Relationships: []
       }
+      featured_content_positions: {
+        Row: {
+          activity_id: string
+          featured_content_id: string
+          position: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          featured_content_id: string
+          position: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          featured_content_id?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "featured_content_positions_activity_fkey"
+            columns: ["activity_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "featured_content_positions_featured_content_id_fkey"
+            columns: ["featured_content_id"]
+            isOneToOne: false
+            referencedRelation: "featured_contents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       featured_content_products: {
         Row: {
           created_at: string
@@ -2941,6 +2983,7 @@ export type Database = {
           content_type: string
           created_at: string
           cta_text: string | null
+          cta_action: string
           cta_text_hash: string | null
           cta_url: string | null
           description: string | null
@@ -2957,6 +3000,12 @@ export type Database = {
           media_zoom: number
           pricing_mode: string
           show_original_total: boolean
+          shown_date_from: string | null
+          shown_date_kind: string | null
+          shown_date_to: string | null
+          shown_time_from: string | null
+          shown_time_to: string | null
+          shown_weekdays: number[] | null
           status: string
           subtitle: string | null
           subtitle_hash: string | null
@@ -2970,6 +3019,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           cta_text?: string | null
+          cta_action?: string
           cta_text_hash?: string | null
           cta_url?: string | null
           description?: string | null
@@ -2986,6 +3036,12 @@ export type Database = {
           media_zoom?: number
           pricing_mode?: string
           show_original_total?: boolean
+          shown_date_from?: string | null
+          shown_date_kind?: string | null
+          shown_date_to?: string | null
+          shown_time_from?: string | null
+          shown_time_to?: string | null
+          shown_weekdays?: number[] | null
           status?: string
           subtitle?: string | null
           subtitle_hash?: string | null
@@ -2999,6 +3055,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           cta_text?: string | null
+          cta_action?: string
           cta_text_hash?: string | null
           cta_url?: string | null
           description?: string | null
@@ -3015,6 +3072,12 @@ export type Database = {
           media_zoom?: number
           pricing_mode?: string
           show_original_total?: boolean
+          shown_date_from?: string | null
+          shown_date_kind?: string | null
+          shown_date_to?: string | null
+          shown_time_from?: string | null
+          shown_time_to?: string | null
+          shown_weekdays?: number[] | null
           status?: string
           subtitle?: string | null
           subtitle_hash?: string | null
@@ -5463,6 +5526,45 @@ export type Database = {
           },
         ]
       }
+      schedule_menu: {
+        Row: {
+          catalog_id: string
+          created_at: string
+          id: string
+          schedule_id: string
+          tenant_id: string
+        }
+        Insert: {
+          catalog_id: string
+          created_at?: string
+          id?: string
+          schedule_id: string
+          tenant_id: string
+        }
+        Update: {
+          catalog_id?: string
+          created_at?: string
+          id?: string
+          schedule_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_menu_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "catalogs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_menu_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: true
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedule_price_overrides: {
         Row: {
           created_at: string
@@ -5518,10 +5620,130 @@ export type Database = {
           },
         ]
       }
+      schedule_slot_targets: {
+        Row: {
+          created_at: string
+          schedule_id: string
+          schedule_target_id: string
+          slot_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          schedule_id: string
+          schedule_target_id: string
+          slot_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          schedule_id?: string
+          schedule_target_id?: string
+          slot_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_slot_targets_slot_fkey"
+            columns: ["slot_id", "schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_slots"
+            referencedColumns: ["id", "schedule_id"]
+          },
+          {
+            foreignKeyName: "schedule_slot_targets_target_fkey"
+            columns: ["schedule_target_id", "schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_targets"
+            referencedColumns: ["id", "schedule_id"]
+          },
+        ]
+      }
+      schedule_slots: {
+        Row: {
+          created_at: string
+          days_of_week: number[] | null
+          end_minute: number
+          id: string
+          schedule_id: string
+          sort_order: number
+          start_minute: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          days_of_week?: number[] | null
+          end_minute: number
+          id?: string
+          schedule_id: string
+          sort_order?: number
+          start_minute: number
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          days_of_week?: number[] | null
+          end_minute?: number
+          id?: string
+          schedule_id?: string
+          sort_order?: number
+          start_minute?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_slots_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_style: {
+        Row: {
+          created_at: string
+          id: string
+          schedule_id: string
+          style_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          schedule_id: string
+          style_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          schedule_id?: string
+          style_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_style_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: true
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_style_style_id_fkey"
+            columns: ["style_id"]
+            isOneToOne: false
+            referencedRelation: "styles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedule_targets: {
         Row: {
           created_at: string
           id: string
+          overlap_mode: string | null
           schedule_id: string
           target_id: string
           target_type: string
@@ -5529,6 +5751,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          overlap_mode?: string | null
           schedule_id: string
           target_id: string
           target_type: string
@@ -5536,6 +5759,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          overlap_mode?: string | null
           schedule_id?: string
           target_id?: string
           target_type?: string
@@ -5606,6 +5830,8 @@ export type Database = {
           id: string
           is_baseline: boolean
           name: string | null
+          on_air_since: string
+          overlap_mode: string | null
           priority: number
           priority_level: Database["public"]["Enums"]["schedule_priority_level"]
           rule_type: string
@@ -5629,6 +5855,8 @@ export type Database = {
           id?: string
           is_baseline?: boolean
           name?: string | null
+          on_air_since?: string
+          overlap_mode?: string | null
           priority?: number
           priority_level?: Database["public"]["Enums"]["schedule_priority_level"]
           rule_type: string
@@ -5652,6 +5880,8 @@ export type Database = {
           id?: string
           is_baseline?: boolean
           name?: string | null
+          on_air_since?: string
+          overlap_mode?: string | null
           priority?: number
           priority_level?: Database["public"]["Enums"]["schedule_priority_level"]
           rule_type?: string
@@ -8206,14 +8436,6 @@ export type Database = {
           window_end: string
           window_source: string
           window_start: string
-        }[]
-      }
-      get_daily_uptime: {
-        Args: { p_days?: number; p_service_key: string }
-        Returns: {
-          check_count: number
-          day: string
-          worst: string
         }[]
       }
       get_invite_info_by_token: {

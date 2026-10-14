@@ -28,6 +28,8 @@ type Props = {
     showCta?: boolean;
     /** false in StyleEditor preview: card e CTA restano visive ma inerti. Default true. */
     interactive?: boolean;
+    /** Apre il form di prenotazione: il pulsante «Prenota» lo chiama, senza sede di prenotazioni niente pulsante. */
+    onOpenReservation?: () => void;
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -128,7 +130,7 @@ function SeeAllCard({ count, onClick, interactive }: { count: number; onClick: (
     );
 }
 
-export default function FeaturedBlock({ blocks, activityId, slot, totalCount, onOpenDetail, onOpenAll, layout = "card", showSubtitle = true, showTitle = true, showCta = true, interactive = true }: Props) {
+export default function FeaturedBlock({ blocks, activityId, slot, totalCount, onOpenDetail, onOpenAll, layout = "card", showSubtitle = true, showTitle = true, showCta = true, interactive = true, onOpenReservation }: Props) {
     const { t } = useTranslation("public");
     // Slot above-the-fold: immagini caricate eager con priorità alta
     const isAboveFold = slot === "before_catalog";
@@ -223,6 +225,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, totalCount, on
                     block={blocks[0]}
                     onClick={() => handleCardClick(blocks[0])}
                     onCtaClick={() => handleCtaClick(blocks[0])}
+                    onOpenReservation={onOpenReservation}
                     className={styles.cardSingle}
                     variant={layout}
                     showSubtitle={showSubtitle}
@@ -254,6 +257,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, totalCount, on
                         block={block}
                         onClick={() => handleCardClick(block)}
                         onCtaClick={() => handleCtaClick(block)}
+                        onOpenReservation={onOpenReservation}
                         className={styles.cardCarousel}
                         variant={layout}
                         showSubtitle={showSubtitle}

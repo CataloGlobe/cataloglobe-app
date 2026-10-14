@@ -1,11 +1,19 @@
 /* Barra in basso del redesign. Solo telefono. z-index 150: sopra contenuto e FAB,
    sotto toast, ricerca (200) e fogli (900). Ingombro in fondo: l'altezza la misura
    BottomBar.tsx in `--pub-bottombar-h`; distanza dal fondo e clearance stanno su `.page`
-   (CollectionView.module.scss). Mai backdrop-filter su un elemento che trasla:
-   il blur c'è solo a riposo, durante il passaggio il materiale è pieno (`data-moving`). */
+   (CollectionView.module.scss). Stessi principi dell'isola: si anima solo transform e
+   opacity, niente backdrop-filter (la barra trasla), materiale pieno semitrasparente
+   che non cambia mai, nemmeno ai capi del passaggio. `will-change: transform` sul
+   `.wrap`: la barra resta su uno strato suo, ombra compresa, e nascondi/mostra non
+   la ri-rasterizza (banco, Chromium CPU 4×, un giro: raster da 34 a 6 task, da ~13 a
+   ~2 ms; senza strato l'ombra è quasi tutto il costo). */
 
-$entrata: 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
-$uscita: 220ms ease-in;
+/* Come il mockup v38 (`.bbar`): stessa curva nei due sensi, la barra scivola e
+   sfuma un po' prima di arrivare. Prima l'uscita era un ease-in di 220 ms: partiva
+   piano e spariva di colpo, sembrava staccarsi invece di scendere. */
+$curva: cubic-bezier(0.2, 0.8, 0.2, 1);
+$scivola: 320ms;
+$sfuma: 240ms;
 
 .wrap {
   position: fixed;
@@ -21,7 +29,8 @@ $uscita: 220ms ease-in;
   max-width: calc(100vw - 24px);
   margin: 0 auto;
   visibility: visible;
-  transition: transform $entrata, opacity $entrata, visibility 0s linear 0s;
+  will-change: transform;
+  transition: transform $scivola $curva, opacity $sfuma $curva, visibility 0s linear 0s;
   animation: entra 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 
   /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts): solo telefono, ≤640 px. */
@@ -34,31 +43,19 @@ $uscita: 220ms ease-in;
     pointer-events: none;
     opacity: 0;
     transform: translateY(calc(100% + var(--pub-bottombar-bottom, 34px)));
-    transition: transform $uscita, opacity $uscita, visibility 0s linear 220ms;
+    transition: transform $scivola $curva, opacity $sfuma $curva, visibility 0s linear $scivola;
   }
 }
 
-/* Un solo materiale per capsula e cerchio: ibrido. */
+/* Un solo materiale per capsula e cerchio, lo stesso dell'isola (mockup v38, `.bmat.hc-glass`):
+   vetro scuro pieno al 92%, senza blur. */
 .capsula,
 .ordine {
-  --materiale: color-mix(in srgb, var(--pub-surface, #fff) 66%, transparent);
-  --materiale-pieno: color-mix(in srgb, var(--pub-surface, #fff) 94%, transparent);
-  --testo: var(--pub-surface-text, #171717);
+  --testo: #fff;
 
-  border: 1px solid var(--pub-surface-border, rgb(0 0 0 / 7%));
-  background: var(--materiale);
+  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(20 20 20 / 92%);
   box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  backdrop-filter: blur(18px) saturate(1.4);
-}
-
-.wrap[data-moving] {
-  .capsula,
-  .ordine {
-    background: var(--materiale-pieno);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
 }
 
 .capsula {
@@ -82,9 +79,10 @@ $uscita: 220ms ease-in;
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--pub-surface-text, #171717) 10%, transparent);
-  transition: left 0.4s cubic-bezier(0.32, 0.72, 0, 1), width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  background: rgb(255 255 255 / 14%);
+  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
   pointer-events: none;
 }
 
@@ -122,6 +120,12 @@ $uscita: 220ms ease-in;
   white-space: nowrap;
 }
 
+.categorie {
+  flex: none;
+  margin-left: -3px;
+  opacity: 0.6;
+}
+
 .ordine {
   position: relative;
   display: flex;
@@ -152,6 +156,46 @@ $uscita: 220ms ease-in;
   font-variant-numeric: tabular-nums;
 }
 
+/* Desktop: «Il tuo ordine · N» fisso in basso a destra (mockup v38 `.d-ofab`), stesso
+   materiale dell'isola. Sul telefono c'è il cerchio dentro la barra. */
+.ordineDesktop {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  gap: 9px;
+  height: 52px;
+  padding: 0 18px 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(20 20 20 / 92%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 14px 30px -12px rgb(0 0 0 / 55%);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  animation: entra 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transition: transform 0.16s ease;
+
+  /* ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts) */
+  @media (min-width: 641px) {
+    display: inline-flex;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+  }
+}
+
 @keyframes entra {
   from {
     opacity: 0;
@@ -166,6 +210,11 @@ $uscita: 220ms ease-in;
 
 @media (prefers-reduced-motion: reduce) {
   .fondo {
+    transition: none;
+  }
+
+  .ordineDesktop {
+    animation: none;
     transition: none;
   }
 

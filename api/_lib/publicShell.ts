@@ -262,29 +262,42 @@ type ViteManifestChunk = {
 export type ViteManifest = Record<string, ViteManifestChunk>;
 
 export type ClientAssets = {
-    /** <link rel="stylesheet"> dell'entry client, da mettere nell'head. */
+    /** <link rel="stylesheet"> dell'entry client (e i modulepreload), da mettere nell'head. */
     styleTags: string;
     /** <script type="module"> dell'entry client, da mettere a fine body. */
     scriptTag: string;
 };
 
 /**
+ * Le feature di framer-motion (domMax) sono un chunk lazy che MotionProvider
+ * chiede dopo il primo disegno: senza preload, su rete lenta il download parte
+ * solo a entry finita e i primi fogli aperti non si animano.
+ */
+export const MOTION_FEATURES_KEY = "src/components/motion/motionFeatures.ts";
+
+/**
  * Estrae i tag asset dell'entry client pubblico dal manifest Vite.
  * `base` = base path del build client (es. "/public/").
+ * `preloadKeys` = chunk lazy da scaricare subito (`<link rel="modulepreload">`),
+ * es. i testi della lingua della pagina; le chiavi assenti dal manifest si saltano.
  */
 export function buildClientAssets(
     manifest: ViteManifest,
     entryKey: string,
-    base: string
+    base: string,
+    preloadKeys: readonly string[] = []
 ): ClientAssets {
     const entry = manifest[entryKey];
     if (!entry) {
         throw new Error(`publicShell: entry "${entryKey}" assente dal manifest client`);
     }
     const href = (file: string) => escapeHtml(`${base}${file}`);
-    const styleTags = (entry.css ?? [])
-        .map(file => `<link rel="stylesheet" href="${href(file)}" />`)
-        .join("\n    ");
+    const styleTags = [
+        ...(entry.css ?? []).map(file => `<link rel="stylesheet" href="${href(file)}" />`),
+        ...[MOTION_FEATURES_KEY, ...preloadKeys]
+            .filter(key => manifest[key])
+            .map(key => `<link rel="modulepreload" href="${href(manifest[key].file)}" />`)
+    ].join("\n    ");
     const scriptTag = `<script type="module" src="${href(entry.file)}"></script>`;
     return { styleTags, scriptTag };
 }
@@ -309,6 +322,10 @@ export type BuildShellArgs = {
     clientAssets: ClientAssets;
     /** Valore per il preconnect %VITE_SUPABASE_URL% del template. */
     supabaseUrl: string;
+    /** Lingua in cui il server rende la pagina, già validata: va in
+        `<html lang>`, da cui la legge anche il client prima dell'hydration.
+        Default "it", come il template. */
+    lang?: string;
 };
 
 /**
@@ -320,6 +337,7 @@ export function buildSsrShell(args: BuildShellArgs): SsrShellParts {
 
     // Placeholder env del template (in SPA lo sostituisce Vite a build-time).
     html = html.replace(/%VITE_SUPABASE_URL%/g, () => escapeHtml(args.supabaseUrl));
+    html = html.replace(/<html lang="[^"]*"/, () => `<html lang="${escapeHtml(args.lang ?? "it")}"`);
 
     html = applyTenantHead(html, args.payload, { origin: args.origin, slug: args.slug });
 

@@ -1,26 +1,60 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { MoreHorizontal, Search } from "lucide-react";
-import type { HubTab } from "@/types/collectionStyle";
-import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
+import { ChevronDown, MoreHorizontal, Search } from "lucide-react";
 import { SEARCH_TRIGGER_ID } from "@components/PublicCollectionView/PublicCollectionHeader/PublicCollectionHeader";
+import { useLanguage } from "@context/Language/useLanguage";
 import { buildCoverImageSet } from "@/utils/imageTransform";
+import lensStyles from "./LensDot.module.scss";
 import type { HeaderSlotContext } from "../slots";
+import { rememberSheetOpener } from "../sheets/sheetStack";
 import VenuePill from "../venue/VenuePill";
+import { ISLAND_ID, LANGUAGE_BUTTON_ID, MENU_BUTTON_ID, MORE_BUTTON_ID, SEARCH_FIELD_ID } from "./anchors";
+import IslandCategories from "./IslandCategories";
+import LanguageButton from "./LanguageButton";
+import { openVenueSheet } from "../sheets/venueSheetPages";
 import styles from "./Island.module.scss";
 
 // Isteresi: compatta oltre 40 px, torna estesa sotto 8 px. Validata su iPhone e Android (PR 1).
 const SOGLIA_ALTA = 40;
 const SOGLIA_BASSA = 8;
-/** Durata della transizione CSS: per tutto il passaggio il vetro è pieno, niente blur che cambia. */
-const PASSAGGIO_MS = 220;
-/** Altezza dell'isola compatta + distanza dal bordo: da qui parte la barra delle categorie sticky. */
-const ALTEZZA_COMPATTA_PX = 68;
+/** Telefono: isola compatta (52) + distanza dal bordo (10). Da qui partono gli scroll verso le sezioni. */
+const ALTEZZA_COMPATTA_PX = 62;
+/** Desktop: riga unica (58 + bordi) + distanza dal bordo (14). */
+const ALTEZZA_COMPATTA_DESKTOP_PX = 74;
+/** Telefono, da compatta: la fila delle pill sale fin qui dal bordo dell'isola ((52 − 34) / 2). */
+const CIMA_FILA_COMPATTA_PX = 9;
+/** ⚠️ SYNC con PUBLIC_MOBILE_MAX_WIDTH (publicBreakpoints.ts) e con Island.module.scss. */
+const DESKTOP_QUERY = "(min-width: 641px)";
 
-const HUB_TABS: { id: HubTab; labelKey: string }[] = [
-    { id: "menu", labelKey: "hub.menu" },
-    { id: "storia", labelKey: "hub.storia" }
-];
+/**
+ * «· 2 di 2» esce se il nome del menu non ci sta (mockup v38, `r2-nn`): il nome
+ * conta più del numero. Si rimisura quando cambia la larghezza della riga, il
+ * nome o il font.
+ */
+function useMenuCountFit(button: RefObject<HTMLButtonElement | null>, name: string | null | undefined) {
+    useEffect(() => {
+        const el = button.current;
+        const line = el?.parentElement;
+        if (!el || !line || typeof ResizeObserver === "undefined") return;
+        let live = true;
+        const nome = el.querySelector("i");
+        const fit = () => {
+            if (!live) return;
+            delete el.dataset.senzaConto;
+            if (nome && nome.scrollWidth > nome.clientWidth + 1) el.dataset.senzaConto = "";
+        };
+        fit();
+        void document.fonts?.ready.then(fit);
+        // Anche il nome: la riga resta larga uguale quando lo stato cambia parola («Chiude presto»).
+        const ro = new ResizeObserver(fit);
+        ro.observe(line);
+        if (nome) ro.observe(nome);
+        return () => {
+            live = false;
+            ro.disconnect();
+        };
+    }, [button, name]);
+}
 
 /**
  * Due sentinelle assolute in cima alla pagina: nessun lavoro a ogni scroll,
@@ -51,6 +85,20 @@ function useCompatta() {
     return { compatta, alta, bassa };
 }
 
+/**
+ * Isola della pagina pubblica (spec §2, §13; mockup v38).
+ *
+ * Telefono, in cima: riga 1 logo, nome, «menu · stato», lingua; riga 2 le pill
+ * delle categorie e la capsula «cerca · ⋯». Compatta: resta solo la riga 2.
+ * In Storia la riga 2 non c'è e il ⋯ sale accanto alla lingua.
+ * Desktop: riga 1 logo, nome e stato, campo di ricerca, lingua, ⋯; riga 2 solo
+ * le categorie; compatta su una riga sola. Menu e Storia non stanno qui: sul
+ * telefono nella barra in basso, su desktop nel ⋯.
+ */
+/** Con più menu adesso il nome del menu diventa un selettore: «Menu pranzo · 1 di 2 ⌄» (mockup v38, `menuLine`). */
+/** Più menu adesso: posizione e nome del menu aperto (il nome anche se lo stile nasconde il titolo del catalogo). */
+export type MenuSwitch = { position: number; total: number; name: string | null };
+
 export default function Island({
     logoUrl,
     coverImageUrl,
@@ -61,60 +109,125 @@ export default function Island({
     allergensCount,
     onOpenMore,
     activeTab,
-    onTabChange,
-    showStoryTab,
     openingHours,
     upcomingClosures,
-    onOpenHours
-}: HeaderSlotContext) {
+    onOpenHours,
+    categoryGroups,
+    activeSectionId,
+    onSelectSection,
+    onSelectSubSection,
+    onOpenCategories,
+    onOpenFilters,
+    menuSwitch
+}: HeaderSlotContext & { menuSwitch?: MenuSwitch }) {
     const { t } = useTranslation("public");
     const { compatta, alta, bassa } = useCompatta();
     const slotRef = useRef<HTMLDivElement>(null);
     const rootRef = useRef<HTMLElement>(null);
+    const filaRef = useRef<HTMLDivElement>(null);
     const compattaRef = useRef(false);
     const primerRef = useRef<HTMLInputElement>(null);
-    const [inPassaggio, setInPassaggio] = useState(false);
-    const primoGiro = useRef(true);
+    const campoRef = useRef<HTMLButtonElement>(null);
+    const lenteRef = useRef<HTMLButtonElement>(null);
+    const menuTastoRef = useRef<HTMLButtonElement>(null);
+    const storia = activeTab === "storia";
+    // Con più menu il selettore mostra il menu aperto anche se lo stile nasconde il titolo del catalogo.
+    const switchName = menuSwitch && !storia ? (menuSwitch.name ?? menuName) : null;
+    useMenuCountFit(menuTastoRef, switchName);
+    const piuLingue = useLanguage().availableLanguages.length > 1;
 
-    // Vetro pieno mentre l'isola cambia misura, sfocato da fermo.
+    // Desktop: da estesa a compatta il campo lascia il posto alla lente (e viceversa).
+    // Se il fuoco era sul pezzo che sparisce, passa all'altro: non cade sul body.
     useEffect(() => {
-        if (primoGiro.current) {
-            primoGiro.current = false;
-            return;
+        const campo = campoRef.current;
+        const lente = lenteRef.current;
+        const active = document.activeElement;
+        if (!campo || !lente || (active !== campo && active !== lente)) return;
+        const other = active === campo ? lente : campo;
+        if ((active as HTMLElement).offsetParent === null && other.offsetParent !== null) {
+            other.focus({ preventScroll: true });
         }
-        setInPassaggio(true);
-        const id = window.setTimeout(() => setInPassaggio(false), PASSAGGIO_MS + 30);
-        return () => window.clearTimeout(id);
     }, [compatta]);
 
     // Il contenitore sticky tiene l'altezza dell'isola estesa: quando l'isola si compatta
-    // la pagina sotto non si muove. Si misura solo da estesa.
+    // la pagina sotto non si muove. Da estesa si misura anche quanto deve salire la riga
+    // delle pill per stare al centro dell'isola compatta (solo transform, niente reflow).
     compattaRef.current = compatta;
     useEffect(() => {
         const slot = slotRef.current;
         const isola = rootRef.current;
         if (!slot || !isola) return;
         const misura = () => {
+            // `offsetTop` ignora il transform: la salita si misura anche da compatta
+            // (pagina ricaricata già scorsa, ritorno da Storia, rotazione).
+            const fila = filaRef.current;
+            if (fila) isola.style.setProperty("--sali", `${fila.offsetTop - CIMA_FILA_COMPATTA_PX}px`);
             if (!compattaRef.current) slot.style.height = `${isola.offsetHeight}px`;
         };
         misura();
         const ro = new ResizeObserver(misura);
         ro.observe(isola);
         return () => ro.disconnect();
-    }, []);
+    }, [storia]);
 
-    // La barra delle categorie e gli scroll verso le sezioni leggono questa variabile su <main>.
+    // Gli scroll verso le sezioni leggono questa variabile su <main>: si fermano sotto l'isola compatta.
     useEffect(() => {
         const main = rootRef.current?.closest("main") as HTMLElement | null;
         if (!main) return;
-        main.style.setProperty("--pub-header-height", `${ALTEZZA_COMPATTA_PX}px`);
+        const mq = window.matchMedia(DESKTOP_QUERY);
+        const apply = () =>
+            main.style.setProperty(
+                "--pub-header-height",
+                `${mq.matches ? ALTEZZA_COMPATTA_DESKTOP_PX : ALTEZZA_COMPATTA_PX}px`
+            );
+        apply();
+        mq.addEventListener("change", apply);
         return () => {
+            mq.removeEventListener("change", apply);
             main.style.removeProperty("--pub-header-height");
         };
     }, []);
 
     const coverSet = coverImageUrl ? buildCoverImageSet(coverImageUrl) : null;
-    const tabs = showStoryTab ? HUB_TABS : [];
+    const openSearch = (trigger: HTMLElement) => {
+        // Focus sincrono in-gesto sul campo fantasma: la tastiera iOS sale subito.
+        // Alla chiusura il fuoco torna a chi ha aperto, non al campo fantasma.
+        rememberSheetOpener(trigger);
+        primerRef.current?.focus();
+        onSearchOpen();
+    };
+
+    const piu = (
+        <button
+            id={MORE_BUTTON_ID}
+            type="button"
+            className={`${styles.tasto} ${styles.piu}`}
+            onClick={onOpenMore}
+            aria-label={t("header.more_aria")}
+        >
+            <MoreHorizontal size={18} strokeWidth={2} />
+        </button>
+    );
+
+    const lente = (
+        <button
+            ref={lenteRef}
+            type="button"
+            id={SEARCH_TRIGGER_ID}
+            className={`${styles.tasto} ${styles.lente}`}
+            onClick={event => openSearch(event.currentTarget)}
+            onPointerDown={onSearchPointerDown}
+            aria-label={
+                allergensCount > 0
+                    ? t("header.search_filters_aria", { count: allergensCount })
+                    : t("header.search_aria")
+            }
+        >
+            <Search size={17} strokeWidth={2} />
+            {/* Filtro attivo: un pallino, non un numero (spec §4, v32). */}
+            {allergensCount > 0 && <span className={lensStyles.dot} aria-hidden />}
+        </button>
+    );
 
     return (
         <>
@@ -150,78 +263,133 @@ export default function Island({
             )}
 
             <div ref={slotRef} className={styles.slot} data-cover={!!coverImageUrl || undefined}>
-            <header
-                ref={rootRef}
-                className={styles.isola}
-                data-compact={compatta}
-                data-moving={inPassaggio || undefined}
-                data-cover={!!coverImageUrl || undefined}
-            >
-                <div className={styles.riga}>
-                    {logoUrl && (
-                        <img
-                            src={logoUrl}
-                            alt={t("header.logo_alt", { name: activityName })}
-                            className={styles.logo}
-                            decoding="async"
-                            width={44}
-                            height={44}
-                        />
-                    )}
-                    <div className={styles.testi}>
-                        <span className={styles.nome}>{activityName}</span>
-                        {menuName && <span className={styles.menu}>{menuName}</span>}
-                        <div className={styles.stato}>
-                            <div>
-                                <VenuePill hours={openingHours} closures={upcomingClosures} onOpenHours={onOpenHours} />
+                <header
+                    ref={rootRef}
+                    id={ISLAND_ID}
+                    className={styles.isola}
+                    data-compact={compatta}
+                    data-tab={activeTab}
+                    data-cover={!!coverImageUrl || undefined}
+                    data-logo={!!logoUrl || undefined}
+                >
+                    <div className={styles.guscio} aria-hidden />
+                    <div className={styles.riga}>
+                        {logoUrl && (
+                            <img
+                                src={logoUrl}
+                                alt={t("header.logo_alt", { name: activityName })}
+                                className={styles.logo}
+                                decoding="async"
+                                width={40}
+                                height={40}
+                            />
+                        )}
+                        <div className={styles.testi}>
+                            {/* Il nome apre «Info e orari», come nel mockup v38. È l'h1 della
+                                pagina (uno solo): il pulsante sta dentro il titolo. */}
+                            <h1 className={styles.titolo}>
+                                <button
+                                    type="button"
+                                    className={styles.nomeTasto}
+                                    onClick={e => {
+                                        // Safari non dà il fuoco al bottone toccato: alla chiusura torna qui.
+                                        rememberSheetOpener(e.currentTarget);
+                                        openVenueSheet("info");
+                                    }}
+                                    aria-label={`${activityName}: ${t("header.info_aria")}`}
+                                    aria-haspopup="dialog"
+                                >
+                                    <span className={styles.nome}>{activityName}</span>
+                                </button>
+                            </h1>
+                            {/* «Menu pranzo  ● Aperto» su una riga; in Storia il menu non c'è. */}
+                            <div className={styles.linea}>
+                                {switchName && menuSwitch ? (
+                                    <button
+                                        ref={menuTastoRef}
+                                        id={MENU_BUTTON_ID}
+                                        type="button"
+                                        className={`${styles.menu} ${styles.menuTasto}`}
+                                        onClick={e => {
+                                            rememberSheetOpener(e.currentTarget);
+                                            openVenueSheet("menus");
+                                        }}
+                                        aria-haspopup="dialog"
+                                        aria-label={t("menus.island_aria", {
+                                            name: switchName,
+                                            position: menuSwitch.position,
+                                            total: menuSwitch.total
+                                        })}
+                                    >
+                                        <i>{switchName}</i>
+                                        <span className={styles.menuConto} aria-hidden>
+                                            · {t("menus.position", { position: menuSwitch.position, total: menuSwitch.total })}
+                                        </span>
+                                        <ChevronDown size={13} strokeWidth={2.2} aria-hidden />
+                                    </button>
+                                ) : menuName && !storia ? (
+                                    <i className={styles.menu}>{menuName}</i>
+                                ) : null}
+                                <VenuePill
+                                    hours={openingHours}
+                                    closures={upcomingClosures}
+                                    onOpenHours={onOpenHours}
+                                    word={Boolean(switchName)}
+                                />
                             </div>
                         </div>
-                    </div>
-                    <LanguageSelector />
-                    <button
-                        type="button"
-                        id={SEARCH_TRIGGER_ID}
-                        className={styles.icona}
-                        onClick={() => {
-                            // Focus sincrono in-gesto sul campo fantasma: la tastiera iOS sale subito.
-                            primerRef.current?.focus();
-                            onSearchOpen();
-                        }}
-                        onPointerDown={onSearchPointerDown}
-                        aria-label={t("header.search_aria")}
-                    >
-                        <Search size={16} strokeWidth={2} />
-                        {allergensCount > 0 && (
-                            <span className={styles.conto} aria-hidden>
-                                {allergensCount}
-                            </span>
-                        )}
-                    </button>
-                    <button type="button" className={styles.icona} onClick={onOpenMore} aria-label={t("header.more_aria")}>
-                        <MoreHorizontal size={16} strokeWidth={2} />
-                    </button>
-                </div>
-
-                {tabs.length > 0 && (
-                    <div className={styles.secondaRiga}>
-                        <div className={styles.capsula} role="tablist">
-                            {tabs.map(tab => (
-                                <button
-                                    key={tab.id}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={activeTab === tab.id}
-                                    className={styles.voce}
-                                    data-active={activeTab === tab.id || undefined}
-                                    onClick={() => onTabChange(tab.id)}
-                                >
-                                    {t(tab.labelKey)}
-                                </button>
-                            ))}
+                        {/* Desktop, isola estesa: il campo di ricerca prende lo spazio libero (spec §13). */}
+                        <div id={SEARCH_FIELD_ID} className={styles.campo}>
+                            <button
+                                ref={campoRef}
+                                type="button"
+                                className={styles.campoTesto}
+                                onClick={event => openSearch(event.currentTarget)}
+                                onPointerDown={onSearchPointerDown}
+                            >
+                                <Search size={16} strokeWidth={2} aria-hidden />
+                                <span>{t("header.search_field")}</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.campoFiltri}
+                                data-active={allergensCount > 0 || undefined}
+                                onClick={onOpenFilters}
+                            >
+                                {allergensCount > 0
+                                    ? t("header.filters_count", { count: allergensCount })
+                                    : t("more.filters_label")}
+                            </button>
                         </div>
+                        {/* In Storia la capsula è «lingua · ⋯» (la lente solo su desktop compatta). */}
+                        {(piuLingue || storia) && (
+                            <div className={styles.capsula} data-alta>
+                                <LanguageButton id={LANGUAGE_BUTTON_ID} className={`${styles.tasto} ${styles.lingua}`} />
+                                {storia && piuLingue && <span className={styles.divisore} aria-hidden />}
+                                {storia && lente}
+                                {storia && piu}
+                            </div>
+                        )}
                     </div>
-                )}
-            </header>
+
+                    {!storia && (
+                        <div ref={filaRef} className={styles.fila}>
+                            <IslandCategories
+                                className={styles.categorie}
+                                groups={categoryGroups}
+                                activeId={activeSectionId}
+                                onSelect={onSelectSection}
+                                onSelectSub={onSelectSubSection}
+                                onOpenAll={onOpenCategories}
+                            />
+                            <div className={styles.capsula}>
+                                {lente}
+                                <span className={styles.divisore} aria-hidden />
+                                {piu}
+                            </div>
+                        </div>
+                    )}
+                </header>
             </div>
         </>
     );

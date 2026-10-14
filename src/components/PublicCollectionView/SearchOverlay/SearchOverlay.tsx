@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { SlidersHorizontal, X } from "lucide-react";
 import type { CollectionViewSection, CollectionViewSectionItem } from "../CollectionView/CollectionView";
@@ -767,7 +767,7 @@ export default function SearchOverlay({
                 className={styles.previewShell}
                 style={{ height: shellHeight, marginBottom: -shellHeight }}
             >
-                <motion.div
+                <m.div
                     className={styles.previewBackdrop}
                     onClick={onClose}
                     aria-hidden
@@ -777,14 +777,14 @@ export default function SearchOverlay({
                     transition={{ duration: 0.2, ease: "linear" }}
                 />
                 <div className={styles.previewPanelWrap}>
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                     >
                         {panel}
-                    </motion.div>
+                    </m.div>
                 </div>
             </div>
         );
@@ -797,7 +797,7 @@ export default function SearchOverlay({
     // box-shadow statico (non animato) per non costare repaint su WebKit.
     const overlayTransition = { duration: 0.22, ease: [0.22, 1, 0.36, 1] } as const;
     return (
-        <motion.div
+        <m.div
             ref={overlayRef}
             className={styles.publicOverlay}
             initial={{ opacity: 0 }}
@@ -807,15 +807,15 @@ export default function SearchOverlay({
         >
             <div ref={backdropRef} className={styles.backdrop} onClick={handleClose} aria-hidden />
             <div className={styles.publicPanelWrap}>
-                <motion.div
+                <m.div
                     initial={{ y: -14 }}
                     animate={{ y: 0 }}
                     exit={{ y: -14 }}
                     transition={overlayTransition}
                 >
                     {panel}
-                </motion.div>
+                </m.div>
             </div>
-        </motion.div>
+        </m.div>
     );
 }

@@ -1,0 +1,84 @@
+/* Riga di un piatto (mockup v38 .pd-prow, .pd-th, .pd-pn, .pd-pp) */
+
+/* Riquadro delle righe: fondo leggero, angoli da 18, filo tra le righe */
+.box {
+  margin: 0;
+  padding: 0 8px 0 10px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--pub-text) 5%, transparent);
+  list-style: none;
+
+  > * + * {
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+  }
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.row {
+  cursor: pointer;
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--pub-text) 7%, transparent);
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* Nome fino a due righe */
+.name {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.price {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.muted {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--pub-text) 55%, transparent);
+}
+
+.text .muted {
+  flex-shrink: 1;
+}

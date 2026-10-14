@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { CataloglobeLoader } from "@components/ui/CataloglobeLoader/CataloglobeLoader";
 import styles from "./AppLoader.module.scss";
 
@@ -24,7 +24,7 @@ export function AppLoader({ intent = "generic", message, showMessage = true }: A
 
     return (
         <AnimatePresence>
-            <motion.div
+            <m.div
                 className={styles.root}
                 role="status"
                 aria-live="polite"
@@ -34,7 +34,7 @@ export function AppLoader({ intent = "generic", message, showMessage = true }: A
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
             >
-                <motion.div
+                <m.div
                     className={styles.content}
                     initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -44,8 +44,8 @@ export function AppLoader({ intent = "generic", message, showMessage = true }: A
                     <AppLoaderSpinner />
 
                     {showMessage && <p className={styles.message}>{resolvedMessage}</p>}
-                </motion.div>
-            </motion.div>
+                </m.div>
+            </m.div>
         </AnimatePresence>
     );
 }

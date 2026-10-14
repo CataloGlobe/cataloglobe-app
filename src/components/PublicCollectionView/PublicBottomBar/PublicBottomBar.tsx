@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { ReceiptText, ScrollText, Star, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { PUBLIC_MOBILE_QUERY } from "../publicBreakpoints";
@@ -231,13 +231,13 @@ export default function PublicBottomBar({
                         aria-label={t("hub.reviews")}
                         onClick={handleOpenReviews}
                     >
-                        <motion.span
+                        <m.span
                             className={styles.tabIcon}
                             animate={reviewIconAnimate}
                             transition={reviewIconTransition}
                         >
                             <Star size={19} strokeWidth={1.9} />
-                        </motion.span>
+                        </m.span>
                     </button>
                 )}
             </div>
