@@ -149,6 +149,38 @@ test("dal carrello alla cucina: quantità, totale, invio, stato e Annulla ordine
     await expect(bill).toBeEnabled();
 });
 
+test("«Chiama il cameriere»: conferma finché la sala non arriva, poi si può richiamare", async ({ page }) => {
+    await page.clock.install();
+    const calls: string[] = [];
+    await page.route("**/functions/v1/call-waiter**", async route => {
+        const at = new Date(await page.evaluate(() => Date.now())).toISOString();
+        calls.push(at);
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ waiter_called_at: at, rate_limited: false })
+        });
+    });
+    await openPage(page);
+    await page.getByRole("button", { name: "Aggiungi alla selezione" }).first().click();
+    await cart(page).click();
+    const dialog = sheet(page);
+
+    await dialog.getByRole("button", { name: "Chiama il cameriere" }).click();
+    const called = dialog.getByRole("button", { name: /Cameriere chiamato/ });
+    await expect(called).toContainText("Arriva a breve");
+    await expect(called).toBeDisabled();
+    expect(calls).toHaveLength(1);
+
+    // Passato un minuto senza che la sala lo segni arrivato: si può richiamare.
+    await page.clock.fastForward(61_000);
+    await expect(called).toContainText("Tocca per richiamare");
+    await expect(called).toBeEnabled();
+    await called.click();
+    await expect(called).toContainText("Arriva a breve");
+    expect(calls).toHaveLength(2);
+});
+
 test("dopo l'invio «Aggiungi altro» chiude il foglio e torna al menu", async ({ page }) => {
     await openPage(page);
     await page.getByRole("button", { name: "Aggiungi alla selezione" }).first().click();
