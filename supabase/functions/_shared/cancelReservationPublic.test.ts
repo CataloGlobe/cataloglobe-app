@@ -46,12 +46,14 @@ describe("la lettura non scrive nulla", () => {
         expect(updates).toHaveLength(1);
     });
 
-    it("nessun upsert o delete, e l'unico insert è sulle notifiche", () => {
+    it("nessun upsert, delete o insert: le notifiche passano dal motore", () => {
         expect(SOURCE).not.toMatch(/\.upsert\(/);
         expect(SOURCE).not.toMatch(/\.delete\(/);
-        const inserts = SOURCE.match(/\.insert\(/g) ?? [];
-        expect(inserts).toHaveLength(1);
-        expect(SOURCE).toContain('from("notifications").insert(rows)');
+        expect(SOURCE).not.toMatch(/\.insert\(/);
+        // Unica scrittura oltre a reservations: la RPC `notify` (campanella).
+        const notifies = SOURCE.match(/await notify\(/g) ?? [];
+        expect(notifies).toHaveLength(1);
+        expect(SOURCE).toContain('eventType: "reservation.cancelled_by_customer"');
     });
 
     it("l'unica scrittura su reservations sta dopo il ramo cancel e dopo il ritorno della read", () => {
@@ -137,8 +139,8 @@ describe("la sede viene avvisata davvero", () => {
     });
 
     it("inserisce la notifica in-app per chi ha reservations.manage", () => {
-        expect(SOURCE).toContain('p_permission_id: "reservations.manage"');
-        expect(SOURCE).toContain('event_type: "reservation.cancelled_by_customer"');
+        expect(SOURCE).toContain('permission: "reservations.manage"');
+        expect(SOURCE).toContain('eventType: "reservation.cancelled_by_customer"');
     });
 
     it("l'avviso parte solo per l'annullamento appena avvenuto", () => {
