@@ -1118,6 +1118,14 @@ export default function Programming() {
                         await (item ? dropItem(rule, item) : dropRule(rule));
                         await loadRules();
                     }}
+                    onEnable={async (rule, on) => {
+                        // si rilegge anche se fallisce: il calendario deve dire com'è davvero
+                        try {
+                            await updateScheduleEnabled(rule.id, on);
+                        } finally {
+                            await loadRules();
+                        }
+                    }}
                     section={{
                         pickList: calPickList,
                         catalogs,

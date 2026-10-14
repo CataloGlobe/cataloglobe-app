@@ -53,6 +53,8 @@ export type CalEntry = {
     add: boolean;
     rule: LayoutRule;
     preview?: boolean;
+    /** Regola spenta: «pronto, non in onda». Non gareggia, sta su una linea sua. */
+    spento?: boolean;
 };
 
 export type CalNames = {
@@ -117,11 +119,16 @@ export const whereOfRule = (rule: LayoutRule): CalWhere => ({
 export const eur = (v: number) => v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const few = (names: string[]) => names.slice(0, 2).join(", ") + (names.length > 2 ? " +" + (names.length - 2) : "");
 
-/** Le regole in onda (accese, complete) diventano le voci delle corsie. */
-export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames): CalEntry[] {
+/**
+ * Le regole in onda (accese, complete) diventano le voci delle corsie. Con
+ * `spente`, al loro posto quelle spente di Menù, Stile e In evidenza: «pronto,
+ * non in onda» (le bozze incomplete restano fuori).
+ */
+export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames, spente = false): CalEntry[] {
     const out: CalEntry[] = [];
     for (const rule of rules) {
-        if (!rule.enabled || isLayoutRuleDraft(rule)) continue;
+        if (rule.enabled === spente || isLayoutRuleDraft(rule)) continue;
+        if (spente && rule.rule_type !== "layout" && rule.rule_type !== "featured") continue;
         const when = whenOfRule(rule);
         if (when.never) continue;
         const base = {
@@ -134,7 +141,7 @@ export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames):
             rule
         };
         const push = (kind: CalKind, thing: string, add: boolean, suffix: string = kind) =>
-            out.push({ ...base, id: `${rule.id}:${suffix}`, kind, thing, add });
+            out.push({ ...base, id: `${rule.id}:${suffix}`, kind, thing, add, ...(spente ? { spento: true } : {}) });
         if (rule.rule_type === "layout" && rule.layout) {
             const { catalog_id, style_id } = rule.layout;
             if (catalog_id) push("menu", names.catalogs.get(catalog_id) ?? "Menù", false);
@@ -331,6 +338,25 @@ export function fLines(ctx: DayCtx, axis: Axis): Line[] {
         // «nuovo» solo se la bozza quel giorno c'è davvero, non perché ha lo stesso nome di un'altra
         return { thing: t, add: es.every(e => e.add), preview: segs.some(g => g.pv) || es.some(e => e.preview && okDate(e.when, ctx.day)), segs };
     }).filter(l => l.segs.length > 0 || l.preview); // una regola che quel giorno non c'è non fa linea
+}
+
+export type OffLine = { entry: CalEntry; segs: { from: number; to: number }[] };
+
+/** Le voci spente di un giorno: una linea per regola, nelle ore che avrebbe. */
+export function offLines(spente: readonly CalEntry[], kind: CalKind, seat: CalSeat, day: DayNum, axis: Axis): OffLine[] {
+    return dayCtx(spente, kind, seat, day)
+        .cands.map(entry => {
+            const segs: OffLine["segs"] = [];
+            for (let m = axis.from; m < axis.to; m += FSLOT) {
+                if (!inWin(entry.when, day, m)) continue;
+                const last = segs[segs.length - 1];
+                if (last && last.to === m) last.to = m + FSLOT;
+                else segs.push({ from: m, to: m + FSLOT });
+            }
+            return { entry, segs };
+        })
+        .filter(l => l.segs.length > 0)
+        .sort((a, b) => a.entry.thing.localeCompare(b.entry.thing, "it") || a.entry.created - b.entry.created);
 }
 
 /* ---------- testi ---------- */

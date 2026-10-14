@@ -16,6 +16,7 @@ import {
     dayOfWeek,
     dayParts,
     entriesFromRules,
+    offLines,
     fLane,
     fLines,
     hhmm,
@@ -112,6 +113,8 @@ export type CalendarioViewProps = {
     onOpenRule?: (rule: LayoutRule) => void;
     /** «Togli»: una regola intera, o un suo piatto o contenuto. */
     onDrop?: (rule: LayoutRule, item?: DropItem) => Promise<void>;
+    /** «Spegni» e «Metti in onda»: la regola resta, spenta o accesa. */
+    onEnable?: (rule: LayoutRule, on: boolean) => Promise<void>;
     /** La sezione Aggiungi / Modifica completa: senza, «Modifica completa» va al dettaglio della regola. */
     /** Solo l'anteprima della settimana con questa bozza dentro (i tunnel di creazione): niente calendario intorno. */
     anteprima?: {
@@ -144,7 +147,7 @@ export type CalendarioViewProps = {
 
 type RowOpts = { only?: CalKind; list?: readonly CalEntry[]; ax?: Axis; pv?: string };
 
-type Pick = { kind: CalKind; thing: string; date: DayNum; sede: string; from: number };
+type Pick = { kind: CalKind; thing: string; date: DayNum; sede: string; from: number; /** La voce spenta toccata. */ off?: string };
 const NO_PRODUCTS: ReadonlyMap<string, ProductInfo> = new Map();
 const NO_FORMATS: ReadonlyMap<string, string> = new Map();
 
@@ -228,6 +231,7 @@ export default function CalendarioView({
     isWritable,
     onOpenRule,
     onDrop,
+    onEnable,
     section,
     anteprima
 }: CalendarioViewProps) {
@@ -330,6 +334,8 @@ export default function CalendarioView({
     // le sedi che si vedono: quella guardata e quelle a confronto, o tutte quelle scelte
     const shown = focus ? [focus, ...cmp] : scopeSedi;
     const entries = useMemo(() => entriesFromRules(rules, names), [rules, names]);
+    // spente: «pronto, non in onda». Solo nel calendario vero, non nell'anteprima dei tunnel
+    const spente = useMemo(() => (anteprima ? [] : entriesFromRules(rules, names, true)), [rules, names, anteprima]);
     const axis = useMemo(() => axisFor(entries), [entries]);
     const seatOf = useCallback((id: string): CalSeat => ({ activityId: id, groupIds: groupIdsByActivity[id] ?? [] }), [groupIdsByActivity]);
 
@@ -483,8 +489,8 @@ export default function CalendarioView({
         return days.map(i => {
             const date = week + i, isToday = date === today;
             const lanes = (o.only ? [o.only] : CAL_KINDS).map(k => ({ k, ctx: dayCtx(list, k, seat, date) }))
-                .map(l => ({ ...l, segs: fLane(l.ctx, ax) }))
-                .filter(l => o.only || view === "day" || l.segs.length);
+                .map(l => ({ ...l, segs: fLane(l.ctx, ax), off: o.only || o.list ? [] : offLines(spente, l.k, seat, date, ax) }))
+                .filter(l => o.only || view === "day" || l.segs.length || l.off.length);
             // l'ora di adesso: dopo mezzanotte sta in coda alla serata di ieri
             const nowX = isToday && nowMin >= ax.from ? X(nowMin) : date === today - 1 && nowMin + 1440 < ax.to ? X(nowMin + 1440) : null;
             return (
@@ -520,6 +526,12 @@ export default function CalendarioView({
                                             {ln.preview && o.pv && <em className={s.pv}>{o.pv}</em>}
                                         </div>
                                     ))}
+                                    {isOpen &&
+                                        l.off.map(x => (
+                                            <div key={x.entry.id} className={`${s.fname} ${s.spenta}`} style={{ "--c": colorOf(l.k, x.entry.thing) } as CSSProperties}>
+                                                <span>{l.k === "menu" ? shortName(x.entry.thing) : x.entry.thing}</span>
+                                            </div>
+                                        ))}
                                 </div>
                             );
                         })}
@@ -561,9 +573,28 @@ export default function CalendarioView({
                                                         className={`${s.fls} ${g.state === "on" ? s.on : s.off}`}
                                                         data-tip={tip}
                                                         aria-label={aria(tip)}
-                                                        aria-pressed={!!pick && pick.kind === l.k && pick.thing === ln.thing && pick.date === date && pick.sede === sede.id && pick.from === g.from}
+                                                        aria-pressed={!!pick && !pick.off && pick.kind === l.k && pick.thing === ln.thing && pick.date === date && pick.sede === sede.id && pick.from === g.from}
                                                         onClick={() => openPick({ kind: l.k, thing: ln.thing, date, sede: sede.id, from: g.from })}
                                                         style={{ "--c": colorOf(l.k, ln.thing), left: X(g.from) + "%", width: X(g.to) - X(g.from) + "%" } as CSSProperties}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
+                                    {l.off.map(x => (
+                                        <div key={x.entry.id} className={s.fline}>
+                                            {x.segs.map(g => {
+                                                const tip = `${x.entry.thing} · ${fH(g)}\nPronto, non in onda.`;
+                                                return (
+                                                    <button
+                                                        key={g.from}
+                                                        type="button"
+                                                        className={`${s.fls} ${s.off} ${s.spenta}`}
+                                                        data-tip={tip}
+                                                        aria-label={aria(tip)}
+                                                        aria-pressed={!!pick && pick.off === x.entry.id && pick.date === date && pick.sede === sede.id && pick.from === g.from}
+                                                        onClick={() => openPick({ kind: l.k, thing: x.entry.thing, date, sede: sede.id, from: g.from, off: x.entry.id })}
+                                                        style={{ "--c": colorOf(l.k, x.entry.thing), left: X(g.from) + "%", width: X(g.to) - X(g.from) + "%" } as CSSProperties}
                                                     />
                                                 );
                                             })}
@@ -1109,12 +1140,16 @@ export default function CalendarioView({
     if (pick) {
         const seat = seatOf(pick.sede);
         const ctx = dayCtx(entries, pick.kind, seat, pick.date);
-        const ln = fLines(ctx, axis).find(l => l.thing === pick.thing);
+        const off = pick.off ? spente.find(e => e.id === pick.off) : undefined;
+        const ln = off ? undefined : fLines(ctx, axis).find(l => l.thing === pick.thing);
         const g = ln?.segs.find(x => x.from <= pick.from && pick.from < x.to);
-        const entry = g?.self ?? entries.find(e => e.kind === pick.kind && e.thing === pick.thing && specFor(e, seat) !== null);
+        const entry = pick.off ? off : (g?.self ?? entries.find(e => e.kind === pick.kind && e.thing === pick.thing && specFor(e, seat) !== null));
         if (entry) {
+            const pool = off ? spente : entries;
             const paired = entry.kind === "menu" ? "style" : entry.kind === "style" ? "menu" : null;
-            const pairedName = paired ? (entries.find(x => x.ruleId === entry.ruleId && x.kind === paired)?.thing ?? null) : null;
+            const pairedName = paired ? (pool.find(x => x.ruleId === entry.ruleId && x.kind === paired)?.thing ?? null) : null;
+            // «Spegni» vale per Menù, Stile e In evidenza, una voce per regola; con più contenuti nella regola resta «Togli»
+            const canOff = !!onEnable && !isDish(entry.kind) && pool.filter(x => x.ruleId === entry.ruleId && x.kind === entry.kind).length === 1;
             const dp = dayParts(pick.date);
             pickView = (
                 <CalendarioPanel
@@ -1132,6 +1167,19 @@ export default function CalendarioView({
                     formatNames={formatNames}
                     pairedName={pairedName}
                     writable={!!onDrop && (isWritable ? isWritable(entry.rule) : false)}
+                    onEnable={
+                        canOff
+                            ? async on => {
+                                  try {
+                                      await onEnable(entry.rule, on);
+                                      setNote({ text: on ? `In onda: ${entry.thing}.` : `Spento: ${entry.thing}. Resta pronto, non in onda.` });
+                                      closePick();
+                                  } catch {
+                                      setNote({ text: on ? "Non siamo riusciti a metterlo in onda. Riprova." : "Non siamo riusciti a spegnerlo. Riprova.", error: true });
+                                  }
+                              }
+                            : undefined
+                    }
                     onClose={closePick}
                     onFull={only => (section ? openFull(entry, only) : onOpenRule?.(entry.rule))}
                     onDrop={async item => {
@@ -1370,6 +1418,12 @@ export default function CalendarioView({
                         <i className={`${s.lg} ${s.off}`} />
                         c'è, ma lo copre un altro
                     </span>
+                    {spente.length > 0 && (
+                        <span>
+                            <i className={`${s.lg} ${s.off} ${s.spenta}`} />
+                            pronto, non in onda
+                        </span>
+                    )}
                     <span>
                         <i className={`${s.lg} ${s.hid}`}>
                             <span className={s.under}>

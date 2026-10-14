@@ -624,6 +624,36 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeVisible();
     });
 
+    test("una regola spenta è una linea «pronto, non in onda»: dal pannello «Metti in onda», e «Spegni» su una accesa", async ({ page }) => {
+        stub.onWrite("schedules.PATCH", touched);
+        await openList(page, "layout");
+        await openCalendar(page);
+        await guarda(page, "Centro e2e");
+        await expect(main(page).getByText("pronto, non in onda", { exact: true })).toBeVisible();
+        // lunedì: la corsia Menù aperta ha una linea per il pranzo acceso e una, tratteggiata, per la regola spenta
+        await main(page).getByRole("button", { name: /^Menù · / }).first().click();
+        await main(page).getByRole("button", { name: /^Pranzo e2e · .*Pronto, non in onda\./ }).first().click();
+        const panel = main(page).getByRole("complementary", { name: "Pranzo e2e" });
+        await expect(panel.getByText("Pronto, non in onda", { exact: true })).toBeVisible();
+        await expect(panel.getByText("La sua voce nel Calendario resta, spenta, con sedi e orari: lo ritrovi uguale quando lo rimetti in onda.")).toBeVisible();
+        await expect(panel.getByRole("button", { name: "Spegni" })).toHaveCount(0);
+        await panel.getByRole("button", { name: "Metti in onda" }).click();
+        await expect.poll(() => writesOf(stub, "schedules.PATCH").length).toBe(1);
+        expect(writesOf(stub, "schedules.PATCH")[0].params.get("id")).toBe(`eq.${RULE.spento}`);
+        expect(writesOf(stub, "schedules.PATCH")[0].body).toEqual({ enabled: true });
+        await expect(main(page).getByText("In onda: Pranzo e2e.")).toBeVisible();
+        // la regola accesa: «Spegni» chiede conferma e dice che la voce resta
+        await main(page).getByRole("button", { name: /^Pranzo e2e · 11:00–15:00\. In onda\./ }).first().click();
+        await panel.getByRole("button", { name: "Spegni" }).click();
+        await expect(panel.getByText("Spegnere «Pranzo e2e»?")).toBeVisible();
+        await expect(panel.getByRole("button", { name: "Togli dal calendario" })).toHaveCount(0);
+        await panel.getByRole("button", { name: "Spegni" }).click();
+        await expect.poll(() => writesOf(stub, "schedules.PATCH").length).toBe(2);
+        expect(writesOf(stub, "schedules.PATCH")[1].params.get("id")).toBe(`eq.${RULE.pranzo}`);
+        expect(writesOf(stub, "schedules.PATCH")[1].body).toEqual({ enabled: false });
+        await expect(main(page).getByText("Spento: Pranzo e2e. Resta pronto, non in onda.")).toBeVisible();
+    });
+
     test("si apre su oggi; il calendarietto porta al giorno; «Oggi» riporta su oggi quando non si vede", async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 520 });
         await openList(page, "layout");

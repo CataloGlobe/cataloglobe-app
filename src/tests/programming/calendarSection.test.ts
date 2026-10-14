@@ -37,7 +37,7 @@ import {
     writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { axisFor, dayCtx, dayNum, entriesFromRules, fState, order, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { axisFor, dayCtx, dayNum, entriesFromRules, fState, offLines, order, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { compareCandidates, specificityFor } from "@shared/scheduleCompetition";
 import { dropDraft, PartialSaveError, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 
@@ -103,6 +103,27 @@ const happy = () =>
 const entryOf = (r: LayoutRule, i = 0) => entriesFromRules([r], names)[i];
 
 beforeEach(() => vi.clearAllMocks());
+
+describe("regole spente: pronto, non in onda", () => {
+    const layout = { catalog_id: "c1", style_id: "s1" } as LayoutRule["layout"];
+    const accesa = rule({ enabled: true, layout });
+    const spenta = rule({ enabled: false, applyToAll: true, activityIds: [], layout, time_mode: "window", days_of_week: [1], time_from: "12:00:00", time_to: "15:00:00" });
+    const bozza = rule({ enabled: false, layout: { catalog_id: null, style_id: null } as LayoutRule["layout"] });
+    const prezzo = rule({ enabled: false, rule_type: "price", price_overrides: [{ product_id: "p1", product_name: "Spritz", override_price: 4, show_original_price: true, option_value_id: null }] as LayoutRule["price_overrides"] });
+    const all = [accesa, spenta, bozza, prezzo];
+    it("le accese e le spente stanno in due elenchi; bozze, prezzi e disponibilità spenti restano fuori", () => {
+        expect(entriesFromRules(all, names).map(e => e.ruleId)).toEqual([accesa.id, accesa.id]);
+        const off = entriesFromRules(all, names, true);
+        expect(off.map(e => [e.ruleId, e.kind, e.spento])).toEqual([[spenta.id, "menu", true], [spenta.id, "style", true]]);
+    });
+    it("la linea spenta sta nelle ore che avrebbe, solo nei suoi giorni", () => {
+        const off = entriesFromRules(all, names, true), seat = { activityId: "a1", groupIds: [] }, ax = { from: 480, to: 1440 };
+        const lun = dayNum(2026, 8, 21);
+        expect(offLines(off, "menu", seat, lun, ax).map(l => l.segs)).toEqual([[{ from: 720, to: 900 }]]);
+        expect(offLines(off, "menu", seat, lun + 1, ax)).toEqual([]);
+        expect(offLines(off, "price", seat, lun, ax)).toEqual([]);
+    });
+});
 
 describe("bozza della sezione", () => {
     it("i tempi tornano come li scrive l'editor: domenica = 0, fine alle 24 → 23:59", () => {
