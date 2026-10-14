@@ -271,8 +271,6 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-cta-text": contrastText(accent),
         // --pub-btn-radius: arrotondamento pulsanti → coerente con --pub-radius
         "--pub-btn-radius": btnRadius,
-        // --pub-page-background: alias di --pub-bg per PublicBrandHeader
-        "--pub-page-background": tokens.colors.pageBackground,
 
         // ── Contrast-safe text on configurable backgrounds ───────────────────
         // Text directly on --pub-bg (page background)

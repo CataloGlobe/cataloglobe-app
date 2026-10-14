@@ -19,6 +19,19 @@ type Props = {
 export default function SearchHeader({ query, onQueryChange }: Props) {
     const { t } = useTranslation("public");
     const inputRef = useRef<HTMLInputElement>(null);
+    const handedRef = useRef(false);
+
+    // Le lettere battute fra il tocco e l'arrivo del foglio sono nel campo fantasma
+    // dell'isola: passano qui, così chi scrive subito (desktop) non le perde.
+    useLayoutEffect(() => {
+        if (handedRef.current) return;
+        handedRef.current = true;
+        const primer = document.querySelector<HTMLInputElement>("input[data-search-primer]");
+        const typed = primer?.value ?? "";
+        if (!primer || !typed) return;
+        primer.value = "";
+        onQueryChange(query + typed);
+    }, [query, onQueryChange]);
 
     useLayoutEffect(() => {
         inputRef.current?.focus({ preventScroll: true });

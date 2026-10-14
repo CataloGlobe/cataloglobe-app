@@ -197,11 +197,20 @@ export type SheetsSlotContext = {
         onTrackOpen: (item: CollectionViewSectionItem) => void;
         /** Solo quando si può ordinare dalla scheda: aggiunge la riga e restituisce il suo «Annulla». */
         order?: { add: (line: SelectionItem) => () => void };
+        /** Ordinazioni sospese (tavolo in manutenzione): scheda in lettura, col piede «Ordinazioni sospese». */
+        orderingSuspended?: boolean;
     };
     /** Foglio «Il tuo ordine · Tavolo N» (spec §7): solo col QR del tavolo. */
     ordering?: OrderingContext;
     /** Modulo del voto nel foglio (spec §11): la modale piccola cresciuta, aperta dall'invito e dal fondo. */
-    rate?: { props: ReviewsViewProps; onSubmitted: () => void; logoUrl: string | null; venueName: string };
+    rate?: {
+        props: ReviewsViewProps;
+        onSubmitted: () => void;
+        /** Analitiche dell'apertura dal ⋯ (dall'invito e dal fondo passa da `openRate`). */
+        onOpen?: () => void;
+        logoUrl: string | null;
+        venueName: string;
+    };
 };
 
 /** Il carrello e il tavolo, tenuti da `CollectionView` (stessa selezione e stessa sessione di oggi). */

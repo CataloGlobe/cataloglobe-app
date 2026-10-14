@@ -219,11 +219,13 @@ export function Voices({ rows, series, compare, selected, onSelect }: VoicesProp
                         )}
                         {/* tablet e telefono: solo il numero (Visual Redesign 2, `.vk`) */}
                         <span className={styles.vk}>
-                            {lead ? (
-                                <>
-                                    <b>{lead.label}</b>
-                                    <small>{lead.name} in testa</small>
-                                </>
+                            {comparing ? (
+                                lead && (
+                                    <>
+                                        <b>{lead.label}</b>
+                                        <small>{lead.name} in testa</small>
+                                    </>
+                                )
                             ) : (
                                 <>
                                     <b>{row.short.value}</b>
@@ -239,13 +241,17 @@ export function Voices({ rows, series, compare, selected, onSelect }: VoicesProp
     );
 }
 
-/** Con più sedi a confronto, nella voce compatta: chi va meglio. */
+/** Con più sedi a confronto, nella voce compatta: chi va meglio; nessuno se sono a zero o alla pari. */
 function leader(key: RowKey, sedi: readonly SedeCompared[]): { label: string; name: string } | null {
     let best: { label: string; name: string; value: number } | null = null;
     for (const s of sedi) {
         const v = compareValue(key, s.numbers);
         if (v && (!best || v.value > best.value)) best = { label: v.label, name: s.name, value: v.value };
     }
+    // a zero o alla pari nessuno è in testa
+    if (!best || best.value <= 0) return null;
+    const top = best.value;
+    if (sedi.filter(s => compareValue(key, s.numbers)?.value === top).length > 1) return null;
     return best;
 }
 
@@ -583,7 +589,12 @@ export function Heat({ data }: { data: AndamentoData }) {
     const first = Math.min(...hoursWithData);
     const last = Math.max(...hoursWithData);
     const hours = Array.from({ length: last - first + 1 }, (_, i) => first + i);
-    const peak = [...rows[0].values.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    // l'ora più piena di ogni riga: Visite, Ordini e Prenotazioni non hanno la stessa
+    const peaks = rows.map(r => ({ label: r.label, hour: [...r.values.entries()].sort((a, b) => b[1] - a[1])[0][0] }));
+    const fullest =
+        peaks.length === 1
+            ? `${peaks[0].hour}–${peaks[0].hour + 1}`
+            : peaks.map(p => `${p.label.toLowerCase()} ${p.hour}–${p.hour + 1}`).join(", ");
     let cell = 0;
     return (
         <div className={`${styles.card} ${styles.rise} ${styles.k6}`}>
@@ -591,12 +602,11 @@ export function Heat({ data }: { data: AndamentoData }) {
                 <h3>Quando arrivano</h3>
                 <span>per ora del giorno</span>
             </div>
-            {/* per chi legge con lo screen reader basta il riassunto: le celle sono solo colore */}
+            {/* le celle sono solo colore: chi legge con lo screen reader ha la tabella qui sotto */}
             <div
                 className={styles.heat}
                 style={{ gridTemplateColumns: `auto repeat(${hours.length}, minmax(0, 1fr))` }}
-                role="img"
-                aria-label={`${rows.map(r => r.label).join(", ")} per ora del giorno, dalle ${first} alle ${last + 1}. Il più pieno: ${peak}–${peak + 1}.`}
+                aria-hidden
             >
                 <span />
                 {hours.map(h => (
@@ -625,9 +635,30 @@ export function Heat({ data }: { data: AndamentoData }) {
                     ];
                 })}
             </div>
-            <p className={styles.cap}>
-                Più scuro, più gente. Il più pieno: {peak}–{peak + 1}.
-            </p>
+            <table className="visually-hidden">
+                <caption>Per ora del giorno, dalle {first} alle {last + 1}</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Ora</th>
+                        {rows.map(r => (
+                            <th key={r.label} scope="col">
+                                {r.label}
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {hours.map(h => (
+                        <tr key={h}>
+                            <th scope="row">{`${h}–${h + 1}`}</th>
+                            {rows.map(r => (
+                                <td key={r.label}>{int(r.values.get(h) ?? 0)}</td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <p className={styles.cap}>Più scuro, più gente. Il più pieno: {fullest}.</p>
         </div>
     );
 }

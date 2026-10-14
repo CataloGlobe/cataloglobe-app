@@ -18,10 +18,6 @@ import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/compone
 import type { HubTab } from "@/types/collectionStyle";
 import Text from "@/components/ui/Text/Text";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
-// NOTE: CollectionHero e PublicBrandHeader sono sostituiti da PublicCollectionHeader.
-// I file originali restano nel progetto come fallback potenziale.
-// import CollectionHero from "../CollectionHero/CollectionHero";
-// import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
 import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
 import PublicFooter from "../PublicFooter/PublicFooter";
 import { PublicFeeRows } from "../PublicFooter/PublicFees";
@@ -91,6 +87,8 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
 import { safeHttpHref } from "@/utils/sanitizeUrl";
 import { formatDecimal } from "@/utils/formatCurrency";
+import { formatPublicPrice } from "../redesign/price";
+import { findProductInGroups } from "./findProductInGroups";
 const importOrderConfirmationSheet = () => import("../OrderConfirmationSheet/OrderConfirmationSheet");
 const OrderConfirmationSheet = lazy(importOrderConfirmationSheet);
 
@@ -224,6 +222,14 @@ type DisplayPrice =
     | { type: "single"; price: number; originalPrice?: number }
     | { type: "none" };
 
+/**
+ * Prezzo di una card: la pagina di oggi «€ 22,00»; il redesign «22,00 €»,
+ * come scheda, ricerca e ordine (`formatPublicPrice`, spec §6).
+ */
+function cardPrice(value: number, priceAfter: boolean | undefined): string {
+    return priceAfter ? formatPublicPrice(value) : `€ ${formatDecimal(value)}`;
+}
+
 function getDisplayPrice(opts: {
     fromPrice?: number | null;
     /** Sempre presente insieme a fromPrice — non ancora mostrato (fondamenta per una futura sintesi a range). */
@@ -304,6 +310,8 @@ type ProductRowProps = {
     iconChip?: boolean;
     contentDensity?: ContentDensity;
     isDisabled?: boolean;
+    /** Redesign: prezzo col simbolo dopo («22,00 €»). */
+    priceAfter?: boolean;
 };
 
 function ProductRowInner({
@@ -317,7 +325,8 @@ function ProductRowInner({
     selectionQty = 0,
     iconChip = false,
     contentDensity = "full",
-    isDisabled = false
+    isDisabled = false,
+    priceAfter
 }: ProductRowProps) {
     const {
         name,
@@ -442,26 +451,26 @@ function ProductRowInner({
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                {t("product.price_from", { price: `€ ${formatDecimal(dp.originalPrice)}` })}
+                                {t("product.price_from", { price: cardPrice(dp.originalPrice, priceAfter) })}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            {t("product.price_from", { price: `€ ${formatDecimal(dp.price)}` })}
+                            {t("product.price_from", { price: cardPrice(dp.price, priceAfter) })}
                         </span>
                     </Text>
                 ) : dp.type === "single" ? (
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                € {formatDecimal(dp.originalPrice)}
+                                {cardPrice(dp.originalPrice, priceAfter)}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            € {formatDecimal(dp.price)}
+                            {cardPrice(dp.price, priceAfter)}
                         </span>
                     </Text>
                 ) : null}
@@ -543,6 +552,8 @@ type ProductCompactRowProps = {
     compactLayoutStyle?: CompactLayoutStyle;
     contentDensity?: ContentDensity;
     isDisabled?: boolean;
+    /** Redesign: prezzo col simbolo dopo («22,00 €»). */
+    priceAfter?: boolean;
 };
 
 function ProductCompactRowInner({
@@ -555,7 +566,8 @@ function ProductCompactRowInner({
     canOpen = true,
     compactLayoutStyle = "modern",
     contentDensity = "full",
-    isDisabled = false
+    isDisabled = false,
+    priceAfter
 }: ProductCompactRowProps) {
     const {
         name,
@@ -621,14 +633,14 @@ function ProductCompactRowInner({
                             {dp.originalPrice != null && (
                                 <span className={styles.compactPriceOriginal}>
                                     {dp.type === "from"
-                                        ? t("product.price_from", { price: `€ ${formatDecimal(dp.originalPrice)}` })
-                                        : `€ ${formatDecimal(dp.originalPrice)}`}
+                                        ? t("product.price_from", { price: cardPrice(dp.originalPrice, priceAfter) })
+                                        : cardPrice(dp.originalPrice, priceAfter)}
                                 </span>
                             )}
                             <span>
                                 {dp.type === "from"
-                                    ? t("product.price_from", { price: `€ ${formatDecimal(dp.price)}` })
-                                    : `€ ${formatDecimal(dp.price)}`}
+                                    ? t("product.price_from", { price: cardPrice(dp.price, priceAfter) })
+                                    : cardPrice(dp.price, priceAfter)}
                             </span>
                         </span>
                     )}
@@ -1141,8 +1153,22 @@ export default function CollectionView({
     const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
     // Redesign: il voto inviato in questa visita trasforma il blocco del fondo in «Grazie».
     const [reviewSent, setReviewSent] = useState(false);
+    // Redesign: aprire il voto conta nelle Analitiche come aprire le recensioni
+    // della pagina di oggi (stesso `tab_switch` verso «reviews», D94).
+    const trackRateOpen = useCallback(() => {
+        if (mode === "public" && activityId) {
+            trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "reviews" });
+        }
+    }, [mode, activityId, activeTab]);
     // Redesign: il voto vive nel foglio unico (stesso modulo, stessi effetti del voto inviato).
-    const openRate = mode === "public" && reviewsProps ? sheetsSlot?.openRate : undefined;
+    const openRate = useMemo(() => {
+        const open = mode === "public" && reviewsProps ? sheetsSlot?.openRate : undefined;
+        if (!open) return undefined;
+        return (rating?: number, growFrom?: number) => {
+            trackRateOpen();
+            open(rating, growFrom);
+        };
+    }, [mode, reviewsProps, sheetsSlot, trackRateOpen]);
 
     // ── Indice categorie (sheet): trigger = retap sul tab "Menu" già attivo,
     // sostituisce lo scroll-to-top diretto (vedi handleHubTabTap più sotto).
@@ -1393,6 +1419,8 @@ export default function CollectionView({
         return map;
     }, [displaySectionGroups]);
 
+    // Card col prezzo della pagina nuova solo dove c'è il redesign (pubblico coi fogli).
+    const redesignPrices = mode === "public" && Boolean(sheetsSlot);
     const orderingEnabled = useMemo(
         () => activeTab === "menu" && !orderingEntryHidden,
         [activeTab, orderingEntryHidden]
@@ -1512,10 +1540,10 @@ export default function CollectionView({
 
     const openItemDetail = useCallback(
         (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
-            // Redesign: la scheda è una pagina del foglio unico (spec §6), anche
-            // in modo ordine col QR del tavolo (spec §7). Resta ItemDetail con
-            // l'ordine sospeso e fuori dalla tab Menu.
-            if (mode === "public" && sheetsSlot && !itemDetailOrderingDisabled && (!orderingActive || canOrderInDetail)) {
+            // Redesign: la scheda è sempre una pagina del foglio unico (spec §6):
+            // in modo ordine col QR del tavolo (spec §7), in lettura altrimenti,
+            // col piede «Ordinazioni sospese» se il tavolo è in manutenzione.
+            if (mode === "public" && sheetsSlot) {
                 sheetsSlot.openProduct(item);
             } else {
                 if (!opts?.keepPairingBackStack) setPairingBackStack([]);
@@ -1524,7 +1552,7 @@ export default function CollectionView({
             }
             trackProductOpen(item);
         },
-        [mode, sheetsSlot, orderingActive, itemDetailOrderingDisabled, canOrderInDetail, trackProductOpen]
+        [mode, sheetsSlot, trackProductOpen]
     );
 
     const addToSelection = useCallback((
@@ -1885,40 +1913,10 @@ export default function CollectionView({
         setSelection(prev => replaceLine(prev, index, line));
     }, []);
 
-    const findProductById = useCallback((productId: string): CollectionViewSectionItem | null => {
-        for (const group of sectionGroups) {
-            for (const section of [group.root, ...group.children]) {
-                const found = section.items.find(i => i.id === productId);
-                if (found) return found;
-                for (const item of section.items) {
-                    if (item.variants) {
-                        const variant = item.variants.find(v => v.id === productId);
-                        if (variant) {
-                            return {
-                                id: variant.id,
-                                name: variant.name,
-                                parentSelected: true,
-                                price: variant.price ?? null,
-                                original_price: variant.original_price ?? null,
-                                from_price: variant.from_price ?? null,
-                                to_price: variant.to_price ?? null,
-                                image: variant.image ?? null,
-                                description: variant.description ?? null,
-                                ...(variant.optionGroups?.length ? { optionGroups: variant.optionGroups } : {}),
-                                ...(item.characteristics?.length
-                                    ? { characteristics: item.characteristics }
-                                    : {}),
-                                ...(item.allergens?.length ? { allergens: item.allergens } : {}),
-                                ...(item.ingredients?.length ? { ingredients: item.ingredients } : {}),
-                                ...(item.notes?.length ? { notes: item.notes } : {}),
-                            };
-                        }
-                    }
-                }
-            }
-        }
-        return null;
-    }, [sectionGroups]);
+    const findProductById = useCallback(
+        (productId: string): CollectionViewSectionItem | null => findProductInGroups(sectionGroups, productId),
+        [sectionGroups]
+    );
 
     // Rimando prodotto dal lettore storia (sub-fase 5): chiude il lettore,
     // torna al tab Menu e apre l'ItemDetail dello stesso meccanismo del
@@ -2857,6 +2855,7 @@ export default function CollectionView({
                                         iconChip={style.iconStyle === "pill"}
                                         compactLayoutStyle={style.compactLayoutStyle}
                                         contentDensity={style.contentDensity}
+                                        priceAfter={redesignPrices}
                                         isDisabled={isDisabled}
                                     />
                                 ) : (
@@ -2871,6 +2870,7 @@ export default function CollectionView({
                                         selectionQty={selectionMap[item.id]}
                                         iconChip={style.iconStyle === "pill"}
                                         contentDensity={style.contentDensity}
+                                        priceAfter={redesignPrices}
                                         isDisabled={isDisabled}
                                     />
                                 ))}
@@ -2901,6 +2901,7 @@ export default function CollectionView({
                                                 iconChip={style.iconStyle === "pill"}
                                                 compactLayoutStyle={style.compactLayoutStyle}
                                                 contentDensity={style.contentDensity}
+                                                priceAfter={redesignPrices}
                                             />
                                         ) : (
                                             <ProductRow
@@ -2915,6 +2916,7 @@ export default function CollectionView({
                                                 selectionQty={selectionMap[v.id]}
                                                 iconChip={style.iconStyle === "pill"}
                                                 contentDensity={style.contentDensity}
+                                                priceAfter={redesignPrices}
                                             />
                                         );
                                     })}
@@ -2959,7 +2961,7 @@ export default function CollectionView({
                 </div>
             )}
 
-            {/* ── HEADER: sostituisce PublicBrandHeader + CollectionHero ── */}
+            {/* ── HEADER ── */}
             {mode === "public" && headerSlot && hasHeader
                 ? headerSlot({
                       logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
@@ -3729,7 +3731,8 @@ export default function CollectionView({
                     showImage: style.productStyle !== "compact" && style.cardTemplate !== "no-image",
                     slug: slug ?? null,
                     onTrackOpen: trackProductOpen,
-                    order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined
+                    order: canOrderInDetail && !itemDetailOrderingDisabled ? { add: addLineFromRedesign } : undefined,
+                    orderingSuspended: itemDetailOrderingDisabled
                 },
                 ordering: orderingActive && !shouldHideOrderingEntry
                     ? {
@@ -3762,6 +3765,7 @@ export default function CollectionView({
                     ? {
                           props: reviewsProps,
                           onSubmitted: markReviewed,
+                          onOpen: trackRateOpen,
                           logoUrl: style.showLogo ? tenantLogoUrl ?? null : null,
                           venueName: businessName
                       }
