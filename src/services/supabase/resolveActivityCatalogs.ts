@@ -4,6 +4,7 @@
 import { supabase } from "@/services/supabase/client";
 import {
     resolveRulesForActivity,
+    type ResolvedMenuRule,
     type VisibilityMode
 } from "@/services/supabase/scheduleResolver";
 import { getNowInRome, type RomeDateTime } from "@/services/supabase/schedulingNow";
@@ -160,6 +161,25 @@ export type ResolvedStyle = {
     config?: unknown;
 };
 
+/** Un menù della sede per «Scegli il menu». SYNC con `src/types/resolvedCollections.ts`. */
+export type PublicMenu = {
+    catalogId: string;
+    /** Per `?menu=`: dal nome originale del menù, unico nella sede. */
+    slug: string;
+    name: string;
+    /** `catalogs.sort_order` (M16), uguale in tutte le sedi. */
+    sortOrder: number;
+    /** Fascia di oggi che lo mostra, in minuti dalla mezzanotte (M1); la fine può passare 1440. */
+    startMinute: number;
+    endMinute: number;
+    /** `now`: si vede adesso; `later`: solo oggi, più tardi. */
+    state: "now" | "later";
+    categoriesCount: number;
+    productsCount: number;
+    /** Solo per i menù `now`, tranne il primo: quello è `catalog` in cima. */
+    catalog?: ResolvedCatalog;
+};
+
 export type ResolvedCollections = {
     style?: ResolvedStyle;
     featured?: {
@@ -167,6 +187,8 @@ export type ResolvedCollections = {
         after_catalog?: V2FeaturedContent[];
     };
     catalog?: ResolvedCatalog;
+    /** I menù della sede oggi, quando il giudice ne trova (vedi `PublicMenu`). */
+    menus?: PublicMenu[];
     /** True/false quando una regola "layout" ha risolto un catalogo: indica
      *  se quel catalogo ha almeno un prodotto visibile (post override).
      *  `undefined` quando nessuna regola ha risolto un catalogo (early return
@@ -180,8 +202,6 @@ export type ResolvedCollections = {
      *  `src/types/resolvedCollections.ts` e con la copia edge. */
     hasConfiguredCatalogRule?: boolean;
 };
-
-type ScheduleSlot = "primary" | "overlay";
 
 export type V2FeaturedContent = {
     id: string;
@@ -223,21 +243,6 @@ export type V2FeaturedContent = {
     }>;
     created_at: string;
     updated_at: string;
-};
-
-type V2ActivityScheduleRow = {
-    id: string;
-    activity_id: string;
-    catalog_id: string;
-    slot: ScheduleSlot | null;
-    days_of_week: number[] | null;
-    start_time: string | null;
-    end_time: string | null;
-    priority: number;
-    is_active: boolean;
-    created_at: string;
-    catalog?: ResolvedCatalog;
-    styleData?: ResolvedStyle;
 };
 
 type RawAllergenRow = {
@@ -1525,167 +1530,39 @@ export function applyActivityVisibilityOverridesToCatalog(
     };
 }
 
-function toMinutes(hhmm: string | null): number | null {
-    if (!hhmm) return null;
-    const [h, m] = hhmm.slice(0, 5).split(":").map(Number);
-    if (Number.isNaN(h) || Number.isNaN(m)) return null;
-    return h * 60 + m;
+// ── Menù della sede ──────────────────────────────────────────────────────────
+
+/** Lo slug di `?menu=` dal nome del menù: minuscole, senza accenti, trattini. */
+function menuSlugBase(name: string): string {
+    const slug = name
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+/, "")
+        // `api/ssr-render` accetta `?menu=` fino a 80 caratteri: 72 lasciano posto a `-NN`
+        .slice(0, 72)
+        .replace(/-+$/, "");
+    return slug || "menu";
 }
 
-function prevDay(d: number) {
-    return (d + 6) % 7;
-}
-
-function scheduleIncludesDay(days: number[] | null, day: number) {
-    if (days == null) return true;
-    return days.includes(day);
-}
-
-function isScheduleActive(schedule: V2ActivityScheduleRow, now?: RomeDateTime) {
-    if (!schedule.is_active) return false;
-    const effectiveNow = now ?? getNowInRome();
-
-    const day = effectiveNow.dayOfWeek;
-    const time = effectiveNow.hour * 60 + effectiveNow.minute;
-
-    const start = toMinutes(schedule.start_time);
-    const end = toMinutes(schedule.end_time);
-
-    if (start === null || end === null) {
-        return scheduleIncludesDay(schedule.days_of_week, day);
-    }
-
-    if (start === end) {
-        return scheduleIncludesDay(schedule.days_of_week, day);
-    }
-
-    if (start < end) {
-        if (!scheduleIncludesDay(schedule.days_of_week, day)) return false;
-        return start <= time && time < end;
-    }
-
-    const isStartDayActive = scheduleIncludesDay(schedule.days_of_week, day) && time >= start;
-    const isNextDayActive = scheduleIncludesDay(schedule.days_of_week, prevDay(day)) && time < end;
-
-    return isStartDayActive || isNextDayActive;
-}
-
-function compareScheduleWinner(a: V2ActivityScheduleRow, b: V2ActivityScheduleRow) {
-    if (a.priority !== b.priority) return a.priority - b.priority;
-
-    const aStart = toMinutes(a.start_time) ?? -1;
-    const bStart = toMinutes(b.start_time) ?? -1;
-    if (aStart !== bStart) return aStart - bStart;
-
-    const createdDelta = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-    if (createdDelta !== 0) return createdDelta;
-    return a.id.localeCompare(b.id);
-}
-
-function pickWinner(schedules: V2ActivityScheduleRow[]): V2ActivityScheduleRow | null {
-    if (schedules.length === 0) return null;
-    if (schedules.length === 1) return schedules[0];
-    return schedules.slice().sort(compareScheduleWinner)[0];
-}
-
-function pickFallbackPrimary(
-    schedules: V2ActivityScheduleRow[],
-    now?: RomeDateTime
-): V2ActivityScheduleRow | null {
-    const effectiveNow = now ?? getNowInRome();
-    const day = effectiveNow.dayOfWeek;
-    const time = effectiveNow.hour * 60 + effectiveNow.minute;
-
-    const primary = schedules.filter(s => s.is_active && s.slot === "primary");
-    if (primary.length === 0) return null;
-
-    const affectsDay = (s: V2ActivityScheduleRow, d: number) => {
-        const start = toMinutes(s.start_time);
-        const end = toMinutes(s.end_time);
-
-        if (start === null || end === null) return scheduleIncludesDay(s.days_of_week, d);
-        if (start === end) return scheduleIncludesDay(s.days_of_week, d);
-        if (start < end) return scheduleIncludesDay(s.days_of_week, d);
-
-        return (
-            scheduleIncludesDay(s.days_of_week, d) ||
-            scheduleIncludesDay(s.days_of_week, prevDay(d))
-        );
-    };
-
-    const todayCandidates = primary.filter(s => affectsDay(s, day));
-
-    const pastEndedToday = todayCandidates.filter(s => {
-        const start = toMinutes(s.start_time);
-        const end = toMinutes(s.end_time);
-
-        if (start === null || end === null) return false;
-        if (start === end) return false;
-        if (start < end) return end <= time;
-        return false;
+/** Slug unici nella sede: il secondo «Pranzo» diventa `pranzo-2`. */
+function uniqueMenuSlugs(names: string[]): string[] {
+    const used = new Set<string>();
+    return names.map(name => {
+        const base = menuSlugBase(name);
+        let slug = base;
+        for (let n = 2; used.has(slug); n++) slug = `${base}-${n}`;
+        used.add(slug);
+        return slug;
     });
-
-    if (pastEndedToday.length > 0) {
-        return pastEndedToday.slice().sort((a, b) => {
-            const aEnd = toMinutes(a.end_time) ?? -1;
-            const bEnd = toMinutes(b.end_time) ?? -1;
-            if (aEnd !== bEnd) return bEnd - aEnd;
-            return compareScheduleWinner(a, b);
-        })[0];
-    }
-
-    const nextStartingToday = todayCandidates
-        .filter(s => {
-            const start = toMinutes(s.start_time);
-            const end = toMinutes(s.end_time);
-
-            if (start === null || end === null) return false;
-            if (start === end) return false;
-            return start >= time;
-        })
-        .sort((a, b) => {
-            const aStart = toMinutes(a.start_time) ?? 24 * 60;
-            const bStart = toMinutes(b.start_time) ?? 24 * 60;
-            if (aStart !== bStart) return aStart - bStart;
-            return compareScheduleWinner(a, b);
-        });
-
-    if (nextStartingToday.length > 0) return nextStartingToday[0];
-
-    const ranked = primary
-        .map(s => {
-            const start = toMinutes(s.start_time) ?? 24 * 60;
-            const days = s.days_of_week ?? [];
-            const overnight =
-                (toMinutes(s.start_time) ?? 0) > (toMinutes(s.end_time) ?? Number.MAX_SAFE_INTEGER);
-
-            let bestDeltaDays = 7;
-            for (let delta = 0; delta < 7; delta++) {
-                const d = (day + delta) % 7;
-                const ok = days.includes(d) || (overnight && days.includes(prevDay(d)));
-                if (ok) {
-                    bestDeltaDays = delta;
-                    break;
-                }
-            }
-
-            return { s, bestDeltaDays, start };
-        })
-        .sort((a, b) => {
-            if (a.bestDeltaDays !== b.bestDeltaDays) return a.bestDeltaDays - b.bestDeltaDays;
-            if (a.start !== b.start) return a.start - b.start;
-            return compareScheduleWinner(a.s, b.s);
-        });
-
-    return ranked[0]?.s ?? null;
 }
 
 function hasRenderableItems(
-    schedule: V2ActivityScheduleRow,
+    catalog: ResolvedCatalog | undefined,
     overridesByProductId: Record<string, ActivityProductOverrideRow>
 ) {
-    const categories = schedule.catalog?.categories ?? [];
-
+    const categories = catalog?.categories ?? [];
     for (const category of categories) {
         for (const item of category.products) {
             const override = overridesByProductId[item.id];
@@ -1693,10 +1570,37 @@ function hasRenderableItems(
             if (visible) return true;
         }
     }
-
     return false;
 }
 
+function countMenu(catalog: ResolvedCatalog | undefined): { categoriesCount: number; productsCount: number } {
+    const categories = catalog?.categories ?? [];
+    return {
+        categoriesCount: categories.length,
+        productsCount: categories.reduce((sum, category) => sum + category.products.length, 0)
+    };
+}
+
+/** Un menù della sede con il suo catalogo, prima e dopo gli strati. */
+type MenuCatalog = {
+    rule: ResolvedMenuRule;
+    base: ResolvedCatalog | undefined;
+    catalog: ResolvedCatalog | undefined;
+};
+
+// ── Main resolver ────────────────────────────────────────────────────────────
+
+/**
+ * Cosa vede il cliente in una sede adesso. Il giudice (`resolveRulesForActivity`)
+ * dice quali menù sono in onda e quali arrivano più tardi oggi, lo stile, e le
+ * regole di prezzi, disponibilità e in evidenza attive: queste si sommano, e
+ * per lo stesso piatto vale la prima regola dell'elenco che lo tocca.
+ *
+ * `menus`: i menù con almeno un piatto da mostrare, quelli di adesso col
+ * catalogo intero. `catalog`: il primo di adesso (per `catalogs.sort_order`),
+ * per chi legge un menù solo (pagina vecchia, ordini, PDF). I conteggi dei menù
+ * di più tardi usano le regole di adesso: servono al riquadro, non al menù.
+ */
 export async function resolveActivityCatalogs(
     activityId: string,
     now?: RomeDateTime,
@@ -1708,7 +1612,6 @@ export async function resolveActivityCatalogs(
     if (knownTenantId) {
         tenantId = knownTenantId;
     } else {
-        // ── Pre-flight check: Verify activity exists ──────────────────────────
         const { data: activityExists, error: activityCheckError } = await supabase
             .from("activities")
             .select("id, tenant_id")
@@ -1733,9 +1636,9 @@ export async function resolveActivityCatalogs(
         activityId,
         tenantId,
         now: effectiveNow,
-        includeLayoutStyle: true
+        includeLayoutStyle: true,
+        includeLaterMenus: true
     });
-    const layoutCatalogId = ruleResolution.layout.catalogId;
     const styleData = ruleResolution.layout.styleData as ResolvedStyle | undefined;
 
     function computeFromPrice(
@@ -1759,140 +1662,138 @@ export async function resolveActivityCatalogs(
         after_catalog: []
     };
 
-    const featuredScheduleId = ruleResolution.featuredRule?.scheduleId ?? null;
+    // In evidenza: i contenuti di tutte le regole attive, una volta sola,
+    // nell'ordine delle regole e poi di `sort_order`.
+    type RawFeaturedJoin = {
+        slot: "before_catalog" | "after_catalog";
+        sort_order: number;
+        featured_content: V2FeaturedContent | V2FeaturedContent[] | null;
+    };
 
-    if (featuredScheduleId) {
-        // SYNC: identico in supabase/functions/_shared/resolveActivityCatalogs.ts
-        const { data: featuredData, error: featuredError } = await supabase
-            .rpc("get_schedule_featured_contents", { p_schedule_id: featuredScheduleId, p_tenant_id: tenantId });
+    type RawProductItem = {
+        sort_order: number | null;
+        note: string | null;
+        product: {
+            id: string;
+            name: string;
+            description: string | null;
+            base_price: number | null;
+            image_url: string | null;
+            option_groups: Array<{
+                group_kind: string;
+                values: Array<{ name: string | null; absolute_price: number | null }>;
+            }> | null;
+        } | null;
+    };
 
-        if (featuredError) {
-            console.error(
-                "[resolveActivityCatalogs] error fetching featured contents",
-                featuredError
-            );
-        } else if (featuredData) {
-            type RawFeaturedJoin = {
+    const featuredByRule = await Promise.all(
+        ruleResolution.featuredRuleIds.map(async featuredScheduleId => {
+            // SYNC: identico in supabase/functions/_shared/resolveActivityCatalogs.ts
+            const { data: featuredData, error: featuredError } = await supabase
+                .rpc("get_schedule_featured_contents", { p_schedule_id: featuredScheduleId, p_tenant_id: tenantId });
+
+            if (featuredError) {
+                console.error(
+                    "[resolveActivityCatalogs] error fetching featured contents",
+                    featuredError
+                );
+                return [] as RawFeaturedJoin[];
+            }
+            return (featuredData ?? []) as unknown as RawFeaturedJoin[];
+        })
+    );
+
+    const seenFeatured = new Set<string>();
+    const validFeaturedItems = featuredByRule
+        .flatMap((rows, ruleRank) =>
+            rows.map(row => {
+                const fc = normalizeOne(row.featured_content);
+                if (fc && fc.products) {
+                    const rawProducts = fc.products as unknown as RawProductItem[];
+                    fc.products = rawProducts.map(p => {
+                        if (!p.product) return { ...p, product: null };
+                        const { fromPrice, toPrice, is_from_price } = computeFromPrice(
+                            p.product.option_groups
+                        );
+                        const primaryGroup = (p.product.option_groups ?? []).find(
+                            g => g.group_kind === "PRIMARY_PRICE"
+                        );
+                        const price_variants = primaryGroup ? primaryGroup.values : [];
+                        return {
+                            ...p,
+                            product: {
+                                id: p.product.id,
+                                name: p.product.name,
+                                description: p.product.description,
+                                base_price: p.product.base_price,
+                                image_url: p.product.image_url,
+                                fromPrice,
+                                toPrice,
+                                is_from_price,
+                                price_variants
+                            }
+                        };
+                    });
+                }
+                return { slot: row.slot, sort_order: row.sort_order, featured_content: fc, ruleRank };
+            })
+        )
+        .filter(
+            (
+                row
+            ): row is {
                 slot: "before_catalog" | "after_catalog";
                 sort_order: number;
-                featured_content: V2FeaturedContent | V2FeaturedContent[] | null;
-            };
+                featured_content: V2FeaturedContent;
+                ruleRank: number;
+            } => row.featured_content !== null && row.featured_content.status === "published"
+        )
+        .filter(row => {
+            if (seenFeatured.has(row.featured_content.id)) return false;
+            seenFeatured.add(row.featured_content.id);
+            return true;
+        })
+        .sort((a, b) => {
+            const slotOrder: Record<string, number> = { before_catalog: 1, after_catalog: 2 };
+            const aSlot = slotOrder[a.slot] ?? 99;
+            const bSlot = slotOrder[b.slot] ?? 99;
+            if (aSlot !== bSlot) return aSlot - bSlot;
+            if (a.ruleRank !== b.ruleRank) return a.ruleRank - b.ruleRank;
+            return a.sort_order - b.sort_order;
+        });
 
-            type RawProductItem = {
-                sort_order: number | null;
-                note: string | null;
-                product: {
-                    id: string;
-                    name: string;
-                    description: string | null;
-                    base_price: number | null;
-                    image_url: string | null;
-                    option_groups: Array<{
-                        group_kind: string;
-                        values: Array<{ name: string | null; absolute_price: number | null }>;
-                    }> | null;
-                } | null;
-            };
-
-            const validFeaturedItems = (featuredData as unknown as RawFeaturedJoin[])
-                .map(row => {
-                    const fc = normalizeOne(row.featured_content);
-                    if (fc && fc.products) {
-                        const rawProducts = fc.products as unknown as RawProductItem[];
-                        fc.products = rawProducts.map(p => {
-                            if (!p.product) return { ...p, product: null };
-                            const { fromPrice, toPrice, is_from_price } = computeFromPrice(
-                                p.product.option_groups
-                            );
-                            const primaryGroup = (p.product.option_groups ?? []).find(
-                                g => g.group_kind === "PRIMARY_PRICE"
-                            );
-                            const price_variants = primaryGroup ? primaryGroup.values : [];
-                            return {
-                                ...p,
-                                product: {
-                                    id: p.product.id,
-                                    name: p.product.name,
-                                    description: p.product.description,
-                                    base_price: p.product.base_price,
-                                    image_url: p.product.image_url,
-                                    fromPrice,
-                                    toPrice,
-                                    is_from_price,
-                                    price_variants
-                                }
-                            };
-                        });
-                    }
-                    return { slot: row.slot, sort_order: row.sort_order, featured_content: fc };
-                })
-                .filter(
-                    (
-                        row
-                    ): row is {
-                        slot: "before_catalog" | "after_catalog";
-                        sort_order: number;
-                        featured_content: V2FeaturedContent;
-                    } =>
-                        row.featured_content !== null && row.featured_content.status === "published"
-                )
-                .sort((a, b) => {
-                    const slotOrder: Record<string, number> = { before_catalog: 1, after_catalog: 2 };
-                    const aSlot = slotOrder[a.slot] ?? 99;
-                    const bSlot = slotOrder[b.slot] ?? 99;
-                    if (aSlot !== bSlot) return aSlot - bSlot;
-                    return a.sort_order - b.sort_order;
-                });
-
-            for (const item of validFeaturedItems) {
-                if (item.slot === "before_catalog") {
-                    if (!featured.before_catalog) featured.before_catalog = [];
-                    featured.before_catalog.push(item.featured_content);
-                } else if (item.slot === "after_catalog") {
-                    if (!featured.after_catalog) featured.after_catalog = [];
-                    featured.after_catalog.push(item.featured_content);
-                }
-            }
+    for (const item of validFeaturedItems) {
+        if (item.slot === "before_catalog") {
+            if (!featured.before_catalog) featured.before_catalog = [];
+            featured.before_catalog.push(item.featured_content);
+        } else if (item.slot === "after_catalog") {
+            if (!featured.after_catalog) featured.after_catalog = [];
+            featured.after_catalog.push(item.featured_content);
         }
     }
 
-    let schedules: V2ActivityScheduleRow[] = [];
-
-    if (!layoutCatalogId) {
-        return {
-            featured,
-            hasConfiguredCatalogRule: ruleResolution.layoutCandidateCount > 0
-        };
+    // Nessun menù adesso (anche se ce n'è uno più tardi): come prima del giudice,
+    // niente `hasRenderableItems`, così la pagina dice «nessun menù adesso» e non
+    // «menù vuoto»; e non si caricano cataloghi che servirebbero solo ai conteggi.
+    if (!ruleResolution.menus.some(menu => menu.state === "now")) {
+        return { featured, hasConfiguredCatalogRule: ruleResolution.layoutCandidateCount > 0 };
     }
 
-    const layoutCatalog = await loadCatalogById(layoutCatalogId, tenantId);
-
-    // Preserve a reference to the base catalog (pre-override state) so the activity
+    // Preserve a reference to each base catalog (pre-override state) so the activity
     // visibility override layer can restore products hidden by a schedule rule.
-    // All apply* functions return new objects — no mutation, no deep clone needed.
-    const baseCatalog: ResolvedCatalog | undefined = layoutCatalog ?? undefined;
-
-    schedules = [
-        {
-            id: `layout-rule:${activityId}`,
-            activity_id: activityId,
-            catalog_id: layoutCatalogId,
-            slot: "primary",
-            days_of_week: null,
-            start_time: null,
-            end_time: null,
-            priority: Number.MAX_SAFE_INTEGER,
-            is_active: true,
-            created_at: new Date(0).toISOString(),
-            catalog: layoutCatalog,
-            ...(styleData ? { styleData } : {})
-        }
-    ];
+    // All apply* functions return new objects (spread operators, no mutation) —
+    // no deep clone needed; base can safely alias the loaded catalog.
+    let menuCatalogs: MenuCatalog[] = await Promise.all(
+        ruleResolution.menus.map(async rule => {
+            const base = await loadCatalogById(rule.catalogId, tenantId);
+            return { rule, base, catalog: base };
+        })
+    );
 
     const productIds = Array.from(
         new Set(
-            schedules.flatMap(schedule =>
-                (schedule.catalog?.categories ?? []).flatMap(category =>
+            menuCatalogs.flatMap(menu =>
+                (menu.catalog?.categories ?? []).flatMap(category =>
                     category.products.flatMap(item => [
                         item.id,
                         ...(item.variants ?? []).map(v => v.id)
@@ -1902,28 +1803,30 @@ export async function resolveActivityCatalogs(
         )
     );
 
-    const priceOverridesByProductId: Record<string, PriceOverrideRow> = {};
-    const priceOverridesByValueId: Record<string, PriceOverrideRow> = {};
-
-    const activeVisibilityRuleScheduleId = ruleResolution.visibilityRule?.scheduleId ?? null;
-    const fallbackVisibilityMode = ruleResolution.visibilityRule?.mode ?? "hide";
-
-    // allBaseProductIds derives from baseCatalog (pre-override snapshot) — available now
+    // allBaseProductIds derives from the base catalogs (pre-override snapshot)
     const allBaseProductIds = Array.from(
         new Set(
-            (baseCatalog?.categories ?? []).flatMap(category => category.products.map(p => p.id))
+            menuCatalogs.flatMap(menu =>
+                (menu.base?.categories ?? []).flatMap(category => category.products.map(p => p.id))
+            )
         )
     );
 
     // Parallel: visibility overrides + activity product overrides are independent queries
-    const [visibilityOverrideRows, activityOverrideRows] = await Promise.all([
-        activeVisibilityRuleScheduleId && productIds.length > 0
-            ? selectVisibilityOverridesWithModeFallback(
-                  activeVisibilityRuleScheduleId,
-                  productIds,
-                  tenantId
+    const [visibilityRowsByRule, activityOverrideRows] = await Promise.all([
+        productIds.length > 0
+            ? Promise.all(
+                  ruleResolution.visibilityRules.map(async rule => {
+                      const rows = await selectVisibilityOverridesWithModeFallback(
+                          rule.scheduleId,
+                          productIds,
+                          tenantId
+                      );
+                      // Il modo della regola vale per le righe che non ne hanno uno.
+                      return rows.map(row => ({ ...row, mode: row.mode ?? rule.mode }));
+                  })
               )
-            : Promise.resolve([] as VisibilityOverrideRow[]),
+            : Promise.resolve([] as VisibilityOverrideRow[][]),
         (async () => {
             if (allBaseProductIds.length === 0) return [] as ActivityProductOverrideRow[];
             const { data, error } = await supabase
@@ -1936,9 +1839,14 @@ export async function resolveActivityCatalogs(
         })()
     ]);
 
+    // Per lo stesso piatto vale la prima regola che lo tocca.
     const visibilityOverridesByProductId: Record<string, VisibilityOverrideRow> = {};
-    for (const row of visibilityOverrideRows) {
-        visibilityOverridesByProductId[row.product_id] = row;
+    for (const rows of visibilityRowsByRule) {
+        for (const row of rows) {
+            if (!(row.product_id in visibilityOverridesByProductId)) {
+                visibilityOverridesByProductId[row.product_id] = row;
+            }
+        }
     }
 
     const activityProductOverridesByProductId: Record<string, ActivityProductOverrideRow> = {};
@@ -1946,90 +1854,108 @@ export async function resolveActivityCatalogs(
         activityProductOverridesByProductId[row.product_id] = row;
     }
 
-    schedules = schedules.map(schedule => ({
-        ...schedule,
-        catalog: applyVisibilityOverridesToCatalog(
-            schedule.catalog,
-            visibilityOverridesByProductId,
-            fallbackVisibilityMode
-        )
+    menuCatalogs = menuCatalogs.map(menu => ({
+        ...menu,
+        catalog: applyVisibilityOverridesToCatalog(menu.catalog, visibilityOverridesByProductId, "hide")
     }));
 
     const visibleProductIds = Array.from(
         new Set(
-            schedules.flatMap(schedule =>
-                (schedule.catalog?.categories ?? []).flatMap(category =>
-                    category.products.map(item => item.id)
-                )
+            menuCatalogs.flatMap(menu =>
+                (menu.catalog?.categories ?? []).flatMap(category => category.products.map(item => item.id))
             )
         )
     );
 
-    const activePriceRuleScheduleId = ruleResolution.priceRuleId;
+    const priceOverridesByProductId: Record<string, PriceOverrideRow> = {};
+    const priceOverridesByValueId: Record<string, PriceOverrideRow> = {};
 
-    if (activePriceRuleScheduleId && visibleProductIds.length > 0) {
+    if (ruleResolution.priceRuleIds.length > 0 && visibleProductIds.length > 0) {
         // Also include variant IDs so per-variant price overrides are resolved correctly
         const variantIds = Array.from(
             new Set(
-                schedules.flatMap(schedule =>
-                    (schedule.catalog?.categories ?? []).flatMap(category =>
-                        category.products.flatMap(item =>
-                            (item.variants ?? []).map(v => v.id)
-                        )
+                menuCatalogs.flatMap(menu =>
+                    (menu.catalog?.categories ?? []).flatMap(category =>
+                        category.products.flatMap(item => (item.variants ?? []).map(v => v.id))
                     )
                 )
             )
         );
         const allPriceTargetIds = Array.from(new Set([...visibleProductIds, ...variantIds]));
 
-        const { data: priceOverrideData, error: priceOverrideError } = await supabase
-            .from("schedule_price_overrides")
-            .select("product_id, override_price, show_original_price, option_value_id")
-            .eq("tenant_id", tenantId)
-            .eq("schedule_id", activePriceRuleScheduleId)
-            .in("product_id", allPriceTargetIds);
+        const priceRowsByRule = await Promise.all(
+            ruleResolution.priceRuleIds.map(async priceScheduleId => {
+                const { data: priceOverrideData, error: priceOverrideError } = await supabase
+                    .from("schedule_price_overrides")
+                    .select("product_id, override_price, show_original_price, option_value_id")
+                    .eq("tenant_id", tenantId)
+                    .eq("schedule_id", priceScheduleId)
+                    .in("product_id", allPriceTargetIds);
 
-        if (priceOverrideError) throw priceOverrideError;
+                if (priceOverrideError) throw priceOverrideError;
+                return (priceOverrideData ?? []) as PriceOverrideRow[];
+            })
+        );
 
-        for (const row of (priceOverrideData ?? []) as PriceOverrideRow[]) {
-            if (row.option_value_id === null) {
-                priceOverridesByProductId[row.product_id] = row;
-            } else {
-                priceOverridesByValueId[row.option_value_id] = row;
+        // Per lo stesso piatto vale la prima regola che lo tocca, con tutti i
+        // suoi prezzi (piatto e formati): due regole non si mescolano sul piatto.
+        const priceOwner: Record<string, number> = {};
+        priceRowsByRule.forEach((rows, ruleRank) => {
+            for (const row of rows) {
+                if (!(row.product_id in priceOwner)) priceOwner[row.product_id] = ruleRank;
             }
-        }
+        });
+        priceRowsByRule.forEach((rows, ruleRank) => {
+            for (const row of rows) {
+                if (priceOwner[row.product_id] !== ruleRank) continue;
+                if (row.option_value_id === null) {
+                    priceOverridesByProductId[row.product_id] = row;
+                } else {
+                    priceOverridesByValueId[row.option_value_id] = row;
+                }
+            }
+        });
     }
 
-    schedules = schedules.map(schedule => ({
-        ...schedule,
-        catalog: applyPriceOverridesToCatalog(schedule.catalog, priceOverridesByProductId, priceOverridesByValueId)
+    menuCatalogs = menuCatalogs.map(menu => ({
+        ...menu,
+        catalog: applyPriceOverridesToCatalog(menu.catalog, priceOverridesByProductId, priceOverridesByValueId)
     }));
 
-    // ── Layer 4: Activity visibility override (last word on visibility) ─────
-    schedules = schedules.map(schedule => ({
-        ...schedule,
+    // Layer 4: Activity visibility override (last word on visibility)
+    menuCatalogs = menuCatalogs.map(menu => ({
+        ...menu,
         catalog: applyActivityVisibilityOverridesToCatalog(
-            schedule.catalog,
-            baseCatalog,
+            menu.catalog,
+            menu.base,
             activityProductOverridesByProductId
         )
     }));
 
-    const schedulesWithItems = schedules.filter(schedule =>
-        hasRenderableItems(schedule, activityProductOverridesByProductId)
+    const menusWithItems = menuCatalogs.filter(menu =>
+        hasRenderableItems(menu.catalog, activityProductOverridesByProductId)
     );
-
-    const activeNow = schedulesWithItems.filter(schedule => isScheduleActive(schedule, effectiveNow));
-    const activePrimary = pickWinner(activeNow.filter(schedule => schedule.slot === "primary"));
-
-    const fallbackPrimary = activePrimary ? null : pickFallbackPrimary(schedulesWithItems, effectiveNow);
-    const finalPrimary = activePrimary ?? fallbackPrimary;
+    const firstNow = menusWithItems.find(menu => menu.rule.state === "now") ?? null;
+    const slugs = uniqueMenuSlugs(menusWithItems.map(menu => menu.base?.name ?? ""));
+    const menus: PublicMenu[] = menusWithItems.map((menu, index) => ({
+        catalogId: menu.rule.catalogId,
+        slug: slugs[index],
+        name: menu.catalog?.name ?? menu.base?.name ?? "",
+        sortOrder: menu.rule.sortOrder,
+        startMinute: menu.rule.startMinute,
+        endMinute: menu.rule.endMinute,
+        state: menu.rule.state,
+        ...countMenu(menu.catalog),
+        // Il primo di adesso è già `catalog` in cima: non si manda due volte.
+        ...(menu.rule.state === "now" && menu.catalog && menu !== firstNow ? { catalog: menu.catalog } : {})
+    }));
 
     return {
-        ...(finalPrimary?.styleData ? { style: finalPrimary.styleData } : {}),
-        ...(finalPrimary?.catalog ? { catalog: finalPrimary.catalog } : {}),
+        ...(firstNow && styleData ? { style: styleData } : {}),
+        ...(firstNow?.catalog ? { catalog: firstNow.catalog } : {}),
         ...(Object.keys(featured).length > 0 ? { featured } : {}),
-        hasRenderableItems: schedulesWithItems.length > 0,
+        ...(menus.length > 0 ? { menus } : {}),
+        hasRenderableItems: menusWithItems.some(menu => menu.rule.state === "now"),
         hasConfiguredCatalogRule: ruleResolution.layoutCandidateCount > 0
     };
 }

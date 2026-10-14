@@ -17,8 +17,8 @@ test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_RED
 
 type Submitted = Record<string, unknown>;
 
-async function open(page: Page, opts: { submit?: { status: number; body: unknown }; featuredCta?: boolean } = {}) {
-    await page.clock.install({ time: new Date("2026-10-14T12:30:00+02:00") });
+async function open(page: Page, opts: { submit?: { status: number; body: unknown }; featuredCta?: boolean; time?: string } = {}) {
+    await page.clock.install({ time: new Date(opts.time ?? "2026-10-14T12:30:00+02:00") });
     await stubPublicPage(page, {
         ordering: false,
         reservations: true,
@@ -74,7 +74,7 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
     await expect(sheet.getByText("1 di 3 · Quando")).toBeVisible();
     await expect(sheet.getByRole("group", { name: /^Giorno/ }).getByRole("button", { pressed: true })).toContainText("14");
     await sheet.getByRole("button", { name: "Scegli l'orario" }).click();
-    await expect(sheet.getByText("Inserisci un orario valido.")).toBeVisible();
+    await expect(sheet.getByRole("alert").filter({ hasText: "Inserisci un orario valido." })).toBeVisible();
 
     // Persone: numero esatto con − e + (D37).
     const people = sheet.getByRole("group", { name: "Persone" });
@@ -89,6 +89,8 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
 
     await expect(sheet.getByRole("heading", { name: "I tuoi dati" })).toBeVisible();
     await expect(sheet.getByText("2 di 3 · I tuoi dati")).toBeVisible();
+    // Un titolo solo: niente «02 Chi» del modulo di /prenota sotto il passo.
+    await expect(sheet.getByText("02", { exact: true })).toHaveCount(0);
     await expect(sheet.getByRole("button", { name: "Indietro" })).toBeVisible();
     await sheet.getByRole("button", { name: "Continua", exact: true }).click();
     await expect(sheet.getByText("Il nome è obbligatorio.")).toBeVisible();
@@ -99,6 +101,7 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
     await expect(sheet.getByRole("heading", { name: "Riepilogo" })).toBeVisible();
     await expect(sheet.getByText("Sede e2e barra")).toBeVisible();
     await expect(sheet.locator("#booking-recap").getByText("20:00")).toBeVisible();
+    await expect(sheet.getByText("03", { exact: true })).toHaveCount(0);
     // Le note nel Riepilogo (v38).
     await sheet.locator("#booking-recap textarea").first().fill("Un seggiolone");
     await sheet.getByRole("button", { name: "Invia richiesta" }).click();
@@ -136,7 +139,7 @@ test("orario pieno all'invio: si torna a Quando col messaggio sotto l'orario", a
     await sheet.getByRole("button", { name: "Invia richiesta" }).click();
 
     await expect(sheet.getByRole("heading", { name: "Prenota un tavolo" })).toBeVisible();
-    await expect(sheet.getByText("Non ci sono più posti per l'orario scelto. Prova un altro orario.")).toBeVisible();
+    await expect(sheet.getByRole("alert").filter({ hasText: "Non ci sono più posti per l'orario scelto. Prova un altro orario." })).toBeVisible();
 });
 
 test("dal ⋯ il primo passo entra a spinta, con «‹»", async ({ page }) => {
@@ -169,4 +172,16 @@ test("persone fino a 20, poi il rimando alle richieste particolari; i giorni in 
     await expect(sheet.getByText(/Oltre 20 persone scrivilo nelle richieste particolari/)).toBeVisible();
     const days = sheet.getByRole("group", { name: /^Giorno/ }).getByRole("button");
     expect(await days.count()).toBeGreaterThan(7);
+});
+
+test("di sera la lista degli orari va da sola al primo libero (D91)", async ({ page }) => {
+    // Telefono basso: gli orari della sera non stanno a vista senza scorrere.
+    await page.setViewportSize({ width: 390, height: 640 });
+    await open(page, { time: "2026-10-14T20:10:00+02:00" });
+    await openFromFooter(page);
+    const sheet = dialog(page);
+    const firstFree = sheet.getByRole("group", { name: "Sera" }).getByRole("button", { disabled: false }).first();
+    await expect(firstFree).toBeInViewport();
+    // Il foglio è sceso: la fila dei giorni è passata sopra.
+    await expect(sheet.getByRole("group", { name: /^Giorno/ })).not.toBeInViewport();
 });

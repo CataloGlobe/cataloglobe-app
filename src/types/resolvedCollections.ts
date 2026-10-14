@@ -251,7 +251,10 @@ export type PublicMenu = {
     state: "now" | "later";
     categoriesCount: number;
     productsCount: number;
-    /** Solo per i menu `now`: il catalogo intero, così il passaggio non carica niente (spec §12). */
+    /**
+     * Solo per i menu `now`: il catalogo intero, così il passaggio non carica niente (spec §12).
+     * Manca nel primo `now`: quello è già `catalog` in cima, non si manda due volte.
+     */
     catalog?: ResolvedCatalog;
 };
 

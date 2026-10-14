@@ -164,6 +164,7 @@ export default function SearchPage({ query, onQueryChange, search, categories, m
                             {group.hits.map(({ item }) => (
                                 <li key={item.id}>
                                     <button type="button" className={styles.result} onClick={() => select(item)}>
+                                        {/* Miniatura solo con la foto (v38 .mx-sr): niente riquadro vuoto. */}
                                         {item.image ? (
                                             <img
                                                 className={styles.thumb}
@@ -174,9 +175,7 @@ export default function SearchPage({ query, onQueryChange, search, categories, m
                                                 loading="lazy"
                                                 decoding="async"
                                             />
-                                        ) : (
-                                            <span className={styles.thumb} aria-hidden />
-                                        )}
+                                        ) : null}
                                         <span className={styles.resultText}>
                                             <span className={styles.resultName}>
                                                 {highlightParts(item.name, deferredQuery).map((part, i) =>

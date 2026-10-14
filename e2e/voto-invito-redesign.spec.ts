@@ -137,3 +137,28 @@ test.describe("desktop", () => {
         expect(box && 800 - (box.y + box.height)).toBeGreaterThanOrEqual(20);
     });
 });
+
+test("aprire il voto, dal fondo o dal ⋯, conta come aprire le recensioni (tab_switch, D94)", async ({ page }) => {
+    // Senza sendBeacon l'evento passa da fetch, che qui si legge.
+    await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "sendBeacon", { value: undefined }));
+    const events: { event_type: string; metadata: Record<string, unknown> }[] = [];
+    await page.route("**/functions/v1/log-analytics-event**", route => {
+        events.push(route.request().postDataJSON());
+        return route.fulfill({ status: 204 });
+    });
+    await page.reload();
+    await page.getByText("Antipasti 1", { exact: true }).waitFor();
+    const reviews = () => events.filter(e => e.event_type === "tab_switch" && e.metadata.to_tab === "reviews");
+
+    const end = page.locator("footer", { hasText: "Fine del menu" });
+    await end.scrollIntoViewIfNeeded();
+    await end.getByRole("button", { name: "4 stelle" }).click();
+    await expect(page.getByRole("dialog").getByText("Molto bene · 4 su 5")).toBeVisible();
+    await expect.poll(() => reviews().length).toBe(1);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Altre opzioni" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /^Lascia un voto/ }).click();
+    await expect.poll(() => reviews().length).toBe(2);
+});
