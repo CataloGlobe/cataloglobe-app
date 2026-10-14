@@ -1,0 +1,242 @@
+// Il voto nella direzione D (artifact v28, `.vote` L283-299, riga compatta
+// L1031-1062). Si usa solo con l'interruttore acceso: i token `--d-*` ci sono.
+
+@use "@styles/d-type" as *;
+
+.vote {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px 22px;
+  align-items: center;
+  padding: var(--d-pad);
+  border: 1px solid var(--d-line);
+  border-radius: var(--d-r-card);
+  background: var(--d-surface);
+  box-shadow: var(--d-shadow);
+  color: var(--d-text);
+
+  @media (max-width: 860px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.name {
+  grid-column: 1 / -1;
+  @include d-type(card-title);
+}
+
+.avg {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  @include d-type(vote-avg);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+
+  .star {
+    @include d-type(vote-star);
+    color: var(--d-star);
+  }
+}
+
+.bars {
+  min-width: 0;
+}
+
+.stack {
+  display: flex;
+  gap: 3px;
+  height: 16px;
+
+  span {
+    flex: var(--w) 1 0;
+    min-width: 6px;
+    border-radius: calc(var(--d-r-ctl) * 0.5);
+    background: var(--c);
+    cursor: pointer;
+    transform-origin: 0 50%;
+    animation: growx 520ms var(--d-ease-move) both;
+    animation-delay: calc(var(--i) * 60ms);
+    transition: opacity var(--d-dur) ease;
+
+    &[data-static] {
+      cursor: default;
+    }
+  }
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  @include d-type(note);
+
+  > * {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--d-muted);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    transition: opacity var(--d-dur) ease;
+  }
+
+  button {
+    cursor: pointer;
+
+    &:disabled {
+      cursor: default;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--d-focus);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+  }
+
+  i {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    background: var(--c);
+  }
+
+  b {
+    color: var(--d-text);
+  }
+}
+
+// Una stella scelta: le altre si abbassano.
+.vote[data-f] {
+  .stack span:not([data-on]),
+  .legend button:not([data-on]) {
+    opacity: 0.3;
+  }
+}
+
+.none {
+  margin: 0;
+  color: var(--d-muted);
+  @include d-type(note);
+}
+
+.total {
+  text-align: right;
+  @include d-type(row);
+
+  b {
+    display: block;
+    @include d-type(card-title);
+  }
+
+  span {
+    color: var(--d-muted);
+    @include d-type(note);
+  }
+
+  @media (max-width: 860px) {
+    text-align: left;
+  }
+}
+
+.trend {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--d-muted) 16%, transparent);
+  color: var(--d-muted);
+  @include d-type(note);
+
+  svg {
+    flex: none;
+    width: 160px;
+    height: 34px;
+    overflow: visible;
+  }
+
+  path {
+    fill: none;
+    stroke: var(--d-brand);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  circle {
+    fill: var(--d-brand);
+  }
+}
+
+// ── Pillola della riga compatta ─────────────────────────
+.vote[data-compact] {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  padding: 5px 12px 5px 10px;
+  border-radius: var(--d-r-pill);
+  cursor: pointer;
+
+  > * {
+    pointer-events: none;
+  }
+
+  .name,
+  .legend,
+  .trend,
+  .total span {
+    display: none;
+  }
+
+  .avg {
+    gap: 3px;
+    @include d-type(vote-pill);
+  }
+
+  .bars {
+    flex: none;
+    width: 52px;
+    overflow: hidden;
+  }
+
+  .stack {
+    gap: 2px;
+    height: 7px;
+
+    span {
+      min-width: 3px;
+      animation: none;
+    }
+  }
+
+  .total {
+    text-align: left;
+    white-space: nowrap;
+
+    b {
+      @include d-type(control);
+      color: var(--d-muted);
+    }
+  }
+}
+
+@keyframes growx {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stack span {
+    animation: none;
+  }
+}

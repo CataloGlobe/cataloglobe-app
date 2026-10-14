@@ -17,7 +17,11 @@
 // marketing servirebbe un consenso separato che oggi non raccogliamo.
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { BookUser, Search, UserRoundX } from "lucide-react";
+import { LOOK_D } from "@styles/lookD";
+import { useTightRow } from "@/hooks/useTightRow";
+import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/usePermissions";
@@ -272,6 +276,11 @@ export default function Guests() {
             ),
         [guests, inSede, filter, activityByGuest, tagsByGuest, today]
     );
+    // Nella D la banda mostra le loro facce (artifact v28 `#lostband`).
+    const lostGuests = useMemo(
+        () => guests.filter(g => isLost(activityByGuest.get(g.id), today)),
+        [guests, activityByGuest, today]
+    );
     const lostRegulars = useMemo(
         () => guests.filter(g => isLost(activityByGuest.get(g.id), today)).length,
         [guests, activityByGuest, today]
@@ -302,6 +311,36 @@ export default function Guests() {
             });
     }, [tenantId, guests, showToast]);
 
+    // ── Riga compatta (D, artifact v28 `.cz`) ─────────────────────────
+    // Come in Recensioni: uscito dalla vista il segnaposto in cima, la parte
+    // alta si stringe in una riga attaccata in alto; torna intera in cima.
+    const [compact, setCompact] = useState(false);
+    const [filtersEl, setFiltersEl] = useState<HTMLDivElement | null>(null);
+    // Nella riga compatta i chip scorrono: se non ci stanno, resta solo lo scelto.
+    const tight = useTightRow(LOOK_D ? filtersEl : null, compact);
+    const [top, setTop] = useState<HTMLDivElement | null>(null);
+    const compactRef = useRef(false);
+    useEffect(() => {
+                if (!LOOK_D || !top) return;
+        const swap = (next: boolean) => {
+            if (compactRef.current === next) return;
+            compactRef.current = next;
+            const apply = () => flushSync(() => setCompact(next));
+            const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            if (!still && typeof document.startViewTransition === "function") document.startViewTransition(apply);
+            else apply();
+        };
+        const io = new IntersectionObserver(
+            ([e]) => {
+                if (!e.isIntersecting) swap(true);
+                else if (e.intersectionRatio >= 0.99) swap(false);
+            },
+            { threshold: [0, 1] }
+        );
+        io.observe(top);
+        return () => io.disconnect();
+    }, [top]);
+
     // ── Render ────────────────────────────────────────────────────────
 
     // Piano e permesso in un solo cancello (§50.14): «Passa a Pro» solo a chi
@@ -330,6 +369,8 @@ export default function Guests() {
     return (
         <>
             <div className={styles.page}>
+                {LOOK_D && <div ref={setTop} className={styles.top} aria-hidden />}
+                <div className={styles.lhead} data-compact={compact ? "" : undefined} data-tight={tight ? "" : undefined}>
                 {/* ── Cerca a sinistra, «Chi non torna» a destra (D154) ── */}
                 {showTools && (
                     <div className={styles.bar}>
@@ -346,7 +387,7 @@ export default function Guests() {
                             </div>
                         ) : (
                             <Button
-                                variant="ghost"
+                                variant={LOOK_D ? "secondary" : "ghost"}
                                 size="sm"
                                 leftIcon={<Search size={15} aria-hidden />}
                                 onClick={() => setSearchOpen(true)}
@@ -363,15 +404,25 @@ export default function Guests() {
 
                 {showTools && lostLine && lostRegulars > 0 && (
                     <div className={styles.lostLine} role="note">
-                        <UserRoundX size={18} aria-hidden className={styles.lostIcon} />
+                        {LOOK_D ? (
+                            <span className={styles.faces} aria-hidden>
+                                {lostGuests.slice(0, 5).map(g => (
+                                    <Avatar key={g.id} name={g.display_name} size="sm" className={styles.face} />
+                                ))}
+                            </span>
+                        ) : (
+                            <UserRoundX size={18} aria-hidden className={styles.lostIcon} />
+                        )}
                         <span>
                             <b>
                                 {lostRegulars === 1
                                     ? "1 cliente abituale non torna da più di 3 mesi."
                                     : `${lostRegulars} clienti abituali non tornano da più di 3 mesi.`}
                             </b>{" "}
-                            Venivano spesso: una telefonata li riporta.
-                            {capped && ` Contati tra i ${DIRECTORY_LIMIT} clienti più recenti.`}
+                            <span className={styles.lostWhy}>
+                                Venivano spesso: una telefonata li riporta.
+                                {capped && ` Contati tra i ${DIRECTORY_LIMIT} clienti più recenti.`}
+                            </span>
                         </span>
                         <Chip
                             label="Vedi chi"
@@ -383,9 +434,10 @@ export default function Guests() {
                 )}
 
                 {showTools && (
-                    <div className={styles.filters}>
+                    <div ref={setFiltersEl} className={styles.filters}>
                         <ChipGroupSingle
                             ariaLabel="Quali clienti"
+                            layout={LOOK_D ? "auto" : undefined}
                             value={filter}
                             onChange={setFilter}
                             options={FILTER_LABELS.map(f => ({
@@ -414,6 +466,7 @@ export default function Guests() {
                         I numeri contano i primi {DIRECTORY_LIMIT} clienti, i più recenti.
                     </Text>
                 )}
+                </div>
 
                 {loadError ? (
                     <EmptyState

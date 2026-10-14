@@ -23,6 +23,8 @@ import { AndamentoRows } from "./components/AndamentoRows";
 import { AndamentoDetail } from "./components/AndamentoDetail";
 import { AndamentoOverview } from "./components/AndamentoOverview";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { LOOK_D } from "@styles/lookD";
+import { AndamentoD } from "./components/AndamentoD";
 import styles from "./Analytics.module.scss";
 
 type View = "righe" | "grafico";
@@ -197,6 +199,9 @@ export default function AnalyticsPage() {
     const openIndex = navigable.findIndex(r => r.key === openKey);
     const openRowData = openIndex >= 0 ? navigable[openIndex] : null;
     const openSeries = openRowData ? SERIES_OF_ROW[openRowData.key] : undefined;
+    // Nella D le voci e il dettaglio stanno insieme: senza scelta, la prima voce con dati.
+    const voiceD = openRowData ?? navigable[0] ?? null;
+    const voiceSeries = voiceD ? SERIES_OF_ROW[voiceD.key] : undefined;
 
     // ── Vista: righe (B) o grafico (A) ──────────────────────────────────
     const [view, setViewState] = useState<View>(readView);
@@ -241,6 +246,55 @@ export default function AnalyticsPage() {
                                 </Button>
                             }
                         />
+                    ) : LOOK_D ? (
+                        !data || !sentence ? (
+                            <div className={styles.loading} aria-busy="true" aria-label="Carico l'andamento">
+                                <Skeleton width="60%" height={26} />
+                                <Skeleton width="100%" height={240} radius="var(--radius-lg)" />
+                            </div>
+                        ) : (
+                            <AndamentoD
+                                lead={sentence.lead}
+                                loading={isLoading}
+                                commands={
+                                    <>
+                                        <SegmentedControl value={period} onChange={setPeriod} options={PERIOD_OPTIONS} label="Periodo" />
+                                        <Button
+                                            variant="secondary"
+                                            leftIcon={<Download size={16} aria-hidden />}
+                                            disabled={isLoading || isEmpty}
+                                            onClick={handleExport}
+                                        >
+                                            Esporta
+                                        </Button>
+                                    </>
+                                }
+                                notice={
+                                    compareFailed && (
+                                        <InlineBanner
+                                            variant="error"
+                                            action={
+                                                <Button variant="secondary" size="sm" onClick={() => setCompareTry(n => n + 1)}>
+                                                    Riprova
+                                                </Button>
+                                            }
+                                        >
+                                            Non siamo riusciti a caricare le sedi a confronto: qui vedi solo questa sede.
+                                        </InlineBanner>
+                                    )
+                                }
+                                rows={rows}
+                                series={sparks}
+                                compare={compare}
+                                selected={voiceD}
+                                onSelect={openRow}
+                                data={data}
+                                chart={voiceSeries ? chartOf(voiceSeries) : null}
+                                period={period}
+                                paths={paths}
+                                featured={{ text: featuredLine(data, period), to: paths.featured }}
+                            />
+                        )
                     ) : (
                         <>
                             <div className={styles.bar}>

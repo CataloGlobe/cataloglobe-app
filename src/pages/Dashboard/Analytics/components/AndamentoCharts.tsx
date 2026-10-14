@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+import { LOOK_D } from "@styles/lookD";
 import { formatShortDay, sedeColor } from "../utils/andamentoFormat";
 import styles from "./AndamentoCharts.module.scss";
 
@@ -70,7 +72,9 @@ export function DayChart({ dates, series, previous = null, label, width = 760, h
                     </text>
                 </g>
             ))}
-            {series.length === 1 ? (
+            {series.length === 1 && LOOK_D ? (
+                <BarsD values={series[0].values} color={series[0].color} previous={previous} n={n} left={left} slot={slot} innerH={innerH} topPad={topPad} y={y} line={line} />
+            ) : series.length === 1 ? (
                 <>
                     {series[0].values.map((v, i) => (
                         <rect
@@ -101,5 +105,61 @@ export function DayChart({ dates, series, previous = null, label, width = 760, h
                 </text>
             ))}
         </svg>
+    );
+}
+
+interface BarsDProps {
+    values: readonly number[];
+    color?: string;
+    previous: readonly number[] | null;
+    n: number;
+    left: number;
+    slot: number;
+    innerH: number;
+    topPad: number;
+    y: (v: number) => number;
+    line: (values: readonly number[]) => string;
+}
+
+/**
+ * Direzione D (artifact v28, `chartSvg`): barre arrotondate che crescono dal
+ * basso, la più alta piena con la bolla del suo numero, il periodo prima
+ * tratteggiato sopra.
+ */
+export function BarsD({ values, color, previous, n, left, slot, innerH, topPad, y, line }: BarsDProps) {
+    const bw = Math.min(slot * 0.62, 30);
+    const rx = Math.min(10, bw / 2);
+    const max = Math.max(...values, 0);
+    const hi = max > 0 ? values.indexOf(max) : -1;
+    const cx = (i: number) => left + i * slot + slot / 2;
+    const label = max.toLocaleString("it-IT");
+    const bubbleW = Math.max(26, label.length * 7 + 14);
+    return (
+        <>
+            {values.map((v, i) => {
+                const h = innerH - (y(v) - topPad);
+                return (
+                    <rect
+                        key={i}
+                        className={`${styles.col} ${i === hi ? styles.hi : ""}`}
+                        x={(cx(i) - bw / 2).toFixed(1)}
+                        y={y(v).toFixed(1)}
+                        width={bw.toFixed(1)}
+                        height={Math.max(0, h).toFixed(1)}
+                        rx={Math.min(rx, h / 2).toFixed(1)}
+                        style={{ "--i": i, ...(color ? { fill: color } : {}) } as CSSProperties}
+                    />
+                );
+            })}
+            {previous && previous.length > 0 && <path className={styles.pv} d={`M${line(previous.slice(0, n)).replace(/ /g, " L")}`} />}
+            {hi >= 0 && (
+                <g className={styles.bub}>
+                    <rect x={(cx(hi) - bubbleW / 2).toFixed(1)} y={(y(max) - 28).toFixed(1)} width={bubbleW} height={22} rx={11} />
+                    <text x={cx(hi).toFixed(1)} y={(y(max) - 13).toFixed(1)} textAnchor="middle">
+                        {label}
+                    </text>
+                </g>
+            )}
+        </>
     );
 }

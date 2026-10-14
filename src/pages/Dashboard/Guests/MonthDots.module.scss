@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 /* I pallini dei 12 mesi (D154): 8 px, 3 px fra l'uno e l'altro. */
 
 .dots {
@@ -18,5 +20,40 @@
     }
     &[data-mark="absent"] {
         background: var(--signal-attention, var(--text-warning));
+    }
+}
+
+// Direzione D (artifact v28 `.dots`, L407-409): pallini da 8, 4 di distanza,
+// che entrano uno dopo l'altro; l'assenza in ambra.
+
+@include look-d {
+    .dots {
+        gap: 4px;
+    }
+
+    .dot {
+        flex: none;
+        background: color-mix(in srgb, var(--d-muted) 22%, transparent);
+        animation: pop 260ms var(--d-ease-move) both;
+        animation-delay: calc(var(--j) * 18ms);
+
+        &[data-mark="came"] {
+            background: var(--d-brand);
+        }
+
+        &[data-mark="absent"] {
+            background: var(--d-amber);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+        }
+    }
+}
+
+@keyframes pop {
+    from {
+        opacity: 0;
+        transform: scale(0.4);
     }
 }
