@@ -201,6 +201,19 @@ describe("resolveActivityCatalogs col giudice nuovo", () => {
         expect(result.hasConfiguredCatalogRule).toBe(true);
     });
 
+    it("nome lunghissimo: slug entro gli 80 caratteri di `?menu=` (api/ssr-render), anche col -2", async () => {
+        const long = "Menu degustazione della domenica sera con i piatti della tradizione lombarda e i vini";
+        tables.catalogs = tables.catalogs.map(c => (c.id === "c-wine" ? c : { ...c, name: long }));
+        const result = await resolveBoth();
+        const slugs = result.menus?.map(m => m.slug) ?? [];
+        expect(slugs).toHaveLength(3);
+        for (const slug of slugs) {
+            expect(slug.length).toBeLessThanOrEqual(80);
+            expect(slug).toMatch(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/);
+        }
+        expect(slugs[2]).toBe(`${slugs[1]}-2`);
+    });
+
     it("un menù senza piatti da mostrare non entra in `menus`", async () => {
         tables.activity_product_overrides = [
             { activity_id: SEAT, product_id: "p-1", visible_override: false, mode: "hide" },

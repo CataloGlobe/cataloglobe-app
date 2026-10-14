@@ -294,7 +294,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     // rende lo stesso menu del browser. Gli slug dei menu hanno la forma degli
     // slug di sede; uno diverso non può essere un menu e si ignora (il browser
     // torna alla scelta, come il server). La CDN tiene una copia per query.
-    const menuRaw = typeof req.query.menu === "string" ? req.query.menu.trim() : "";
+    // Come `URLSearchParams.get` nel browser: il primo `?menu=` ripetuto, senza trim.
+    const menuQuery = Array.isArray(req.query.menu) ? req.query.menu[0] : req.query.menu;
+    const menuRaw = typeof menuQuery === "string" ? menuQuery : "";
     const menu = menuRaw.length <= 80 && SLUG_RE.test(menuRaw) ? menuRaw : undefined;
 
     if (!SLUG_RE.test(slug) || slug.includes("--") || RESERVED_SEGMENTS.has(slug)) {
