@@ -100,6 +100,8 @@ export type ProductListMetadata = {
     formatsCount: number;
     configurationsCount: number;
     catalogsCount: number;
+    /** Gli id dei cataloghi in cui compare (Prodotti nella D: i menù per nome). */
+    catalogIds?: string[];
     fromPrice: number | null;
     /** Prezzo massimo tra i formati — non ancora mostrato in lista (fondamenta per una futura sintesi a range). */
     toPrice: number | null;
@@ -237,6 +239,7 @@ export async function getProductListMetadata(
         const meta = metadataByProductId[productId];
         if (!meta) continue;
         meta.catalogsCount = catalogIds.size;
+        meta.catalogIds = [...catalogIds];
     }
 
     return metadataByProductId;

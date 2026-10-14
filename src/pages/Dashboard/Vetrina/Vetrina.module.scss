@@ -59,17 +59,20 @@
 
 .bar {
     display: flex;
-    flex-wrap: wrap;
+    // Una riga sola: quando non c'è posto i filtri si stringono nel pulsante (`fz`).
+    flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
     min-width: 0;
     view-transition-name: mv-bar;
 }
 
-// I filtri e l'ordine a sinistra, quanto serve; Cerca, Fogli e Crea a destra.
+// I filtri e l'ordine a sinistra, in tutto lo spazio che resta; Cerca, Fogli
+// e Crea a destra. La larghezza non dipende dal contenuto: così `FilterFit`
+// misura sempre la stessa riga e non oscilla fra pill e pulsante.
 .filters {
     display: flex;
-    flex: 0 1 auto;
+    flex: 1 1 0;
     min-width: 0;
 
     > * {
@@ -621,5 +624,204 @@
         max-width: 44ch;
         @include d-type(note);
         color: var(--d-muted);
+    }
+}
+
+// La tendina dei gruppi nella riga dei comandi: una pillola come i filtri.
+.groupBox {
+    flex: none;
+    width: auto;
+}
+
+// Più forte del campo D di `Select`: qui è una pillola grande quanto la scelta.
+@include look-d {
+    .groupBox .group {
+        @include d-type(control);
+
+        field-sizing: content;
+        min-height: 0;
+        padding-block: 7px;
+        border-color: transparent;
+        border-radius: var(--d-r-pill);
+        background-color: var(--d-surface);
+        box-shadow: var(--d-shadow);
+        color: var(--d-text);
+    }
+}
+
+// ── Prodotti: la tabella (`mv-tab`, `mv-pr`) ─────────────
+.tabWrap {
+    container: prodotti / inline-size;
+    padding: 4px 20px 8px;
+    border-radius: var(--d-r-card);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+}
+
+.tab {
+    width: 100%;
+    border-collapse: collapse;
+    @include d-type(body);
+    color: var(--d-text);
+
+    th,
+    td {
+        padding: 10px 8px;
+        text-align: left;
+        vertical-align: middle;
+
+        &:first-child {
+            padding-left: 0;
+        }
+
+        &:last-child {
+            width: 40px;
+            padding-right: 0;
+            text-align: right;
+        }
+    }
+
+    th {
+        padding-block: 12px 6px;
+        @include d-type(label);
+        color: var(--d-muted);
+        background: var(--d-surface);
+    }
+
+    td {
+        border-top: 1px solid var(--d-line);
+    }
+
+    tbody tr {
+        cursor: pointer;
+        transition: background-color var(--d-dur) ease;
+    }
+}
+
+// Al computer l'intestazione resta ferma sotto la riga dei comandi (v34).
+@media (min-width: 1024px) {
+    .tab th {
+        position: sticky;
+        top: calc(var(--mv-head, 0px) - 18px);
+        z-index: 1;
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .tab tbody tr:hover {
+        background: color-mix(in srgb, var(--d-brand) 4%, transparent);
+    }
+
+    .pn a:hover {
+        color: var(--d-brand-deep);
+    }
+}
+
+.pn {
+    width: 34%;
+    font-weight: 600;
+
+    a {
+        font-weight: 600;
+        color: inherit;
+        text-decoration: none;
+        overflow-wrap: anywhere;
+    }
+}
+
+.gr {
+    width: 18%;
+    color: var(--d-muted);
+}
+
+.tab .pz {
+    width: 112px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+td.pz {
+    @include d-type(price);
+}
+
+.tag {
+    display: inline-block;
+    margin: 2px 6px 2px 0;
+    padding: 2px 8px;
+    border-radius: var(--d-r-tag);
+    @include d-type(tag);
+    background: var(--d-soft);
+    color: var(--d-brand-deep);
+    white-space: nowrap;
+}
+
+.mu {
+    color: var(--d-muted);
+}
+
+.more {
+    white-space: nowrap;
+}
+
+// Stretta: ogni prodotto è una scheda, il nome intero e il prezzo a destra.
+@container prodotti (max-width: 700px) {
+    .tab thead {
+        display: none;
+    }
+
+    .tab tbody tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 32px;
+        gap: 4px 12px;
+        align-items: center;
+        padding: 10px 0;
+        border-top: 1px solid var(--d-line);
+    }
+
+    .tab tbody tr:first-child {
+        border-top: 0;
+    }
+
+    .tab td {
+        width: auto;
+        padding: 0;
+        border-top: 0;
+    }
+
+    .pn {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .tab td.pz {
+        grid-column: 2;
+        grid-row: 1;
+        width: auto;
+    }
+
+    .more {
+        grid-column: 3;
+        grid-row: 1 / 3;
+    }
+
+    .gr {
+        grid-column: 1 / 3;
+        grid-row: 2;
+        @include d-type(note);
+    }
+
+    .tags {
+        grid-column: 1 / 3;
+        grid-row: 3;
+    }
+
+    .tags:has(.mu) {
+        @include d-type(note);
+    }
+}
+
+@media (max-width: 640px) {
+    .tabWrap {
+        padding: 4px 16px 8px;
     }
 }

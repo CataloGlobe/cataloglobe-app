@@ -45,15 +45,26 @@ const W = 320;
 export function FilterFit<T extends string>({ children, active, onClear, aside, panelExtra, sort, short, className }: FilterFitProps<T>) {
     const rowRef = useRef<HTMLDivElement>(null);
     const [zip, setZip] = useState(false);
+    const zipRef = useRef(false);
+    // La larghezza che serviva alla riga intera l'ultima volta che non ci stava.
+    const needRef = useRef(0);
 
     // Si toglie il segno, si misura la riga intera e lo si rimette se non ci
-    // sta: tutto prima del disegno, quindi senza sfarfallio.
+    // sta: tutto prima del disegno, quindi senza sfarfallio. Chiusa, la riga ha
+    // il pulsante e l'ordine a icona, più stretti: misurarla così la farebbe
+    // riaprire e richiudere di continuo. Si riapre solo quando c'è lo spazio
+    // che serviva alla riga intera.
     const fit = useCallback(() => {
         const row = rowRef.current;
         if (!row) return;
+        if (zipRef.current && row.clientWidth < needRef.current) return;
         row.removeAttribute("data-zip");
         const tooWide = row.scrollWidth > row.clientWidth + 1;
-        if (tooWide) row.setAttribute("data-zip", "");
+        if (tooWide) {
+            needRef.current = row.scrollWidth;
+            row.setAttribute("data-zip", "");
+        }
+        zipRef.current = tooWide;
         setZip(tooWide);
     }, []);
 

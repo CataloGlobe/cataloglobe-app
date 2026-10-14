@@ -45,6 +45,21 @@ function dialog(page: Page): Locator {
     return page.getByRole("dialog").or(page.getByRole("alertdialog")).last();
 }
 
+/** Con VITE_BACKOFFICE_D acceso (`data-look="d"`) l'elenco è quello di Menù e vetrina della D. */
+function lookD(page: Page): Promise<boolean> {
+    return page.evaluate(() => document.documentElement.dataset.look === "d");
+}
+
+/** «Crea prodotto»; nella D il «Crea» unico di Menù e vetrina, voce «Un prodotto». */
+async function createProduct(page: Page): Promise<void> {
+    if (await lookD(page)) {
+        await main(page).getByRole("button", { name: "Crea", exact: true }).click();
+        await page.getByRole("menuitem", { name: /Un prodotto/ }).click();
+        return;
+    }
+    await page.getByRole("button", { name: "Crea prodotto" }).click();
+}
+
 function write(stub: ProdottiStub, key: string): WriteCall | undefined {
     return stub.writes.find(w => w.key === key);
 }
@@ -93,7 +108,9 @@ const QUALITY_VALUE = { "Senza prezzo": "missing-price", "Fuori menù": "out-of-
 
 /** Filtro di qualità: chip (dopo P2) o `Select` (oggi). */
 async function quality(page: Page, name: keyof typeof QUALITY_VALUE): Promise<void> {
-    const chip = main(page).getByRole("radio", { name: new RegExp(`^${name}`) });
+    // nella D «Fuori menù» si chiama «In nessun menù»
+    const label = name === "Fuori menù" ? "(Fuori menù|In nessun menù)" : name;
+    const chip = main(page).getByRole("radio", { name: new RegExp(`^${label}`) });
     if ((await chip.count()) > 0) {
         await chip.click();
         return;
@@ -168,6 +185,12 @@ test.describe("Prodotti — elenco", () => {
         await expect(collection(page, /^Ingredienti$/)).toBeVisible();
         // Ristorante: niente Attributi.
         await expect(collection(page, /^Attributi$/)).toHaveCount(0);
+        if (await lookD(page)) {
+            // D: niente griglia, una tabella sola; «Crea» è quello unico di Menù e vetrina.
+            await expect(page.getByRole("radio", { name: "Vista griglia" })).toHaveCount(0);
+            await expect(main(page).getByRole("button", { name: "Crea", exact: true })).toBeVisible();
+            return;
+        }
         await expect(page.getByRole("radio", { name: "Vista griglia" })).toBeVisible();
         await expect(page.getByRole("radio", { name: "Vista lista" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Crea prodotto" })).toBeVisible();
@@ -175,6 +198,7 @@ test.describe("Prodotti — elenco", () => {
 
     test("lista: prezzi, formati, varianti espandibili", async ({ page }) => {
         await openList(page);
+        test.skip(await lookD(page), "D: la tabella non ha le righe delle varianti (copia, `pPrd`)");
         await search(page, "Patatine");
         await expect(product(page, "Patatine")).toBeVisible();
         await expect(main(page).getByText(/da (€\s*)?2[.,]50/)).toBeVisible();
@@ -190,6 +214,7 @@ test.describe("Prodotti — elenco", () => {
 
     test("riga: colonne Prodotto, Prezzo e Menù, formati e difetti a parole", async ({ page }) => {
         await openList(page);
+        test.skip(await lookD(page), "D: colonne nuove, provate in «D: la tabella…»");
         const row = (name: string) => product(page, name).locator("xpath=ancestor::*[@role='row'][1]");
         // PR2: prezzo e numero di menù nelle loro colonne, a destra.
         const cells = (name: string) => row(name).getByRole("cell");
@@ -214,9 +239,26 @@ test.describe("Prodotti — elenco", () => {
         await expect(cells("Coca-Cola Zero").filter({ hasText: /^1$/ })).toHaveCount(1);
     });
 
+    test("D: la tabella dice gruppo, prezzo e menù; la riga intera apre il prodotto", async ({ page }) => {
+        await openList(page);
+        test.skip(!(await lookD(page)), "solo D");
+        // La frase in cima conta prodotti e gruppi e dice chi è senza prezzo.
+        await expect(main(page).getByText(/^\d+ prodotti$/).first()).toBeVisible();
+        await expect(main(page).getByText(/senza prezzo/i).first()).toBeVisible();
+        for (const header of ["Prodotto", "Gruppo", "Prezzo", "Nei menù"]) {
+            await expect(main(page).getByRole("columnheader", { name: header })).toBeVisible();
+        }
+        const row = (name: string) => main(page).getByRole("row").filter({ has: page.getByRole("link", { name, exact: true }) });
+        await expect(row("Hamburger")).toContainText("2,90 €");
+        await expect(row("Insalatona")).toContainText("Senza prezzo");
+        await row("Hamburger").getByRole("cell").nth(1).click();
+        await expect(page).toHaveURL(new RegExp(`/products/${PRODUCT.hamburger}$`));
+    });
+
     test("vista predefinita: lista", async ({ page }) => {
         await openBusinessPage(page, "products", "Prodotti");
         await expect(product(page, "Hamburger")).toBeVisible({ timeout: 15_000 });
+        test.skip(await lookD(page), "D: non c'è la scelta della vista");
         await expect(page.getByRole("radio", { name: "Vista lista" })).toHaveAttribute("aria-checked", "true");
     });
 
@@ -243,11 +285,11 @@ test.describe("Prodotti — elenco", () => {
         await openList(page);
         // I conteggi: nelle etichette dei chip (dopo P2) o delle opzioni della select (oggi).
         const control = main(page)
-            .getByRole("radiogroup", { name: /qualità|stato/i })
+            .getByRole("radiogroup", { name: /qualità|stato|Quali mostrare/i })
             .or(page.getByRole("combobox", { name: "Filtra per stato del prodotto" }))
             .first();
         await expect(control).toContainText(/Senza prezzo\s*\(?1\)?/);
-        await expect(control).toContainText(/Fuori menù\s*\(?2\)?/);
+        await expect(control).toContainText(/(Fuori menù|In nessun menù)\s*\(?2\)?/);
 
         await quality(page, "Senza prezzo");
         await expect(product(page, "Insalatona")).toBeVisible();
@@ -267,6 +309,7 @@ test.describe("Prodotti — elenco", () => {
         const insalatona = stub.tables.products.find(p => p.id === PRODUCT.insalatona)!;
         insalatona.base_price = 6;
         await openList(page);
+        test.skip(await lookD(page), "D: i filtri stanno nella riga dei comandi (`FilterFit`), provati in «filtri di qualità»");
         const chips = main(page).getByRole("radiogroup", { name: "Filtra per qualità del dato" });
         await expect(chips.getByRole("radio", { name: /^Tutti 12$/ })).toHaveAttribute("aria-checked", "true");
         await expect(chips.getByRole("radio", { name: /^Senza prezzo 0$/ })).toHaveAttribute("aria-disabled", "true");
@@ -284,6 +327,7 @@ test.describe("Prodotti — elenco", () => {
 
     test("griglia: una card per prodotto e per variante", async ({ page }) => {
         await openList(page, "grid");
+        test.skip(await lookD(page), "D: niente griglia");
         await expect(product(page, "Hamburger")).toBeVisible();
         await expect(main(page).getByText("Coca-Cola Zero")).toBeVisible();
         await expect(main(page).getByRole("list", { name: "Prodotti" }).getByRole("listitem")).toHaveCount(14);
@@ -312,7 +356,7 @@ test.describe("Prodotti — elenco", () => {
         stub.onWrite("rpc.enqueue_translation_jobs", () => null);
         stub.onWrite("translation_jobs.POST", () => []);
         await openList(page);
-        await page.getByRole("button", { name: "Crea prodotto" }).click();
+        await createProduct(page);
         const name = dialog(page).getByRole("textbox", { name: /^Nome/ });
         // Il form mette il fuoco sul nome appena montato: si scrive dopo.
         await expect(name).toBeFocused();
@@ -353,6 +397,7 @@ test.describe("Prodotti — elenco", () => {
         stub.onWrite("translations.DELETE", () => null);
         stub.onWrite("translation_jobs.DELETE", () => null);
         await openList(page);
+        test.skip(await lookD(page), "D: la tabella non ha la selezione multipla (copia, `pPrd`)");
         await search(page, "burger");
         await checkboxOf(product(page, "Hamburger")).check();
         await checkboxOf(product(page, "Cheeseburger")).check();
@@ -378,9 +423,20 @@ test.describe("Prodotti — elenco", () => {
         await expect(main(page).getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
 
-        await page.getByRole("radio", { name: "Vista griglia" }).click();
-        await expect(product(page, "Hamburger")).toBeVisible();
-        await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+        if (await lookD(page)) {
+            // D: «Crea» resta per le altre famiglie, ma senza «Un prodotto».
+            const crea = main(page).getByRole("button", { name: "Crea", exact: true });
+            if (await crea.count()) {
+                await crea.click();
+                await expect(page.getByRole("menuitem", { name: /Un prodotto/ })).toHaveCount(0);
+                await page.keyboard.press("Escape");
+                await expect(page.getByRole("menu")).toHaveCount(0);
+            }
+        } else {
+            await page.getByRole("radio", { name: "Vista griglia" }).click();
+            await expect(product(page, "Hamburger")).toBeVisible();
+            await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+        }
 
         await openCollection(page, /^Gruppi( Prodotti)?$/);
         await expect(main(page).getByText("Panini e2e", { exact: true }).first()).toBeVisible();
@@ -1090,7 +1146,7 @@ test.describe("Prodotti — lotto bug B", () => {
         stub.onWrite("rpc.enqueue_translation_jobs", () => null);
         stub.onWrite("translation_jobs.POST", () => []);
         await openList(page);
-        await page.getByRole("button", { name: "Crea prodotto" }).click();
+        await createProduct(page);
         const name = dialog(page).getByRole("textbox", { name: /^Nome/ });
         await expect(name).toBeFocused();
         await name.fill("Panino e2e");
@@ -1161,7 +1217,7 @@ test.describe("Prodotti — lotto bug B", () => {
             });
             const labels = ["Marca", "Materiale", "Taglia", "Colore"];
             await openList(page);
-            await page.getByRole("button", { name: "Crea prodotto" }).click();
+            await createProduct(page);
             await expect(dialog(page).getByRole("textbox", { name: /^Nome/ })).toBeFocused();
             for (const label of labels) await expect(dialog(page).getByLabel(label)).toHaveCount(0);
             await dialog(page).getByRole("button", { name: "Annulla" }).click();
