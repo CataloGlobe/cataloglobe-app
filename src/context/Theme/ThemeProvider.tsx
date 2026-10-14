@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { LOOK_D } from "@styles/lookD";
 import { ThemeContext, type Theme, type ThemePreference } from "./ThemeContext";
 
 const STORAGE_KEY = "theme";
@@ -38,7 +39,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         return () => media.removeEventListener("change", onChange);
     }, []);
 
-    const theme: Theme = preference === "system" ? system : preference;
+    // Con la grafica nuova (direzione D) il tema scuro è tolto: se ne riparla a
+    // lavoro finito (deciso da Alex il 2026-10-14).
+    const theme: Theme = LOOK_D ? "light" : preference === "system" ? system : preference;
 
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);

@@ -24,6 +24,15 @@ $bp-sidebar: 1024px;
   }
 }
 
+// Stili della grafica nuova (direzione D), validi solo con l'interruttore
+// VITE_BACKOFFICE_D acceso (`data-look="d"` sulla radice, vedi `lookD.ts`).
+// Dentro un modulo: `.btn { @include look-d { ... } }`.
+@mixin look-d {
+  :global(html[data-look="d"]) & {
+    @content;
+  }
+}
+
 @mixin flex-center {
   display: flex;
   justify-content: center;
