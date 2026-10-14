@@ -31,8 +31,27 @@ function writes(stub: EvidenzaStub, key: string): WriteCall[] {
     return stub.writes.filter(w => w.key === key);
 }
 
+/** Con VITE_BACKOFFICE_D acceso (`data-look="d"`) l'elenco è quello di Menù e vetrina della D. */
+function lookD(page: Page): Promise<boolean> {
+    return page.evaluate(() => document.documentElement.dataset.look === "d");
+}
+
+/**
+ * Il nome del contenuto nella riga o nella card. Nella D può stare anche nella
+ * frase in cima, che non conta, e nella card c'è due volte (sulla tinta e
+ * accanto nella card stretta): vale quello che si vede.
+ */
 function contentName(page: Page, name: string): Locator {
-    return main(page).getByText(name, { exact: true }).first();
+    return main(page)
+        .getByText(name, { exact: true })
+        .and(page.locator("xpath=//*[not(ancestor-or-self::*[contains(@class,'_lead_')])]"))
+        .filter({ visible: true })
+        .first();
+}
+
+/** «Crea contenuto»; nella D il «Crea» unico di Menù e vetrina. */
+function createButton(page: Page, d: boolean): Locator {
+    return d ? main(page).getByRole("button", { name: "Crea", exact: true }) : page.getByRole("button", { name: "Crea contenuto" }).first();
 }
 
 function actionsOf(anchor: Locator): Locator {
@@ -150,7 +169,7 @@ test.describe("In evidenza — elenco", () => {
         await expect(contentName(page, "Aperitivo giovedì e2e")).toBeVisible();
         await expect(main(page).getByText(/Tagliere \+ 2 drink/)).toBeVisible();
         await expect(contentName(page, "Concerto e2e")).toBeVisible();
-        await expect(page.getByRole("button", { name: "Crea contenuto" }).first()).toBeVisible();
+        await expect(createButton(page, await lookD(page))).toBeVisible();
     });
 
     test("griglia: le stesse card, la card apre il dettaglio", async ({ page }) => {
@@ -171,7 +190,9 @@ test.describe("In evidenza — elenco", () => {
     // D124: si crea nel tunnel; i salvataggi li prova `crea.spec.ts`.
     test("«Crea contenuto» apre il tunnel di creazione", async ({ page }) => {
         await openList(page);
-        await page.getByRole("button", { name: "Crea contenuto" }).first().click();
+        const d = await lookD(page);
+        await createButton(page, d).click();
+        if (d) await page.getByRole("menuitem", { name: /In evidenza/ }).click();
         await expect(page).toHaveURL(/\/crea\/evidenza\?da=evidenza$/);
         await expect(page).toHaveTitle(/Nuovo contenuto in evidenza/);
     });
@@ -215,6 +236,7 @@ test.describe("In evidenza — elenco ricomposto (P7)", () => {
     test("vista predefinita: lista; la riga dice tipo, cosa leggono i clienti, i prodotti", async ({ page }) => {
         await openBusinessPage(page, "featured", "In evidenza");
         await expect(contentName(page, "Menu di coppia e2e")).toBeVisible({ timeout: 15_000 });
+        test.skip(await lookD(page), "D: si parte da Fogli, provato in «D: le card…»");
         await expect(page.getByRole("radio", { name: "Vista lista" })).toHaveAttribute("aria-checked", "true");
         const row = contentName(page, "Menu di coppia e2e").locator("xpath=ancestor::*[@role='row'][1]");
         await expect(row).toContainText("Bundle");
@@ -222,6 +244,25 @@ test.describe("In evidenza — elenco ricomposto (P7)", () => {
         const annuncio = contentName(page, "Chiusura ferragosto e2e").locator("xpath=ancestor::*[@role='row'][1]");
         await expect(annuncio).toContainText("I clienti leggono «Siamo chiusi il 15 agosto»");
         await expect(annuncio).not.toContainText("prodott");
+    });
+
+    test("D: le card col tipo, la frase in cima, i filtri In onda e Non in onda", async ({ page }) => {
+        await openBusinessPage(page, "featured", "In evidenza");
+        await expect(contentName(page, "Menu di coppia e2e")).toBeVisible({ timeout: 15_000 });
+        test.skip(!(await lookD(page)), "solo D");
+        // Si parte da Fogli: la card dice il tipo e apre il contenuto.
+        await expect(page.getByRole("radio", { name: "Fogli" })).toHaveAttribute("aria-checked", "true");
+        const cards = main(page).getByRole("list", { name: "Contenuti in evidenza" });
+        await expect(cards.getByRole("listitem")).toHaveCount(4);
+        await expect(cards.getByRole("listitem").filter({ hasText: "Menu di coppia e2e" })).toContainText("Bundle");
+        await expect(cards.getByRole("listitem").filter({ hasText: "Menu di coppia e2e" })).toContainText("In onda adesso");
+        await expect(main(page).getByText(/^(In cima alla pagina adesso:|Adesso i clienti vedono)/)).toBeVisible();
+        const chips = main(page).getByRole("radiogroup", { name: "Quali mostrare" });
+        await chips.getByRole("radio", { name: /^Non in onda\s*3/ }).click();
+        await expect(cards.getByRole("listitem")).toHaveCount(3);
+        await expect(contentName(page, "Menu di coppia e2e")).toHaveCount(0);
+        await contentName(page, "Concerto e2e").click();
+        await expect(page).toHaveURL(new RegExp(`/featured/${FEATURED.concerto}(\\?.*)?$`));
     });
 
     test("errore di caricamento: lo stato lo dice, «Riprova» ricarica", async ({ page }) => {
@@ -600,6 +641,7 @@ test.describe("In evidenza — dove e quando compare (§50.13)", () => {
 
     test("elenco: il filtro «In nessuna regola» sta nella testata e conta le regole vive (EV1)", async ({ page }) => {
         await openList(page);
+        test.skip(await lookD(page), "D: i filtri sono In onda e Non in onda, provati in «D: le card…»");
         const chips = main(page).getByRole("radiogroup", { name: "Filtra i contenuti" });
         await expect(chips.getByRole("radio", { name: /Tutti\s*4/ })).toBeChecked();
         // L'aperitivo ha una regola, spenta: conta. Collegato non vuol dire attivo (§28.2).

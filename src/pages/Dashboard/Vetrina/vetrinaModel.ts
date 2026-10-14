@@ -157,3 +157,13 @@ export function sortVetrina<T extends { name: string; created_at: string }>(
         return byName(a, b);
     });
 }
+
+/**
+ * La frase in cima a Storie (`pStr`): «*2 storie* in onda, una in bozza.
+ * Stanno sotto il menù, negli approfondimenti.»
+ */
+export function storieLead(onAir: number, drafts: number): LeadPart[] {
+    const count = onAir === 0 ? "Nessuna storia" : onAir === 1 ? "Una storia" : `${onAir} storie`;
+    const draftText = drafts === 0 ? "" : `, ${drafts === 1 ? "una" : drafts} in bozza`;
+    return [{ strong: count }, { text: ` in onda${draftText}. Stanno sotto il menù, negli approfondimenti.` }];
+}

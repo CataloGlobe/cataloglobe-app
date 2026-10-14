@@ -69,12 +69,27 @@ export function StylePhone({ palette }: { palette: StylePalette }) {
     );
 }
 
+/**
+ * In evidenza e storie (`mv-ev`, `mv-st`): sulla tinta il tipo o l'occhiello
+ * e il titolo grande. Nella card stretta spariscono e il nome va accanto.
+ */
+export function TilePreview({ kind, title }: { kind?: string | null; title: string }) {
+    return (
+        <span className={s.tile}>
+            {kind && <small className={s.tileKind}>{kind}</small>}
+            <b className={s.tileTitle}>{title}</b>
+        </span>
+    );
+}
+
 type CardProps = {
     family: Family;
     /** Dove porta il clic sulla card. */
     to: string;
     preview: ReactNode;
     name: ReactNode;
+    /** Il nome sta già nell'anteprima (`TilePreview`): si vede solo nella card stretta. */
+    nameInPreview?: boolean;
     meta: ReactNode;
     /** Il nome per i lettori di schermo e per «Metti in onda». */
     label: string;
@@ -89,7 +104,7 @@ type CardProps = {
  * tinta della famiglia con l'icona in alto a sinistra, nome e numeri, poi la
  * riga «In onda» e il ⋮. Spenta, l'anteprima si sbiadisce un poco.
  */
-export function VetrinaCard({ family, to, preview, name, meta, label, onAir, onMetti, actions }: CardProps) {
+export function VetrinaCard({ family, to, preview, name, nameInPreview, meta, label, onAir, onMetti, actions }: CardProps) {
     const Icon = FAMILY_ICON[family];
     return (
         <article className={s.card} data-off={onAir.state === "off" ? "" : undefined}>
@@ -100,7 +115,9 @@ export function VetrinaCard({ family, to, preview, name, meta, label, onAir, onM
                     </span>
                     {preview}
                 </span>
-                <b className={s.name}>{name}</b>
+                <b className={s.name} data-ph={nameInPreview ? "" : undefined}>
+                    {name}
+                </b>
                 <small className={s.meta}>{meta}</small>
             </Link>
             <div className={s.ft}>

@@ -37,8 +37,16 @@ import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
+import { LOOK_D } from "@/styles/lookD";
+import { VetrinaHead, type VetrinaView } from "../Vetrina/VetrinaHead";
+import { VetrinaCrea } from "../Vetrina/VetrinaCrea";
+import { TilePreview, VetrinaCard, VetrinaNone } from "../Vetrina/VetrinaCard";
+import { useCompactHead } from "../Vetrina/useCompactHead";
+import { leadOf, matchesOnAir, onAirOf, onAirOptions, sortVetrina, type OnAir, type OnAirFilter, type VetrinaSort } from "../Vetrina/vetrinaModel";
+import vs from "../Vetrina/Vetrina.module.scss";
 
 const VIEW_MODE_KEY = "featuredContents_viewMode";
+const OFF_AIR: OnAir = { state: "off", when: null, where: null };
 
 /** «I clienti leggono «Menu coppia» · 2 prodotti» (§28.6: i due nomi, dichiarati). */
 function readsLine(item: FeaturedContentWithProducts): string {
@@ -56,12 +64,14 @@ function usageLine(item: FeaturedContentWithProducts, appearance: Appearance | u
     return `${type} · ${n === 0 ? "in nessuna regola" : n === 1 ? "in 1 regola" : `in ${n} regole`}`;
 }
 
-// Lista di default (mockup, come Prodotti); la scelta salvata vince.
+// Lista di default (mockup, come Prodotti), Fogli nella D; la scelta salvata vince.
 function readViewMode(): "list" | "grid" {
+    const fallback = LOOK_D ? "grid" : "list";
     try {
-        return localStorage.getItem(VIEW_MODE_KEY) === "grid" ? "grid" : "list";
+        const saved = localStorage.getItem(VIEW_MODE_KEY);
+        return saved === "grid" || saved === "list" ? saved : fallback;
     } catch {
-        return "list";
+        return fallback;
     }
 }
 
@@ -94,6 +104,10 @@ export default function Highlights() {
     // Dove e quando compare (§28.1–2): dalle regole che lo nominano, vive.
     const ruleAppearance = useRuleAppearance(tenantId, canRead);
     const [ruleFilter, setRuleFilter] = useState<"all" | "unseen">("all");
+    // D (Visual Redesign 2): filtri «In onda», ordine e testata che si stringe.
+    const [onAirFilter, setOnAirFilter] = useState<OnAirFilter>("all");
+    const [sort, setSort] = useState<VetrinaSort>("onda");
+    const { compact, setTop } = useCompactHead();
 
     const loadData = useCallback(async () => {
         if (!tenantId || !canRead) return;
@@ -217,9 +231,9 @@ export default function Highlights() {
 
     usePageHeader({
         title: "In evidenza",
-        leading: isPhone ? undefined : filterChips,
-        actions: headerActions,
-        compact: headerCompact
+        leading: isPhone || LOOK_D ? undefined : filterChips,
+        actions: LOOK_D ? undefined : headerActions,
+        compact: LOOK_D ? undefined : headerCompact
     });
 
 
@@ -238,6 +252,36 @@ export default function Highlights() {
             .sort((a, b) => Number(live(b)) - Number(live(a)));
     }, [contents, searchQuery, ruleFilter, appearanceById]);
     const allContentIds = useMemo(() => contents.map(c => c.id), [contents]);
+
+    // D: la riga «In onda» di ogni contenuto e la frase in cima (`pEvi`).
+    const onAirById = useMemo(() => {
+        const map = new Map<string, OnAir>();
+        for (const [id, appearance] of appearanceById) map.set(id, onAirOf(appearance, ruleAppearance.activities));
+        return map;
+    }, [appearanceById, ruleAppearance.activities]);
+    const onAirOfItem = useCallback((item: FeaturedContentWithProducts) => onAirById.get(item.id) ?? OFF_AIR, [onAirById]);
+    const lead = useMemo(() => {
+        if (!LOOK_D || !ruleAppearance.index) return null;
+        return leadOf(
+            contents.map(item => ({ name: item.internal_name, appearance: appearanceById.get(item.id) ?? null })),
+            ruleAppearance.activities,
+            { none: "nessun contenuto", lead: "In cima alla pagina adesso:" }
+        );
+    }, [contents, appearanceById, ruleAppearance.index, ruleAppearance.activities]);
+    const onAirCounts = {
+        all: contents.length,
+        on: contents.filter(item => onAirOfItem(item).state !== "off").length,
+        off: contents.filter(item => onAirOfItem(item).state === "off").length
+    };
+    const dContents = sortVetrina(
+        filteredContents.filter(item => matchesOnAir(onAirFilter, onAirOfItem(item))).map(item => ({ ...item, name: item.internal_name })),
+        sort,
+        onAirOfItem
+    );
+    const clearD = () => {
+        setSearchQuery("");
+        setOnAirFilter("all");
+    };
     const hasSearch = searchQuery.trim().length > 0 || ruleFilter !== "all";
     const clearFilters = () => {
         setSearchQuery("");
@@ -324,10 +368,43 @@ export default function Highlights() {
                 />
             );
         }
+        if (LOOK_D && !loading && dContents.length === 0) {
+            return <VetrinaNone onClear={clearD} />;
+        }
+        // D: le card col titolo sulla tinta (al telefono sempre Fogli).
+        if (LOOK_D && (viewMode === "grid" || isPhone)) {
+            if (loading) return <CardGrid loading skeletonShape={{ media: true, mediaHeight: 142 }} minColumnWidth={232} />;
+            return (
+                <div className={vs.grid}>
+                    <ul className={vs.cards} aria-label="Contenuti in evidenza">
+                        {dContents.map(item => {
+                            const type = CONTENT_TYPE_LABEL[item.content_type ?? "announcement"];
+                            const n = item.pricing_mode === "none" ? 0 : item.products_count || 0;
+                            return (
+                                <li key={item.id}>
+                                    <VetrinaCard
+                                        family="featured"
+                                        to={contentUrl(item)}
+                                        preview={<TilePreview kind={type} title={item.internal_name} />}
+                                        name={item.internal_name}
+                                        nameInPreview
+                                        label={item.internal_name}
+                                        meta={n > 0 ? `${type} · ${n === 1 ? "1 prodotto" : `${n} prodotti`}` : type}
+                                        onAir={onAirOfItem(item)}
+                                        onMetti={canWrite && canEdit ? () => navigate(`/business/${tenantId}/crea/evidenza/${item.id}?da=evidenza&metti=1`) : undefined}
+                                        actions={rowActions(item)}
+                                    />
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            );
+        }
         if (viewMode === "list") {
             return (
                 <DataTable<FeaturedContentWithProducts>
-                    data={filteredContents}
+                    data={LOOK_D ? dContents : filteredContents}
                     allRowIds={allContentIds}
                     columns={columns}
                     isLoading={loading}
@@ -382,8 +459,30 @@ export default function Highlights() {
         <PageGate readPermission="featured.read">
             {() => (
                 <>
-                    <div className={styles.wrapper} data-view-mode={viewMode}>
-                        {isPhone && filterChips}
+                    <div className={LOOK_D ? `${styles.wrapper} ${vs.page}` : styles.wrapper} data-view-mode={viewMode}>
+                        {LOOK_D && contents.length > 0 && (
+                            <VetrinaHead
+                                family="featured"
+                                lead={lead}
+                                filter={onAirFilter}
+                                onFilter={setOnAirFilter}
+                                filterOptions={onAirOptions(onAirCounts)}
+                                filterAll="all"
+                                sort={sort}
+                                onSort={setSort}
+                                query={searchQuery}
+                                onQuery={setSearchQuery}
+                                placeholder="Cerca contenuti"
+                                view={{
+                                    value: viewMode === "list" ? "elenco" : "fogli",
+                                    onChange: (v: VetrinaView) => handleViewChange(v === "elenco" ? "list" : "grid")
+                                }}
+                                crea={<VetrinaCrea da="evidenza" disabled={!canEdit} />}
+                                compact={compact}
+                                setTop={setTop}
+                            />
+                        )}
+                        {isPhone && !LOOK_D && filterChips}
                         {renderContent()}
                     </div>
 

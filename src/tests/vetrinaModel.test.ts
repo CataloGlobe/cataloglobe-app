@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Appearance, AppearanceActivity } from "@/utils/ruleAppearance";
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
-import { leadOf, matchesOnAir, onAirOf, sortVetrina } from "@/pages/Dashboard/Vetrina/vetrinaModel";
+import { leadOf, matchesOnAir, onAirOf, sortVetrina, storieLead } from "@/pages/Dashboard/Vetrina/vetrinaModel";
 
 const rule = { time_mode: "always", applyToAll: false } as unknown as LayoutRule;
 const SEDI: AppearanceActivity[] = [
@@ -86,5 +86,19 @@ describe("Menù e vetrina: l'ordine", () => {
         expect(sortVetrina(items, "onda", onAir).map(i => i.name)).toEqual(["Carla", "Anna", "Bruno"]);
         expect(sortVetrina(items, "recenti", onAir).map(i => i.name)).toEqual(["Anna", "Carla", "Bruno"]);
         expect(sortVetrina(items, "nome", onAir).map(i => i.name)).toEqual(["Anna", "Bruno", "Carla"]);
+    });
+});
+
+describe("Storie: la frase in cima", () => {
+    const text = (parts: ReturnType<typeof storieLead>) => parts.map(p => ("strong" in p ? p.strong : "text" in p ? p.text : "")).join("");
+
+    it("conta le storie in onda e le bozze", () => {
+        expect(text(storieLead(2, 1))).toBe("2 storie in onda, una in bozza. Stanno sotto il menù, negli approfondimenti.");
+        expect(text(storieLead(1, 3))).toBe("Una storia in onda, 3 in bozza. Stanno sotto il menù, negli approfondimenti.");
+    });
+
+    it("senza bozze e senza storie in onda", () => {
+        expect(text(storieLead(0, 0))).toBe("Nessuna storia in onda. Stanno sotto il menù, negli approfondimenti.");
+        expect(storieLead(3, 0)[0]).toEqual({ strong: "3 storie" });
     });
 });

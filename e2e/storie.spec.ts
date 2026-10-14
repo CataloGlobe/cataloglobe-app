@@ -30,8 +30,24 @@ function writes(stub: StorieStub, key: string): WriteCall[] {
     return stub.writes.filter(w => w.key === key);
 }
 
+/** Con VITE_BACKOFFICE_D acceso (`data-look="d"`) la pagina è Menù e vetrina della D. */
+function lookD(page: Page): Promise<boolean> {
+    return page.evaluate(() => document.documentElement.dataset.look === "d");
+}
+
+/** Il titolo che si vede: nella card della D c'è due volte (sulla tinta e nella card stretta). */
 function storyTitle(page: Page, title: string): Locator {
-    return main(page).getByText(title, { exact: true }).first();
+    return main(page).getByText(title, { exact: true }).filter({ visible: true }).first();
+}
+
+/** «Crea storia»; nella D il «Crea» unico di Menù e vetrina. */
+function createButton(page: Page, d: boolean): Locator {
+    return d ? main(page).getByRole("button", { name: "Crea", exact: true }) : page.getByRole("button", { name: "Crea storia" }).first();
+}
+
+/** Nella D si parte da Fogli: le prove della tabella passano a Elenco. */
+async function toTable(page: Page): Promise<void> {
+    if (await lookD(page)) await main(page).getByRole("radio", { name: "Elenco" }).click();
 }
 
 function actionsOf(anchor: Locator): Locator {
@@ -41,9 +57,10 @@ function actionsOf(anchor: Locator): Locator {
         .first();
 }
 
-async function openList(page: Page): Promise<void> {
+async function openList(page: Page, table = true): Promise<void> {
     await openBusinessPage(page, "stories", "Storie");
     await expect(storyTitle(page, "Il nostro forno e2e")).toBeVisible({ timeout: 15_000 });
+    if (table) await toTable(page);
 }
 
 async function openStory(page: Page, id: string): Promise<void> {
@@ -103,8 +120,8 @@ test.describe("Storie — elenco", () => {
         await expect(main(page).getByText("Dal 1987")).toBeVisible();
         await expect(main(page).getByText("Pane di segale e2e")).toBeVisible();
         await expect(main(page).getByText("Pronta, non in onda", { exact: true })).toBeVisible();
-        await expect(main(page).getByText("In onda", { exact: true }).first()).toBeVisible();
-        await expect(page.getByRole("button", { name: "Crea storia" }).first()).toBeVisible();
+        await expect(main(page).getByText("In onda", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+        await expect(createButton(page, await lookD(page))).toBeVisible();
     });
 
     test("la riga apre l'editor", async ({ page }) => {
@@ -116,7 +133,9 @@ test.describe("Storie — elenco", () => {
     // D124: si crea nel tunnel; i salvataggi li prova `crea.spec.ts`.
     test("«Crea storia» apre il tunnel di creazione", async ({ page }) => {
         await openList(page);
-        await page.getByRole("button", { name: "Crea storia" }).first().click();
+        const d = await lookD(page);
+        await createButton(page, d).click();
+        if (d) await page.getByRole("menuitem", { name: /Una storia/ }).click();
         await expect(page).toHaveURL(/\/crea\/storia\?da=storie$/);
         await expect(page).toHaveTitle(/Nuova storia/);
     });
@@ -170,6 +189,29 @@ test.describe("Storie — elenco", () => {
         await expect(main(page).getByRole("button", { name: /Trascina per riordinare|Riordina/ })).toHaveCount(0);
         await actionsOf(storyTitle(page, "Natale e2e")).click();
         await expect(page.getByRole("menuitem", { name: "Elimina" })).toHaveCount(0);
+    });
+});
+
+test.describe("Storie — D", () => {
+    test("D: le card con occhiello e titolo, la frase, i filtri e «Metti in onda»", async ({ page }) => {
+        await openList(page, false);
+        test.skip(!(await lookD(page)), "solo D");
+        await expect(main(page).getByText(/^(Una storia|\d+ storie)$/)).toBeVisible();
+        await expect(main(page).getByText(/in bozza\. Stanno sotto il menù/)).toBeVisible();
+        const cards = main(page).getByRole("list", { name: "Storie" });
+        await expect(cards.getByRole("listitem")).toHaveCount(3);
+        const brigata = cards.getByRole("listitem").filter({ hasText: "La brigata e2e" });
+        await expect(brigata).toContainText("Prodotto collegato: Pane di segale e2e");
+        const natale = cards.getByRole("listitem").filter({ hasText: "Natale e2e" });
+        await expect(natale.getByRole("button", { name: "Metti in onda Natale e2e" })).toBeVisible();
+        // Con cinque filtri la riga può stringersi nel pulsante «Mostra solo».
+        const fz = main(page).getByRole("button", { name: /^Mostra solo/ });
+        if (await fz.isVisible().catch(() => false)) await fz.click();
+        await page.getByRole("radio", { name: /^Bozze e ferme\s*1/ }).filter({ visible: true }).click();
+        if (await fz.isVisible().catch(() => false)) await page.keyboard.press("Escape");
+        await expect(cards.getByRole("listitem")).toHaveCount(1);
+        await natale.getByRole("button", { name: "Metti in onda Natale e2e" }).click();
+        await expect(page).toHaveURL(new RegExp(`/crea/storia/${STORY.natale}\\?da=storie&metti=1$`));
     });
 });
 
@@ -365,6 +407,7 @@ test.describe("Storie — dove appaiono (§50.13)", () => {
 
     test("elenco: chip coi conteggi e ricerca; filtrando non si riordina", async ({ page }) => {
         await openList(page);
+        test.skip(await lookD(page), "D: i filtri stanno nella riga dei comandi, provati in «D: le card…»");
         const chips = main(page).getByRole("radiogroup", { name: "Filtra le storie" });
         await expect(chips.getByRole("radio", { name: /Tutte\s*3/ })).toBeChecked();
         await chips.getByRole("radio", { name: /Pronte, non in onda\s*1/ }).click();
@@ -421,7 +464,7 @@ test.describe("Storie — dove appaiono (§50.13)", () => {
 test.describe("Storie — larghezze", () => {
     for (const width of [1280, 768, 375]) {
         test(`${width}: elenco ed editor senza scroll di lato`, async ({ page }) => {
-            await openList(page);
+            await openList(page, false);
             await page.setViewportSize({ width, height: 900 });
             await page.reload();
             await expect(storyTitle(page, "Il nostro forno e2e")).toBeVisible({ timeout: 15_000 });
