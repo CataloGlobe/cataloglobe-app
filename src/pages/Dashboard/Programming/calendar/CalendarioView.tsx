@@ -1021,6 +1021,8 @@ export default function CalendarioView({
         return [...list, ...pvEntries, ...pvPairs];
     }, [draft, entries, pvEntries, pvPairs]);
     const pvAx = useMemo(() => (pvList ? axisFor(pvList) : axis), [pvList, axis]);
+    // con «Mettili insieme» l'anteprima lo aggiunge; chi tocca si guarda come se prendesse il posto
+    const judged = useMemo(() => (pvList && draft?.insieme ? pvList.map(e => (e.preview && e.kind === "menu" ? { ...e, add: false } : e)) : pvList), [pvList, draft?.insieme]);
     // nei tunnel non c'è la «Sede» in alto a destra: valgono tutte le sedi della bozza
     const pvBase = anteprima ? sedi : shown;
     const pvReach = pvEntries.length ? pvBase.filter(x => reaches(x.id)) : pvBase;
@@ -1031,21 +1033,19 @@ export default function CalendarioView({
 
     // cosa cambia nel calendario, nella settimana che si vede; e dove si accavalla con un altro (D135)
     const effect = (): Impatto => {
-        if (!draft || !pvList) return NO_IMPATTO;
+        if (!draft || !pvList || !judged) return NO_IMPATTO;
         if (missing(draft, L)) return { lines: ["Scegli prima cosa mettere: poi qui vedi dove va in onda."], scontri: [] };
         const wk = week === monday ? "Questa settimana" : "Nella settimana del " + mShort(week);
         const groupsOf = new Map<string, string[]>();
         const sc = new Map<string, Scontro>();
         const effSedi: SedeEff[] = [];
-        // con «Mettili insieme» l'anteprima lo aggiunge; chi tocca si guarda come se prendesse il posto
-        const judged = draft.insieme ? pvList.map(e => (e.preview && e.kind === "menu" ? { ...e, add: false } : e)) : pvList;
         for (const x of pvAll.length ? pvAll : shown) {
             const seat = seatOf(x.id), cov = new Set<string>(), by = new Set<string>();
             // chi tocca la bozza → i tratti (giorno, da, a), uniti dove si toccano
-            const tocchi = new Map<string, { vince: boolean; pari: boolean; tratti: [number, number, number][] }>();
-            const tocca = (con: string, vince: boolean, pari: boolean, d: number, a: number, b: number) => {
-                const k = con + "|" + vince;
-                const t = tocchi.get(k) ?? { vince, pari: true, tratti: [] };
+            const tocchi = new Map<string, { vince: boolean; pari: boolean; copre: boolean; tratti: [number, number, number][] }>();
+            const tocca = (con: string, vince: boolean, pari: boolean, d: number, a: number, b: number, copre = false) => {
+                const k = con + "|" + vince + "|" + copre;
+                const t = tocchi.get(k) ?? { vince, pari: true, copre, tratti: [] };
                 t.pari &&= pari;
                 const last = t.tratti[t.tratti.length - 1];
                 if (last && last[0] === d && last[2] === a) last[2] = b;
@@ -1075,6 +1075,8 @@ export default function CalendarioView({
                             }
                             // resta l'altro solo perché c'era prima: lo dice l'avviso
                             if (g.win && g.self && tie(g.win, g.self, seat)) tocca(g.by, false, true, d, g.from, g.to);
+                            // lo copre un'altra regola che oggi vince (più vicina alla sede, orari più stretti): è un incrocio anche questo, e si sceglie (D196)
+                            else if (g.by && (draft.kind === "menu" || draft.kind === "style")) tocca(g.by, false, false, d, g.from, g.to, true);
                         }
                     }
                 if (on) {
@@ -1109,12 +1111,12 @@ export default function CalendarioView({
             const k = out.join("\n");
             groupsOf.set(k, [...(groupsOf.get(k) ?? []), x.name]);
             for (const [key, t] of tocchi) {
-                const quando = quandoScontro(t.tratti), con = key.slice(0, key.lastIndexOf("|"));
-                const sk = [con, t.vince, t.pari, quando].join("|"), prev = sc.get(sk);
+                const quando = quandoScontro(t.tratti), con = key.split("|").slice(0, -2).join("|");
+                const sk = [con, t.vince, t.pari, t.copre, quando].join("|"), prev = sc.get(sk);
                 if (prev) {
                     prev.sedi.push(x.name);
                     prev.ids?.push(x.id);
-                } else sc.set(sk, { sedi: [x.name], ids: [x.id], con, quando, vince: t.vince, pari: t.pari });
+                } else sc.set(sk, { sedi: [x.name], ids: [x.id], con, quando, vince: t.vince, pari: t.pari, ...(t.copre ? { copre: true as const } : {}) });
             }
         }
         // le sedi con lo stesso risultato stanno insieme
@@ -1237,6 +1239,8 @@ export default function CalendarioView({
     const pd = draft ? mainWhen(draft).period : undefined;
     const away = !!pd && (pd.from > week + 6 || pd.to < week);
     const effNow = anteprima && draft ? effect() : null;
+    // «insieme» dove oggi vince un altro: lì il tuo non si vede, e l'anteprima lo disegna coperto (D196)
+    const coperta = (id: string) => !!draft?.insieme && !!effNow?.sedi?.some(x => x.id === id && !x.cov.length && x.by.length > 0);
     const pvStep = (by: number) => pvAll[(pvAll.indexOf(pvOne ?? pvAll[0]) + by + pvAll.length) % pvAll.length];
     const pvDays = (id: string) => effNow?.sedi?.find(x => x.id === id)?.incroci ?? 0;
     const giorni = (n: number) => n + (n === 1 ? " giorno" : " giorni");
@@ -1296,7 +1300,7 @@ export default function CalendarioView({
                                     </span>
                                 </div>
                             )}
-                            {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel, { only: draft.kind, list: pvList, ax: pvAx, pv: draft.mode === "edit" ? "in modifica" : "nuovo" })}
+                            {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel, { only: draft.kind, list: coperta(x.id) ? judged! : pvList, ax: pvAx, pv: draft.mode === "edit" ? "in modifica" : "nuovo" })}
                         </div>
                     ))}
                 </div>

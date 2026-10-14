@@ -4,9 +4,9 @@
 import { useState } from "react";
 import { ArrowRight, Check, ChevronDown, CircleCheck, Eye, Search } from "lucide-react";
 import { Button } from "@components/ui/Button/Button";
-import { listIt, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { DB_WAIT, listIt, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { thingName, type Tunnel } from "./creaModel";
-import { hAltri, hDiff, hDiverse, hEsito, hSet, hVal, nTutteSedi, type HAltro, type HVal } from "./creaSedePer";
+import { hAltri, hCopreText, hDiff, hDiverse, hEsito, hSet, hVal, nTutteSedi, type HAltro, type HVal } from "./creaSedePer";
 import s from "./Crea.module.scss";
 
 const q = (x: string) => "«" + x + "»";
@@ -32,7 +32,8 @@ export function Esito({ t, sede, altri }: { t: Tunnel; sede: string; altri: read
         </span>
     ) : (
         <span className={s.res2}>
-            {ln("Il cliente vede", [me, ...e.ins].join(" + "))}
+            {ln("Il cliente vede", e.solo.length ? listIt(e.solo) : [me, ...e.ins].join(" + "))}
+            {e.solo.length > 0 && ln("Il tuo", "qui, in quelle ore, non si vede")}
             {e.pos.length > 0 && ln("Al posto di", listIt(e.pos))}
         </span>
     );
@@ -43,7 +44,7 @@ export function Voci({ t, u, sede, altri }: { t: Tunnel; u: U; sede: Sede; altri
     return (
         <ul className={s.hms}>
             {altri.map(a => {
-                const v = hVal(t, sede.id, a.con);
+                const v = hVal(t, sede.id, a.con), why = hCopreText(t, a, v);
                 return (
                     <li key={a.con} className={s.hmn}>
                         <span className={s.hmt}>
@@ -57,6 +58,7 @@ export function Voci({ t, u, sede, altri }: { t: Tunnel; u: U; sede: Sede; altri
                                 </button>
                             ))}
                         </span>
+                        {why && <span className={s.hint}>{why}</span>}
                     </li>
                 );
             })}
@@ -73,7 +75,8 @@ export function SedePer({ t, u, scontri, sedi, onSede }: { t: Tunnel; u: U; scon
     const withX = sedi.filter(x => altri.has(x.id)), noX = sedi.filter(x => !altri.has(x.id));
     const hint = <p className={s.hint}>{sedi.length > 1 ? "Aprendo una sede, la settimana a destra passa a lei." : ""}</p>;
     if (t.insieme == null) return <p className={s.hint}>Scegli una risposta: sotto compaiono {sedi.length > 1 ? "le sedi dove si incrocia" : `gli altri ${w(2)} con cui si incrocia`}.</p>;
-    if (sedi.length < 2) {
+    // con incroci in una sede sola non c'è niente da tenere uguale: si sceglie lì
+    if (withX.length < 2) {
         const x = withX[0];
         if (!x) return null;
         return (
@@ -98,12 +101,18 @@ export function SedePer({ t, u, scontri, sedi, onSede }: { t: Tunnel; u: U; scon
         });
         if (v === "no" && !open && withX[0]) show(withX[0].id);
     };
+    // le sedi dove si incrocia: tutte, oppure per nome (oltre quattro, quante)
+    const all = withX.length === sedi.length, few = withX.length <= 4;
+    const tutte = all ? nTutteSedi(withX.length) : few ? listIt(withX.map(x => x.name)) : `le ${withX.length} sedi con incroci`;
+    const inTutte = all ? "In " + tutte : few ? "A " + tutte : `Nelle ${withX.length} sedi con incroci`;
+    const cop = withX.filter(x => altri.get(x.id)?.some(a => a.copre)), copCon = [...new Set(cop.flatMap(x => (altri.get(x.id) ?? []).filter(a => a.copre).map(a => q(a.con))))];
+    const copNote = !cop.length ? "" : t.insieme ? (stile ? "" : ` Tranne a ${listIt(cop.map(x => x.name))}: lì resta ${listIt(copCon)}, che sta al posto degli altri.`) : ` A ${listIt(cop.map(x => x.name))} oggi vince ${listIt(copCon)}: lì ${DB_WAIT}.`;
     const d = t.insieme, nd = hDiverse(t, altri), ns = withX.filter(x => seen.has(x.id)).length, nxt = withX.find(x => !seen.has(x.id));
     const list = withX.filter(x => !qv || norm(x.name).includes(norm(qv)));
     return (
         <div className={s.ifl}>
-            <h4>È uguale per {nTutteSedi(sedi.length)}?</h4>
-            <div className={s.hseg} role="group" aria-label={`È uguale per ${nTutteSedi(sedi.length)}?`}>
+            <h4>È uguale per {tutte}?</h4>
+            <div className={s.hseg} role="group" aria-label={`È uguale per ${tutte}?`}>
                 <button type="button" aria-pressed={t.hSame === "si"} onClick={() => same("si")}>
                     Sì, uguale
                 </button>
@@ -115,7 +124,8 @@ export function SedePer({ t, u, scontri, sedi, onSede }: { t: Tunnel; u: U; scon
                 <p className={s.hsum}>
                     <Eye size={15} aria-hidden />
                     <span>
-                        In {nTutteSedi(sedi.length)} {q(thingName(t))} {stile ? (d ? "lascia gli altri stili nelle loro ore." : "prende il posto degli altri stili.") : d ? "si vede insieme agli altri menù." : "si vede da solo, al posto degli altri menù."}
+                        {inTutte} {q(thingName(t))} {stile ? (d ? "lascia gli altri stili nelle loro ore." : "prende il posto degli altri stili.") : d ? "si vede insieme agli altri menù." : "si vede da solo, al posto degli altri menù."}
+                        {copNote}
                     </span>
                 </p>
             )}

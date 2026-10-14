@@ -23,8 +23,9 @@ import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Pick, Sh, Toggle } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
 import { InhBox } from "./InhBox";
-import { InsiemeBox } from "./InsiemeBox";
+import { InsiemeBox, type Nuovi } from "./InsiemeBox";
 import { CosaCambia } from "./CosaCambia";
+import { hVal, nascosto } from "./creaSedePer";
 
 export type U = (fn: (t: Tunnel) => void) => void;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -431,7 +432,7 @@ export function OndaOff({ t }: { t: Tunnel }) {
 const ondaSub = (t: Tunnel) => `Prima decidi se i clienti ${ONDA[t.kind].lo} vedono. Si cambia quando vuoi.`;
 
 /** Il Quando, con una sede sola; `bare` è solo «Sempre o in certi momenti», dentro «Dove e quando». */
-export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri, L }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean; clash?: boolean; scontri?: readonly Scontro[]; L?: DraftLookups }) {
+export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri, nuovi, L }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean; clash?: boolean; scontri?: readonly Scontro[]; nuovi?: Nuovi; L?: DraftLookups }) {
     // da «E adesso?»: prima si confermano gli orari ereditati (D194)
     const ask = !!L && inhAsk(t), asking = ask && t.inhQ !== "cambio";
     const choice = (
@@ -483,7 +484,7 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri
                                 : KIND_TXT[t.kind]}
                         </p>
                     )}
-                    {clash && <InsiemeBox t={t} u={u} scontri={scontri ?? []} multi={false} />}
+                    {clash && <InsiemeBox t={t} u={u} scontri={scontri ?? []} multi={false} nuovi={nuovi} />}
                 </>
             )}
         </>
@@ -535,10 +536,13 @@ export function QuandoOre({
     scontri,
     onPart,
     onSede,
+    nuovi,
     L
 }: {
     /** La sede da guardare nella settimana a destra. */
     onSede?: (id: string) => void;
+    /** In modifica: le sedi con un incrocio nuovo, ancora senza risposta. */
+    nuovi?: Nuovi;
     t: Tunnel;
     u: U;
     draft: Draft;
@@ -590,7 +594,7 @@ export function QuandoOre({
                         Cambia
                     </Button>
                 </div>
-                <InsiemeBox t={t} u={u} scontri={scontri} multi sedi={sedi.filter(x => ids.includes(x.id))} onSede={onSede} />
+                <InsiemeBox t={t} u={u} scontri={scontri} multi sedi={sedi.filter(x => ids.includes(x.id))} onSede={onSede} nuovi={nuovi} />
             </>
         );
     // da «E adesso?»: prima si confermano gli orari ereditati (D194)
@@ -721,7 +725,7 @@ export function Controlla({
     const fb = firstBlock(t, c);
     // senza i fatti per sede (bozza incompleta) restano le righe della settimana
     const cosa = effect.sedi?.length ? (
-        <CosaCambia sedi={effect.sedi} kind={t.kind} insieme={!!t.insieme} when={effWhen(t)} multi={L.multi} pair={effect.pair} sede={wkSede} onSede={onSede} />
+        <CosaCambia sedi={effect.sedi} kind={t.kind} insieme={t.insieme == null ? false : (sede, con) => hVal(t, sede, con)} when={effWhen(t)} multi={L.multi} pair={effect.pair} sede={wkSede} onSede={onSede} />
     ) : (
         <ul className={s.ieff}>
             {effect.lines.map((x, i) => (
@@ -816,9 +820,9 @@ export function Controlla({
             <div className={s.blk}>
                 <h4>In una frase</h4>
                 {/* chi non gestisce il Calendario tiene sempre pronto */}
-                <p className={s.isent}>{sentence(live ? t : { ...t, onda: "off" }, L)}</p>
+                <p className={s.isent}>{sentence(live ? t : { ...t, onda: "off" }, L, L.multi ? nascosto(t, effect.sedi) : null)}</p>
                 {live && (t.kind === "menu" || t.kind === "stile") && (
-                    <ScontriAvviso kind={t.kind === "menu" ? "menu" : "style"} scontri={effect.scontri} multi={L.multi} insieme={!!t.insieme} onInsieme={onInsieme} />
+                    <ScontriAvviso kind={t.kind === "menu" ? "menu" : "style"} scontri={t.insieme == null ? effect.scontri : effect.scontri.filter(x => !x.copre)} multi={L.multi} insieme={!!t.insieme} onInsieme={onInsieme} />
                 )}
             </div>
             {!c.owner && (

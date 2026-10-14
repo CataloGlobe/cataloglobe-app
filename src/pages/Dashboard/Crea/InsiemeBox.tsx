@@ -4,6 +4,7 @@ import { Layers, Replace } from "lucide-react";
 import { listIt, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { thingName, type Tunnel } from "./creaModel";
 import { SedePer } from "./SedePer";
+import { hCopreText } from "./creaSedePer";
 import s from "./Crea.module.scss";
 
 const q = (x: string) => "«" + x + "»";
@@ -13,10 +14,19 @@ const q = (x: string) => "«" + x + "»";
  * e si sceglie se stanno insieme o se il tuo prende il posto; sotto, sede per sede (`SedePer`).
  * `sedi`: le sedi della bozza, per dire quelle senza incroci.
  */
-export function InsiemeBox({ t, u, scontri, multi, sedi, onSede }: { t: Tunnel; u: (fn: (x: Tunnel) => void) => void; scontri: readonly Scontro[]; multi: boolean; sedi?: readonly { id: string; name: string }[]; onSede?: (id: string) => void }) {
+/** In modifica: le sedi con un incrocio nuovo (per nome) e la loro chiave, da segnare quando si risponde. */
+export type Nuovi = { names: readonly string[]; key: string };
+
+export function InsiemeBox({ t, u: u0, scontri, multi, sedi, onSede, nuovi }: { t: Tunnel; u: (fn: (x: Tunnel) => void) => void; scontri: readonly Scontro[]; multi: boolean; sedi?: readonly { id: string; name: string }[]; onSede?: (id: string) => void; nuovi?: Nuovi }) {
+    // una risposta qualsiasi qui dentro vale come risposta agli incroci nuovi
+    const u = (fn: (x: Tunnel) => void) =>
+        u0(x => {
+            fn(x);
+            if (nuovi?.names.length) x.hOk = nuovi.key;
+        });
     const stile = t.kind === "stile", none = t.insieme == null, name = q(thingName(t));
-    const vinti = scontri.filter(x => x.vince);
-    const altri = new Set(vinti.map(x => x.con)).size, dove = [...new Set(vinti.flatMap(x => x.sedi))];
+    // ogni incrocio conta, anche dove oggi vince l'altro (D196): l'utente sceglie sempre
+    const altri = new Set(scontri.map(x => x.con)).size, dove = [...new Set(scontri.flatMap(x => x.sedi))];
     const cosa = altri === 1 ? `c'è già ${stile ? "un altro stile" : "un altro menù"}` : `ci sono già altri ${stile ? "stili" : "menù"}`;
     const pk = (v: boolean, title: string, text: string) => (
         <button type="button" className={s.hpk} aria-pressed={!none && t.insieme === v} onClick={() => u(x => void (x.insieme = v))}>
@@ -33,6 +43,11 @@ export function InsiemeBox({ t, u, scontri, multi, sedi, onSede }: { t: Tunnel; 
                     {multi ? (dove.length === 1 ? ` a ${dove[0]}` : ` in ${dove.length} sedi`) : ""}.
                 </b>
             </p>
+            {nuovi && nuovi.names.length > 0 && (
+                <p className={s.hint} data-nuovi>
+                    Incrocio nuovo a {listIt([...nuovi.names])}: {multi ? "guarda la sede e scegli." : "scegli."}{nuovi.names.length < dove.length ? " Per gli altri vale la scelta di prima." : ""}
+                </p>
+            )}
             <div className={s.qq}>
                 <b>{stile ? "Che stile prende la pagina in quelle ore?" : "Come li mostri ai clienti?"}</b>
                 <div className={s.hpick} data-bad="insieme" role="group" aria-label={stile ? "Prende il posto o lascia l'altro" : "Insieme o al posto"}>
@@ -52,9 +67,10 @@ export function InsiemeBox({ t, u, scontri, multi, sedi, onSede }: { t: Tunnel; 
             {sedi ? (
                 <SedePer t={t} u={u} scontri={scontri} sedi={sedi} onSede={onSede} />
             ) : (
-                vinti.map((x, j) => (
+                scontri.map((x, j) => (
                     <p key={j} className={s.hint}>
                         {multi ? `A ${listIt(x.sedi)}, ${x.quando}, c'è già ${q(x.con)}.` : `${x.quando.charAt(0).toUpperCase()}${x.quando.slice(1)} c'è già ${q(x.con)}.`}
+                        {x.copre && !none && " " + hCopreText(t, { con: x.con, quando: x.quando, copre: true }, t.insieme ? "ins" : "pos")}
                     </p>
                 ))
             )}

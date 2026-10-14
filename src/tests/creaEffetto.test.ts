@@ -54,4 +54,18 @@ describe("le sedi di un gruppo", () => {
         expect(effChips(["a", "b", "c", "d", "e"], false)).toEqual({ ids: ["a", "b", "c"], more: 2 });
         expect(effChips(["a", "b", "c", "d", "e"], true).ids).toHaveLength(5);
     });
+    it("con la risposta sede per sede: dove oggi vince l'altro dice cosa porta la scelta (D196)", () => {
+        const c = sede("c", { mins: 0, days: 0, by: ["Catalogo"] });
+        expect(effLab(c, "menu", () => "ins")).toEqual({ lab: "Non si vede: lì resta «Catalogo», al posto degli altri", ico: "off" });
+        expect(effLab(c, "stile", () => "ins").lab).toBe("Lascia «Catalogo»: lì resta il suo stile");
+        expect(effLab(c, "menu", () => "pos")).toEqual({ lab: "Prende il posto di «Catalogo»: si salva col database nuovo", ico: "posto" });
+        const mix = sede("a", { cov: ["Pranzo"], by: ["Catalogo"] });
+        expect(effLab(mix, "menu", (_, con) => (con === "Pranzo" ? "ins" : "pos")).lab).toBe("Insieme a «Pranzo»: il cliente sceglie · prende il posto di «Catalogo»: si salva col database nuovo");
+    });
+    it("«In onda in N di M sedi»: conta anche dove andrà in onda col database nuovo", () => {
+        const r = effSum([sede("a"), sede("c", { mins: 0, days: 0, by: ["Catalogo"] })], "menu", () => "ins");
+        expect([r.on, r.tot]).toEqual([1, 2]);
+        expect(effSum([sede("a"), sede("c", { mins: 0, days: 0, by: ["Catalogo"] })], "menu", () => "pos").on).toBe(2);
+    });
 });
+

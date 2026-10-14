@@ -274,7 +274,8 @@ test.describe("Tunnel: «Salva le modifiche ed esci» passa gli stessi controlli
         await button(page, /^Sempre/).click();
         await button(page, "Esci").click();
         await page.getByRole("alertdialog", { name: "Uscire dal tunnel?" }).getByRole("button", { name: "Salva le modifiche ed esci" }).click();
-        await expect(page.getByText("Prende il posto di un altro a pari merito: si salva col database nuovo")).toBeVisible();
+        // le sedi nuove incrociano altri menù: prima si chiede «insieme o al posto» (D196)
+        await expect(page.getByText(/^Scegli: a .+ c'è un incrocio nuovo, insieme o al posto degli altri: torna a «Quando»\.$/)).toBeVisible();
         await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await expect(page).not.toHaveURL(/\/catalogs$/);
         expect(stub.writes).toEqual([]);
@@ -569,16 +570,18 @@ test.describe("Tunnel di creazione — menù", () => {
         await next(page);
         // il conto vale per tutte le sedi scelte, non solo per la prima: a Porto c'è già la carta
         await insieme(page, "Mostralo al posto degli altri");
-        // «È uguale per tutte e tre le sedi?»: con «No, cambia» le sedi dove si incrocia, una per riga
+        // «È uguale per tutte e tre le sedi?»: con «No, cambia» le sedi dove si incrocia, una per riga.
+        // A Centro c'è «Pranzo e2e», messo solo per lei: oggi vince lui, ma si sceglie lo stesso (D196)
         const box = main(page).locator("[data-insieme]");
         const uguale = box.getByRole("group", { name: "È uguale per tutte e tre le sedi?" });
         await uguale.getByRole("button", { name: "No, cambia" }).click();
-        await expect(box.getByText("1 di 2 sedi viste")).toBeVisible();
-        await expect(box.getByRole("button", { name: /Lago e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
-        await expect(box.getByText("Centro e2e non ha altri menù: niente da scegliere.")).toBeVisible();
+        await expect(box.getByText("1 di 3 sedi viste")).toBeVisible();
+        await expect(box.getByRole("button", { name: /Centro e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
+        await expect(box.getByText("Al posto di «Pranzo e2e», che oggi qui vince: si salva col database nuovo.")).toBeVisible();
         // la prossima sede si apre da sola, e la settimana a destra passa a lei
+        await box.getByRole("button", { name: "Prossima sede: Lago e2e" }).click();
         await box.getByRole("button", { name: "Prossima sede: Porto e2e" }).click();
-        await expect(box.getByText("2 di 2 sedi viste")).toBeVisible();
+        await expect(box.getByText("3 di 3 sedi viste")).toBeVisible();
         await expect(box.getByText("Le hai viste tutte.")).toBeVisible();
         await expect(box.getByRole("button", { name: /Porto e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
         await expect(main(page).getByRole("combobox", { name: "Sede da guardare" }).locator("option:checked")).toHaveText(/^Porto e2e/);
@@ -590,7 +593,17 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByText("Scelte diverse fra le sedi: si salva col database nuovo").first()).toBeVisible();
         await button(page, "Indietro").click();
         await uguale.getByRole("button", { name: "Sì, uguale" }).click();
-        await expect(box.getByText(/^In tutte e tre le sedi «.+» si vede da solo, al posto degli altri menù\.$/)).toBeVisible();
+        await expect(box.getByText(/^In tutte e tre le sedi «.+» si vede da solo, al posto degli altri menù\. A Centro e2e oggi vince «Pranzo e2e»: lì si salva col database nuovo\.$/)).toBeVisible();
+        // al posto anche a Centro: oggi lì vince «Pranzo e2e», quindi aspetta il database nuovo
+        await next(page);
+        await expect(main(page).getByText("Al posto di «Pranzo e2e» a Centro e2e: si salva col database nuovo").first()).toBeVisible();
+        await button(page, "Indietro").click();
+        // «Insieme» a Centro è quello che succede oggi: si salva
+        await uguale.getByRole("button", { name: "No, cambia" }).click();
+        const centro = box.getByRole("button", { name: /Centro e2e.*1 menù/ });
+        if ((await centro.getAttribute("aria-expanded")) !== "true") await centro.click();
+        await box.getByRole("group", { name: "Centro e2e, Pranzo e2e" }).getByRole("button", { name: "Insieme" }).click();
+        await expect(box.getByText("«Pranzo e2e» sta al posto degli altri: qui, in quelle ore, il tuo non si vede.")).toBeVisible();
         await next(page);
         await button(page, "Metti in onda").click();
         await button(page, /^Dagli i tuoi colori/).click({ timeout: 15_000 });
@@ -620,10 +633,19 @@ test.describe("Tunnel di creazione — menù", () => {
         await ore.getByRole("button", { name: "Sì, gli stessi" }).click();
         await expect(main(page).getByText("Stessi orari di «Pranzo veloce»", { exact: true })).toBeVisible();
         await next(page);
-        // in due sedi a quelle ore c'è già uno stile: la seconda parte del Quando, e la settimana una sede alla volta
-        await expect(main(page).getByText("In quelle ore c'è già un altro stile in 2 sedi.")).toBeVisible();
+        // in tre sedi a quelle ore c'è già uno stile (a Centro quello di «Pranzo e2e», che lì oggi vince):
+        // la seconda parte del Quando, e la settimana una sede alla volta
+        await expect(main(page).getByText("In quelle ore c'è già un altro stile in 3 sedi.")).toBeVisible();
         await expect(main(page).getByRole("combobox", { name: "Sede da guardare" })).toBeVisible();
         await button(page, /^Prende il posto degli altri/).click();
+        await next(page);
+        await expect(main(page).getByText(/^Al posto di «.+» a Centro e2e: si salva col database nuovo$/).first()).toBeVisible();
+        await button(page, "Indietro").click();
+        // a Centro lo lascia: è quello che succede oggi, e si salva
+        const sbox = main(page).locator("[data-insieme]");
+        await sbox.getByRole("button", { name: "No, cambia" }).click();
+        await sbox.getByRole("group", { name: /^Centro e2e, / }).getByRole("button", { name: "Lascia l'altro" }).click();
+        await expect(sbox.getByText(/^Qui, in quelle ore, resta lo stile «.+»\.$/)).toBeVisible();
         await next(page);
         await button(page, "Metti in onda").click();
         // lo stile ha il suo «E adesso?»

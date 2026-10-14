@@ -40,7 +40,7 @@ import { EvidOrdine } from "./EvidOrdine";
 import { Chip } from "./CreaUi";
 import ev from "./Evid.module.scss";
 import { StoriaOnda, StoriaTema, type OnAir } from "./StoriaTema";
-import { hAltri, sedePerWait } from "./creaSedePer";
+import { copreWait, hAltri, hKeys, hNuove, sedePerWait } from "./creaSedePer";
 import { Adesso, Controlla, Dove, Modifica, MenuParti, Quando, QuandoOre, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
@@ -113,12 +113,25 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const pro = usePlanFeatures().hasFeature("table_reservation");
 
     // nelle sue ore c'è già un altro, e il tuo può prenderne il posto: si sceglie nel «Quando»
-    const clash = NEW_MODEL.multiMenu && NEW_MODEL.newestWins && owner && t.onda === "on" && (kind === "menu" || kind === "stile") && effect.scontri.some(x => x.vince);
+    const clash = NEW_MODEL.multiMenu && NEW_MODEL.newestWins && owner && t.onda === "on" && (kind === "menu" || kind === "stile") && effect.scontri.length > 0;
     // «L'ordine» (D187): gli altri contenuti in evidenza di ogni sede, e le sedi scelte dove ce n'è già uno
     const others = useMemo(() => (kind === "evid" && NEW_MODEL.evid ? evOthers(entriesFromRules(data.rules, data.names), data.sedi, data.groups, romeToday()) : {}), [kind, data.rules, data.names, data.sedi, data.groups]);
     const whereSedi = useMemo(() => (L.multi ? sediOf(t.where, data.sedi, data.groups) : data.sedi.map(x => x.id)), [L.multi, t.where, data.sedi, data.groups]);
     const ordKey = ordIds(whereSedi, others).join(",");
-    const c = useMemo(() => ({ owner, multi: L.multi, clash, ordSedi: ordKey ? ordKey.split(",") : [] }), [owner, L.multi, clash, ordKey]);
+    // in modifica: gli incroci di partenza; per uno nuovo (sede aggiunta, ore cambiate) si chiede la scelta (D196)
+    const altriNow = useMemo(() => hAltri(effect.scontri), [effect.scontri]);
+    const [hBase, setHBase] = useState<string[] | null>(null);
+    const startClean = !!t.edit && !changed(t, "dove") && !changed(t, "quando");
+    // prima non era in onda: non c'era nessun incrocio
+    const wasOn = t.edit?.orig.onda === "on";
+    useEffect(() => {
+        if (hBase == null && startClean && (!wasOn || effect.sedi?.length)) setHBase(wasOn ? hKeys(altriNow) : []);
+    }, [hBase, startClean, wasOn, effect.sedi, altriNow]);
+    const nuove = t.edit && hBase && clash ? hNuove(altriNow, hBase) : [];
+    const nKey = nuove.join(",");
+    const hNuoviKey = nKey && t.hOk !== nKey ? nuove.map(id => L.sedi.get(id) ?? "sede").join("|") : "";
+    const nuoviP = hNuoviKey ? { names: hNuoviKey.split("|"), key: nKey } : undefined;
+    const c = useMemo(() => ({ owner, multi: L.multi, clash, ordSedi: ordKey ? ordKey.split(",") : [], hNuovi: hNuoviKey ? hNuoviKey.split("|") : [] }), [owner, L.multi, clash, ordKey, hNuoviKey]);
     const u: U = useCallback(fn => setT(prev => {
         const n = structuredClone(prev);
         fn(n);
@@ -179,7 +192,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const oreOnly = step === "quando" && L.multi && clash && t.qPart !== 2;
     const nothing = !!t.edit && !isDirty(t);
     // ciò che manca: «Avanti» resta acceso e ci porta (creaBad)
-    const missing = showAfter ? "" : last ? fb?.why ?? "" : t.edit && step !== "modifica" && !touched(t, step) ? "" : blocker(t, step, oreOnly ? { ...c, clash: false } : c);
+    const missing = showAfter ? "" : last ? fb?.why ?? "" : t.edit && step !== "modifica" && !touched(t, step, c) ? "" : blocker(t, step, oreOnly ? { ...c, clash: false } : c);
     const [bad, setBad] = useState<Bad | null>(null);
     const formRef = useRef<HTMLDivElement>(null);
     // il segno resta finché manca la stessa cosa
@@ -261,7 +274,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     // tenuto pronto non tocca il Calendario (D189)
     const calTouched = t.onda === "on" && (!t.edit || changed(t, "dove") || changed(t, "quando"));
     // mettere in onda aspetta il database nuovo per le novità che non sa tenere (D149)
-    const calWhy = owner && draft && calTouched ? waitsForDb(draft) || (clash && kind === "stile" && t.insieme ? "Lascia gli altri stili: " + DB_WAIT : scontriWait(draft, effect.scontri) || sedePerWait(t, hAltri(effect.scontri))) : "";
+    const calWhy = owner && draft && calTouched ? waitsForDb(draft) || (clash && kind === "stile" && t.insieme && effect.scontri.some(x => x.vince) ? "Lascia gli altri stili: " + DB_WAIT : scontriWait(draft, effect.scontri) || sedePerWait(t, hAltri(effect.scontri)) || copreWait(t, hAltri(effect.scontri), L.sedi)) : "";
     // i blocchi che «Avanti» non sa sistemare: lì il bottone resta spento, col motivo accanto
     const dbWhy = calWhy || evidWait(t) || ordWait(t);
     // dal Calendario si può anche solo tenere pronto: non è «niente»
@@ -560,7 +573,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 break;
             case "quando":
                 // con più sedi il Dove è già stato scelto: qui solo le ore
-                body = L.multi && draft ? <QuandoOre onSede={setWkSede} t={t} u={u} L={L} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} L={L} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} />;
+                body = L.multi && draft ? <QuandoOre onSede={setWkSede} t={t} u={u} L={L} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} nuovi={nuoviP} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} L={L} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} nuovi={nuoviP} />;
                 break;
             case "ordine":
                 body = <EvidOrdine t={t} u={u} L={L} others={others} alone={whereSedi.filter(id => !t.ord[id])} />;

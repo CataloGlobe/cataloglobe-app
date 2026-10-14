@@ -168,6 +168,8 @@ export type Tunnel = {
     /** «È uguale per tutte le sedi?»: con «no» ogni sede ha le sue scelte in `hm` (`sede|altro`). */
     hSame?: "si" | "no";
     hm?: Record<string, "ins" | "pos">;
+    /** In modifica: gli incroci nuovi a cui si è già risposto (le sedi, in fila). Solo schermo. */
+    hOk?: string;
     /** La parte del «Quando» che si vede: 1 le ore, 2 «In onda insieme». Solo schermo. */
     qPart?: 1 | 2;
     name: string;
@@ -379,7 +381,8 @@ export const STEP_LABEL: Record<StepId, string> = {
 /** Chi crea e dove: `owner` gestisce il Calendario (Dove e quando), `multi` ha più sedi. */
 /** `clash`: nelle sue ore c'è già un altro menù o stile, e si sceglie cosa fare (dal Calendario a destra). */
 /** `ordSedi`: le sedi scelte dove c'è già un altro contenuto in evidenza (passo «L'ordine»). */
-export type Ctx = { owner: boolean; multi: boolean; clash?: boolean; ordSedi?: readonly string[] };
+/** `hNuovi`: in modifica, le sedi (per nome) con un incrocio che prima non c'era e ancora senza risposta (D196). */
+export type Ctx = { owner: boolean; multi: boolean; clash?: boolean; ordSedi?: readonly string[]; hNuovi?: readonly string[] };
 
 /** Il nome del passo: modificando un menù «Da dove parti» è solo il nome. */
 export const stepLabel = (t: Tunnel, s: StepId): string => (t.edit && s === "parti" ? "Il nome" : STEP_LABEL[s]);
@@ -499,6 +502,9 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
                 if (why) return why;
             }
             if (c.clash && t.insieme == null && (t.kind === "menu" || t.kind === "stile")) return t.kind === "stile" ? "Scegli: prende il posto dell'altro o lo lascia" : "Scegli: insieme o al posto degli altri";
+            // in modifica la scelta di prima vale per gli incroci di prima; per uno nuovo si chiede (D196)
+            if (c.clash && c.hNuovi?.length && (t.kind === "menu" || t.kind === "stile"))
+                return `Scegli: a ${listIt([...c.hNuovi])} c'è un incrocio nuovo, ${t.kind === "stile" ? "prende il posto dell'altro o lo lascia" : "insieme o al posto degli altri"}`;
             return "";
         case "dove":
             if (!t.onda) return CHOOSE;
@@ -512,14 +518,14 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
 }
 
 /** Modificando, un passo da guardare: cambiato, o con un import da foto ancora aperto. */
-export const touched = (t: Tunnel, step: StepId) => changed(t, step) || (step === "sezioni" && !!t.impOpen);
+export const touched = (t: Tunnel, step: StepId, c?: Ctx) => changed(t, step) || (step === "sezioni" && !!t.impOpen) || (step === "quando" && !!c?.hNuovi?.length);
 
 /** Il primo passo con qualcosa che manca, prima di «Controlla». */
 export function firstBlock(t: Tunnel, c: Ctx): { i: number; why: string } | null {
     const st = steps(t, c);
     for (let i = 0; i < st.length - 1; i++) {
         // modificando conta solo quello che si è cambiato: il resto era già così
-        if (t.edit && !touched(t, st[i])) continue;
+        if (t.edit && !touched(t, st[i], c)) continue;
         if (skipped(t, st[i], c)) continue;
         const why = blocker(t, st[i], c);
         if (why) return { i, why };
@@ -764,8 +770,17 @@ export function aboutPlace(t: Pick<Tunnel, "about" | "linked" | "sede">, L: Name
     return "nella pagina del locale" + (L.multi && t.sede ? " di " + q(L.sedi.get(t.sede) ?? "Sede") : "");
 }
 
-/** «In una frase»: quando, dove e cosa succede. */
-export function sentence(t: Tunnel, L: DraftLookups): string {
+/** Le sedi dove non si vede perché lì resta un altro, e chi resta: la coda di «In una frase». */
+export type Nascosto = { sedi: string[]; by: string[] };
+
+/** «In una frase»: quando, dove e cosa succede; `hid`: dove non si vede, perché resta un altro (D196). */
+export function sentence(t: Tunnel, L: DraftLookups, hid?: Nascosto | null): string {
+    const s = sentence0(t, L);
+    if (t.onda !== "on" || !hid?.sedi.length) return s;
+    return s.slice(0, -1) + `; a ${listIt(hid.sedi)} non si vede: lì resta ${listIt(hid.by.map(q))}.`;
+}
+
+function sentence0(t: Tunnel, L: DraftLookups): string {
     if (t.onda !== "on") return readySentence(t);
     // la storia non ha sedi né orari (D191): segue la cosa di cui parla
     if (t.kind === "storia")

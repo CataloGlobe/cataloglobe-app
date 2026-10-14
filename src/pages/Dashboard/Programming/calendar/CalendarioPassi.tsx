@@ -457,7 +457,10 @@ export function ScontriAvviso({ kind, scontri, multi, insieme, onInsieme }: { ki
     const vinte = scontri.filter(x => x.vince);
     const frase = (x: Scontro) => {
         const t = multi ? `A ${listIt(x.sedi)}, ${x.quando}, c'è già ${q(x.con)}` : `${x.quando.charAt(0).toUpperCase()}${x.quando.slice(1)} c'è già ${q(x.con)}`;
-        return x.vince ? t + "." : `${t}: resta quello, perché c'era prima. Lì il tuo non si vede.`;
+        if (x.vince) return t + ".";
+        // lì oggi vince l'altro (più vicino alla sede, orari più stretti); nel tunnel lo dice la scelta (D196)
+        if (x.copre) return `${t}, che lì oggi vince: il tuo lì non si vede.`;
+        return `${t}: resta quello, perché c'era prima. Lì il tuo non si vede.`;
     };
     const scelta = kind === "menu" && NEW_MODEL.multiMenu && vinte.length > 0;
     return (

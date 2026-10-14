@@ -5,7 +5,7 @@ import { ArrowLeftRight, CalendarCheck, CalendarOff, CircleDashed, Layers } from
 import { q, durLabel, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { hoursText, type SedeEff } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { CreaKind as Kind } from "./creaModel";
-import { effChips, effSum, type EffIco } from "./creaEffetto";
+import { effChips, effSum, type EffIco, type EffVal } from "./creaEffetto";
 import s from "./Crea.module.scss";
 
 const ICO: Record<EffIco, typeof Layers> = { off: CalendarOff, posto: ArrowLeftRight, insieme: Layers, solo: CircleDashed };
@@ -23,7 +23,8 @@ export function CosaCambia({
 }: {
     sedi: readonly SedeEff[];
     kind: Kind;
-    insieme: boolean;
+    /** La risposta «insieme / al posto», unica o sede per sede. */
+    insieme: EffVal;
     when: CalWhen;
     multi: boolean;
     /** Lo stile che il menù porta con sé. */
@@ -42,7 +43,7 @@ export function CosaCambia({
                     {!sum.on && !multi && "Questa settimana non c'è."}
                     {multi && (
                         <>
-                            In onda in <b>{sediN(sum.on)}</b>
+                            In onda in <b>{sum.on < sum.tot ? `${sum.on} di ${sediN(sum.tot)}` : sediN(sum.on)}</b>
                         </>
                     )}
                     {sum.same && (
