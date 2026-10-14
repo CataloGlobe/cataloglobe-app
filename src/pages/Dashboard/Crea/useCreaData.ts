@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { listLayoutRuleOptions, listLayoutRules, type LayoutRule, type LayoutRuleOption } from "@/services/supabase/layoutScheduling";
+import { listCatalogProductPairs } from "@/services/supabase/catalogs";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { listBaseProductsForPickerWithCategory } from "@/services/supabase/products";
 import { listStyles, type V2Style } from "@/services/supabase/styles";
@@ -20,6 +21,8 @@ export type CreaData = {
     /** Oggi menù e stile vanno in coppia: quelli della regola di base, sempre e per tutte. */
     base: { catalogId: string; styleId: string } | null;
     systemStyleId: string | null;
+    /** In quali menù sta ogni prodotto (gli id dei menù): la storia di un prodotto si vede lì. */
+    menusOf: Map<string, string[]>;
     L: DraftLookups;
 };
 
@@ -38,6 +41,7 @@ export function useCreaData(tenantId: string | null | undefined) {
         idsByGroup: Record<string, string[]>;
         pick: Awaited<ReturnType<typeof listBaseProductsForPickerWithCategory>>;
         styles: V2Style[];
+        pairs: Awaited<ReturnType<typeof listCatalogProductPairs>>;
     } | null>(null);
     const [failed, setFailed] = useState(false);
 
@@ -45,11 +49,12 @@ export function useCreaData(tenantId: string | null | undefined) {
         if (!tenantId) return;
         setFailed(false);
         try {
-            const [rules, opts, pick, styles] = await Promise.all([
+            const [rules, opts, pick, styles, pairs] = await Promise.all([
                 listLayoutRules(tenantId),
                 listLayoutRuleOptions(tenantId),
                 listBaseProductsForPickerWithCategory(tenantId),
-                listStyles(tenantId)
+                listStyles(tenantId),
+                listCatalogProductPairs(tenantId)
             ]);
             const groups = opts.activityGroups.filter(g => !g.is_system);
             const idsByGroup = groups.length ? await listActivityIdsByGroup(groups.map(g => g.id)) : {};
@@ -62,6 +67,7 @@ export function useCreaData(tenantId: string | null | undefined) {
                 featured: opts.featuredContents,
                 idsByGroup,
                 pick,
+                pairs,
                 styles: styles.filter(st => st.is_active !== false)
             });
         } catch (error) {
@@ -105,7 +111,14 @@ export function useCreaData(tenantId: string | null | undefined) {
                 r.layout?.catalog_id &&
                 r.layout?.style_id
         );
+        const menusOf = new Map<string, string[]>();
+        for (const x of raw.pairs) {
+            const l = menusOf.get(x.product_id);
+            if (!l) menusOf.set(x.product_id, [x.catalog_id]);
+            else if (!l.includes(x.catalog_id)) l.push(x.catalog_id);
+        }
         return {
+            menusOf,
             rules: raw.rules,
             names,
             sedi,

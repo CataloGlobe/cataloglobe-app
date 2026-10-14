@@ -1,5 +1,5 @@
 // I corpi dei passi dei tunnel, uno a uno dall'artifact (`bodyOf`). Il Quando
-// e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
+// e il Dove sono quelli del Calendario (`QuandoPasso`, `SediPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, BookOpen, CalendarClock, Check, CircleCheck, CirclePause, Copy, Info, Infinity as InfinityIcon, Layers, Link2, Lock, MapPinned, Megaphone, Palette, Plus, PowerOff, Radio, ScanText, ScrollText, TriangleAlert } from "lucide-react";
@@ -12,14 +12,14 @@ import { StoryBlockEditor } from "@/pages/Dashboard/Stories/components/StoryBloc
 import { BLOCK_TYPE_META, BLOCK_TYPE_ORDER } from "@/pages/Dashboard/Stories/components/blocks/blockTypeMeta";
 import { createBlock } from "@/pages/Dashboard/Stories/components/createBlock";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
-import { DoveQuandoPasso, OreSedi, QuandoPasso, ScontriAvviso, SediPasso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
-import { DB_LATER, NEW_MODEL, invalid, sediOf, type Draft, type DraftLookups, type Impatto, type PickProduct, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { OreSedi, QuandoPasso, ScontriAvviso, SediPasso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
+import { NEW_MODEL, invalid, sediOf, type Draft, type DraftLookups, type Impatto, type PickProduct, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { KIND, ONDA, STORIA_WHEN, inhAsk, blocker, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, nTutte, offLater, ondaChange, oreSummary, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel, type CreaKind } from "./creaModel";
+import { KIND, ONDA, inhAsk, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, nTutte, offLater, ondaChange, oreSummary, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel, type CreaKind } from "./creaModel";
 import { hidFeatured } from "./stileLook";
 import s from "./Crea.module.scss";
-import { Box, Chip, Field, Opt, Pick, Sh, Toggle, Warnish } from "./CreaUi";
+import { Box, Chip, Field, Opt, Pick, Sh, Toggle } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
 import { InhBox } from "./InhBox";
 import { InsiemeBox } from "./InsiemeBox";
@@ -147,8 +147,8 @@ export function Serve({ t, example, business }: { t: Tunnel; example: string | n
         </>
     ) : (
         <>
-            <Sh title="Racconta una storia">Chi sei, da dove vengono gli ingredienti, il piatto del mese. Compare sotto il menù, con testo e foto, e si legge toccandola.</Sh>
-            <p className={s.hint}>Nel telefono a destra vedi dove compare: sotto il menù, nelle storie.</p>
+            <Sh title="Racconta una storia">Chi siete, da dove viene un ingrediente, il piatto del mese. La storia sta con la cosa che racconta: in fondo alla scheda di un prodotto, oppure nella pagina del locale.</Sh>
+            <p className={s.hint}>Nel passo dopo scegli di cosa parla. Il telefono a destra ti mostra dove compare.</p>
         </>
     );
 }
@@ -275,8 +275,8 @@ export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly 
 }
 
 /* ---------- la storia ---------- */
-export function StoriaRacconto({ t, u, pick, coverUrl }: { t: Tunnel; u: U; pick: readonly PickProduct[]; coverUrl: string | null }) {
-    const ids = { k: useId(), t: useId(), l: useId(), c: useId() };
+export function StoriaRacconto({ t, u, coverUrl }: { t: Tunnel; u: U; coverUrl: string | null }) {
+    const ids = { k: useId(), t: useId(), c: useId() };
     return (
         <>
             <Sh title="Il racconto">Così si presenta nell'elenco delle storie, sotto il menù.</Sh>
@@ -299,18 +299,7 @@ export function StoriaRacconto({ t, u, pick, coverUrl }: { t: Tunnel; u: U; pick
                     }
                 />
             </div>
-            <div className={cx(s.f, s.blk)}>
-                <label htmlFor={ids.l}>Anche nella scheda di un piatto</label>
-                <select className={s.in} id={ids.l} value={t.linked} onChange={e => u(x => void (x.linked = e.target.value))}>
-                    <option value="">Nessuno</option>
-                    {pick.map(p => (
-                        <option key={p.id} value={p.id}>
-                            {p.name}
-                        </option>
-                    ))}
-                </select>
-                <p className={s.hint}>Facoltativo: chi apre quel piatto trova la storia in fondo.</p>
-            </div>
+            <p className={s.hint}>Il prodotto o il locale si scelgono in «Di cosa parla».</p>
         </>
     );
 }
@@ -443,7 +432,6 @@ const ondaSub = (t: Tunnel) => `Prima decidi se i clienti ${ONDA[t.kind].lo} ved
 export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri, L }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean; clash?: boolean; scontri?: readonly Scontro[]; L?: DraftLookups }) {
     // da «E adesso?»: prima si confermano gli orari ereditati (D194)
     const ask = !!L && inhAsk(t), asking = ask && t.inhQ !== "cambio";
-    const storia = t.kind === "storia";
     const choice = (
         <>
             <div className={s.opts}>
@@ -453,8 +441,6 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri
                     icon={<CalendarClock size={16} />}
                     title="Solo in certi momenti"
                     text="Un periodo, alcuni giorni o alcune ore: il pranzo, il weekend, Natale."
-                    disabled={storia && !STORIA_WHEN}
-                    later={storia && !STORIA_WHEN ? "Per le storie arriva col database nuovo" : undefined}
                     onClick={() =>
                         u(x => {
                             x.qmode = "momenti";
@@ -674,44 +660,6 @@ export function QuandoOre({
                         <span>Nessun altro {t.kind === "stile" ? "stile" : "menù"} in onda in queste ore: niente da scegliere.</span>
                     </p>
                 )
-            )}
-        </>
-    );
-}
-
-/** Dove e quando della storia (D145): il passo del Calendario, col «Sempre» del tunnel dentro. */
-export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[]; L: DraftLookups; durs: readonly CalWhen[]; axis: Axis }) {
-    const { t, draft } = p;
-    const storia = t.kind === "storia";
-    const storiaBad = storia ? blocker(t, "dove", { owner: true, multi: true }) : "";
-    return (
-        <>
-            <Sh title="Dove e quando">{ondaSub(t)}</Sh>
-            <OndaAsk t={t} u={p.u} />
-            {t.onda === "off" && <OndaOff t={t} />}
-            {t.onda === "on" && (
-                <>
-                    {t.from && t.from.kind !== "storia" && <Inherited>Sedi e ore vengono da {q(t.from.name)}: puoi cambiarle.</Inherited>}
-                    {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
-                    {t.edit?.ruleId && !storia && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
-                    <div className={cx(cal.root, s.calwrap)} data-bad="ore">
-                        <DoveQuandoPasso
-                            draft={draft}
-                            upd={p.updDraft}
-                            sedi={p.sedi}
-                            groups={p.groups}
-                            L={p.L}
-                            bad={invalid(draft)}
-                            durs={p.durs}
-                            axis={p.axis}
-                            split={!storia && !t.edit}
-                            quando={<Quando bare t={t} u={p.u} draft={draft} updDraft={p.updDraft} durs={p.durs} axis={p.axis} />}
-                        />
-                    </div>
-                    <p className={s.hint}>
-                        {storia ? storiaBad ? <Warnish>{storiaBad}.</Warnish> : `Oggi una storia va in tutte le sedi o in una sola; per alcune sedi ${DB_LATER}.` : KIND_TXT[t.kind]}
-                    </p>
-                </>
             )}
         </>
     );

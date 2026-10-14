@@ -767,6 +767,31 @@ select.in {
         background: var(--c-brand-soft);
     }
 }
+/* la ricerca sopra un elenco lungo (Quale prodotto?) */
+.srch {
+    position: relative;
+    align-self: stretch;
+    width: 100%;
+    margin-bottom: 8px;
+    > svg {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        pointer-events: none;
+    }
+    .in {
+        width: 100%;
+        padding-left: 32px;
+    }
+}
+.lmax {
+    max-height: 296px;
+}
+.lnone {
+    padding: 10px;
+}
 /* una riga da scegliere, una sola (Quale menù copi?) */
 .lpick {
     display: flex;
@@ -1366,6 +1391,46 @@ select.in {
         object-fit: cover;
         border-radius: 8px;
     }
+}
+/* la scheda di un prodotto aperta sopra il menù: la storia sta in fondo (D191) */
+.pDim {
+    background: rgba(15, 23, 42, 0.45);
+    padding: 10px 12px 22px;
+    .pName {
+        color: var(--color-white);
+        opacity: 0.85;
+    }
+}
+.pSheet {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: -12px;
+    padding: 10px 12px 14px;
+    border-radius: 14px 14px 0 0;
+    background: var(--pbg, #fff);
+}
+.pGrab {
+    width: 34px;
+    height: 4px;
+    border-radius: 2px;
+    background: color-mix(in srgb, currentColor 25%, transparent);
+    align-self: center;
+}
+.pPimg {
+    aspect-ratio: 4/3;
+    border-radius: 10px;
+    background: linear-gradient(160deg, #fcd34d, #b45309);
+}
+.pRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+}
+.pSede {
+    @include sch.fs(fine);
+    opacity: 0.7;
 }
 .pStories {
     display: grid;

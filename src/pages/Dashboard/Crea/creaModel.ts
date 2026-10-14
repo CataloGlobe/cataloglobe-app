@@ -7,8 +7,9 @@
 // `CalWhere`), così la regola si salva con le sue funzioni.
 //
 // Il database di oggi (D122 → A, ripresa da D124 per la storia): il multi menù
-// non c'è, una sola fascia oraria e mai dopo mezzanotte; la storia va in tutte
-// le sedi o in una, sempre. Quelle parti ci sono già, spente.
+// non c'è, una sola fascia oraria e mai dopo mezzanotte. Quelle parti ci sono
+// già, spente. La storia non ha sedi né orari (D191): sta col suo prodotto o
+// con la sede di cui parla.
 import type { StoryBlock } from "@/services/supabase/stories";
 import type { FeaturedContentType } from "@/services/supabase/featuredContents";
 import { DEFAULT_STYLE_TOKENS, type FontFamily, type StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
@@ -24,7 +25,6 @@ export type CreaKind = "menu" | "stile" | "evid" | "storia";
 export const CREA_KINDS: readonly CreaKind[] = ["menu", "stile", "evid", "storia"];
 
 /** Le storie col quando e con più sedi (D124 4 → A) aspettano la voce 1 di Lorenzo. */
-export const STORIA_WHEN = false;
 
 /** L'indirizzo: /crea/menu, /crea/stile, /crea/evidenza, /crea/storia. */
 export const SLUG: Record<CreaKind, string> = { menu: "menu", stile: "stile", evid: "evidenza", storia: "storia" };
@@ -141,6 +141,8 @@ export type From = {
     dish: { id: string; name: string } | null;
     /** In onda o tenuto pronto: tenuto pronto, la cosa nuova lo richiede. */
     onda: "on" | "off" | null;
+    /** La sua prima sede: da uno stile, la storia racconta il locale lì. */
+    sede?: string | null;
     when: CalWhen;
     where: CalWhere;
     /** Le ore per sede del menù, se le sedi non avevano le stesse ore (D145). */
@@ -197,6 +199,9 @@ export type Tunnel = {
     cover: File | null;
     coverUrl: string | null;
     linked: string;
+    /** Di cosa parla (D191): un prodotto (`linked`) o il locale (`sede`, con più sedi). */
+    about: "prod" | "loc" | null;
+    sede: string;
     blocks: StoryBlock[];
     /** I blocchi immagine con una foto nuova da caricare (i file stanno fuori dal modello). */
     pending: string[];
@@ -264,6 +269,9 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: From | null = n
         cover: null,
         coverUrl: null,
         linked: kind === "storia" && from?.dish ? from.dish.id : "",
+        // dal suo piatto; da uno stile, il locale nella sua prima sede
+        about: kind !== "storia" ? null : from?.dish ? "prod" : from?.kind === "stile" ? "loc" : null,
+        sede: (kind === "storia" && !from?.dish && from?.kind === "stile" && from.sede) || "",
         blocks: [],
         pending: [],
         qmode: timed && (inh.when.period || inh.when.days || inh.when.ranges) ? "momenti" : "sempre",
@@ -310,8 +318,10 @@ export type StepId =
     | "aspetto"
     | "contenuto"
     | "piatti"
+    | "tema"
     | "racconto"
     | "blocchi"
+    | "onda"
     | "quando"
     | "dove"
     | "controlla";
@@ -325,8 +335,10 @@ export const STEP_LABEL: Record<StepId, string> = {
     aspetto: "L'aspetto",
     contenuto: "Il contenuto",
     piatti: "Piatti",
+    tema: "Di cosa parla",
     racconto: "Il racconto",
     blocchi: "I blocchi",
+    onda: "In onda?",
     quando: "Quando",
     dove: "Dove",
     controlla: "Controlla"
@@ -336,11 +348,11 @@ export const STEP_LABEL: Record<StepId, string> = {
 /** `clash`: nelle sue ore c'è già un altro menù o stile, e si sceglie cosa fare (dal Calendario a destra). */
 export type Ctx = { owner: boolean; multi: boolean; clash?: boolean };
 
-/** Il nome del passo: modificando un menù «Da dove parti» è solo il nome; la storia ha ancora «Dove e quando» insieme. */
-export const stepLabel = (t: Tunnel, s: StepId): string => (t.edit && s === "parti" ? "Il nome" : s === "dove" && t.kind === "storia" ? "Dove e quando" : STEP_LABEL[s]);
+/** Il nome del passo: modificando un menù «Da dove parti» è solo il nome. */
+export const stepLabel = (t: Tunnel, s: StepId): string => (t.edit && s === "parti" ? "Il nome" : STEP_LABEL[s]);
 
-/** Con più sedi il Dove viene prima del Quando, in due passi; con una sola c'è solo il Quando. */
-const calSteps = (t: Tunnel, c: Ctx): StepId[] => (!c.multi ? ["quando"] : t.kind === "storia" ? ["dove"] : ["dove", "quando"]);
+/** Con più sedi il Dove viene prima del Quando, in due passi; con una sola c'è solo il Quando. La storia non ha né l'uno né l'altro (D191): solo «In onda?». */
+const calSteps = (t: Tunnel, c: Ctx): StepId[] => (t.kind === "storia" ? ["onda"] : !c.multi ? ["quando"] : ["dove", "quando"]);
 
 /** «tutte e due le sedi», «tutte e tre le sedi», «tutte le 12 sedi». */
 export const nTutte = (n: number) => (n === 2 ? "tutte e due le sedi" : n === 3 ? "tutte e tre le sedi" : `tutte le ${n} sedi`);
@@ -354,7 +366,7 @@ export function oreSummary(t: Tunnel, ids: readonly string[]): string {
 }
 
 /** Tenuto pronto nel «Dove»: il «Quando» non serve, si salta. */
-export const skipped = (t: Tunnel, s: StepId, c: Ctx): boolean => s === "quando" && c.multi && t.kind !== "storia" && t.onda === "off";
+export const skipped = (t: Tunnel, s: StepId, c: Ctx): boolean => s === "quando" && c.multi && t.onda === "off";
 
 export function steps(t: Tunnel, c: Ctx): StepId[] {
     if (t.edit) return editSteps(t, c);
@@ -365,7 +377,7 @@ export function steps(t: Tunnel, c: Ctx): StepId[] {
               ? ["serve", "nome", "aspetto"]
               : t.kind === "evid"
                 ? ["contenuto"]
-                : ["serve", "racconto", "blocchi"];
+                : ["serve", "tema", "racconto", "blocchi"];
     const when: StepId[] = c.owner ? calSteps(t, c) : [];
     return [...content, ...when, "controlla"];
 }
@@ -389,10 +401,10 @@ export const CHOOSE = "Scegli una delle due per andare avanti";
 
 /** In onda per chi salva: chi non gestisce il Calendario tiene sempre pronto. */
 /** «E adesso?»: cosa hai appena fatto, in una frase (D194). */
-export function adessoDid(t: Tunnel, saved: { name: string; live: boolean }, c: { multi: boolean; sedi: readonly string[]; dish: string }): string {
+export function adessoDid(t: Tunnel, saved: { name: string; live: boolean }, c: { multi: boolean; sedi: readonly string[]; place: string }): string {
     const n = "«" + saved.name + "»", o = ONDA[t.kind];
     if (!saved.live) return `${n} è ${o.pronto}: nessun cliente ${o.lo} vede finché non ${o.lo} metti in onda.`;
-    if (t.kind === "storia") return `${n} è in onda: si vede ${c.dish ? "in fondo alla scheda di «" + c.dish + "»" : "sotto il menù"}.`;
+    if (t.kind === "storia") return `${n} è in onda: si vede ${c.place}.`;
     return `${n} è in onda${c.multi && c.sedi.length ? " a " + listIt([...c.sedi]) : ""}, ${durLabel(effWhen(t)).toLowerCase()}.`;
 }
 
@@ -433,8 +445,16 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
         case "piatti":
             if (!t.dishes.length) return "Aggiungi almeno un piatto";
             return t.evType === "bundle" && !(price(t.bundle) > 0) ? "Manca il prezzo unico" : "";
+        case "tema":
+            // modificando, una storia di tutte le sedi resta com'è finché non la si tocca
+            if (t.edit && !changed(t, "tema")) return "";
+            if (!t.about) return "Scegli di cosa parla";
+            if (t.about === "prod") return t.linked ? "" : "Scegli il prodotto";
+            return c.multi && !t.sede ? "Scegli la sede" : "";
         case "racconto":
             return t.title.trim() ? "" : "Manca il titolo";
+        case "onda":
+            return t.onda ? "" : CHOOSE;
         case "quando":
             if (!t.onda) return CHOOSE;
             if (t.onda === "off") return "";
@@ -450,14 +470,7 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
             if (t.onda === "off" || !c.multi) return "";
             if (!t.where.all && !t.where.activityIds.length && !t.where.groupIds.length) return "Scegli almeno una sede";
             // le ore sono nel passo dopo, «Quando»
-            if (t.kind !== "storia") return inhAsk(t) && t.inhD == null ? "Conferma le sedi o cambiale" : "";
-            if (!STORIA_WHEN && !t.where.all && (t.where.groupIds.length || t.where.activityIds.length > 1))
-                return "Una storia in più sedi " + DB_LATER;
-            for (const w of t.per ? Object.values(t.per) : [effWhen(t)]) {
-                const why = whenProblem(w);
-                if (why) return why;
-            }
-            return "";
+            return inhAsk(t) && t.inhD == null ? "Conferma le sedi o cambiale" : "";
         default:
             return "";
     }
@@ -546,7 +559,7 @@ export const isDirty = (t: Tunnel) =>
 /* ---------- modificare (D140) ---------- */
 
 /** I passi che cambiano la cosa, in ordine: il passo 0 e «Controlla» stanno attorno. */
-const EDIT_PARTS: readonly StepId[] = ["parti", "sezioni", "nome", "aspetto", "contenuto", "piatti", "racconto", "blocchi", "quando", "dove"];
+const EDIT_PARTS: readonly StepId[] = ["parti", "sezioni", "nome", "aspetto", "contenuto", "piatti", "tema", "racconto", "blocchi", "onda", "quando", "dove"];
 
 function editSteps(t: Tunnel, c: Ctx): StepId[] {
     const content: StepId[] =
@@ -556,9 +569,9 @@ function editSteps(t: Tunnel, c: Ctx): StepId[] {
               ? ["nome", "aspetto"]
               : t.kind === "evid"
                 ? ["contenuto"]
-                : ["racconto", "blocchi"];
+                : ["tema", "racconto", "blocchi"];
     // il «Dove e quando» cambia la sua regola del Calendario: c'è se è una sola, o nessuna
-    // (allora la si crea mettendolo in onda); la storia non ha regole
+    // (allora la si crea mettendolo in onda); la storia non ha regole: ha «In onda?»
     const one = t.kind === "storia" || (t.edit?.rules ?? 0) <= 1;
     const when: StepId[] = c.owner && one ? calSteps(t, c) : [];
     return ["modifica", ...content, ...when, "controlla"];
@@ -587,14 +600,17 @@ function partOf(t: Tunnel, s: StepId): unknown {
             if (!hasDishes(t)) return null;
             return [t.evType, t.dishes, t.evType === "bundle" ? [t.bundle.trim(), t.showOrig] : t.dishes.map(d => t.notes[d]?.trim() ?? "")];
         case "racconto":
-            return [t.kicker.trim(), t.title.trim(), !!t.cover, t.coverUrl, t.linked];
+            return [t.kicker.trim(), t.title.trim(), !!t.cover, t.coverUrl];
+        case "tema":
+            return [t.about, t.about === "prod" ? t.linked : null, t.about === "loc" ? t.sede : null];
+        case "onda":
+            return t.onda;
         case "blocchi":
             return [t.blocks, t.pending];
         // spento, sedi e orari non contano: restano quelli della sua voce
         case "dove":
             if (t.onda !== "on") return t.onda;
-            // la storia ha ancora le ore nello stesso passo
-            return [t.onda, t.where.all, sorted(t.where.activityIds), sorted(t.where.groupIds), ...(t.kind === "storia" ? [cloneWhen(effWhen(t)), t.per] : [])];
+            return [t.onda, t.where.all, sorted(t.where.activityIds), sorted(t.where.groupIds)];
         case "quando":
             return t.onda !== "on" ? t.onda : [t.onda, cloneWhen(effWhen(t)), t.per, !!t.insieme];
         default:
@@ -682,12 +698,31 @@ function what(t: Tunnel): string {
     if (t.kind === "menu") return t.insieme ? `${q(n)} si aggiunge agli altri menù` : `${q(n)} prende il posto degli altri menù`;
     if (t.kind === "stile") return t.insieme ? `la pagina prende lo stile ${q(n)}, ma dove c'è già un altro stile resta quello` : `la pagina prende lo stile ${q(n)}`;
     if (t.kind === "evid") return `${q(n)} va in evidenza, ${t.slot === "before" ? "in cima al" : "sotto il"} menù`;
-    return `la storia ${q(n)} compare sotto il menù`;
+    return `la storia ${q(n)} compare`;
+}
+
+type Names = Pick<DraftLookups, "products" | "sedi" | "multi">;
+
+/** «Il prodotto «Carbonara»», «Il locale · Porto»: di cosa parla la storia, in breve. */
+export function aboutShort(t: Pick<Tunnel, "about" | "linked" | "sede">, L: Names): string {
+    if (!t.about) return "Da scegliere";
+    if (t.about === "prod") return t.linked ? "Il prodotto " + q(L.products.get(t.linked)?.name ?? "Prodotto") : "Un prodotto, da scegliere";
+    return "Il locale" + (L.multi ? (t.sede ? " · " + (L.sedi.get(t.sede) ?? "Sede") : ", sede da scegliere") : "");
+}
+
+/** Dove si vede la storia: in fondo alla scheda del suo prodotto, o nella pagina del locale. */
+export function aboutPlace(t: Pick<Tunnel, "about" | "linked" | "sede">, L: Names): string {
+    if (!t.about) return "sotto il menù";
+    if (t.about === "prod") return "in fondo alla scheda di " + q(t.linked ? (L.products.get(t.linked)?.name ?? "Prodotto") : "…");
+    return "nella pagina del locale" + (L.multi && t.sede ? " di " + q(L.sedi.get(t.sede) ?? "Sede") : "");
 }
 
 /** «In una frase»: quando, dove e cosa succede. */
 export function sentence(t: Tunnel, L: DraftLookups): string {
     if (t.onda !== "on") return readySentence(t);
+    // la storia non ha sedi né orari (D191): segue la cosa di cui parla
+    if (t.kind === "storia")
+        return (t.about === "prod" ? "Dove e quando " + q(L.products.get(t.linked)?.name ?? "Prodotto") + " è nel menù" : "Sempre" + (L.multi && t.sede ? ", solo per " + (L.sedi.get(t.sede) ?? "Sede") : "")) + ": " + what(t) + " " + aboutPlace(t, L) + ".";
     if (t.per) return perGroups(t.per).map(g => whenWords(g.when) + ", " + whereFor({ all: false, activityIds: g.ids, groupIds: [] }, L)).join("; ") + ": " + what(t) + ".";
     return whenWords(effWhen(t)) + (L.multi ? ", " + whereFor(t.where, L) : "") + ": " + what(t) + ".";
 }
@@ -747,7 +782,11 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
                 ? `${t.dishes.map(product).join(", ")} · ${t.bundle.trim()} €${t.showOrig ? " · totale di prima barrato" : ""}`
                 : t.dishes.map(d => product(d) + (t.notes[d]?.trim() ? ` (${t.notes[d].trim()})` : "")).join(", ");
         case "racconto":
-            return [t.kicker.trim(), t.title.trim()].filter(Boolean).join(" · ") + (t.cover || t.coverUrl ? " · con copertina" : "") + (t.linked ? ` · anche in ${product(t.linked)}` : "");
+            return [t.kicker.trim(), t.title.trim()].filter(Boolean).join(" · ") + (t.cover || t.coverUrl ? " · con copertina" : "");
+        case "tema":
+            return aboutShort(t, L);
+        case "onda":
+            return t.onda === "on" ? "Sì, si vede " + aboutPlace(t, L) : t.onda === "off" ? "No, per ora la tengo pronta" : "Da scegliere";
         case "blocchi": {
             if (!t.blocks.length) return "Nessun blocco";
             const n = new Map<StoryBlock["type"], number>();
@@ -757,9 +796,7 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
         case "quando":
             return t.onda === "off" ? keepReady(t.kind) : t.per ? perText(t.per, L) : durLabel(effWhen(t));
         case "dove":
-            if (t.onda === "off") return keepReady(t.kind);
-            if (t.kind !== "storia") return whereText(t.where, L);
-            return t.per ? perText(t.per, L) : whereText(t.where, L) + " · " + durLabel(effWhen(t));
+            return t.onda === "off" ? keepReady(t.kind) : whereText(t.where, L);
         default:
             return "";
     }
@@ -794,7 +831,7 @@ export function qcardText(t: Tunnel, step: StepId, L: DraftLookups, baseName: st
         case "sezioni":
             return ["Categorie e piatti", "Nello stesso ordine in cui li metti qui."];
         case "serve":
-            return t.kind === "stile" ? [baseName ? `Lo stile «${baseName}»` : "Lo stile", "I colori e i caratteri di tutta la pagina."] : ["Le storie", "Sotto il menù, con testo e foto."];
+            return t.kind === "stile" ? [baseName ? `Lo stile «${baseName}»` : "Lo stile", "I colori e i caratteri di tutta la pagina."] : ["Le storie", "Nella pagina del locale o nella scheda di un prodotto."];
         case "nome":
             return [t.name.trim() || "Lo stile nuovo", t.base === "copy" && baseName ? `Parte da «${baseName}».` : "Parte dai colori di CataloGlobe."];
         case "aspetto":
@@ -802,7 +839,13 @@ export function qcardText(t: Tunnel, step: StepId, L: DraftLookups, baseName: st
         case "contenuto":
             return [t.title.trim() || "Il titolo", t.slot === "before" ? "Sopra il menù, appena sotto il nome." : "Sotto il menù, in fondo alla pagina."];
         case "racconto":
-            return [t.title.trim() || "Il titolo", "Così si presenta nell'elenco delle storie."];
+            return [t.title.trim() || "Il titolo", t.about ? `Così si presenta ${aboutPlace(t, L)}.` : "Così si presenta nell'elenco delle storie."];
+        case "tema":
+            if (!t.about) return ["Di cosa parla", "Scegli un prodotto o il locale: qui vedi dove compare."];
+            if (t.about === "prod") return [(t.linked && L.products.get(t.linked)?.name) || "Il prodotto", "In fondo alla sua scheda, quando il cliente lo apre."];
+            return ["La pagina del locale", (L.multi && t.sede ? (L.sedi.get(t.sede) ?? "Sede") + ": " : "") + "sotto il menù, nelle storie."];
+        case "onda":
+            return [t.onda === "off" ? "Pronta, non in onda" : t.onda === "on" ? "In onda" : "In onda?", `Si vede ${aboutPlace(t, L)}.`];
         case "blocchi":
             return ["La storia aperta", "Si legge toccando la storia."];
         case "controlla":

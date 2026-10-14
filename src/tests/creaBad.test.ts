@@ -63,6 +63,11 @@ describe("badSel", () => {
         const t = newTunnel("storia", ALL);
         expect(badSel("modifica", "Scegli almeno una cosa", t)).toBe(at("whats"));
         expect(badSel("racconto", blocker(t, "racconto", c), t)).toBe(at("title"));
+        // la storia: di cosa parla, quale prodotto, quale sede, in onda o no
+        expect(badSel("tema", blocker(t, "tema", c), t)).toBe(at("about"));
+        expect(badSel("tema", blocker({ ...t, about: "prod" }, "tema", c), t)).toBe(at("prodlist"));
+        expect(badSel("tema", blocker({ ...t, about: "loc" }, "tema", c), t)).toBe(at("sedelist"));
+        expect(badSel("onda", blocker(t, "onda", c), t)).toBe(at("ask"));
         expect(badSel("controlla", "", t)).toBe("");
     });
 });

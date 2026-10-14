@@ -461,6 +461,26 @@ describe("modifica nel tunnel: salvare «in onda» o «pronto» (D189)", () => {
         expect((calls.find(c => c[0] === "updateStory")![3] as { status: string }).status).toBe("published");
     });
 
+    it("la storia: «Di cosa parla» scrive il prodotto o la sede; il resto non si tocca (D191)", async () => {
+        const patch = () => calls.find(c => c[0] === "updateStory")![3] as Record<string, unknown>;
+        const of = (over: Partial<Tunnel>) => asEdit({ ...newTunnel("storia", ALL), name: "Il forno", ...over }, "s1", { id: null, count: 0, live: true });
+        // dal locale a un prodotto: la sede si toglie
+        await saveEdit(upd(of({ about: "loc", sede: "porto" }), x => void ((x.about = "prod"), (x.linked = "p1"))), ctx());
+        expect(patch()).toEqual({ product_id: "p1", activity_id: null });
+        calls.length = 0;
+        // da un prodotto a una sede
+        await saveEdit(upd(of({ about: "prod", linked: "p1" }), x => void ((x.about = "loc"), (x.sede = "lido"))), ctx());
+        expect(patch()).toEqual({ product_id: null, activity_id: "lido" });
+        calls.length = 0;
+        // solo un altro prodotto: la sede di prima, se c'era, resta
+        await saveEdit(upd(of({ about: "prod", linked: "p1", sede: "porto" }), x => void (x.linked = "p2")), ctx());
+        expect(patch()).toEqual({ product_id: "p2" });
+        calls.length = 0;
+        // solo «In onda?»: né prodotto né sede
+        await saveEdit(upd(of({ about: "prod", linked: "p1" }), x => void (x.onda = "off")), ctx());
+        expect(patch()).toEqual({ status: "draft" });
+    });
+
     it("chi non gestisce il Calendario non cambia la messa in onda", async () => {
         await saveEdit(upd(menu(), x => void (x.onda = "off")), ctx(false));
         expect(names()).not.toContain("updateScheduleEnabled");

@@ -257,13 +257,12 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
 /* ---------- la storia ---------- */
 async function saveStoria(t: Tunnel, c: SaveCtx): Promise<Saved> {
     const name = thingName(t);
-    const w = t.where;
+    // la storia sta col suo prodotto o con la sua sede (D191); con una sede sola, col locale
     const head = {
         eyebrow: t.kicker.trim() || null,
         title: name,
-        product_id: t.linked || null,
-        // oggi una storia va in tutte le sedi o in una (D124 4: il resto col database nuovo)
-        activity_id: !w.all && w.activityIds.length === 1 && !w.groupIds.length ? w.activityIds[0] : null
+        product_id: t.about === "prod" ? t.linked || null : null,
+        activity_id: t.about === "loc" ? t.sede || null : null
     };
     // la storia nasce una volta sola: riprovando la si riscrive in fondo, con titolo e sede di adesso
     const story = await once(c, "story", async () => ({ id: (await createStory(c.tenantId, { ...head, cover_media: null, status: "draft" })).id as string }));

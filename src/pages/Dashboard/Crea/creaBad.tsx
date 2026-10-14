@@ -24,6 +24,10 @@ export function badSel(step: StepId, why: string, t: Pick<Tunnel, "impOpen">): s
             if (/testo del bottone/.test(why)) return at("cta");
             if (/titolo/.test(why)) return at("title");
             return /piatto/.test(why) ? at("dishes") : at("price");
+        case "tema":
+            return /prodotto/.test(why) ? at("prodlist") : /sede/.test(why) ? at("sedelist") : at("about");
+        case "onda":
+            return at("ask");
         case "racconto":
             return at("title");
         case "quando":

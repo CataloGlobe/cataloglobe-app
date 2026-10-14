@@ -115,7 +115,9 @@ async function loadStoria(t: Tunnel, id: string, tenantId: string): Promise<bool
     t.coverUrl = st.cover_media;
     t.linked = st.product_id ?? "";
     t.blocks = st.body_blocks ?? [];
-    if (st.activity_id) t.where = { all: false, activityIds: [st.activity_id], groupIds: [] };
+    // di cosa parla (D191): col prodotto, altrimenti col locale (senza sede: tutte, com'era)
+    t.about = st.product_id ? "prod" : "loc";
+    t.sede = st.activity_id ?? "";
     return st.status === "published";
 }
 

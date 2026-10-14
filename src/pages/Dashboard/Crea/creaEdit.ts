@@ -77,16 +77,21 @@ async function savePiatti(t: Tunnel, orig: Tunnel, tenantId: string) {
         }
 }
 
-async function saveStoria(t: Tunnel, orig: Tunnel, c: EditCtx, dove: boolean) {
+async function saveStoria(t: Tunnel, orig: Tunnel, c: EditCtx, onda: boolean) {
     const id = t.edit!.id;
     const patch: StoryUpdateInput = {};
     let fresh: string | null = null;
     if (changed(t, "racconto")) {
         patch.eyebrow = t.kicker.trim() || null;
         patch.title = thingName(t);
-        patch.product_id = t.linked || null;
         if (t.cover) patch.cover_media = fresh = await uploadStoryImage(c.tenantId, id, await compressImage(t.cover, COMPRESS_PROFILES.cover));
         else if (orig.coverUrl && !t.coverUrl) patch.cover_media = null;
+    }
+    // di cosa parla (D191): il prodotto o la sede. Cambiando solo il prodotto, la sede di prima resta
+    if (changed(t, "tema")) {
+        patch.product_id = t.about === "prod" ? t.linked || null : null;
+        if (t.about === "loc") patch.activity_id = t.sede || null;
+        else if (orig.about !== "prod") patch.activity_id = null;
     }
     if (changed(t, "blocchi")) {
         const blocks = [];
@@ -99,12 +104,7 @@ async function saveStoria(t: Tunnel, orig: Tunnel, c: EditCtx, dove: boolean) {
         patch.body_blocks = blocks;
     }
     // in onda o pronta (D189): la storia non ha regole, lo dice il suo stato
-    if (dove && t.onda === "off") patch.status = "draft";
-    else if (dove) {
-        const w = t.where;
-        patch.activity_id = !w.all && w.activityIds.length === 1 && !w.groupIds.length ? w.activityIds[0] : null;
-        patch.status = "published";
-    }
+    if (onda) patch.status = t.onda === "off" ? "draft" : "published";
     try {
         await updateStory(id, c.tenantId, patch);
     } catch (e) {
@@ -160,7 +160,11 @@ export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {
     } else if (t.kind === "evid") {
         if (changed(t, "contenuto")) await saveContenuto(t, orig, c.tenantId);
         if (changed(t, "piatti")) await savePiatti(t, orig, c.tenantId);
-    } else if (changed(t, "racconto") || changed(t, "blocchi") || dove) await saveStoria(t, orig, c, dove);
+    } else {
+        // la storia non ha regole: in onda o pronta lo dice il suo stato («In onda?»)
+        const onda = changed(t, "onda");
+        if (changed(t, "tema") || changed(t, "racconto") || changed(t, "blocchi") || onda) await saveStoria(t, orig, c, onda);
+    }
     // chi non gestisce il Calendario non cambia dove e quando (non ha il passo)
     if (dove && c.owner && t.kind !== "storia") await saveQuando(t, c);
     return { id, name, live: t.onda === "on", ruleId: e.ruleId };

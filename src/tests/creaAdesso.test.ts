@@ -37,11 +37,13 @@ describe("da «E adesso?»: quello che si eredita", () => {
         expect(newTunnel("stile", ALL, from()).dishes).toEqual([]);
     });
 
-    it("la storia non ha ore; da più sedi va in tutte, e non chiede conferme", () => {
+    it("la storia non ha sedi né ore, e non chiede conferme: parla del piatto, o del locale se viene da uno stile", () => {
         const t = newTunnel("storia", ALL, from());
-        expect(t).toMatchObject({ qmode: "sempre", when: {}, per: null, where: { all: true, activityIds: [] } });
+        expect(t).toMatchObject({ qmode: "sempre", when: {}, per: null, about: "prod", linked: "p1", sede: "", onda: "on" });
         expect(inhAsk(t)).toBe(false);
-        expect(newTunnel("storia", ALL, from({ where: { all: false, activityIds: ["porto"], groupIds: [] } })).where).toMatchObject({ all: false, activityIds: ["porto"] });
+        expect(newTunnel("storia", ALL, from({ kind: "stile", dish: null, sede: "porto" }))).toMatchObject({ about: "loc", sede: "porto", linked: "" });
+        expect(newTunnel("storia", ALL, from({ kind: "storia", dish: null }))).toMatchObject({ about: null, sede: "" });
+        expect(newTunnel("storia", ALL)).toMatchObject({ about: null, sede: "", linked: "" });
     });
 
     it("da una storia non si ereditano sedi e ore: solo il piatto", () => {
@@ -92,16 +94,15 @@ describe("da «E adesso?»: sedi e orari si confermano o si cambiano", () => {
 describe("«E adesso?»: cosa hai appena fatto", () => {
     const menu = newTunnel("menu", { all: false, activityIds: ["porto"], groupIds: [] });
     it("in onda, con le sedi e le ore", () => {
-        expect(adessoDid(menu, { name: "Pranzo", live: true }, { multi: true, sedi: ["Porto", "Lido"], dish: "" })).toBe("«Pranzo» è in onda a Porto e Lido, sempre, tutto il giorno.");
-        expect(adessoDid(menu, { name: "Pranzo", live: true }, { multi: false, sedi: ["Porto"], dish: "" })).toBe("«Pranzo» è in onda, sempre, tutto il giorno.");
+        expect(adessoDid(menu, { name: "Pranzo", live: true }, { multi: true, sedi: ["Porto", "Lido"], place: "" })).toBe("«Pranzo» è in onda a Porto e Lido, sempre, tutto il giorno.");
+        expect(adessoDid(menu, { name: "Pranzo", live: true }, { multi: false, sedi: ["Porto"], place: "" })).toBe("«Pranzo» è in onda, sempre, tutto il giorno.");
     });
     it("tenuto pronto, al maschile e al femminile", () => {
-        expect(adessoDid(menu, { name: "Pranzo", live: false }, { multi: true, sedi: [], dish: "" })).toBe("«Pranzo» è pronto: nessun cliente lo vede finché non lo metti in onda.");
-        expect(adessoDid(newTunnel("storia", ALL), { name: "Il forno", live: false }, { multi: true, sedi: [], dish: "" })).toBe("«Il forno» è pronta: nessun cliente la vede finché non la metti in onda.");
+        expect(adessoDid(menu, { name: "Pranzo", live: false }, { multi: true, sedi: [], place: "" })).toBe("«Pranzo» è pronto: nessun cliente lo vede finché non lo metti in onda.");
+        expect(adessoDid(newTunnel("storia", ALL), { name: "Il forno", live: false }, { multi: true, sedi: [], place: "" })).toBe("«Il forno» è pronta: nessun cliente la vede finché non la metti in onda.");
     });
     it("la storia dice dove si vede", () => {
         const st = newTunnel("storia", ALL);
-        expect(adessoDid(st, { name: "Il forno", live: true }, { multi: true, sedi: [], dish: "" })).toBe("«Il forno» è in onda: si vede sotto il menù.");
-        expect(adessoDid(st, { name: "Il forno", live: true }, { multi: true, sedi: [], dish: "Margherita" })).toBe("«Il forno» è in onda: si vede in fondo alla scheda di «Margherita».");
+        expect(adessoDid(st, { name: "Il forno", live: true }, { multi: true, sedi: [], place: "in fondo alla scheda di «Margherita»" })).toBe("«Il forno» è in onda: si vede in fondo alla scheda di «Margherita».");
     });
 });

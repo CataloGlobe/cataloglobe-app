@@ -19,7 +19,7 @@ import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Edito
 import type { V2Style } from "@/services/supabase/styles";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { DB_WAIT, NEW_MODEL, sediOf, NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { rebase, adessoDid, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, skipped, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type From, type StepId, type Tunnel } from "./creaModel";
+import { rebase, aboutPlace, adessoDid, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, skipped, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type From, type StepId, type Tunnel } from "./creaModel";
 import { badSel, useBad, type Bad } from "./creaBad";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
@@ -33,7 +33,8 @@ import { CreaPhone } from "./CreaPhone";
 import { allSecs } from "./menuTree";
 import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
 import { EvidContenuto } from "./EvidContenuto";
-import { Adesso, Controlla, Dove, DoveQuando, Modifica, MenuParti, Quando, QuandoOre, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
+import { StoriaOnda, StoriaTema, type OnAir } from "./StoriaTema";
+import { Adesso, Controlla, Dove, Modifica, MenuParti, Quando, QuandoOre, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
 import s from "./Crea.module.scss";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -430,6 +431,15 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         return d?.name ? d : null;
     }, [after, L.products, data.names.products]);
 
+    // i menù in onda che contengono il prodotto della storia: lì si vede, nelle loro sedi e ore
+    const onAir = useMemo<OnAir[]>(() => {
+        if (t.kind !== "storia" || t.about !== "prod" || !t.linked) return [];
+        const ms = data.menusOf.get(t.linked) ?? [];
+        return entries
+            .filter(e => e.kind === "menu" && !!e.rule.layout?.catalog_id && ms.includes(e.rule.layout.catalog_id))
+            .map(e => ({ menu: data.names.catalogs.get(e.rule.layout!.catalog_id!) ?? "Menù", where: e.where, when: e.when }));
+    }, [t.kind, t.about, t.linked, data.menusOf, entries, data.names]);
+
     const chain = (k: CreaKind) => {
         if (!after) return;
         const m = after.t;
@@ -441,6 +451,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             productIds: m.kind === "menu" ? after.saved.productIds ?? [] : [],
             dish: afterDish,
             onda: after.saved.live ? "on" : "off",
+            sede: sediOf(m.where, data.sedi, data.groups)[0] ?? null,
             when: effWhen(m),
             where: m.where,
             per: m.per
@@ -458,7 +469,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         body = (
             <Adesso
                 kind={after.t.kind}
-                did={adessoDid(after.t, after.saved, { multi: L.multi, sedi: sediOf(after.t.where, data.sedi, data.groups).map(id => L.sedi.get(id) ?? "sede"), dish: afterDish?.name ?? "" })}
+                did={adessoDid(after.t, after.saved, { multi: L.multi, sedi: sediOf(after.t.where, data.sedi, data.groups).map(id => L.sedi.get(id) ?? "sede"), place: aboutPlace(after.t, L) })}
                 name={after.saved.name}
                 live={after.saved.live}
                 dish={afterDish?.name ?? ""}
@@ -490,7 +501,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 body = <EvidContenuto t={t} u={u} imageUrl={imageUrl} pick={data.pickList} L={L} />;
                 break;
             case "racconto":
-                body = <StoriaRacconto t={t} u={u} pick={data.pickList} coverUrl={coverUrl} />;
+                body = <StoriaRacconto t={t} u={u} coverUrl={coverUrl} />;
                 break;
             case "blocchi":
                 body = (
@@ -512,13 +523,19 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                     />
                 );
                 break;
+            case "tema":
+                body = <StoriaTema t={t} u={u} L={L} pick={data.pickList} menusOf={data.menusOf} sedi={data.sedi} business={business} />;
+                break;
+            case "onda":
+                body = <StoriaOnda t={t} u={u} L={L} onAir={onAir} />;
+                break;
             case "quando":
                 // con più sedi il Dove è già stato scelto: qui solo le ore
                 body = L.multi && draft ? <QuandoOre t={t} u={u} L={L} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} L={L} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} />;
                 break;
             case "dove": {
                 const D = draft ?? draftFor(t, "featured", FAKE, null);
-                body = t.kind !== "storia" ? <Dove t={t} u={u} L={L} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} /> : <DoveQuando t={t} u={u} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} L={L} durs={durs} axis={axis} />;
+                body = <Dove t={t} u={u} L={L} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} />;
                 break;
             }
             default:
@@ -621,7 +638,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                                         <span className={s.idot}>{done ? <Check size={12} aria-hidden /> : n === "modifica" ? <Pencil size={11} aria-hidden /> : t.edit ? j : j + 1}</span>
                                         {stepLabel(t, n)}
                                         {/* la scelta fatta nel «Dove e quando» (D189) */}
-                                        {(n === "dove" || n === "quando") && t.onda && <em>{t.onda === "on" ? "· in onda" : "· non in onda"}</em>}
+                                        {(n === "dove" || n === "quando" || n === "onda") && t.onda && <em>{t.onda === "on" ? "· in onda" : "· non in onda"}</em>}
                                     </button>
                                 </li>
                             );

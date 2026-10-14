@@ -156,33 +156,59 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
             </div>
         );
     } else {
-        body = (
-            <>
-                {head}
-                <MenuSample sample={sample.slice(0, 1)} tk={tk} />
-                <div className={s.pSec}>
-                    <div className={s.pH}>Le nostre storie</div>
-                    <div className={s.pStories}>
-                        {t.i > 0 && (
-                            <div className={cx(s.pStory, step !== "controlla" && s.hl)}>
-                                <div className={cx(s.sc, !coverUrl && s.noCover)} style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined} />
-                                <div className={s.st}>
-                                    <span>{t.kicker.trim() || "La nostra cucina"}</span>
-                                    <b>{t.title.trim() || "Il titolo della storia"}</b>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+        const card = (
+            <div className={cx(s.pStory, step !== "controlla" && s.hl)}>
+                <div className={cx(s.sc, !coverUrl && s.noCover)} style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined} />
+                <div className={s.st}>
+                    <span>{t.kicker.trim() || "La nostra cucina"}</span>
+                    <b>{t.title.trim() || "Il titolo della storia"}</b>
                 </div>
-            </>
+            </div>
         );
+        const prod = t.about === "prod" && t.linked ? L.products.get(t.linked) : undefined;
+        // la storia di un prodotto: la sua scheda aperta, con la storia in fondo (D191)
+        if (prod && step !== "serve")
+            body = (
+                <>
+                    <div className={s.pDim}>
+                        <div className={s.pName}>{business || "Il tuo locale"}</div>
+                    </div>
+                    <div className={s.pSheet}>
+                        <span className={s.pGrab} />
+                        <div className={s.pPimg} />
+                        <div className={s.pRow}>
+                            <div className={s.pName}>{prod.name}</div>
+                            <b>{price(prod.listPrice ?? null)}</b>
+                        </div>
+                        <div className={s.pSec}>
+                            <div className={s.pH}>La sua storia</div>
+                            <div className={s.pStories}>{card}</div>
+                        </div>
+                    </div>
+                </>
+            );
+        else
+            body = (
+                <>
+                    <div>
+                        <div className={s.pName}>{business || "Il tuo locale"}</div>
+                        {t.about === "loc" && L.multi && t.sede && <div className={s.pSede}>{L.sedi.get(t.sede) ?? ""}</div>}
+                    </div>
+                    <MenuSample sample={sample.slice(0, 1)} tk={tk} />
+                    <div className={s.pSec}>
+                        <div className={s.pH}>Le nostre storie</div>
+                        <div className={s.pStories}>{t.i > 0 && card}</div>
+                    </div>
+                </>
+            );
     }
+    const sheet = t.kind === "storia" && step !== "blocchi" && step !== "serve" && t.about === "prod" && !!t.linked && L.products.has(t.linked);
     const reading = t.kind === "storia" && step === "blocchi";
     return (
         <div className={s.phone}>
             <div className={s.screen} style={phoneVars(tk)}>
                 <div className={s.scr}>
-                    {reading ? (
+                    {reading || sheet ? (
                         body
                     ) : (
                         <>

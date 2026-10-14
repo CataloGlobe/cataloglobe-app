@@ -856,10 +856,20 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         expect(bodyOf(stub, "schedule_featured_contents.POST")).toMatchObject({ featured_content_id: ID.featured, slot: "before_catalog" });
     });
 
-    test("storia: racconto e blocchi, pubblicata", async ({ page }) => {
+    test("storia di un prodotto: di cosa parla, racconto e blocchi, in onda senza sedi né orari (D191)", async ({ page }) => {
         stub.onWrite("stories.POST", ({ body }) => ({ id: ID.story, ...first(body) }));
         stub.onWrite("stories.PATCH", ({ body }) => ({ id: ID.story, ...first(body) }));
         await open(page, "storia", "storie");
+        await next(page);
+        // «Di cosa parla»: prima il tipo, poi il prodotto, cercandolo
+        await expect(main(page).getByRole("heading", { name: "Di cosa parla" })).toBeVisible();
+        await stuck(page, "Scegli di cosa parla");
+        await button(page, /^Un prodotto/).click();
+        await stuck(page, "Scegli il prodotto");
+        const prodotti = main(page).getByRole("radiogroup", { name: "Prodotti" });
+        await main(page).getByRole("textbox", { name: "Cerca un prodotto" }).fill("tiramisu");
+        await expect(prodotti.getByRole("radio")).toHaveCount(1);
+        await prodotti.getByRole("radio", { name: /^Tiramisù e2e/ }).click();
         await next(page);
         await main(page).getByLabel("Occhiello").fill("Il forno");
         await main(page).getByLabel("Titolo", { exact: true }).fill("Il forno a legna");
@@ -869,14 +879,19 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await button(page, "Testo").click();
         await main(page).getByRole("textbox", { name: "Scrivi un paragrafo..." }).fill("Lo accendiamo alle sei.");
         await next(page);
+        // «In onda?»: niente sedi e niente orari, solo la scelta
+        await expect(main(page).getByRole("heading", { name: "In onda?" })).toBeVisible();
+        await expect(main(page).locator("[data-sbox]")).toHaveCount(0);
+        await stuck(page, "Scegli una delle due per andare avanti");
         await onAir(page);
-        // la storia ha un orario solo: niente «hanno le stesse ore?»
-        await expect(main(page).getByRole("radio", { name: "No, cambiano" })).toHaveCount(0);
         await next(page);
+        await expect(main(page).getByText("Dove e quando «Tiramisù e2e» è nel menù: la storia «Il forno a legna» compare in fondo alla scheda di «Tiramisù e2e».")).toBeVisible();
         await button(page, "Metti in onda").click();
+        await expect(main(page).getByText("«Il forno a legna» è in onda: si vede in fondo alla scheda di «Tiramisù e2e».")).toBeVisible({ timeout: 15_000 });
         await finito(page);
         await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });
-        expect(bodyOf(stub, "stories.POST")).toMatchObject({ title: "Il forno a legna", eyebrow: "Il forno", status: "draft" });
+        expect(bodyOf(stub, "stories.POST")).toMatchObject({ title: "Il forno a legna", eyebrow: "Il forno", status: "draft", activity_id: null });
+        expect(bodyOf(stub, "stories.POST").product_id).toBeTruthy();
         const done = bodyOf(stub, "stories.PATCH");
         expect(done).toMatchObject({ status: "published" });
         expect(JSON.stringify(done.body_blocks)).toContain("Lo accendiamo alle sei.");
@@ -1115,6 +1130,11 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         stub.onWrite("stories.PATCH", ({ body }) => ({ id: ID.story, ...first(body) }));
         await open(page, "storia", "storie");
         await next(page);
+        // la storia del locale: con più sedi, una sede
+        await button(page, /^Il locale/).click();
+        await stuck(page, "Scegli la sede");
+        await main(page).getByRole("radiogroup", { name: "Sedi" }).getByRole("radio").first().click();
+        await next(page);
         await main(page).getByLabel("Titolo", { exact: true }).fill("Il forno a legna");
         await next(page);
         await button(page, "Testo").click();
@@ -1126,7 +1146,8 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         await button(page, "Salva e tieni pronta").click();
         await finito(page);
         await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });
-        expect(bodyOf(stub, "stories.PATCH")).toMatchObject({ status: "draft" });
+        expect(bodyOf(stub, "stories.PATCH")).toMatchObject({ status: "draft", product_id: null });
+        expect(bodyOf(stub, "stories.PATCH").activity_id).toBeTruthy();
     });
 
     test("«Metti in onda» dall'elenco: si apre la modifica già sul «Dove», con «Sì» scelto; poi il «Quando»", async ({ page }) => {

@@ -14,12 +14,14 @@ const ALL = { all: true, activityIds: [], groupIds: [] };
 const OWNER = { owner: true, multi: true };
 
 describe("tunnel di creazione: i passi", () => {
-    it("ogni tipo ha i suoi passi, poi «Dove», «Quando» e Controlla; la storia ha ancora «Dove e quando» insieme", () => {
+    it("ogni tipo ha i suoi passi, poi «Dove», «Quando» e Controlla; la storia ha «Di cosa parla» e «In onda?» (D191)", () => {
         expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["parti", "sezioni", "dove", "quando", "controlla"]);
         expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "quando", "controlla"]);
         expect(stepLabel(newTunnel("menu", ALL), "dove")).toBe("Dove");
-        expect(stepLabel(newTunnel("storia", ALL), "dove")).toBe("Dove e quando");
-        expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "dove", "controlla"]);
+        expect(stepLabel(newTunnel("storia", ALL), "tema")).toBe("Di cosa parla");
+        expect(stepLabel(newTunnel("storia", ALL), "onda")).toBe("In onda?");
+        expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "tema", "racconto", "blocchi", "onda", "controlla"]);
+        expect(steps(newTunnel("storia", ALL), { owner: true, multi: false })).toEqual(["serve", "tema", "racconto", "blocchi", "onda", "controlla"]);
         const ev = newTunnel("evid", ALL);
         // D187: niente «Che cosa?»; i piatti sono una parte del contenuto, non un passo
         expect(steps(ev, OWNER)).toEqual(["contenuto", "dove", "quando", "controlla"]);
@@ -103,13 +105,11 @@ describe("tunnel di creazione: cosa ferma «Avanti»", () => {
         expect(blocker({ ...t, dishes: ["p1"], bundle: "24,50" }, "piatti", OWNER)).toBe("");
     });
 
-    it("il Dove: almeno una sede; la storia per ora in una sede sola", () => {
+    it("il Dove: almeno una sede", () => {
         const none = { all: false, activityIds: [], groupIds: [] };
         const on = (t: Tunnel): Tunnel => ({ ...t, onda: "on" });
         expect(blocker(on(newTunnel("menu", none)), "dove", OWNER)).toBe("Scegli almeno una sede");
         expect(blocker(on(newTunnel("menu", none)), "dove", { owner: true, multi: false })).toBe("");
-        expect(blocker(on(newTunnel("storia", { all: false, activityIds: ["a", "b"], groupIds: [] })), "dove", OWNER)).toMatch(/^Una storia in più sedi/);
-        expect(blocker(on(newTunnel("storia", { all: false, activityIds: ["a"], groupIds: [] })), "dove", OWNER)).toBe("");
     });
 
     it("il Quando: «Sempre» non guarda il modulo; il modulo non passa cose che il database rifiuta", () => {
