@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Button — scheda «Button» del design system (§5). Solo token di _theme.scss.
 // Altezza fissa: md = --control-height (38), sm = 30. `lg` è un alias di md
 // (0 usi al 20/09/2026), `outline` è un alias di `secondary`.
@@ -176,5 +178,149 @@
 
   .label {
     display: inline-flex;
+  }
+}
+
+// --- Direzione D (artifact v28, `.btn`): pillola intera, ombra indaco, 38/32 px,
+// si schiaccia al tocco. Solo con l'interruttore VITE_BACKOFFICE_D. ---
+.button {
+  @include look-d {
+    border-radius: var(--d-r-pill);
+    padding: 0 14px;
+    font-family: var(--d-f-body);
+    transition:
+      transform 0.12s ease-out,
+      background-color 0.15s ease-out,
+      border-color 0.15s ease-out,
+      color 0.15s ease-out;
+
+    &:active:not([disabled]) {
+      transform: scale(0.97);
+    }
+
+    &:focus-visible {
+      box-shadow: none;
+    }
+
+    &[disabled],
+    &[aria-disabled="true"] {
+      opacity: 0.35;
+    }
+
+    .label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .icon svg {
+      width: 15px;
+      height: 15px;
+      stroke-width: 1.8;
+    }
+  }
+}
+
+.size-sm {
+  @include look-d {
+    height: var(--d-ctl-s);
+    padding: 4px 12px;
+  }
+}
+
+.variant-primary {
+  @include look-d {
+    background: var(--d-brand);
+    border-color: var(--d-brand);
+    color: var(--on-brand);
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: var(--d-brand-deep);
+        border-color: var(--d-brand-deep);
+      }
+    }
+  }
+}
+
+.variant-secondary,
+.variant-outline {
+  @include look-d {
+    background: var(--d-surface);
+    border-color: transparent;
+    box-shadow: var(--d-shadow);
+    color: var(--d-text);
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: color-mix(in srgb, var(--d-brand) 9%, var(--d-surface));
+        border-color: color-mix(in srgb, var(--d-brand) 35%, transparent);
+      }
+    }
+  }
+}
+
+.variant-ghost {
+  @include look-d {
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--d-muted);
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: color-mix(in srgb, var(--d-muted) 12%, transparent);
+        color: var(--d-text);
+      }
+    }
+  }
+}
+
+.variant-danger {
+  @include look-d {
+    background: var(--d-warm);
+    border-color: var(--d-warm);
+    color: var(--on-brand);
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: var(--d-s-wait-ink);
+        border-color: var(--d-s-wait-ink);
+      }
+    }
+  }
+}
+
+.variant-outline-danger {
+  @include look-d {
+    background: var(--d-surface);
+    border-color: color-mix(in srgb, var(--d-warm) 38%, var(--d-surface));
+    box-shadow: var(--d-shadow);
+    color: var(--d-s-wait-ink);
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: var(--d-warm-soft);
+        border-color: var(--d-warm);
+      }
+    }
+  }
+}
+
+.iconOnly {
+  @include look-d {
+    width: var(--d-ctl);
+    min-width: var(--d-ctl);
+    padding: 0;
+    border-radius: 50%;
+
+    &.size-sm {
+      width: var(--d-ctl-s);
+      min-width: var(--d-ctl-s);
+    }
+
+    .icon svg {
+      width: 17px;
+      height: 17px;
+    }
   }
 }

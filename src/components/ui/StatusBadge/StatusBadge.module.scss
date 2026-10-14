@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // StatusBadge — scheda «StatusBadge»: puntino + parola, sempre. Altezza 22,
 // padding 0 10 0 8, gap 6, raggio --radius-pill, 12/500. Ogni variante è una
 // coppia fondo -100 / testo -800 con puntino -500: il puntino è ciò che rende
@@ -91,5 +93,69 @@
 
     .dot {
         background-color: var(--order-new);
+    }
+}
+
+// --- Direzione D (artifact v28, `.st`): etichette piatte, angoli da 8 px (si vede
+// che non si cliccano), un colore per significato: verde solo qui, sempre piccolo. ---
+.badge {
+    @include look-d {
+        height: auto;
+        gap: 6px;
+        padding: 2px 8px 2px 7px;
+        border-radius: var(--d-r-tag);
+        font-weight: 600;
+        line-height: 1.5;
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.dot {
+    @include look-d {
+        width: 7px;
+        height: 7px;
+        background-color: currentColor !important;
+    }
+}
+
+.success {
+    @include look-d {
+        background-color: var(--d-s-ready-soft);
+        color: var(--d-s-ready-ink);
+    }
+}
+
+.neutral {
+    @include look-d {
+        background-color: var(--d-s-old);
+        color: var(--d-muted);
+    }
+}
+
+.warning {
+    @include look-d {
+        background-color: var(--d-s-work-soft);
+        color: var(--d-s-work-ink);
+    }
+}
+
+.danger {
+    @include look-d {
+        background-color: var(--d-warm-soft);
+        color: var(--d-s-wait-ink);
+    }
+}
+
+.info {
+    @include look-d {
+        background-color: var(--d-soft);
+        color: var(--d-brand-deep);
+    }
+}
+
+.new {
+    @include look-d {
+        background-color: var(--d-s-new-soft);
+        color: var(--d-s-new-ink);
     }
 }

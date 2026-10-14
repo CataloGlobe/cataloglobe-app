@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Tooltip — scheda «Tooltip»: una frase che spiega, al hover o al focus.
 // Testo caption su fondo --text (invertito: il testo prende --bg), freccia
 // dello stesso colore, padding 6 10, max 280, raggio --radius-control,
@@ -82,5 +84,17 @@
   .tooltip[data-state="delayed-open"],
   .tooltip[data-state="closed"] {
     animation: none;
+  }
+}
+
+// --- Direzione D: fumetto indaco notte, angoli morbidi ma più stretti dei
+// controlli (un fumetto non è un pulsante). ---
+.tooltip {
+  @include look-d {
+    background: var(--d-text);
+    color: var(--on-brand);
+    border-radius: 10px;
+    font-weight: 500;
+    box-shadow: var(--d-shadow-pop);
   }
 }
