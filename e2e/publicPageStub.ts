@@ -316,9 +316,13 @@ export async function stubPublicPage(
     if (opts.menus && body.resolved.catalog?.categories) {
         (body.resolved as Record<string, unknown>).menus = menuList(opts.menus, body.resolved.catalog.categories);
     }
-    await page.route("**/api/public-catalog**", route =>
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
-    );
+    // La lingua la decide il server: lo stub risponde nella lingua chiesta (`?lang=`), se la sede ce l'ha.
+    await page.route("**/api/public-catalog**", route => {
+        const lang = new URL(route.request().url()).searchParams.get("lang");
+        const offered = (body as { available_languages?: { code: string }[] }).available_languages ?? [];
+        const effective = lang && offered.some(l => l.code === lang) ? lang : body.effective_language;
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...body, effective_language: effective }) });
+    });
     await page.route("**/functions/v1/log-analytics-event**", route => route.fulfill({ status: 204 }));
     // Con `story_id` il dettaglio, senza l'elenco della scheda Storia.
     await page.route("**/functions/v1/resolve-public-story**", route => {
