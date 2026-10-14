@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Text from "@components/ui/Text/Text";
 import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import { useHorizontalOverflow } from "@/hooks/useHorizontalOverflow";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./SegmentedControl.module.scss";
 
 interface SegmentedOption<T extends string | number> {
@@ -116,7 +117,7 @@ export function SegmentedControl<T extends string | number>({
                     >
                         {opt.icon}
                         {!iconsOnly && (
-                            <Text weight={500} variant="body-sm" className={styles.itemLabel}>
+                            <Text weight={LOOK_D ? 600 : 500} variant="body-sm" className={styles.itemLabel}>
                                 {opt.label}
                             </Text>
                         )}

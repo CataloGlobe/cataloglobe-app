@@ -478,7 +478,9 @@ export function AppSidebar({
     // sotto, sempre a vista: nascosto dietro il logo non lo trovava nessuno.
     const brandLogo = (
         <>
-            <Logo variant="icon" color="flat" size={27} alt="" className={styles.brandIcon} />
+            {/* A binario (D) il segno sta nei 26 px della v28 (22 di altezza = 26 di
+                larghezza): a 27 sbordava sotto il pulsante tondo. */}
+            <Logo variant="icon" color="flat" size={LOOK_D && collapsed ? 22 : 27} alt="" className={styles.brandIcon} />
             {!collapsed && <Logo variant="wordmark" color="auto" size={15} alt="" className={styles.brandWordmark} />}
         </>
     );
