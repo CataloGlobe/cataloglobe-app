@@ -98,3 +98,20 @@
     box-shadow: var(--d-shadow-pop);
   }
 }
+
+// Variante `panel` nella D (artifact v28, `#rtip` senza sottovoci): il nome
+// della voce della barra ridotta in una pillola viola, testo bianco.
+.tooltip.panel {
+  @include look-d {
+    min-width: 0;
+    min-height: calc(var(--d-ctl) - 8px);
+    padding: 0 11px;
+    border: none;
+    border-radius: 14px;
+    background: var(--d-brand);
+    color: var(--on-brand);
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 14px 30px -14px color-mix(in srgb, var(--d-brand-deep) 75%, transparent);
+  }
+}

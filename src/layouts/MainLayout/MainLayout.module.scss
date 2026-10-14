@@ -91,3 +91,11 @@ $global-header-height: 56px;
     padding: 16px;
   }
 }
+
+// ===== Direzione D (artifact v28) =====
+// Il pulsante tondo della barra sta fuori dalla carta, nel corpo.
+.body {
+  @include look-d {
+    position: relative;
+  }
+}

@@ -6,6 +6,8 @@
 // l'icona (20, Allegato B delle correzioni UI) cada al centro dei 64 senza
 // cambiare un padding: 11 (contenitore) + 11 (riga) = 22 = (64 − 20) / 2.
 // Solo token: nel tema scuro segue --surface.
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 /* ===== Geometria ===== */
 $container-x: 11px;
@@ -679,3 +681,297 @@ $sub-height: 34px;
 }
 
 // In scuro il soft-hover del tema è più carico (28%).
+
+// ===== Direzione D (artifact v28, `.side`) =====
+// Una carta lilla staccata di 12 px dalla finestra, tonda a 24 con l'ombra
+// indaco; 224 di carta aperta (colonna 236), 68 ridotta (colonna 80). Le
+// voci sono mute, la sezione aperta piena di testo, la parte scelta una
+// pillola bianca col testo indaco. Ridotta, la sezione aperta diventa bianca.
+.sidebar {
+  @include look-d {
+    --sb-bg: var(--d-side-bg);
+    --sb-text: var(--d-side-muted);
+    --sb-strong: var(--d-text);
+    --sb-faint: var(--d-side-muted);
+    --sb-hover: color-mix(in srgb, var(--d-side-muted) 12%, transparent);
+    --sb-icon-hover: var(--d-text);
+    --sb-line: transparent;
+    --sb-on-bg: var(--d-surface);
+    --sb-on-text: var(--d-brand-deep);
+
+    gap: 18px;
+    padding: 18px 12px;
+    border-radius: 24px;
+    box-shadow: var(--d-shadow);
+  }
+}
+
+.desktop {
+  @include look-d {
+    height: calc(100% - 24px);
+    margin: 12px 0 12px 12px;
+  }
+}
+
+.brandRow {
+  @include look-d {
+    height: auto;
+    margin: 0;
+    padding: 2px 8px;
+    border-bottom: none;
+
+    &[data-collapsed] {
+      padding: 2px 9px;
+    }
+  }
+}
+
+.brandMark {
+  @include look-d {
+    .brandRow[data-collapsed] & {
+      width: 26px;
+      height: 26px;
+    }
+  }
+}
+
+.brandLink {
+  @include look-d {
+    gap: 10px;
+  }
+}
+
+.headerSlot {
+  @include look-d {
+    padding: 0;
+    border-bottom: none;
+  }
+}
+
+.sidebarScroll {
+  @include look-d {
+    padding: 0;
+  }
+}
+
+.footer {
+  @include look-d {
+    padding: 0;
+    border-top: none;
+  }
+}
+
+.list.sections {
+  @include look-d {
+    gap: 2px;
+  }
+}
+
+.link,
+.sections .link {
+  @include look-d {
+    height: auto;
+    min-height: 36px;
+    padding: 8px 10px;
+    border-radius: var(--d-r-ctl);
+    transition:
+      background-color var(--d-dur) ease,
+      color var(--d-dur) ease;
+
+    &:hover {
+      background: transparent;
+      color: var(--sb-text);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: var(--sb-hover);
+        color: var(--sb-strong);
+      }
+    }
+  }
+}
+
+// Ridotta l'icona va al centro dei 44 (13 per lato invece di 10): la sposta
+// `transform`, così scivola insieme alla larghezza senza animare il padding.
+.sidebar[data-collapsed="true"] .link .iconWrap {
+  @include look-d {
+    transform: translateX(3px);
+  }
+}
+
+.link .label,
+.sections .link .label {
+  @include look-d {
+    @include d-type(nav);
+
+    margin-inline-start: 10px;
+    font-family: var(--d-f-body);
+    transition: opacity 200ms ease-out;
+  }
+}
+
+.sidebar[data-collapsed="true"] .link .label {
+  @include look-d {
+    opacity: 0;
+  }
+}
+
+.iconWrap {
+  @include look-d {
+    flex-basis: 18px;
+    width: 18px;
+    height: 18px;
+    transition: transform 340ms var(--d-ease);
+  }
+}
+
+.icon svg {
+  @include look-d {
+    width: 18px;
+    height: 18px;
+    stroke-width: 1.7;
+  }
+}
+
+// La voce o la sezione in cui sei: testo pieno, nessun fondo (aperta).
+.active,
+.sectionExpanded,
+.sectionExpanded:hover {
+  @include look-d {
+    background: transparent;
+    box-shadow: none;
+    color: var(--sb-strong);
+
+    &:hover {
+      background: transparent;
+      color: var(--sb-strong);
+    }
+
+    .icon {
+      color: currentColor;
+    }
+
+    .label {
+      font-weight: 600;
+    }
+  }
+}
+
+// Ridotta: la sezione in cui sei, e il pannello aperto, diventano bianchi.
+.sidebar[data-collapsed="true"] .active,
+.sidebar[data-collapsed="true"] .sectionOpen {
+  @include look-d {
+    background: var(--sb-on-bg);
+    color: var(--sb-on-text);
+  }
+}
+
+.sectionChevron {
+  @include look-d {
+    display: none;
+  }
+}
+
+.subList {
+  @include look-d {
+    gap: 2px;
+    margin: 2px 0 6px 20px;
+    padding-left: 10px;
+    border-left: 1px solid color-mix(in srgb, var(--d-side-muted) 35%, transparent);
+    animation: subInD 340ms var(--d-ease) both;
+  }
+}
+
+@keyframes subInD {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+
+.sections .link.subLink {
+  @include look-d {
+    min-height: 34px;
+    margin-inline-start: 0;
+    padding: 7px 10px;
+    border-left: none;
+    border-radius: var(--d-r-ctl);
+    color: var(--sb-text);
+
+    .label {
+      font-weight: 500;
+    }
+
+    &.active {
+      background: var(--sb-on-bg);
+      color: var(--sb-on-text);
+
+      .label {
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+.subState,
+.badge {
+  @include look-d {
+    @include d-type(small);
+
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.navDot {
+  @include look-d {
+    background: var(--d-warm);
+  }
+}
+
+// Ridotta: il pallino rosso in alto a destra dell'icona (`.rd`).
+.miniSignal {
+  @include look-d {
+    top: -4px;
+    right: -5px;
+  }
+}
+
+// Il pulsante tondo a cavallo del bordo (`#railb`): fuori dalla carta, che
+// taglia ciò che sborda; `left` lo muove `AppSidebar` con la larghezza.
+.railToggle {
+  position: absolute;
+  z-index: calc(var(--z-sticky) + 1);
+  top: 33px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: var(--d-surface);
+  box-shadow: var(--d-shadow);
+  color: var(--d-muted);
+  cursor: pointer;
+  transition:
+    color 150ms ease-out,
+    transform 120ms ease-out;
+
+  svg {
+    transition: transform 420ms var(--d-ease-move);
+  }
+
+  &[data-collapsed] svg {
+    transform: rotate(180deg);
+  }
+
+  &:hover {
+    color: var(--d-brand-deep);
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+}
