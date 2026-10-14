@@ -20,6 +20,10 @@ const outDir = path.join(root, "dist/public");
 const budgets = JSON.parse(readFileSync(path.join(root, "scripts/public-bundle-budget.json"), "utf8"));
 const redesign = process.env.VITE_PUBLIC_REDESIGN === "true";
 const budget = redesign ? budgets.redesign : budgets;
+if (!budget) {
+    console.error("Tetti `redesign` mancanti in scripts/public-bundle-budget.json.");
+    process.exit(2);
+}
 console.log(redesign ? "Pagina pubblica nuova (VITE_PUBLIC_REDESIGN=true)" : "Pagina pubblica di oggi");
 
 let manifest;
