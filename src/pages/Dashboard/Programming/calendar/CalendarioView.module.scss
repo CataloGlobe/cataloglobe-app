@@ -654,7 +654,7 @@ button.dqsedi {
         min-width: 0;
     }
     &.pv {
-        color: var(--brand-primary);
+        color: var(--k, var(--brand-primary));
         font-weight: 600;
     }
 }
@@ -1372,7 +1372,7 @@ button.dqsedi {
     }
 }
 .fls.pv {
-    outline: 1.5px dashed var(--brand-primary);
+    outline: 1.5px dashed var(--k, var(--brand-primary));
     outline-offset: 1px;
 }
 .fname em {
@@ -1382,7 +1382,7 @@ button.dqsedi {
     flex: none;
     margin-left: auto;
     &.pv {
-        color: var(--brand-primary);
+        color: var(--k, var(--brand-primary));
     }
 }
 
@@ -1732,7 +1732,8 @@ button.dqsedi {
         top: 1px;
         bottom: 1px;
         border-radius: 5px;
-        background: var(--brand-primary);
+        // nel tunnel, il colore del tipo (punto 19); nel Calendario, di marca
+        background: var(--k, var(--brand-primary));
     }
 }
 .iband.drag .ibt {

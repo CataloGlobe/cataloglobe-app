@@ -457,7 +457,7 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri
                 (bare ? (
                     <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} />
                 ) : (
-                    <div className={cx(cal.root, s.calwrap)} data-bad="ore">
+                    <div className={cx(cal.root, s.calwrap, s.qpasso)} data-bad="ore">
                         <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} />
                     </div>
                 ))}
@@ -646,7 +646,7 @@ export function QuandoOre({
                 )}
             </div>
             {sel !== "sempre" && (
-                <div className={cx(cal.root, s.calwrap)} data-bad="ore">
+                <div className={cx(cal.root, s.calwrap, s.qpasso)} data-bad="ore">
                     {sel === "momenti" ? <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} /> : <OreSedi onOpen={onSede} draft={draft} upd={updDraft} sedi={sedi} durs={durs} axis={axis} />}
                 </div>
             )}

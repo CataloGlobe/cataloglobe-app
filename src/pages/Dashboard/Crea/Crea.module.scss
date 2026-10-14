@@ -1688,6 +1688,14 @@ select.in {
     flex-direction: column;
     gap: 20px;
 }
+// il filo del tipo in cima al riquadro del «Quando» (punto 19)
+.root .qpasso {
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--k);
+    border-radius: var(--radius-surface);
+    background: var(--surface);
+}
 .warnish {
     display: inline-flex;
     align-items: center;
