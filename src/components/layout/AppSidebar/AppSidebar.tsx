@@ -324,7 +324,19 @@ export function AppSidebar({
     const phoneNavRef = useRef<HTMLElement>(null);
     useEffect(() => {
         if (!LOOK_D || !isMobile) return;
-        phoneNavRef.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "center" });
+        const nav = phoneNavRef.current;
+        if (!nav) return;
+        // Al centro della fila, senza far scorrere la pagina; di nuovo se la fila cambia larghezza.
+        const center = () => {
+            const on = nav.querySelector<HTMLElement>('[aria-current="page"]');
+            if (!on) return;
+            const left = on.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft;
+            nav.scrollLeft = left - (nav.clientWidth - on.offsetWidth) / 2;
+        };
+        center();
+        const ro = new ResizeObserver(center);
+        ro.observe(nav);
+        return () => ro.disconnect();
     }, [isMobile, pathname]);
     useEffect(
         () => () => {
