@@ -1,7 +1,11 @@
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { bundlePrice, bundleTotal, euro, type StepId, type Tunnel } from "./creaModel";
+import { Fragment } from "react";
+import { CalendarDays } from "lucide-react";
+import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import { ideaOf } from "./evidIdee";
+import { btnLabel, dateTxt, effBtn } from "./evidData";
 import { phoneVars } from "./creaStyle";
 import { allSecs } from "./menuTree";
 import s from "./Crea.module.scss";
@@ -23,10 +27,14 @@ type PhoneProps = {
     L: DraftLookups;
     imageUrl: string | null;
     coverUrl: string | null;
+    /** Il passo «L'ordine»: i contenuti in evidenza della sede, dall'alto; null = questo. */
+    stack?: (string | null)[];
 };
 
 /** Il telefono a destra del tunnel (artifact, `phoneHTML`): com'è adesso quello che si crea. */
-export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, coverUrl }: PhoneProps) {
+export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, coverUrl, stack }: PhoneProps) {
+    // in «Controlla» il telefono è quello del cliente: i campi facoltativi vuoti non mostrano l'esempio (difetto 11)
+    const final = step === "controlla";
     const head = (
         <div>
             <div className={s.pName}>{business || "Il tuo locale"}</div>
@@ -91,7 +99,12 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
                 {imageUrl && <img src={imageUrl} alt="" />}
                 <b>{t.title.trim() || ex[0]}</b>
                 {t.sub.trim() && <span style={{ fontWeight: 600 }}>{t.sub.trim()}</span>}
-                <span>{t.text.trim() || ex[1]}</span>
+                {NEW_MODEL.evid && dateTxt(t.date) && (
+                    <span className={s.pDate}>
+                        <CalendarDays size={12} aria-hidden /> {dateTxt(t.date)}
+                    </span>
+                )}
+                {(t.text.trim() || !final) && <span>{t.text.trim() || ex[1]}</span>}
                 {t.evType === "promo" &&
                     dishes.map(d => (
                         <span key={d.id} className={s.fd}>
@@ -111,21 +124,40 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
                     </>
                 )}
                 {t.cta && <span className={s.cta}>{t.ctaText.trim() || "Prenota"}</span>}
+                {!t.cta && NEW_MODEL.evid && effBtn(t) && (
+                    <span className={s.cta}>
+                        {btnLabel(t)}
+                        {effBtn(t) === "ordine" && " · " + euro(bundlePrice(t))}
+                    </span>
+                )}
             </div>
         );
         body = (
             <>
                 {head}
-                {t.slot === "before" && feat}
+                {stack ? (
+                    stack.map((n, i) =>
+                        n === null ? (
+                            <Fragment key="me">{feat}</Fragment>
+                        ) : (
+                            <div key={i} className={cx(s.pFeat, s.lite)}>
+                                <span className={s.k}>In evidenza</span>
+                                <b>{n}</b>
+                            </div>
+                        )
+                    )
+                ) : (
+                    t.slot === "before" && feat
+                )}
                 <MenuSample sample={sample.slice(0, 2)} tk={tk} />
-                {t.slot === "after" && feat}
+                {!stack && t.slot === "after" && feat}
             </>
         );
     } else if (step === "blocchi") {
         body = (
             <div className={cx(s.pBody, s.pRead)}>
                 <div className={cx(s.sc, !coverUrl && s.noCover)} style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined} />
-                <span className={s.pH}>{t.kicker.trim() || "La nostra cucina"}</span>
+                {(t.kicker.trim() || !final) && <span className={s.pH}>{t.kicker.trim() || "La nostra cucina"}</span>}
                 <div className={s.pName}>{t.title.trim() || "Il titolo della storia"}</div>
                 {t.blocks.map(b =>
                     b.type === "quote" ? (
@@ -156,33 +188,59 @@ export function CreaPhone({ t, step, tk, business, menus, sample, L, imageUrl, c
             </div>
         );
     } else {
-        body = (
-            <>
-                {head}
-                <MenuSample sample={sample.slice(0, 1)} tk={tk} />
-                <div className={s.pSec}>
-                    <div className={s.pH}>Le nostre storie</div>
-                    <div className={s.pStories}>
-                        {t.i > 0 && (
-                            <div className={cx(s.pStory, step !== "controlla" && s.hl)}>
-                                <div className={cx(s.sc, !coverUrl && s.noCover)} style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined} />
-                                <div className={s.st}>
-                                    <span>{t.kicker.trim() || "La nostra cucina"}</span>
-                                    <b>{t.title.trim() || "Il titolo della storia"}</b>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+        const card = (
+            <div className={cx(s.pStory, step !== "controlla" && s.hl)}>
+                <div className={cx(s.sc, !coverUrl && s.noCover)} style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined} />
+                <div className={s.st}>
+                    {(t.kicker.trim() || !final) && <span>{t.kicker.trim() || "La nostra cucina"}</span>}
+                    <b>{t.title.trim() || "Il titolo della storia"}</b>
                 </div>
-            </>
+            </div>
         );
+        const prod = t.about === "prod" && t.linked ? L.products.get(t.linked) : undefined;
+        // la storia di un prodotto: la sua scheda aperta, con la storia in fondo (D191)
+        if (prod && step !== "serve")
+            body = (
+                <>
+                    <div className={s.pDim}>
+                        <div className={s.pName}>{business || "Il tuo locale"}</div>
+                    </div>
+                    <div className={s.pSheet}>
+                        <span className={s.pGrab} />
+                        <div className={s.pPimg} />
+                        <div className={s.pRow}>
+                            <div className={s.pName}>{prod.name}</div>
+                            <b>{price(prod.listPrice ?? null)}</b>
+                        </div>
+                        <div className={s.pSec}>
+                            <div className={s.pH}>La sua storia</div>
+                            <div className={s.pStories}>{card}</div>
+                        </div>
+                    </div>
+                </>
+            );
+        else
+            body = (
+                <>
+                    <div>
+                        <div className={s.pName}>{business || "Il tuo locale"}</div>
+                        {t.about === "loc" && L.multi && t.sede && <div className={s.pSede}>{L.sedi.get(t.sede) ?? ""}</div>}
+                    </div>
+                    <MenuSample sample={sample.slice(0, 1)} tk={tk} />
+                    <div className={s.pSec}>
+                        <div className={s.pH}>Le nostre storie</div>
+                        <div className={s.pStories}>{t.i > 0 && card}</div>
+                    </div>
+                </>
+            );
     }
+    const sheet = t.kind === "storia" && step !== "blocchi" && step !== "serve" && t.about === "prod" && !!t.linked && L.products.has(t.linked);
     const reading = t.kind === "storia" && step === "blocchi";
     return (
         <div className={s.phone}>
             <div className={s.screen} style={phoneVars(tk)}>
                 <div className={s.scr}>
-                    {reading ? (
+                    {reading || sheet ? (
                         body
                     ) : (
                         <>

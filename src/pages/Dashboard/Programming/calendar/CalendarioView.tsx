@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Calendar, Check, ChevronDown, ChevronLeft, ChevronR
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { Select } from "@/components/ui/Select/Select";
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 import { NEW_MODEL } from "./calendarFlags";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
@@ -15,6 +16,7 @@ import {
     dayOfWeek,
     dayParts,
     entriesFromRules,
+    offLines, thingIdOf, voceOf,
     fLane,
     fLines,
     hhmm,
@@ -64,6 +66,7 @@ import {
     type Draft,
     type Impatto,
     type Scontro,
+    type SedeEff,
     type DraftLookups,
     type PickProduct,
     type PickThing,
@@ -110,6 +113,8 @@ export type CalendarioViewProps = {
     onOpenRule?: (rule: LayoutRule) => void;
     /** «Togli»: una regola intera, o un suo piatto o contenuto. */
     onDrop?: (rule: LayoutRule, item?: DropItem) => Promise<void>;
+    /** «Spegni» e «Metti in onda»: la regola resta, spenta o accesa. */
+    onEnable?: (rule: LayoutRule, on: boolean) => Promise<void>;
     /** La sezione Aggiungi / Modifica completa: senza, «Modifica completa» va al dettaglio della regola. */
     /** Solo l'anteprima della settimana con questa bozza dentro (i tunnel di creazione): niente calendario intorno. */
     anteprima?: {
@@ -117,6 +122,9 @@ export type CalendarioViewProps = {
         pickList?: readonly PickProduct[];
         /** Le righe «Cosa cambia nel calendario», a ogni cambio. */
         onEffect?: (imp: Impatto) => void;
+        /** Con più sedi: quella che si guarda, e come cambiarla. */
+        sede?: string | null;
+        onSede?: (id: string) => void;
     };
     section?: {
         pickList: readonly PickProduct[];
@@ -134,12 +142,15 @@ export type CalendarioViewProps = {
         onDrop: (draft: Draft) => Promise<void>;
         /** Porta alla pagina dove si crea un menù, uno stile, un In evidenza. */
         onGoNew: (kind: CalKind) => void;
+        /** Il dove e il quando di menù, stile e in evidenza si scelgono nel tunnel: chi può, per tipo. */
+        canTunnel?: (kind: CalKind) => boolean;
+        onTunnel?: (kind: CalKind, id: string, add: boolean) => void;
     };
 };
 
 type RowOpts = { only?: CalKind; list?: readonly CalEntry[]; ax?: Axis; pv?: string };
 
-type Pick = { kind: CalKind; thing: string; date: DayNum; sede: string; from: number };
+type Pick = { kind: CalKind; thing: string; date: DayNum; sede: string; from: number; /** La voce spenta toccata. */ off?: string };
 const NO_PRODUCTS: ReadonlyMap<string, ProductInfo> = new Map();
 const NO_FORMATS: ReadonlyMap<string, string> = new Map();
 
@@ -154,6 +165,17 @@ const weekLong = (w: DayNum) => {
         : `${a.day} ${MONTHS[a.month]} – ${b.day} ${MONTHS[b.month]} ${b.year}`;
 };
 const fH = (g: { from: number; to: number }) => hhmm(g.from) + "–" + hhmm(g.to);
+// i giorni della settimana (0 = la prima): «Tutti i giorni», «Lun–Ven, Dom»
+const dayRuns = (ds: number[]) => {
+    if (ds.length === 7) return "Tutti i giorni";
+    const runs: [number, number][] = [];
+    for (const d of ds) {
+        const l = runs[runs.length - 1];
+        if (l && l[1] === d - 1) l[1] = d;
+        else runs.push([d, d]);
+    }
+    return runs.map(([a, b]) => (a === b ? DAYS[a] : DAYS[a] + "–" + DAYS[b])).join(", ");
+};
 
 /* ---------- il tooltip leggero: segue il puntatore, si legge subito ---------- */
 // prima riga in grassetto, righe che cominciano con ~ in grigio (il perché)
@@ -223,6 +245,7 @@ export default function CalendarioView({
     isWritable,
     onOpenRule,
     onDrop,
+    onEnable,
     section,
     anteprima
 }: CalendarioViewProps) {
@@ -325,6 +348,8 @@ export default function CalendarioView({
     // le sedi che si vedono: quella guardata e quelle a confronto, o tutte quelle scelte
     const shown = focus ? [focus, ...cmp] : scopeSedi;
     const entries = useMemo(() => entriesFromRules(rules, names), [rules, names]);
+    // spente: «pronto, non in onda». Solo nel calendario vero, non nell'anteprima dei tunnel
+    const spente = useMemo(() => (anteprima ? [] : entriesFromRules(rules, names, true)), [rules, names, anteprima]);
     const axis = useMemo(() => axisFor(entries), [entries]);
     const seatOf = useCallback((id: string): CalSeat => ({ activityId: id, groupIds: groupIdsByActivity[id] ?? [] }), [groupIdsByActivity]);
 
@@ -478,8 +503,8 @@ export default function CalendarioView({
         return days.map(i => {
             const date = week + i, isToday = date === today;
             const lanes = (o.only ? [o.only] : CAL_KINDS).map(k => ({ k, ctx: dayCtx(list, k, seat, date) }))
-                .map(l => ({ ...l, segs: fLane(l.ctx, ax) }))
-                .filter(l => o.only || view === "day" || l.segs.length);
+                .map(l => ({ ...l, segs: fLane(l.ctx, ax), off: o.only || o.list ? [] : offLines(spente, l.k, seat, date, ax) }))
+                .filter(l => o.only || view === "day" || l.segs.length || l.off.length);
             // l'ora di adesso: dopo mezzanotte sta in coda alla serata di ieri
             const nowX = isToday && nowMin >= ax.from ? X(nowMin) : date === today - 1 && nowMin + 1440 < ax.to ? X(nowMin + 1440) : null;
             return (
@@ -510,11 +535,17 @@ export default function CalendarioView({
                                     </button>
                                     )}
                                     {lines.map(ln => (
-                                        <div key={ln.thing} className={`${s.fname} ${ln.preview ? s.pv : ""}`} style={{ "--c": colorOf(l.k, ln.thing) } as CSSProperties}>
+                                        <div key={ln.thing} className={`${s.fname} ${ln.preview ? s.pv : ""}`} title={ln.thing} style={{ "--c": colorOf(l.k, ln.thing) } as CSSProperties}>
                                             <span>{l.k === "menu" ? shortName(ln.thing) : ln.thing}</span>
                                             {ln.preview && o.pv && <em className={s.pv}>{o.pv}</em>}
                                         </div>
                                     ))}
+                                    {isOpen &&
+                                        l.off.map(x => (
+                                            <div key={x.entry.id} className={`${s.fname} ${s.spenta}`} style={{ "--c": colorOf(l.k, x.entry.thing) } as CSSProperties}>
+                                                <span>{l.k === "menu" ? shortName(x.entry.thing) : x.entry.thing}</span>
+                                            </div>
+                                        ))}
                                 </div>
                             );
                         })}
@@ -556,9 +587,28 @@ export default function CalendarioView({
                                                         className={`${s.fls} ${g.state === "on" ? s.on : s.off}`}
                                                         data-tip={tip}
                                                         aria-label={aria(tip)}
-                                                        aria-pressed={!!pick && pick.kind === l.k && pick.thing === ln.thing && pick.date === date && pick.sede === sede.id && pick.from === g.from}
+                                                        aria-pressed={!!pick && !pick.off && pick.kind === l.k && pick.thing === ln.thing && pick.date === date && pick.sede === sede.id && pick.from === g.from}
                                                         onClick={() => openPick({ kind: l.k, thing: ln.thing, date, sede: sede.id, from: g.from })}
                                                         style={{ "--c": colorOf(l.k, ln.thing), left: X(g.from) + "%", width: X(g.to) - X(g.from) + "%" } as CSSProperties}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
+                                    {l.off.map(x => (
+                                        <div key={x.entry.id} className={s.fline}>
+                                            {x.segs.map(g => {
+                                                const tip = `${x.entry.thing} · ${fH(g)}\nPronto, non in onda.`;
+                                                return (
+                                                    <button
+                                                        key={g.from}
+                                                        type="button"
+                                                        className={`${s.fls} ${s.off} ${s.spenta}`}
+                                                        data-tip={tip}
+                                                        aria-label={aria(tip)}
+                                                        aria-pressed={!!pick && pick.off === x.entry.id && pick.date === date && pick.sede === sede.id && pick.from === g.from}
+                                                        onClick={() => openPick({ kind: l.k, thing: x.entry.thing, date, sede: sede.id, from: g.from, off: x.entry.id })}
+                                                        style={{ "--c": colorOf(l.k, x.entry.thing), left: X(g.from) + "%", width: X(g.to) - X(g.from) + "%" } as CSSProperties}
                                                     />
                                                 );
                                             })}
@@ -592,7 +642,8 @@ export default function CalendarioView({
                     return (
                         <button key={g.from} type="button" className={`${s.fseg} ${s.ev2} ${g.hidden.length ? s.hid : ""}`} data-tip={tip} aria-label={aria(tip)} onClick={openIt}
                             style={{ "--c": KIND_COLOR.featured, ...pos, background: `color-mix(in srgb, var(--c) ${pc}%, var(--surface))` } as CSSProperties}>
-                            <span className={s.ft}>{g.onda.length}</span>
+                            {/* un numero da solo non diceva cosa (difetto 13): il nome, o quanti e quali */}
+                            <span className={s.ft}>{g.onda.length === 1 ? g.onda[0] : `${g.onda.length} insieme: ${g.onda.join(", ")}`}</span>
                             {under(g)}
                         </button>
                     );
@@ -893,7 +944,14 @@ export default function CalendarioView({
         setDraft(null);
         setNote(null);
     };
+    // menù, stile e in evidenza con una voce sola: il dove e il quando si cambiano nel tunnel, come creando
+    const tunnelFor = (e: CalEntry) => {
+        const id = isDish(e.kind) ? null : thingIdOf(e);
+        return id && section?.onTunnel && section.canTunnel?.(e.kind) && voceOf(entries, spente, e.kind, id)?.count === 1 ? id : null;
+    };
     const openFull = (e: CalEntry, only?: string) => {
+        const id = only ? null : tunnelFor(e);
+        if (id) return section!.onTunnel!(e.kind, id, false);
         setSec({ back: true });
         setDraft(draftFromEntry(e, L, only ?? null));
         setNote(null);
@@ -975,61 +1033,103 @@ export default function CalendarioView({
         return [...list, ...pvEntries, ...pvPairs];
     }, [draft, entries, pvEntries, pvPairs]);
     const pvAx = useMemo(() => (pvList ? axisFor(pvList) : axis), [pvList, axis]);
-    const pvReach = pvEntries.length ? shown.filter(x => reaches(x.id)) : shown;
-    const pvSedi = (pvReach.length ? pvReach : pvEntries.length ? sedi.filter(x => reaches(x.id)).slice(0, 1) : shown.slice(0, 1)).slice(0, 4);
+    // con «Mettili insieme» l'anteprima lo aggiunge; chi tocca si guarda come se prendesse il posto
+    const judged = useMemo(() => (pvList && draft?.insieme ? pvList.map(e => (e.preview && e.kind === "menu" ? { ...e, add: false } : e)) : pvList), [pvList, draft?.insieme]);
+    // i menù che stanno da soli (punto 4): dove si vede l'altro, in quella sede vince lui (resta l'ordine fra gli altri)
+    const solo = NEW_MODEL.soloMenu && draft?.kind === "menu" && !!draft.lui;
+    const luiFor = useCallback(
+        (list: CalEntry[], id: string) => {
+            if (!solo) return list;
+            const lui = (thing: string) => (draft?.insieme ? !draft.tuo?.includes(id + "|" + thing) : !!draft?.lui?.includes(id + "|" + thing));
+            return list.map(e => (!e.preview && e.kind === "menu" && lui(e.thing) ? { ...e, tscore: e.tscore + 1e6, created: e.created + 1e15, solo: true as const } : e));
+        },
+        [solo, draft?.insieme, draft?.lui, draft?.tuo]
+    );
+    // nei tunnel non c'è la «Sede» in alto a destra: valgono tutte le sedi della bozza
+    const pvBase = anteprima ? sedi : shown;
+    const pvReach = pvEntries.length ? pvBase.filter(x => reaches(x.id)) : pvBase;
+    // nei tunnel con più sedi se ne guarda una alla volta, scelta dalle frecce; il conto vale per tutte
+    const pvAll = pvReach.length ? pvReach : pvEntries.length ? sedi.filter(x => reaches(x.id)).slice(0, 1) : pvBase.slice(0, 1);
+    const pvOne = anteprima && multi && pvAll.length > 1 ? pvAll.find(x => x.id === anteprima.sede) ?? pvAll[0] : null;
+    const pvSedi = pvOne ? [pvOne] : pvAll.slice(0, 4);
 
     // cosa cambia nel calendario, nella settimana che si vede; e dove si accavalla con un altro (D135)
     const effect = (): Impatto => {
-        if (!draft || !pvList) return NO_IMPATTO;
+        if (!draft || !pvList || !judged) return NO_IMPATTO;
         if (missing(draft, L)) return { lines: ["Scegli prima cosa mettere: poi qui vedi dove va in onda."], scontri: [] };
         const wk = week === monday ? "Questa settimana" : "Nella settimana del " + mShort(week);
         const groupsOf = new Map<string, string[]>();
         const sc = new Map<string, Scontro>();
-        // con «Mettili insieme» l'anteprima lo aggiunge; chi tocca si guarda come se prendesse il posto
-        const judged = draft.insieme ? pvList.map(e => (e.preview && e.kind === "menu" ? { ...e, add: false } : e)) : pvList;
-        for (const x of pvSedi.length ? pvSedi : shown) {
+        const effSedi: SedeEff[] = [];
+        for (const x of pvAll.length ? pvAll : shown) {
             const seat = seatOf(x.id), cov = new Set<string>(), by = new Set<string>();
             // chi tocca la bozza → i tratti (giorno, da, a), uniti dove si toccano
-            const tocchi = new Map<string, { vince: boolean; pari: boolean; tratti: [number, number, number][] }>();
-            const tocca = (con: string, vince: boolean, pari: boolean, d: number, a: number, b: number) => {
-                const k = con + "|" + vince;
-                const t = tocchi.get(k) ?? { vince, pari: true, tratti: [] };
+            const tocchi = new Map<string, { vince: boolean; pari: boolean; copre: boolean; tratti: [number, number, number][] }>();
+            const tocca = (con: string, vince: boolean, pari: boolean, d: number, a: number, b: number, copre = false) => {
+                const k = con + "|" + vince + "|" + copre;
+                const t = tocchi.get(k) ?? { vince, pari: true, copre, tratti: [] };
                 t.pari &&= pari;
                 const last = t.tratti[t.tratti.length - 1];
                 if (last && last[0] === d && last[2] === a) last[2] = b;
                 else t.tratti.push([d, a, b]);
                 tocchi.set(k, t);
             };
-            let mins = 0, off = 0, days = 0;
+            let mins = 0, off = 0, days = 0, incroci = 0;
+            // i giorni della sede in breve: dove si incrocia, chi si vede (al telefono, sotto la sede aperta)
+            const gg = new Map<string, number[]>();
             for (let i = 0; i < 7; i++) {
-                let on = 0;
-                const d = dayOfWeek(week + i);
-                for (const l of fLines(dayCtx(judged, draft.kind, seat, week + i), pvAx).filter(l => l.preview))
+                let on = 0, touched = false;
+                const d = dayOfWeek(week + i), ls = fLines(dayCtx(luiFor(judged, x.id), draft.kind, seat, week + i), pvAx);
+                // chi incrocia chi lo dicono le regole di oggi, senza le scelte dei menù che stanno da soli
+                const ls0 = solo ? fLines(dayCtx(judged, draft.kind, seat, week + i), pvAx) : ls;
+                for (const l of ls0.filter(l => l.preview))
                     for (const g of l.segs) {
-                        const m = g.to - g.from;
                         if (g.state === "on") {
-                            on += m;
+                            if (g.covers.length) touched = true;
                             g.covers.forEach(c => {
-                                cov.add(c);
                                 const lo = g.reps.find(e => e.thing === c);
                                 if (g.win && lo) tocca(c, true, tie(g.win, lo, seat), d, g.from, g.to);
                             });
                         } else {
-                            off += m;
-                            if (g.by) by.add(g.by);
+                            if (g.by) touched = true;
                             // resta l'altro solo perché c'era prima: lo dice l'avviso
                             if (g.win && g.self && tie(g.win, g.self, seat)) tocca(g.by, false, true, d, g.from, g.to);
+                            // lo copre un'altra regola che oggi vince (più vicina alla sede, orari più stretti): è un incrocio anche questo, e si sceglie (D196)
+                            else if (g.by && (draft.kind === "menu" || draft.kind === "style")) tocca(g.by, false, false, d, g.from, g.to, true);
+                        }
+                    }
+                const seen = new Set<string>();
+                for (const l of ls.filter(l => l.preview))
+                    for (const g of l.segs) {
+                        if (g.covers.length || g.by) {
+                            const vis = [...ls].sort((a, b) => +b.preview - +a.preview).filter(o => o.segs.some(z => z.state === "on" && z.from < g.to && z.to > g.from));
+                            const k = fH(g) + ": " + vis.map(o => o.thing).join(" + ");
+                            if (vis.length && !seen.has(k)) {
+                                seen.add(k);
+                                gg.set(k, [...(gg.get(k) ?? []), i]);
+                            }
+                        }
+                        const m = g.to - g.from;
+                        if (g.state === "on") {
+                            on += m;
+                            g.covers.forEach(c => cov.add(c));
+                        } else {
+                            off += m;
+                            if (g.by) by.add(g.by);
                         }
                     }
                 if (on) {
                     mins += on;
                     days++;
                 }
+                if (touched) incroci++;
             }
+            const giorni = [...gg].map(([txt, ds]) => ({ days: dayRuns(ds), txt }));
+            effSedi.push({ id: x.id, name: x.name, mins, days, cov: [...cov], by: [...by], incroci, ...(giorni.length ? { giorni } : {}) });
             const out: string[] = [], pd = mainWhen(draft).period;
             if (!mins && !off)
                 out.push(`${wk} non c'è${pd && pd.from > week + 6 ? ": comincia " + (elides(pd.from) ? "l'" : "il ") + mShort(pd.from) : pd && pd.to < week ? ": è già finito" : ""}.`);
-            else if (!mins) out.push(`${wk} non va mai in onda: lo copre ${listIt([...by].map(q))}.`);
+            else if (!mins) out.push(`${wk} non va mai in onda: ${by.size > 1 ? "lo coprono" : "lo copre"} ${listIt([...by].map(q))}.`);
             else {
                 out.push(`${wk} è in onda ${days} ${days === 1 ? "giorno" : "giorni"}, ${hoursText(mins)} in tutto.`);
                 if (cov.size)
@@ -1038,7 +1138,7 @@ export default function CalendarioView({
                             ? `Quando si sovrappongono c'è insieme a ${listIt([...cov].map(q))}: il cliente sceglie.`
                             : `Prende il posto di ${listIt([...cov].map(q))} quando si sovrappongono.`
                     );
-                if (by.size) out.push(`Per ${hoursText(off)} non si vede: lo copre ${listIt([...by].map(q))}.`);
+                if (by.size) out.push(`Per ${hoursText(off)} non si vede: ${by.size > 1 ? "lo coprono" : "lo copre"} ${listIt([...by].map(q))}.`);
             }
             // lo stile porta con sé il suo menù (e viceversa), che nella sua corsia può coprire altro
             if (pvPair && (mins || off)) {
@@ -1051,11 +1151,40 @@ export default function CalendarioView({
             const k = out.join("\n");
             groupsOf.set(k, [...(groupsOf.get(k) ?? []), x.name]);
             for (const [key, t] of tocchi) {
-                const quando = quandoScontro(t.tratti), con = key.slice(0, key.lastIndexOf("|"));
-                const sk = [con, t.vince, t.pari, quando].join("|"), prev = sc.get(sk);
-                if (prev) prev.sedi.push(x.name);
-                else sc.set(sk, { sedi: [x.name], con, quando, vince: t.vince, pari: t.pari });
+                const quando = quandoScontro(t.tratti), con = key.split("|").slice(0, -2).join("|");
+                const sk = [con, t.vince, t.pari, t.copre, quando].join("|"), prev = sc.get(sk);
+                if (prev) {
+                    prev.sedi.push(x.name);
+                    prev.ids?.push(x.id);
+                } else sc.set(sk, { sedi: [x.name], ids: [x.id], con, quando, vince: t.vince, pari: t.pari, ...(t.copre ? { copre: true as const } : {}) });
             }
+        }
+        // in modifica, la voce com'era salvata, con gli stessi conti: «Prima: …» in «Controlla»
+        let prima: SedeEff[] | undefined;
+        const r0 = draft.rule;
+        if (draft.mode === "edit" && r0 && (!draft.only || draft.kind === "featured")) {
+            const mine = (e: CalEntry) => e.kind === draft.kind && (draft.only ? e.id === `${r0.id}:featured:${draft.only}` : e.ruleId === r0.id);
+            // come `judged`: chi stava insieme si guarda come se prendesse il posto, la risposta la dice il tunnel
+            const list = entries.map(e => (mine(e) ? { ...e, preview: true, ...(e.kind === "menu" ? { add: false } : {}) } : e));
+            const ax = axisFor(list);
+            prima = (pvAll.length ? pvAll : shown).map(x => {
+                const seat = seatOf(x.id), cov = new Set<string>(), by = new Set<string>();
+                let mins = 0, days = 0;
+                for (let i = 0; i < 7; i++) {
+                    let on = 0;
+                    for (const l of fLines(dayCtx(list, draft.kind, seat, week + i), ax).filter(l => l.preview))
+                        for (const g of l.segs)
+                            if (g.state === "on") {
+                                on += g.to - g.from;
+                                g.covers.forEach(c => cov.add(c));
+                            } else if (g.by) by.add(g.by);
+                    if (on) {
+                        mins += on;
+                        days++;
+                    }
+                }
+                return { id: x.id, name: x.name, mins, days, cov: [...cov], by: [...by], incroci: 0 };
+            });
         }
         // le sedi con lo stesso risultato stanno insieme
         const lines = [...groupsOf.entries()].flatMap(([k, ss]) => {
@@ -1063,7 +1192,8 @@ export default function CalendarioView({
             if (multi) r[0] = "A " + listIt(ss) + ": " + r[0].charAt(0).toLowerCase() + r[0].slice(1);
             return r;
         });
-        return { lines, scontri: [...sc.values()] };
+        const tk = draft.kind + ":", colori = Object.fromEntries([...shade].filter(([k]) => k.startsWith(tk)).map(([k, v]) => [k.slice(tk.length), v]));
+        return { lines, scontri: [...sc.values()], sedi: effSedi, colori, ...(prima ? { prima } : {}), ...(pvPair?.kind === "style" ? { pair: pvPair.thing } : {}) };
     };
 
     // le durate che ci sono già, prima quelle dello stesso tipo: al massimo sei
@@ -1090,12 +1220,16 @@ export default function CalendarioView({
     if (pick) {
         const seat = seatOf(pick.sede);
         const ctx = dayCtx(entries, pick.kind, seat, pick.date);
-        const ln = fLines(ctx, axis).find(l => l.thing === pick.thing);
+        const off = pick.off ? spente.find(e => e.id === pick.off) : undefined;
+        const ln = off ? undefined : fLines(ctx, axis).find(l => l.thing === pick.thing);
         const g = ln?.segs.find(x => x.from <= pick.from && pick.from < x.to);
-        const entry = g?.self ?? entries.find(e => e.kind === pick.kind && e.thing === pick.thing && specFor(e, seat) !== null);
+        const entry = pick.off ? off : (g?.self ?? entries.find(e => e.kind === pick.kind && e.thing === pick.thing && specFor(e, seat) !== null));
         if (entry) {
+            const pool = off ? spente : entries;
             const paired = entry.kind === "menu" ? "style" : entry.kind === "style" ? "menu" : null;
-            const pairedName = paired ? (entries.find(x => x.ruleId === entry.ruleId && x.kind === paired)?.thing ?? null) : null;
+            const pairedName = paired ? (pool.find(x => x.ruleId === entry.ruleId && x.kind === paired)?.thing ?? null) : null;
+            // «Spegni» vale per Menù, Stile e In evidenza, una voce per regola; con più contenuti nella regola resta «Togli»
+            const canOff = !!onEnable && !isDish(entry.kind) && pool.filter(x => x.ruleId === entry.ruleId && x.kind === entry.kind).length === 1;
             const dp = dayParts(pick.date);
             pickView = (
                 <CalendarioPanel
@@ -1113,6 +1247,19 @@ export default function CalendarioView({
                     formatNames={formatNames}
                     pairedName={pairedName}
                     writable={!!onDrop && (isWritable ? isWritable(entry.rule) : false)}
+                    onEnable={
+                        canOff
+                            ? async on => {
+                                  try {
+                                      await onEnable(entry.rule, on);
+                                      setNote({ text: on ? `In onda: ${entry.thing}.` : `Spento: ${entry.thing}. Resta pronto, non in onda.` });
+                                      closePick();
+                                  } catch {
+                                      setNote({ text: on ? "Non siamo riusciti a metterlo in onda. Riprova." : "Non siamo riusciti a spegnerlo. Riprova.", error: true });
+                                  }
+                              }
+                            : undefined
+                    }
                     onClose={closePick}
                     onFull={only => (section ? openFull(entry, only) : onOpenRule?.(entry.rule))}
                     onDrop={async item => {
@@ -1159,6 +1306,12 @@ export default function CalendarioView({
 
     const pd = draft ? mainWhen(draft).period : undefined;
     const away = !!pd && (pd.from > week + 6 || pd.to < week);
+    const effNow = anteprima && draft ? effect() : null;
+    // «insieme» dove oggi vince un altro: lì il tuo non si vede, e l'anteprima lo disegna coperto (D196)
+    const coperta = (id: string) => !!draft?.insieme && !!effNow?.sedi?.some(x => x.id === id && !x.cov.length && x.by.length > 0);
+    const pvStep = (by: number) => pvAll[(pvAll.indexOf(pvOne ?? pvAll[0]) + by + pvAll.length) % pvAll.length];
+    const pvDays = (id: string) => effNow?.sedi?.find(x => x.id === id)?.incroci ?? 0;
+    const giorni = (n: number) => n + (n === 1 ? " giorno" : " giorni");
     const preview = draft && pvList && (
         <aside className={s.iprev} aria-label="Anteprima">
             <div className={s.iph}>
@@ -1175,6 +1328,28 @@ export default function CalendarioView({
                     Questa settimana non c'è: vai {elides(pd.from) ? "all'" : "al "}
                     {mShort(pd.from)}
                 </button>
+            )}
+            {pvOne && (
+                <div className={s.wsel}>
+                    <IconButton size="sm" icon={<ChevronLeft size={14} />} aria-label={`Sede precedente: ${pvStep(-1).name}`} onClick={() => anteprima?.onSede?.(pvStep(-1).id)} />
+                    <Select
+                        aria-label="Sede da guardare"
+                        containerClassName={s.wsl}
+                        value={pvOne.id}
+                        onChange={e => anteprima?.onSede?.(e.target.value)}
+                        options={pvAll.map(x => ({ value: x.id, label: x.name + (pvDays(x.id) ? " · " + giorni(pvDays(x.id)) : "") }))}
+                    />
+                    <IconButton size="sm" icon={<ChevronRight size={14} />} aria-label={`Sede successiva: ${pvStep(1).name}`} onClick={() => anteprima?.onSede?.(pvStep(1).id)} />
+                    <span className={s.wsn}>
+                        {pvAll.indexOf(pvOne) + 1} di {pvAll.length}
+                        {pvDays(pvOne.id) > 0 && (draft.kind === "menu" || draft.kind === "style") && (
+                            <>
+                                {" · "}
+                                <b>{giorni(pvDays(pvOne.id))}</b> con altri {draft.kind === "style" ? "stili" : "menù"}
+                            </>
+                        )}
+                    </span>
+                </div>
             )}
             <div className={s.dcal}>
                 <div className={`${s.fcal} ${s.pcal}`}>
@@ -1193,7 +1368,7 @@ export default function CalendarioView({
                                     </span>
                                 </div>
                             )}
-                            {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel, { only: draft.kind, list: pvList, ax: pvAx, pv: draft.mode === "edit" ? "in modifica" : "nuovo" })}
+                            {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel, { only: draft.kind, list: solo ? luiFor(judged!, x.id) : coperta(x.id) ? judged! : pvList, ax: pvAx, pv: draft.mode === "edit" ? "in modifica" : "nuovo" })}
                         </div>
                     ))}
                 </div>
@@ -1205,7 +1380,7 @@ export default function CalendarioView({
         </aside>
     );
     // i tunnel: solo l'anteprima, con le righe di cosa cambia
-    const effKey = anteprima && draft ? JSON.stringify(effect()) : "";
+    const effKey = effNow ? JSON.stringify(effNow) : "";
     const onEffect = useRef(anteprima?.onEffect);
     onEffect.current = anteprima?.onEffect;
     useEffect(() => {
@@ -1261,6 +1436,10 @@ export default function CalendarioView({
                             closeSec(false);
                             section.onGoNew(to);
                         }}
+                        voce={(k, id) => voceOf(entries, spente, k, id)}
+                        tunnel={k => !!section.onTunnel && !!section.canTunnel?.(k)}
+                        onTunnel={(k, id, add) => section.onTunnel?.(k, id, add)}
+                        onVoce={e => openFull(e)}
                     />
                 </div>
                 {tipNode}
@@ -1325,6 +1504,12 @@ export default function CalendarioView({
                         <i className={`${s.lg} ${s.off}`} />
                         c'è, ma lo copre un altro
                     </span>
+                    {spente.length > 0 && (
+                        <span>
+                            <i className={`${s.lg} ${s.off} ${s.spenta}`} />
+                            pronto, non in onda
+                        </span>
+                    )}
                     <span>
                         <i className={`${s.lg} ${s.hid}`}>
                             <span className={s.under}>

@@ -35,8 +35,8 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`, tranne le route
                              `?da=` dice dove tornare
   products | products/:productId
   featured | featured/:featuredId
-  styles | styles/:styleId  → elenco; uno stile si apre in crea/stile/:id (D186). styles/:styleId è il vecchio
-                             editor (StyleEditorPage), ancora montato ma senza link
+  styles | styles/:styleId  → elenco; uno stile si apre in crea/stile/:id (D186); styles/:styleId porta lì
+                             (StyleTunnelRedirect, il vecchio editor non c'è più)
   stories | stories/:storyId
   languages
   analytics | reviews       → totale delle sedi leggibili; con una sede → locations/:id/analitiche|recensioni

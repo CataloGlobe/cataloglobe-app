@@ -1,25 +1,31 @@
 // I corpi dei passi dei tunnel, uno a uno dall'artifact (`bodyOf`). Il Quando
-// e il Dove sono quelli del Calendario (`QuandoPasso`, `DoveQuandoPasso`); i blocchi
+// e il Dove sono quelli del Calendario (`QuandoPasso`, `SediPasso`); i blocchi
 // della storia sono l'editor a blocchi di oggi.
-import { useId, useMemo, useState, type ReactNode } from "react";
-import { CalendarClock, Check, Copy, Infinity as InfinityIcon, Layers, Link2, Lock, Megaphone, Palette, Plus, ScanText, ScrollText, TriangleAlert, UtensilsCrossed } from "lucide-react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { ArrowRight, BookOpen, CalendarClock, Check, CircleCheck, CirclePause, Copy, Info, Infinity as InfinityIcon, Layers, Link2, Lock, MapPinned, Megaphone, Palette, Plus, PowerOff, Radio, ScanText, ScrollText, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import type { StoryBlock } from "@/services/supabase/stories";
 import { MAX_STORY_IMAGES } from "@/services/supabase/stories";
 import type { V2Style } from "@/services/supabase/styles";
+import { getCatalogStatsMap, type CatalogStats } from "@/services/supabase/catalogs";
 import { StoryBlockEditor } from "@/pages/Dashboard/Stories/components/StoryBlockEditor";
 import { BLOCK_TYPE_META, BLOCK_TYPE_ORDER } from "@/pages/Dashboard/Stories/components/blocks/blockTypeMeta";
 import { createBlock } from "@/pages/Dashboard/Stories/components/createBlock";
 import type { StoryProductOptions } from "@/pages/Dashboard/Stories/components/StoryProductPicker";
-import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
-import { DB_LATER, invalid, type Draft, type DraftLookups, type Impatto, type PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { OreSedi, QuandoPasso, ScontriAvviso, SediPasso, type PassoGruppo, type PassoSede } from "@/pages/Dashboard/Programming/calendar/CalendarioPassi";
+import { NEW_MODEL, invalid, sediOf, type Draft, type DraftLookups, type Impatto, type PickProduct, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
-import { KIND, STEP_LABEL, STORIA_WHEN, blocker, bundleTotal, changed, euro, firstBlock, priceText, sentence, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel } from "./creaModel";
+import { qautoNote } from "./evidData";
+import { KIND, ONDA, inhAsk, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, nTutte, offLater, ondaChange, oreSummary, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, thingName, type Ctx, type StepId, type Tunnel, type CreaKind } from "./creaModel";
 import { hidFeatured } from "./stileLook";
 import s from "./Crea.module.scss";
-import { Box, Chip, Field, Opt, Sh, Toggle, Warnish } from "./CreaUi";
+import { Box, Chip, Field, Opt, Pick, Sh, Toggle } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
+import { InhBox } from "./InhBox";
+import { InsiemeBox, type Nuovi } from "./InsiemeBox";
+import { CosaCambia } from "./CosaCambia";
+import { hAltri, hPeriodi, hVal, nascosto } from "./creaSedePer";
 
 export type U = (fn: (t: Tunnel) => void) => void;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -45,11 +51,17 @@ export function Modifica({ t, u, c, L, styleName }: { t: Tunnel; u: U; c: Ctx; L
             if (i >= 0) p.splice(i, 1);
             else p.push(x);
         });
-    const inCal = t.kind !== "storia" && c.owner && !e.ruleId;
+    const inCal = t.kind !== "storia" && c.owner && e.rules > 1;
+    // il «Dove e quando» dice prima se è in onda (D189)
+    const was = (x: StepId) => {
+        const sum = stepSummary({ ...e.orig, edit: e }, x, L, styleName);
+        if (x !== "dove" && x !== "quando") return sum;
+        return e.orig.onda === "on" ? "In onda · " + sum : "Non in onda";
+    };
     return (
         <>
             <Sh title="Cosa vuoi modificare?">Scegli una cosa o più: «Avanti» ti porta solo lì. Il resto resta com'è.</Sh>
-            <div className={s.whats}>
+            <div className={s.whats} data-bad="whats">
                 {parts.map(x => {
                     const on = e.picked.includes(x);
                     return (
@@ -57,47 +69,72 @@ export function Modifica({ t, u, c, L, styleName }: { t: Tunnel; u: U; c: Ctx; L
                             <Box on={on} />
                             <span>
                                 <b>{stepLabel(t, x)}</b>
-                                <span>{stepSummary({ ...e.orig, edit: e }, x, L, styleName) || "—"}</span>
+                                <span>{was(x) || "—"}</span>
                             </span>
                         </button>
                     );
                 })}
             </div>
             {inCal && (
-                <p className={s.hint}>
-                    {e.rules > 1 ? `È nel Calendario ${e.rules} volte: il dove e il quando si cambiano da lì, una voce alla volta.` : "Non è nel Calendario: il dove e il quando si scelgono da lì."}
-                </p>
+                <p className={s.hint}>{`È nel Calendario ${e.rules} volte: il dove e il quando si cambiano da lì, una voce alla volta.`}</p>
             )}
         </>
     );
 }
 
 /* ---------- il menù ---------- */
-export function MenuTipo({ t, u }: { t: Tunnel; u: U }) {
-    return (
-        <>
-            <Sh title="Che menù è?">Un menù con le sue categorie, o una pagina d'ingresso che ne raccoglie più di uno: ristorante, aperitivo, bambini. A destra vedi com'è.</Sh>
-            <div className={s.opts}>
-                <Opt on={t.menuType === "classico"} icon={<UtensilsCrossed size={16} />} title="Menù classico" text="Categorie e piatti, come oggi." onClick={() => u(x => void (x.menuType = "classico"))} />
-                <Opt on={false} icon={<Layers size={16} />} title="Multi menù" text="Un riquadro per menù: il cliente tocca e ci entra." disabled later={"Arriva col database nuovo"} />
-            </div>
-            <p className={s.hint}>Gli stessi nomi del Calendario, dove i menù hanno l'etichetta «Menù classico» o «Multi menù».</p>
-        </>
-    );
-}
+/** Un menù da cui copiare: se è in onda lo dice il Calendario. */
+export type CopyMenu = { id: string; name: string; live: boolean };
 
-export function MenuParti({ t, u }: { t: Tunnel; u: U }) {
+export function MenuParti({ t, u, menus, tenantId, onCopy }: { t: Tunnel; u: U; menus: readonly CopyMenu[]; tenantId: string; onCopy: (m: CopyMenu) => void }) {
     const id = useId();
+    const copying = !t.edit && t.source === "copia";
+    // quante categorie e quanti piatti ha ogni menù: si leggono solo se si copia
+    const [stats, setStats] = useState<Record<string, CatalogStats> | null>(null);
+    const ids = menus.map(m => m.id).join();
+    useEffect(() => {
+        if (!copying || stats || !ids) return;
+        let off = false;
+        getCatalogStatsMap(tenantId, ids.split(","))
+            .then(x => !off && setStats(x))
+            .catch(error => console.error("[Crea] i numeri dei menù non si sono letti:", error));
+        return () => {
+            off = true;
+        };
+    }, [copying, stats, ids, tenantId]);
+    const sub = (m: CopyMenu) => {
+        const n = stats?.[m.id];
+        return [...(n ? [`${n.categoryCount} ${n.categoryCount === 1 ? "categoria" : "categorie"}`, `${n.productCount} ${n.productCount === 1 ? "piatto" : "piatti"}`] : []), m.live ? "in onda" : "pronto, non in onda"].join(" · ");
+    };
     return (
         <>
             <Sh title={t.edit ? "Il nome" : "Da dove parti"}>Il nome lo legge anche il cliente, in cima al menù.</Sh>
             <Field label="Nome del menù" id={id}>
-                <input className={s.in} id={id} value={t.name} placeholder="Menù pranzo" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
+                <input className={s.in} id={id} data-bad="name" value={t.name} placeholder="Menù pranzo" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
             <div className={s.opts} hidden={!!t.edit}>
-                <Opt on={t.source === "zero"} icon={<Plus size={16} />} title="Da zero" text="Prendi i piatti che hai o scrivine di nuovi." onClick={() => u(x => void (x.source = "zero"))} />
-                <Opt on={t.source === "foto"} icon={<ScanText size={16} />} title="Da una foto o un PDF" text="Nel passo dopo la carichi: la leggiamo noi e ti diciamo subito cosa abbiamo trovato." onClick={() => u(x => void (x.source = "foto"))} />
+                <Opt on={t.source === "zero"} icon={<Plus size={16} />} title="Da zero" text="Prendi i piatti che hai o scrivine di nuovi." onClick={() => u(x => void ((x.source = "zero"), (x.copyFrom = null)))} />
+                <Opt on={t.source === "foto"} icon={<ScanText size={16} />} title="Da una foto o un PDF" text="Nel passo dopo la carichi: la leggiamo noi e ti diciamo subito cosa abbiamo trovato." onClick={() => u(x => void ((x.source = "foto"), (x.copyFrom = null)))} />
+                {menus.length > 0 && <Opt on={t.source === "copia"} icon={<Copy size={16} />} title="Copia da un altro menù" text="Parti dalle sue categorie e dai suoi piatti: poi li cambi." onClick={() => u(x => void (x.source = "copia"))} />}
             </div>
+            {copying && (
+                <div className={s.blk}>
+                    <h4>Quale menù copi?</h4>
+                    <div className={s.list} role="radiogroup" aria-label="Menù da copiare" data-bad="copy">
+                        {menus.map(m => {
+                            const on = t.copyFrom === m.id;
+                            return (
+                                <button key={m.id} type="button" className={s.lpick} role="radio" aria-checked={on} onClick={() => onCopy(m)}>
+                                    <span className={cx(s.box, s.radio, on && s.on)} />
+                                    <span className={s.lpn}>{m.name}</span>
+                                    <span className={s.sub}>{sub(m)}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className={s.hint}>Ci sono tutti, anche quelli non in onda.</p>
+                </div>
+            )}
         </>
     );
 }
@@ -113,8 +150,8 @@ export function Serve({ t, example, business }: { t: Tunnel; example: string | n
         </>
     ) : (
         <>
-            <Sh title="Racconta una storia">Chi sei, da dove vengono gli ingredienti, il piatto del mese. Compare sotto il menù, con testo e foto, e si legge toccandola.</Sh>
-            <p className={s.hint}>Nel telefono a destra vedi dove compare: sotto il menù, nelle storie.</p>
+            <Sh title="Racconta una storia">Chi siete, da dove viene un ingrediente, il piatto del mese. La storia sta con la cosa che racconta: in fondo alla scheda di un prodotto, oppure nella pagina del locale.</Sh>
+            <p className={s.hint}>Nel passo dopo scegli di cosa parla. Il telefono a destra ti mostra dove compare.</p>
         </>
     );
 }
@@ -126,14 +163,14 @@ export function StileNome({ t, u, styles, onBase }: { t: Tunnel; u: U; styles: r
         <>
             <Sh title="Il nome">Lo vedi solo tu, nell'elenco degli stili e nel Calendario.</Sh>
             <Field label="Nome dello stile" id={id}>
-                <input className={s.in} id={id} value={t.name} placeholder="Natale" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
+                <input className={s.in} id={id} data-bad="name" value={t.name} placeholder="Natale" autoComplete="off" onChange={e => u(x => void (x.name = e.target.value))} />
             </Field>
             <div className={s.opts} hidden={!!t.edit}>
                 <Opt on={t.base === "zero"} icon={<Plus size={16} />} title="Da zero" text="Parti dai colori di CataloGlobe." onClick={() => onBase(null)} />
                 <Opt on={t.base === "copy"} icon={<Copy size={16} />} title="Parti da uno stile che hai" text="Ne fai una copia e la cambi." onClick={() => onBase(t.baseStyleId ?? styles[0]?.id ?? null)} disabled={!styles.length} />
             </div>
             {t.base === "copy" && !t.edit && (
-                <div className={s.chips}>
+                <div className={s.chips} data-bad="copy">
                     {styles.map(st => (
                         <Chip key={st.id} on={t.baseStyleId === st.id} onClick={() => onBase(st.id)}>
                             {st.name}
@@ -173,7 +210,7 @@ export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly 
             </div>
             <p className={s.hint}>{promo ? "Accanto a ogni piatto puoi scrivere una nota: «-20% a pranzo», «solo il giovedì»." : "Il cliente vede i piatti e un prezzo solo."} Si prendono dai prodotti che hai.</p>
             {t.from && only && <Inherited>I piatti del menù {q(t.from.name)}, a portata di mano.</Inherited>}
-            <div className={s.list} style={{ maxHeight: 330, overflow: "auto" }}>
+            <div className={s.list} style={{ maxHeight: 330, overflow: "auto" }} data-bad="dishes">
                 {cats.map(([c, ps]) => (
                     <div key={c}>
                         <div className={s.lcat}>{c}</div>
@@ -226,7 +263,7 @@ export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly 
                     <div className={cx(s.f, s.blk)}>
                         <label htmlFor={bid}>Prezzo unico</label>
                         <span className={s.rng}>
-                            <input className={cx(s.in, s.num)} id={bid} value={t.bundle} placeholder="45" inputMode="decimal" onChange={e => u(x => void (x.bundle = e.target.value))} /> €
+                            <input className={cx(s.in, s.num)} id={bid} data-bad="price" value={t.bundle} placeholder="45" inputMode="decimal" onChange={e => u(x => void (x.bundle = e.target.value))} /> €
                         </span>
                     </div>
                     <div className={s.blk}>
@@ -241,8 +278,8 @@ export function EvidPiatti({ t, u, pick, L }: { t: Tunnel; u: U; pick: readonly 
 }
 
 /* ---------- la storia ---------- */
-export function StoriaRacconto({ t, u, pick, coverUrl }: { t: Tunnel; u: U; pick: readonly PickProduct[]; coverUrl: string | null }) {
-    const ids = { k: useId(), t: useId(), l: useId(), c: useId() };
+export function StoriaRacconto({ t, u, coverUrl }: { t: Tunnel; u: U; coverUrl: string | null }) {
+    const ids = { k: useId(), t: useId(), c: useId() };
     return (
         <>
             <Sh title="Il racconto">Così si presenta nell'elenco delle storie, sotto il menù.</Sh>
@@ -250,7 +287,7 @@ export function StoriaRacconto({ t, u, pick, coverUrl }: { t: Tunnel; u: U; pick
                 <input className={s.in} id={ids.k} value={t.kicker} placeholder="La nostra cucina" autoComplete="off" onChange={e => u(x => void (x.kicker = e.target.value))} />
             </Field>
             <Field label="Titolo" id={ids.t}>
-                <input className={s.in} id={ids.t} value={t.title} placeholder="Il riso, prima di tutto" autoComplete="off" onChange={e => u(x => void (x.title = e.target.value))} />
+                <input className={s.in} id={ids.t} data-bad="title" value={t.title} placeholder="Il riso, prima di tutto" autoComplete="off" onChange={e => u(x => void (x.title = e.target.value))} />
             </Field>
             <div className={s.blk}>
                 <span className={s.lab}>Copertina</span>
@@ -265,18 +302,7 @@ export function StoriaRacconto({ t, u, pick, coverUrl }: { t: Tunnel; u: U; pick
                     }
                 />
             </div>
-            <div className={cx(s.f, s.blk)}>
-                <label htmlFor={ids.l}>Anche nella scheda di un piatto</label>
-                <select className={s.in} id={ids.l} value={t.linked} onChange={e => u(x => void (x.linked = e.target.value))}>
-                    <option value="">Nessuno</option>
-                    {pick.map(p => (
-                        <option key={p.id} value={p.id}>
-                            {p.name}
-                        </option>
-                    ))}
-                </select>
-                <p className={s.hint}>Facoltativo: chi apre quel piatto trova la storia in fondo.</p>
-            </div>
+            <p className={s.hint}>Il prodotto o il locale si scelgono in «Di cosa parla».</p>
         </>
     );
 }
@@ -349,9 +375,66 @@ const KIND_TXT: Record<Tunnel["kind"], string> = {
 
 type Upd = (fn: (d: Draft) => void) => void;
 
+/** La domanda in cima a «Dove e quando» (D189): in onda o pronto. Creando nessuna è scelta. */
+export function OndaAsk({ t, u, small }: { t: Tunnel; u: U; small?: boolean }) {
+    const o = ONDA[t.kind], chosen = t.onda !== null;
+    // uno stile in onda non si «tiene pronto»: si spegne, e torna lo stile di prima (D192)
+    const spegni = t.kind === "stile" && t.edit?.orig.onda === "on";
+    return (
+        <div className={cx(s.ask, small && s.ondaS)} data-bad="ask">
+            <p>{`Vuoi che i clienti ${o.lo} vedano${t.edit ? "" : " appena salvi"}?`}</p>
+            <div className={cx(s.ondaPick, chosen ? s.made : s.fresh)}>
+                <Pick
+                    on={t.onda === "on"}
+                    lead
+                    icon={<Radio size={18} />}
+                    title={`Sì, ${o.lo} metto in onda`}
+                    text={`Scegli in quali sedi e quando ${o.lo} vedono i clienti.`}
+                    onClick={() => u(x => void (x.onda = "on"))}
+                />
+                <Pick
+                    on={t.onda === "off"}
+                    icon={spegni ? <PowerOff size={18} /> : <CirclePause size={18} />}
+                    title={spegni ? "No, lo spengo" : keepReady(t.kind)}
+                    text={spegni ? "Resta salvato, ma nessun cliente lo vede: nelle sue ore torna lo stile di prima." : `${t.kind === "storia" ? "La salvi completa" : "Lo salvi completo"}, ma nessun cliente ${o.lo} vede.`}
+                    disabled={offLater(t)}
+                    later={offLater(t) ? "Arriva col database nuovo" : undefined}
+                    onClick={() => u(x => void (x.onda = "off"))}
+                />
+            </div>
+            <p className={s.swap}>{chosen ? "Per cambiare idea, tocca l'altro." : "Puoi cambiare idea quando vuoi."}</p>
+        </div>
+    );
+}
+
+/** «Lo tengo pronto»: niente sedi né orari. Spegnendo una cosa in onda, la sua voce resta spenta. */
+export function OndaOff({ t }: { t: Tunnel }) {
+    const o = ONDA[t.kind];
+    if (t.edit?.orig.onda === "on")
+        return (
+            <div className={s.callout}>
+                <TriangleAlert size={16} aria-hidden />
+                <span>
+                    {`Salvando, ${o.q} esce da tutte le sedi: da quel momento nessun cliente ${o.lo} vede.`}
+                    {/* la storia non ha voci nel Calendario */}
+                    {t.kind !== "storia" && ` La sua voce nel Calendario resta, spenta, con sedi e orari: ${o.lo} ritrovi uguale quando ${o.lo} rimetti in onda.`}
+                </span>
+            </div>
+        );
+    return (
+        <div className={cx(s.callout, s.info)}>
+            <Info size={16} aria-hidden />
+            <span>{`Nessuna sede e nessun orario. ${o.Il} resta in «${KIND[t.kind].page}» come «${o.Pronto}, non in onda». Quando vuoi, ${o.lo} metti in onda da lì con «Metti in onda».`}</span>
+        </div>
+    );
+}
+
+const ondaSub = (t: Tunnel) => `Prima decidi se i clienti ${ONDA[t.kind].lo} vedono. Si cambia quando vuoi.`;
+
 /** Il Quando, con una sede sola; `bare` è solo «Sempre o in certi momenti», dentro «Dove e quando». */
-export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean }) {
-    const storia = t.kind === "storia";
+export function Quando({ t, u, draft, updDraft, durs, axis, bare, clash, scontri, nuovi, L, eff }: { t: Tunnel; u: U; draft: Draft | null; updDraft: Upd; durs: readonly CalWhen[]; axis: Axis; bare?: boolean; clash?: boolean; scontri?: readonly Scontro[]; nuovi?: Nuovi; L?: DraftLookups; eff?: Impatto }) {
+    // da «E adesso?»: prima si confermano gli orari ereditati (D194)
+    const ask = !!L && inhAsk(t), asking = ask && t.inhQ !== "cambio";
     const choice = (
         <>
             <div className={s.opts}>
@@ -361,8 +444,6 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel;
                     icon={<CalendarClock size={16} />}
                     title="Solo in certi momenti"
                     text="Un periodo, alcuni giorni o alcune ore: il pranzo, il weekend, Natale."
-                    disabled={storia && !STORIA_WHEN}
-                    later={storia && !STORIA_WHEN ? "Per le storie arriva col database nuovo" : undefined}
                     onClick={() =>
                         u(x => {
                             x.qmode = "momenti";
@@ -377,7 +458,7 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel;
                 (bare ? (
                     <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} />
                 ) : (
-                    <div className={cx(cal.root, s.calwrap)}>
+                    <div className={cx(cal.root, s.calwrap, s.qpasso)} data-bad="ore">
                         <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} />
                     </div>
                 ))}
@@ -386,49 +467,237 @@ export function Quando({ t, u, draft, updDraft, durs, axis, bare }: { t: Tunnel;
     if (bare) return choice;
     return (
         <>
-            <Sh title="Quando">Quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
-            {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
-            {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
-            {t.edit && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
-            {choice}
-            <p className={s.hint}>{KIND_TXT[t.kind]}</p>
+            <Sh title="Quando">{ondaSub(t)}</Sh>
+            <OndaAsk t={t} u={u} />
+            {t.onda === "off" && <OndaOff t={t} />}
+            {t.onda === "on" && (
+                <>
+                    {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+                    {t.edit?.ruleId && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
+                    {ask && L && <InhBox t={t} u={u} k="quando" L={L} />}
+                    {qautoNote(t) && <Inherited>{qautoNote(t)}</Inherited>}
+                    {!asking && choice}
+                    {!asking && (
+                        <p className={s.hint}>
+                            {t.kind === "menu" && NEW_MODEL.multiMenu
+                                ? "Nelle sue ore il cliente vede questo menù. Se si incrocia con un altro, qui sotto scegli se metterli insieme o mostrarlo al posto degli altri."
+                                : KIND_TXT[t.kind]}
+                        </p>
+                    )}
+                    {clash && <InsiemeBox t={t} u={u} scontri={scontri ?? []} multi={false} nuovi={nuovi} eff={eff} />}
+                </>
+            )}
         </>
     );
 }
 
-/** Dove e quando, con più sedi (D145): il passo del Calendario, col «Sempre» del tunnel dentro. */
-export function DoveQuando(p: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[]; L: DraftLookups; durs: readonly CalWhen[]; axis: Axis }) {
-    const { t, draft } = p;
-    const storia = t.kind === "storia";
-    const storiaBad = storia ? blocker(t, "dove", { owner: true, multi: true }) : "";
+/** Dove, con più sedi: prima se va in onda, poi in quali sedi. Le ore sono nel passo dopo. */
+export function Dove({ t, u, draft, updDraft, sedi, groups, L }: { t: Tunnel; u: U; draft: Draft; updDraft: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[]; L: DraftLookups }) {
+    const ask = inhAsk(t);
     return (
         <>
-            <Sh title="Dove e quando">In quali sedi e quando lo vede il cliente. Si cambia quando vuoi dal Calendario.</Sh>
-            {t.from && <Inherited>Già compilato dal menù {q(t.from.name)}: puoi cambiarlo.</Inherited>}
-            {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
-            {t.edit && !storia && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
-            <div className={cx(cal.root, s.calwrap)}>
-                <DoveQuandoPasso
-                    draft={draft}
-                    upd={p.updDraft}
-                    sedi={p.sedi}
-                    groups={p.groups}
-                    L={p.L}
-                    bad={invalid(draft)}
-                    durs={p.durs}
-                    axis={p.axis}
-                    split={!storia && !t.edit}
-                    quando={<Quando bare t={t} u={p.u} draft={draft} updDraft={p.updDraft} durs={p.durs} axis={p.axis} />}
+            <Sh title="Dove">{`Due scelte: se i clienti ${ONDA[t.kind].lo} vedono e in quali sedi. Si cambia quando vuoi.`}</Sh>
+            <OndaAsk t={t} u={u} small />
+            {t.onda === "off" && <OndaOff t={t} />}
+            {t.onda === "on" && (
+                <>
+                    {t.aside && <Inherited>Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.</Inherited>}
+                    {ask && t.inhD !== "cambio" ? (
+                        <div className={s.blk}>
+                            <h4>In quali sedi?</h4>
+                            <InhBox t={t} u={u} k="dove" L={L} />
+                        </div>
+                    ) : (
+                        <>
+                            {ask && <InhBox t={t} u={u} k="dove" L={L} />}
+                            <div className={cx(cal.root, s.calwrap)}>
+                                <SediPasso draft={draft} upd={updDraft} sedi={sedi} groups={groups} />
+                            </div>
+                        </>
+                    )}
+                    <p className={s.hint}>Le ore si scelgono nel passo dopo, «Quando».</p>
+                </>
+            )}
+        </>
+    );
+}
+
+/** Quando, con più sedi: le ore, uguali per tutte o sede per sede. */
+export function QuandoOre({
+    t,
+    u,
+    draft,
+    updDraft,
+    sedi,
+    groups,
+    durs,
+    axis,
+    clash,
+    scontri,
+    onPart,
+    onSede,
+    nuovi,
+    L,
+    eff
+}: {
+    /** Gli effetti nel calendario: la tinta dei menù e i giorni di ogni sede. */
+    eff?: Impatto;
+    /** La sede da guardare nella settimana a destra. */
+    onSede?: (id: string) => void;
+    /** In modifica: le sedi con un incrocio nuovo, ancora senza risposta. */
+    nuovi?: Nuovi;
+    t: Tunnel;
+    u: U;
+    draft: Draft;
+    updDraft: Upd;
+    sedi: readonly PassoSede[];
+    groups: readonly PassoGruppo[];
+    durs: readonly CalWhen[];
+    axis: Axis;
+    /** Nelle sue ore c'è già un altro menù o stile: il Quando ha una seconda parte. */
+    clash: boolean;
+    scontri: readonly Scontro[];
+    onPart: (n: 1 | 2) => void;
+    L: DraftLookups;
+}) {
+    const ask = inhAsk(t);
+    const ids = sediOf(t.where, sedi, groups), n = ids.length;
+    const sel = t.per ? "diverse" : t.qmode;
+    const part = clash && t.qPart === 2 ? 2 : 1;
+    const two = t.kind === "stile" ? "Con gli altri stili" : "In onda insieme";
+    const head = (
+        <>
+            <Sh title="Quando">
+                {t.per ? "Le ore di ogni sede: la settimana a destra segue la sede che scegli sopra." : `Le ore in cui i clienti ${ONDA[t.kind].lo} vedono. A destra la settimana della sede che scegli sopra.`}
+            </Sh>
+            {clash && (
+                <nav className={s.qst} aria-label="Parti del Quando">
+                    <button type="button" className={cx(s.qsp, part === 2 && s.ok)} aria-current={part === 1 ? "step" : undefined} onClick={() => onPart(1)}>
+                        <i>{part === 2 ? <Check size={11} aria-hidden /> : 1}</i>Le ore
+                    </button>
+                    <span className={s.qln} aria-hidden="true" />
+                    <button type="button" className={s.qsp} aria-current={part === 2 ? "step" : undefined} onClick={() => onPart(2)}>
+                        <i>2</i>
+                        {two}
+                    </button>
+                </nav>
+            )}
+        </>
+    );
+    if (part === 2)
+        return (
+            <>
+                {head}
+                <div className={s.qsum}>
+                    <CalendarClock size={15} aria-hidden />
+                    <span>
+                        <b>Le ore:</b> {ask && t.inhQ === "si" && t.from ? `stessi orari di ${q(t.from.name)}` : oreSummary(t, ids)}
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => onPart(1)}>
+                        Cambia
+                    </Button>
+                </div>
+                <InsiemeBox t={t} u={u} scontri={scontri} multi sedi={sedi.filter(x => ids.includes(x.id))} onSede={onSede} nuovi={nuovi} eff={eff} />
+            </>
+        );
+    // da «E adesso?»: prima si confermano gli orari ereditati (D194)
+    if (ask && t.inhQ !== "cambio")
+        return (
+            <>
+                {head}
+                <InhBox t={t} u={u} k="quando" L={L} />
+            </>
+        );
+    return (
+        <>
+            {head}
+            {ask && <InhBox t={t} u={u} k="quando" L={L} />}
+            {qautoNote(t) && <Inherited>{qautoNote(t)}</Inherited>}
+            <div className={s.opts}>
+                <Opt
+                    on={sel === "sempre"}
+                    icon={<InfinityIcon size={16} />}
+                    title="Sempre"
+                    text={n > 1 ? `In ${nTutte(n)}, tutti i giorni, a tutte le ore.` : "Da subito, tutti i giorni, a tutte le ore."}
+                    onClick={() => u(x => void ((x.per = null), (x.qmode = "sempre")))}
                 />
+                <Opt
+                    on={sel === "momenti"}
+                    icon={<CalendarClock size={16} />}
+                    title="Solo in certi momenti"
+                    text={n > 1 ? `Le stesse ore in ${nTutte(n)}.` : "Un periodo, alcuni giorni o alcune ore: il pranzo, il weekend, Natale."}
+                    onClick={() =>
+                        u(x => {
+                            x.per = null;
+                            x.qmode = "momenti";
+                            if (!x.when.days && !x.when.ranges && !x.when.period) x.when = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] };
+                        })
+                    }
+                />
+                {n > 1 && (
+                    <Opt
+                        on={sel === "diverse"}
+                        icon={<MapPinned size={16} />}
+                        title="Dipende dalla sede"
+                        text="Ogni sede ha le sue ore."
+                        onClick={() =>
+                            u(x => {
+                                if (x.per) return;
+                                // tutte partono dalle ore scelte fin qui
+                                x.when = cloneWhen(effWhen(x));
+                                x.qmode = "momenti";
+                                x.per = Object.fromEntries(sediOf(x.where, sedi, groups).map(id => [id, cloneWhen(x.when)]));
+                            })
+                        }
+                    />
+                )}
             </div>
-            <p className={s.hint}>
-                {storia ? storiaBad ? <Warnish>{storiaBad}.</Warnish> : `Oggi una storia va in tutte le sedi o in una sola; per alcune sedi ${DB_LATER}.` : KIND_TXT[t.kind]}
-            </p>
+            {sel !== "sempre" && (
+                <div className={cx(cal.root, s.calwrap, s.qpasso)} data-bad="ore">
+                    {sel === "momenti" ? <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} /> : <OreSedi onOpen={onSede} draft={draft} upd={updDraft} sedi={sedi} durs={durs} axis={axis} />}
+                </div>
+            )}
+            {t.edit?.ruleId && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
+            {clash ? (
+                <Button variant="primary" size="sm" className={s.qnext} rightIcon={<ArrowRight size={14} />} onClick={() => onPart(2)}>
+                    Avanti: {two.toLowerCase()}
+                </Button>
+            ) : t.kind === "evid" ? (
+                <p className={s.qnone}>
+                    <Layers size={15} aria-hidden />
+                    <span>Si aggiunge agli altri in evidenza; l'ordine lo scegli dopo.</span>
+                </p>
+            ) : (
+                !scontri.length && (
+                    <p className={s.qnone}>
+                        <CircleCheck size={15} aria-hidden />
+                        <span>Nessun altro {t.kind === "stile" ? "stile" : "menù"} in onda in queste ore: niente da scegliere.</span>
+                    </p>
+                )
+            )}
         </>
     );
 }
 
 /* ---------- Controlla ---------- */
+
+/** Pronto e controllato (D189): la lista di «Controlla» quando non va in onda. */
+export function Checks({ t }: { t: Tunnel }) {
+    return (
+        <div className={s.blk}>
+            <h4>Controlli</h4>
+            <ul className={s.checks}>
+                {["Il contenuto è completo", "Nessun errore da correggere", `${ONDA[t.kind].Pronto} per andare in onda in qualunque sede`].map(x => (
+                    <li key={x}>
+                        <Check size={14} aria-hidden />
+                        {x}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
 export function Controlla({
     t,
     c,
@@ -436,9 +705,14 @@ export function Controlla({
     effect,
     styleName,
     seen,
+    wkSede,
+    onSede,
     onGo,
     onInsieme
 }: {
+    /** La sede che si guarda nella settimana, scelta anche da qui. */
+    wkSede: string | null;
+    onSede: (id: string) => void;
     /** Lo stile in modifica: le sedi che vedono subito quello che si salva. */
     seen?: string | null;
     t: Tunnel;
@@ -450,15 +724,40 @@ export function Controlla({
     onInsieme: (v: boolean) => void;
 }) {
     const all = steps(t, c);
-    const st = all.filter(x => x !== "controlla" && x !== "serve" && x !== "modifica");
+    const st = all.filter(x => x !== "controlla" && x !== "serve" && x !== "modifica" && !skipped(t, x, c));
     const fb = firstBlock(t, c);
+    // senza i fatti per sede (bozza incompleta) restano le righe della settimana
+    const cosa = effect.sedi?.length ? (
+        <CosaCambia sedi={effect.sedi} kind={t.kind} insieme={t.insieme == null ? false : (sede, con) => hVal(t, sede, con)} when={effWhen(t)} multi={L.multi} pair={effect.pair}
+            sede={wkSede}
+            onSede={onSede}
+            periodi={hPeriodi(t, hAltri(effect.scontri))}
+            me={thingName(t)}
+            prima={t.edit?.orig.onda === "on" && effect.prima ? { sedi: effect.prima, val: t.edit.orig.insieme == null ? false : (sede, con) => hVal(t.edit!.orig, sede, con) } : undefined}
+        />
+    ) : (
+        <ul className={s.ieff}>
+            {effect.lines.map((x, i) => (
+                <li key={i}>{x}</li>
+            ))}
+        </ul>
+    );
     if (t.edit) {
         const ch = st.filter(x => changed(t, x));
         const stray = strays(t, c);
         const inCal = ch.some(x => x === "dove" || x === "quando") && t.kind !== "storia";
+        // spegnere una cosa in onda (D189): esce da tutte le sedi, la sua voce resta spenta
+        const spegni = t.edit.orig.onda === "on" && t.onda === "off";
+        const dq = (x: StepId) => (x === "dove" || x === "quando") && t.onda !== t.edit!.orig.onda;
         return (
             <>
                 <Sh title="Controlla">{ch.length ? "Si salva solo quello che hai cambiato. Il resto resta com'è." : "Non hai ancora cambiato niente."}</Sh>
+                {spegni && (
+                    <div className={s.blk}>
+                        <h4>In una frase</h4>
+                        <p className={s.isent}>{sentence(t, L)}</p>
+                    </div>
+                )}
                 {stray.map(x => (
                     <div className={cx(s.callout, s.info)} key={x}>
                         <TriangleAlert size={16} aria-hidden />
@@ -478,7 +777,19 @@ export function Controlla({
                             return (
                                 <div key={x} className={on ? undefined : s.same}>
                                     <dt>{stepLabel(t, x)}</dt>
-                                    <dd>{on ? stepSummary(t, x, L, styleName) : "Come prima"}</dd>
+                                    <dd>
+                                        {on && dq(x) ? (
+                                            <>
+                                                {ondaChange(t, x, L)[0]}
+                                                <br />
+                                                <b>{ondaChange(t, x, L)[1]}</b>
+                                            </>
+                                        ) : on ? (
+                                            stepSummary(t, x, L, styleName)
+                                        ) : (
+                                            "Come prima"
+                                        )}
+                                    </dd>
                                     <Button variant="ghost" size="sm" onClick={() => onGo(all.indexOf(x))}>
                                         Cambia
                                     </Button>
@@ -492,13 +803,14 @@ export function Controlla({
                 {inCal && (
                     <div className={s.blk}>
                         <h4>Cosa cambia nel calendario</h4>
-                        <ul className={s.ieff}>
-                            {effect.lines.map((x, i) => (
-                                <li key={i}>{x}</li>
-                            ))}
-                        </ul>
+                        {spegni ? (
+                            <p>{`La sua voce (${all.filter(x => x === "dove" || x === "quando").map(x => stepSummary(t.edit!.orig, x, L, styleName)).join(" · ")}) si spegne e resta lì, pronta per tornare in onda.`}</p>
+                        ) : (
+                            cosa
+                        )}
                     </div>
                 )}
+                {spegni && !fb && <Checks t={t} />}
                 {fb && (
                     <div className={s.callout}>
                         <TriangleAlert size={16} aria-hidden />
@@ -510,21 +822,22 @@ export function Controlla({
             </>
         );
     }
+    const live = goesLive(t, c), o = ONDA[t.kind];
     return (
         <>
             <Sh title="Controlla">Se qualcosa non va, «Cambia» ti riporta a quel passo.</Sh>
-            {c.owner ? (
-                <div className={s.blk}>
-                    <h4>In una frase</h4>
-                    <p className={s.isent}>{sentence(t, L)}</p>
-                    {(t.kind === "menu" || t.kind === "stile") && (
-                        <ScontriAvviso kind={t.kind === "menu" ? "menu" : "style"} scontri={effect.scontri} multi={L.multi} insieme={!!t.insieme} onInsieme={onInsieme} />
-                    )}
-                </div>
-            ) : (
-                <div className={cx(s.callout, s.info)}>
+            <div className={s.blk}>
+                <h4>In una frase</h4>
+                {/* chi non gestisce il Calendario tiene sempre pronto */}
+                <p className={s.isent}>{sentence(live ? t : { ...t, onda: "off" }, L, L.multi ? nascosto(t, effect.sedi) : null)}</p>
+                {live && (t.kind === "menu" || t.kind === "stile") && (
+                    <ScontriAvviso kind={t.kind === "menu" ? "menu" : "style"} scontri={t.insieme == null ? effect.scontri : effect.scontri.filter(x => !x.copre)} multi={L.multi} insieme={!!t.insieme} onInsieme={onInsieme} />
+                )}
+            </div>
+            {!c.owner && (
+                <div className={s.callout}>
                     <Lock size={16} aria-hidden />
-                    <span>La messa in onda la decide chi gestisce il Calendario: con «Salva» lo trova {t.kind === "storia" ? "tra le storie in bozza" : "tra le bozze"}, con tutto pronto.</span>
+                    <span>{`La messa in onda la decide chi gestisce il Calendario. Con «Salva e tieni ${o.pronto}» ${o.q} resta in «${KIND[t.kind].page}» come «${o.Pronto}, non in onda», con tutti i controlli fatti.`}</span>
                 </div>
             )}
             <div className={s.blk}>
@@ -532,7 +845,7 @@ export function Controlla({
                 <dl className={s.isum}>
                     {st.map(x => (
                         <div key={x}>
-                            <dt>{STEP_LABEL[x]}</dt>
+                            <dt>{stepLabel(t, x)}</dt>
                             <dd>{stepSummary(t, x, L, styleName)}</dd>
                             <Button variant="ghost" size="sm" onClick={() => onGo(all.indexOf(x))}>
                                 Cambia
@@ -544,18 +857,19 @@ export function Controlla({
             {c.owner && t.kind !== "storia" && (
                 <div className={s.blk}>
                     <h4>Cosa cambia nel calendario</h4>
-                    <ul className={s.ieff}>
-                        {effect.lines.map((x, i) => (
-                            <li key={i}>{x}</li>
-                        ))}
-                    </ul>
+                    {live ? (
+                        cosa
+                    ) : (
+                        <p>Niente: non è in onda in nessuna sede.</p>
+                    )}
                 </div>
             )}
+            {!live && !fb && <Checks t={t} />}
             {fb && (
                 <div className={s.callout}>
                     <TriangleAlert size={16} aria-hidden />
                     <span>
-                        {fb.why}: torna a «{STEP_LABEL[all[fb.i]]}».
+                        {fb.why}: torna a «{stepLabel(t, all[fb.i])}».
                     </span>
                 </div>
             )}
@@ -564,21 +878,41 @@ export function Controlla({
 }
 
 /* ---------- E adesso? (dopo un menù in onda) ---------- */
-export function Adesso({ name, kids, onChain, onFinish, can }: { name: string; kids: readonly string[]; onChain: (k: "stile" | "evid" | "storia") => void; onFinish: () => void; can: Record<"stile" | "evid" | "storia", boolean> }) {
-    const card = (k: "stile" | "evid" | "storia", icon: ReactNode, title: string, text: string) => {
-        const done = kids.includes(k);
-        return <Opt key={k} done={done} icon={done ? <Check size={16} /> : icon} title={title} text={done ? "Fatto: puoi aggiungerne un altro." : text} onClick={() => onChain(k)} disabled={!can[k]} />;
+export function Adesso({ kind, name, did, live, dish, onChain, onFinish }: { kind: CreaKind; name: string; did: string; live: boolean; dish: string; onChain: (k: CreaKind) => void; onFinish: () => void }) {
+    // in onda, quello che crei da qui parte dalle stesse sedi e ore (non la storia, che non ne ha)
+    const same = live && kind !== "storia" ? " Nelle stesse sedi e ore." : "";
+    const stile = <Palette size={16} />, evid = <Megaphone size={16} />, storia = <ScrollText size={16} />;
+    const O: Record<CreaKind, [CreaKind, ReactNode, string, string][]> = {
+        menu: [
+            ["stile", stile, "Dagli i tuoi colori", "Uno stile per questo menù." + same],
+            ["evid", evid, dish ? `Metti in evidenza ${q(dish)}` : "Metti in evidenza un suo piatto", "In cima al menù." + same],
+            ["storia", storia, dish ? `Racconta ${q(dish)}` : "Racconta un suo piatto", "Una storia sul piatto, nella sua scheda."]
+        ],
+        stile: [
+            ["menu", <BookOpen size={16} />, "Un menù per queste ore", "Il menù che i clienti vedono con questo stile." + same],
+            ["evid", evid, "Metti qualcosa in evidenza", "In cima al menù." + same],
+            ["storia", storia, "Racconta il locale", "Una storia nella pagina del locale."]
+        ],
+        evid: [
+            ["storia", storia, dish ? `Racconta ${q(dish)}` : "Racconta una storia", "Una storia sul piatto, nella sua scheda."],
+            ["evid", evid, "Un altro in evidenza", "Per esempio per un altro giorno." + same],
+            ["stile", stile, "Uno stile per queste ore", "Per esempio più scuro la sera." + same]
+        ],
+        storia: [
+            ["evid", evid, dish ? `Metti in evidenza ${q(dish)}` : "Metti qualcosa in evidenza", "In cima al menù, con la storia a un tocco."],
+            ["storia", storia, "Un'altra storia", "Su un altro piatto o sul locale."]
+        ]
     };
     return (
         <>
-            <Sh title="E adesso?">{name} è in onda. Vuoi aggiungere qualcosa?</Sh>
+            <Sh title="E adesso?">{did} Vuoi creare subito qualcos'altro?</Sh>
             <div className={s.opts}>
-                {card("stile", <Palette size={16} />, "Dagli i tuoi colori", "Uno stile per questo menù.")}
-                {card("evid", <Megaphone size={16} />, "Metti qualcosa in evidenza", "Coi piatti di questo menù a portata di mano.")}
-                {card("storia", <ScrollText size={16} />, "Racconta una storia", "Testo e foto sotto il menù.")}
-                <Opt icon={<Check size={16} />} title="Ho finito" text={`Vai alla pagina del ${KIND.menu.noun}.`} onClick={onFinish} />
+                {O[kind].map(([k, icon, title, text]) => (
+                    <Opt key={k} icon={icon} title={title} text={text} onClick={() => onChain(k)} />
+                ))}
+                <Opt icon={<Check size={16} />} title="Ho finito" text={`Vai a ${q(KIND[kind].page)}.`} onClick={onFinish} />
             </div>
-            <p className={s.hint}>Il tunnel che scegli ha già il quando e il dove di questo menù: puoi cambiarli.</p>
+            <p className={s.hint}>{kind === "storia" ? "Quello che crei da qui parte già da questa storia: puoi cambiarlo." : `Quello che crei da qui ha già le sedi e le ore di ${q(name)}: puoi cambiarle.`}</p>
         </>
     );
 }

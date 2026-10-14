@@ -8,6 +8,8 @@ import { getStory } from "@/services/supabase/stories";
 import { getStyle, type V2Style } from "@/services/supabase/styles";
 import { entriesFromRules, whenOfRule, whereOfRule, type CalEntry } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { EV, asEdit, cloneWhen, key, newTunnel, type CreaKind, type EvType, type Section, type Tunnel } from "./creaModel";
+import { DB, NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
+import { readEvid } from "./evidData";
 import { tokensOf } from "./creaStyle";
 import type { CreaData } from "./useCreaData";
 
@@ -17,6 +19,15 @@ export type Loaded = { t: Tunnel; style: V2Style | null };
 
 /** Lo stile di CataloGlobe non si modifica: se ne fa una copia. */
 export class SystemStyleError extends Error {}
+
+/**
+ * Anche le voci spente (D189): una cosa tenuta pronta dopo essere stata in onda
+ * ha ancora la sua voce, con sedi e orari. Le accese vengono prima.
+ */
+export function allEntriesOf(kind: CreaKind, id: string, data: Pick<CreaData, "rules" | "names">): CalEntry[] {
+    const off = data.rules.filter(r => !r.enabled).map(r => ({ ...r, enabled: true }));
+    return [...entriesOf(kind, id, data), ...entriesOf(kind, id, { rules: off, names: data.names })];
+}
 
 /** Le voci del Calendario che mettono in onda questa cosa. */
 export function entriesOf(kind: CreaKind, id: string, data: Pick<CreaData, "rules" | "names">): CalEntry[] {
@@ -32,7 +43,6 @@ export function entriesOf(kind: CreaKind, id: string, data: Pick<CreaData, "rule
 
 async function loadMenu(t: Tunnel, id: string, tenantId: string, data: CreaData) {
     const [catalog, cats, links] = await Promise.all([getCatalog(id, tenantId), listCategories(tenantId, id), listCategoryProducts(tenantId, id)]);
-    t.menuType = "classico";
     t.name = catalog.name;
     const kids = (parent: string | null) => cats.filter(c => c.parent_category_id === parent).sort((a, b) => a.sort_order - b.sort_order);
     const walk = (parent: string | null): Section[] =>
@@ -54,6 +64,17 @@ async function loadMenu(t: Tunnel, id: string, tenantId: string, data: CreaData)
     t.sections = walk(null);
 }
 
+/** Senza i segni del menù da cui vengono: salvando nascono categorie e righe nuove, coi prodotti di prima. */
+const fresh = (list: readonly Section[]): Section[] =>
+    list.map(x => ({ key: x.key, name: x.name, dishes: x.dishes.map(d => ({ key: d.key, productId: d.productId, name: d.name, price: d.price, ...(d.parentId ? { parentId: d.parentId } : {}) })), subs: fresh(x.subs) }));
+
+/** «Copia da un altro menù»: le sue categorie e i suoi piatti, da cambiare. */
+export async function copySections(id: string, tenantId: string, data: CreaData): Promise<Section[]> {
+    const t = newTunnel("menu", ALL);
+    await loadMenu(t, id, tenantId, data);
+    return fresh(t.sections);
+}
+
 async function loadStile(t: Tunnel, id: string, tenantId: string): Promise<V2Style> {
     const st = await getStyle(id, tenantId);
     if (!st) throw new Error("stile non trovato");
@@ -68,7 +89,7 @@ async function loadStile(t: Tunnel, id: string, tenantId: string): Promise<V2Sty
 
 const EV_OF = Object.fromEntries((Object.keys(EV) as EvType[]).map(k => [EV[k].type, k])) as Record<string, EvType>;
 
-async function loadEvid(t: Tunnel, id: string, tenantId: string) {
+async function loadEvid(t: Tunnel, id: string, tenantId: string): Promise<boolean> {
     const [c, rows] = await Promise.all([getFeaturedContentById(id, tenantId), listFeaturedContentProducts(id, tenantId)]);
     t.evType = EV_OF[c.content_type] ?? "annuncio";
     t.title = c.title ?? "";
@@ -83,38 +104,50 @@ async function loadEvid(t: Tunnel, id: string, tenantId: string) {
     }
     const sorted = [...rows].sort((a, b) => a.sort_order - b.sort_order);
     t.dishes = sorted.map(r => r.product_id);
+    if (DB.ready && NEW_MODEL.evid) readEvid(t, c);
     t.notes = Object.fromEntries(sorted.filter(r => r.note).map(r => [r.product_id, r.note!]));
     t.bundle = c.bundle_price == null ? "" : String(c.bundle_price).replace(".", ",");
     t.showOrig = !!c.show_original_total;
+    return c.status === "published";
 }
 
-async function loadStoria(t: Tunnel, id: string, tenantId: string) {
+async function loadStoria(t: Tunnel, id: string, tenantId: string): Promise<boolean> {
     const st = await getStory(id, tenantId);
     t.kicker = st.eyebrow ?? "";
     t.title = st.title;
     t.coverUrl = st.cover_media;
     t.linked = st.product_id ?? "";
     t.blocks = st.body_blocks ?? [];
-    if (st.activity_id) t.where = { all: false, activityIds: [st.activity_id], groupIds: [] };
+    // di cosa parla (D191): col prodotto, altrimenti col locale (senza sede: tutte, com'era)
+    t.about = st.product_id ? "prod" : "loc";
+    t.sede = st.activity_id ?? "";
+    return st.status === "published";
 }
 
 export async function loadTunnel(kind: CreaKind, id: string, tenantId: string, data: CreaData): Promise<Loaded> {
     const t = newTunnel(kind, ALL);
     let style: V2Style | null = null;
+    // pubblicato: per in evidenza e storie conta anche lo stato del contenuto
+    let published = true;
     if (kind === "menu") await loadMenu(t, id, tenantId, data);
     else if (kind === "stile") style = await loadStile(t, id, tenantId);
-    else if (kind === "evid") await loadEvid(t, id, tenantId);
-    else await loadStoria(t, id, tenantId);
+    else if (kind === "evid") published = await loadEvid(t, id, tenantId);
+    else published = await loadStoria(t, id, tenantId);
 
-    // il quando e il dove sono quelli della sua regola, se è una sola
-    const es = entriesOf(kind, id, data);
+    // il quando e il dove sono quelli della sua regola, se è una sola: contano le
+    // accese; le spente solo se non ce n'è nessuna accesa (una cosa tenuta pronta)
+    const on = entriesOf(kind, id, data);
+    const es = on.length ? on : allEntriesOf(kind, id, data);
     const one = es.length === 1 ? es[0] : null;
+    const live = kind === "storia" ? published : published && on.length > 0;
     if (one) {
         const w = cloneWhen(whenOfRule(one.rule)), where = whereOfRule(one.rule);
         t.when = w;
         t.qmode = w.period || w.days || w.ranges ? "momenti" : "sempre";
         t.where = { all: where.all, activityIds: [...where.activityIds], groupIds: [...where.groupIds] };
+        // la scelta fatta resta (D192): le regole di oggi prendono il posto
+        if (kind === "menu" || kind === "stile") t.insieme = false;
         if (kind === "evid") t.slot = one.rule.featured_contents.find(c => c.featured_content_id === id)?.slot === "after_catalog" ? "after" : "before";
     }
-    return { t: asEdit(t, id, { id: one?.ruleId ?? null, count: es.length }), style };
+    return { t: asEdit(t, id, { id: one?.ruleId ?? null, count: es.length, live }), style };
 }

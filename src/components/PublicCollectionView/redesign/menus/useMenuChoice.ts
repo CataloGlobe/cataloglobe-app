@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type { PublicMenu } from "@/types/resolvedCollections";
 import { markOwnBack } from "./menuPassage";
@@ -19,21 +19,17 @@ export type MenuChoice = {
 };
 
 /**
- * Quale menu mostrare e quando mostrare la scelta. `?menu=` si legge solo dopo il
- * primo disegno: il server non vede la query (`api/ssr-render`), quindi rende la
- * scelta, e il primo disegno del browser deve uguagliarlo. Un link diretto valido
- * salta la scelta; uno sconosciuto o di un menu di più tardi torna alla scelta.
+ * Quale menu mostrare e quando mostrare la scelta. `?menu=` lo legge anche il
+ * server (`api/ssr-render` lo passa all'indirizzo del render), quindi il primo
+ * disegno del browser uguaglia l'HTML. Un link diretto valido salta la scelta;
+ * uno sconosciuto o di un menu di più tardi torna alla scelta.
  */
-const subscribeNever = () => () => {};
 
 export function useMenuChoice(menus: PublicMenu[] | undefined, mode: { preview: boolean }): MenuChoice {
     const [params, setParams] = useSearchParams();
     const location = useLocation();
     const navigate = useNavigate();
-    // Falso solo nell'idratazione (come il server); in una navigazione nel browser vale subito.
-    const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
-
-    const slug = mounted ? params.get(MENU_PARAM) : null;
+    const slug = params.get(MENU_PARAM);
     const canChoose = shouldChoose(menus, mode);
     const picked = canChoose ? findMenu(menus, slug) : undefined;
 

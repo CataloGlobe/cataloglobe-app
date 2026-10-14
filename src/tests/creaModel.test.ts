@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 // i moduli del tunnel arrivano fino al client: qui non serve, e senza `.env` non partirebbe
 vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
 import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { blocker, effWhen, firstBlock, isDirty, kindOfSlug, newTunnel, readFromAi, steps, tunnelTitle, whenProblem, withAside, type FromMenu } from "@/pages/Dashboard/Crea/creaModel";
+import { CHOOSE, blocker, effWhen, firstBlock, goesLive, isDirty, keepReady, kindOfSlug, newTunnel, oreSummary, readFromAi, sentence, skipped, stepFrom, stepLabel, stepSummary, steps, tunnelTitle, whenProblem, withAside, type From, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, logoColors, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
 
@@ -13,22 +14,51 @@ const ALL = { all: true, activityIds: [], groupIds: [] };
 const OWNER = { owner: true, multi: true };
 
 describe("tunnel di creazione: i passi", () => {
-    it("ogni tipo ha i suoi passi, poi «Dove e quando» e Controlla (D134, D145)", () => {
-        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["tipo", "parti", "sezioni", "dove", "controlla"]);
-        expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "controlla"]);
-        expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "racconto", "blocchi", "dove", "controlla"]);
+    it("ogni tipo ha i suoi passi, poi «Dove», «Quando» e Controlla; la storia ha «Di cosa parla» e «In onda?» (D191)", () => {
+        expect(steps(newTunnel("menu", ALL), OWNER)).toEqual(["parti", "sezioni", "dove", "quando", "controlla"]);
+        expect(steps(newTunnel("stile", ALL), OWNER)).toEqual(["serve", "nome", "aspetto", "dove", "quando", "controlla"]);
+        expect(stepLabel(newTunnel("menu", ALL), "dove")).toBe("Dove");
+        expect(stepLabel(newTunnel("storia", ALL), "tema")).toBe("Di cosa parla");
+        expect(stepLabel(newTunnel("storia", ALL), "onda")).toBe("In onda?");
+        expect(steps(newTunnel("storia", ALL), OWNER)).toEqual(["serve", "tema", "racconto", "blocchi", "onda", "controlla"]);
+        expect(steps(newTunnel("storia", ALL), { owner: true, multi: false })).toEqual(["serve", "tema", "racconto", "blocchi", "onda", "controlla"]);
         const ev = newTunnel("evid", ALL);
         // D187: niente «Che cosa?»; i piatti sono una parte del contenuto, non un passo
-        expect(steps(ev, OWNER)).toEqual(["contenuto", "dove", "controlla"]);
-        expect(steps({ ...ev, evType: "promo" }, OWNER)).toEqual(["contenuto", "dove", "controlla"]);
+        expect(steps(ev, OWNER)).toEqual(["contenuto", "dove", "quando", "controlla"]);
+        expect(steps({ ...ev, evType: "promo" }, OWNER)).toEqual(["contenuto", "dove", "quando", "controlla"]);
         expect(blocker({ ...ev, title: "Lo chef consiglia", evType: "promo" }, "contenuto", OWNER)).toBe("Aggiungi almeno un piatto");
         expect(blocker({ ...ev, title: "Lo chef consiglia", evType: "promo", dishes: ["p1"] }, "contenuto", OWNER)).toBe("");
         expect(blocker({ ...ev, title: "Chiusi per ferie" }, "contenuto", OWNER)).toBe("");
     });
 
+    it("il Dove viene prima del Quando: si parte da nessuna sede, e tenuto pronto il Quando si salta", () => {
+        const NONE = { all: false, activityIds: [], groupIds: [] };
+        const t = { ...newTunnel("menu", NONE), name: "Pranzo", seen: 9 };
+        expect(blocker(t, "dove", OWNER)).toBe("Scegli una delle due per andare avanti");
+        expect(blocker({ ...t, onda: "on" }, "dove", OWNER)).toBe("Scegli almeno una sede");
+        const on: typeof t = { ...t, onda: "on", where: { all: false, activityIds: ["a"], groupIds: [] } };
+        expect(blocker(on, "dove", OWNER)).toBe("");
+        // le ore sbagliate fermano il Quando, non il Dove
+        const bad: typeof t = { ...on, qmode: "momenti", when: { days: [] } };
+        expect(blocker(bad, "dove", OWNER)).toBe("");
+        expect(blocker(bad, "quando", OWNER)).toBe("Scegli almeno un giorno");
+        expect(blocker({ ...on, qmode: "momenti", when: {}, per: { a: {}, b: { days: [] } } }, "quando", OWNER)).toBe("Scegli almeno un giorno");
+        // «Avanti» dal Dove: in onda va al Quando, tenuto pronto lo salta
+        expect(skipped(on, "quando", OWNER)).toBe(false);
+        expect(stepFrom(on, OWNER, 2, 1)).toBe(3);
+        const off: typeof t = { ...t, onda: "off" };
+        expect(blocker(off, "dove", OWNER)).toBe("");
+        expect(skipped(off, "quando", OWNER)).toBe(true);
+        expect(stepFrom(off, OWNER, 2, 1)).toBe(4);
+        expect(stepFrom(off, OWNER, 4, -1)).toBe(2);
+        expect(firstBlock({ ...off, sections: [{ key: "s", name: "Primi", dishes: [{ key: "d", productId: "p1", name: "Risotto", price: 9 }], subs: [] }], qmode: "momenti", when: { days: [] } }, OWNER)).toBeNull();
+        // con una sede sola non si salta niente: la scelta è nel Quando
+        expect(skipped(off, "quando", { owner: true, multi: false })).toBe(false);
+    });
+
     it("chi non gestisce il Calendario non ha Dove e quando; con una sede sola solo il Quando", () => {
-        expect(steps(newTunnel("menu", ALL), { owner: false, multi: true })).toEqual(["tipo", "parti", "sezioni", "controlla"]);
-        expect(steps(newTunnel("menu", ALL), { owner: true, multi: false })).toEqual(["tipo", "parti", "sezioni", "quando", "controlla"]);
+        expect(steps(newTunnel("menu", ALL), { owner: false, multi: true })).toEqual(["parti", "sezioni", "controlla"]);
+        expect(steps(newTunnel("menu", ALL), { owner: true, multi: false })).toEqual(["parti", "sezioni", "quando", "controlla"]);
     });
 
     it("gli indirizzi: /crea/evidenza è il contenuto in evidenza, il resto non esiste", () => {
@@ -40,16 +70,23 @@ describe("tunnel di creazione: i passi", () => {
 });
 
 describe("tunnel di creazione: cosa ferma «Avanti»", () => {
-    it("il menù: il tipo, il nome (non solo spazi), almeno un piatto", () => {
+    it("il menù: il nome (non solo spazi), almeno un piatto; il passo «Che menù è» non c'è più", () => {
         const t = newTunnel("menu", ALL);
-        expect(firstBlock(t, OWNER)).toEqual({ i: 0, why: "Scegli che menù è" });
-        expect(firstBlock({ ...t, menuType: "classico", name: "   " }, OWNER)).toEqual({ i: 1, why: "Manca il nome del menù" });
-        const named = { ...t, menuType: "classico" as const, name: "Pranzo" };
-        expect(firstBlock(named, OWNER)).toEqual({ i: 2, why: "Aggiungi almeno un piatto" });
+        expect(firstBlock(t, OWNER)).toEqual({ i: 0, why: "Manca il nome del menù" });
+        expect(firstBlock({ ...t, name: "   " }, OWNER)).toEqual({ i: 0, why: "Manca il nome del menù" });
+        const named = { ...t, name: "Pranzo" };
+        expect(firstBlock(named, OWNER)).toEqual({ i: 1, why: "Aggiungi almeno un piatto" });
+        // copiando serve il menù da cui copiare
+        expect(firstBlock({ ...named, source: "copia" }, OWNER)).toEqual({ i: 0, why: "Scegli da quale menù copiare" });
+        expect(firstBlock({ ...named, source: "copia", copyFrom: "c1" }, OWNER)).toEqual({ i: 1, why: "Aggiungi almeno un piatto" });
         // la foto si carica nel passo dopo (D180): il nome basta per andare avanti
-        expect(firstBlock({ ...named, source: "foto" }, OWNER)).toEqual({ i: 2, why: "Aggiungi almeno un piatto" });
+        expect(firstBlock({ ...named, source: "foto" }, OWNER)).toEqual({ i: 1, why: "Aggiungi almeno un piatto" });
         const dish = { key: "d", productId: null, name: "Capricciosa", price: 9.5 };
-        expect(firstBlock({ ...named, sections: [{ key: "s", name: "Pizze", dishes: [dish], subs: [] }] }, OWNER)).toBeNull();
+        const full = { ...named, sections: [{ key: "s", name: "Pizze", dishes: [dish], subs: [] }] };
+        // D189: senza la scelta «in onda / pronto» non si va avanti
+        expect(firstBlock(full, OWNER)).toEqual({ i: 2, why: CHOOSE });
+        expect(firstBlock({ ...full, onda: "on" }, OWNER)).toBeNull();
+        expect(firstBlock({ ...full, onda: "off" }, OWNER)).toBeNull();
     });
 
     it("lo stile va già bene com'è; copiato, vuole lo stile di partenza", () => {
@@ -68,20 +105,104 @@ describe("tunnel di creazione: cosa ferma «Avanti»", () => {
         expect(blocker({ ...t, dishes: ["p1"], bundle: "24,50" }, "piatti", OWNER)).toBe("");
     });
 
-    it("il Dove: almeno una sede; la storia per ora in una sede sola", () => {
+    it("il Dove: almeno una sede", () => {
         const none = { all: false, activityIds: [], groupIds: [] };
-        expect(blocker(newTunnel("menu", none), "dove", OWNER)).toBe("Scegli almeno una sede");
-        expect(blocker(newTunnel("menu", none), "dove", { owner: true, multi: false })).toBe("");
-        expect(blocker(newTunnel("storia", { all: false, activityIds: ["a", "b"], groupIds: [] }), "dove", OWNER)).toMatch(/^Una storia in più sedi/);
-        expect(blocker(newTunnel("storia", { all: false, activityIds: ["a"], groupIds: [] }), "dove", OWNER)).toBe("");
+        const on = (t: Tunnel): Tunnel => ({ ...t, onda: "on" });
+        expect(blocker(on(newTunnel("menu", none)), "dove", OWNER)).toBe("Scegli almeno una sede");
+        expect(blocker(on(newTunnel("menu", none)), "dove", { owner: true, multi: false })).toBe("");
     });
 
     it("il Quando: «Sempre» non guarda il modulo; il modulo non passa cose che il database rifiuta", () => {
-        const t = { ...newTunnel("menu", ALL), when: { days: [] } };
+        const t: Tunnel = { ...newTunnel("menu", ALL), when: { days: [] }, onda: "on" };
         expect(effWhen(t)).toEqual({});
         expect(blocker(t, "quando", OWNER)).toBe("");
         expect(blocker({ ...t, qmode: "momenti" }, "quando", OWNER)).toBe("Scegli almeno un giorno");
         expect(whenProblem({ ranges: [[900, 720]] })).toBe("Una fascia finisce prima di cominciare");
+    });
+});
+
+describe("«Dove e quando»: in onda o pronto (D189)", () => {
+    const none = { all: false, activityIds: [], groupIds: [] };
+
+    it("nessuna delle due è scelta: ferma Avanti nel Dove e nel Quando", () => {
+        expect(newTunnel("menu", ALL).onda).toBeNull();
+        expect(blocker(newTunnel("menu", ALL), "dove", OWNER)).toBe("Scegli una delle due per andare avanti");
+        expect(blocker(newTunnel("menu", ALL), "quando", { owner: true, multi: false })).toBe(CHOOSE);
+    });
+
+    it("«lo tengo pronto» va avanti senza sedi né orari", () => {
+        const t: Tunnel = { ...newTunnel("menu", none), qmode: "momenti", when: { days: [] }, onda: "off" };
+        expect(blocker(t, "dove", OWNER)).toBe("");
+        expect(blocker(t, "quando", OWNER)).toBe("");
+        expect(blocker({ ...t, onda: "on" }, "dove", OWNER)).toBe("Scegli almeno una sede");
+    });
+
+    it("va in onda solo se lo sceglie chi gestisce il Calendario", () => {
+        const t: Tunnel = { ...newTunnel("menu", ALL), onda: "on" };
+        expect(goesLive(t, OWNER)).toBe(true);
+        expect(goesLive({ ...t, onda: "off" }, OWNER)).toBe(false);
+        expect(goesLive(newTunnel("menu", ALL), OWNER)).toBe(false);
+        expect(goesLive(t, { owner: false, multi: true })).toBe(false);
+    });
+
+    it("le parole: la scelta nel riepilogo, la frase di Controlla, la storia al femminile", () => {
+        const L = { multi: true } as DraftLookups;
+        const m: Tunnel = { ...newTunnel("menu", ALL), name: "Pranzo", onda: "off" };
+        expect(stepSummary(m, "dove", L, () => "")).toBe("No, per ora lo tengo pronto");
+        expect(keepReady("storia")).toBe("No, per ora la tengo pronta");
+        expect(sentence(m, L)).toBe("Il menù «Pranzo» è pronto ma spento: nessun cliente lo vede finché non lo metti in onda.");
+        const st: Tunnel = { ...newTunnel("storia", ALL), title: "Le origini", onda: "off" };
+        expect(sentence(st, L)).toBe("La storia «Le origini» è pronta ma spenta: nessun cliente la vede finché non la metti in onda.");
+    });
+});
+
+describe("il «Quando» in due parti: le ore, poi «In onda insieme» (punto 3)", () => {
+    const CLASH = { ...OWNER, clash: true };
+    const live = (k: "menu" | "stile" | "evid"): Tunnel => ({ ...newTunnel(k, ALL), onda: "on" });
+
+    it("con un altro nelle stesse ore si sceglie: finché manca la scelta il «Quando» si ferma", () => {
+        expect(blocker(live("menu"), "quando", CLASH)).toBe("Scegli: insieme o al posto degli altri");
+        expect(blocker(live("stile"), "quando", CLASH)).toBe("Scegli: prende il posto dell'altro o lo lascia");
+        expect(blocker({ ...live("menu"), insieme: true }, "quando", CLASH)).toBe("");
+        expect(blocker({ ...live("menu"), insieme: false }, "quando", CLASH)).toBe("");
+        // senza incroci, tenuto pronto o in evidenza non c'è niente da scegliere
+        expect(blocker(live("menu"), "quando", OWNER)).toBe("");
+        expect(blocker({ ...live("menu"), onda: "off" }, "quando", CLASH)).toBe("");
+        expect(blocker(live("evid"), "quando", CLASH)).toBe("");
+    });
+
+    it("prima le ore: un orario che non va si dice prima della scelta", () => {
+        const t: Tunnel = { ...live("menu"), qmode: "momenti", when: { ranges: [[900, 720]] } };
+        expect(blocker(t, "quando", CLASH)).toBe(whenProblem(t.when));
+    });
+
+    it("lo stile che lascia gli altri lo dice nella frase", () => {
+        const L = { sedi: new Map(), groups: new Map(), multi: true } as never;
+        const t: Tunnel = { ...live("stile"), name: "Natale", insieme: true };
+        expect(sentence(t, L)).toContain("la pagina prende lo stile «Natale», ma dove c'è già un altro stile resta quello");
+        expect(sentence({ ...t, insieme: false }, L)).not.toContain("resta quello");
+    });
+
+    it("in evidenza sta in un posto solo, in cima al menù (D187); chi era sotto lo dice ancora", () => {
+        const L = { sedi: new Map(), groups: new Map(), multi: true } as never;
+        const t: Tunnel = { ...live("evid"), title: "Mercoledì dello spritz" };
+        expect(t.slot).toBe("before");
+        expect(sentence(t, L)).toContain("«Mercoledì dello spritz» va in evidenza, in cima al menù");
+        expect(stepSummary(t, "contenuto", L, () => "")).toBe("Mercoledì dello spritz");
+        expect(sentence({ ...t, slot: "after" }, L)).toContain("va in evidenza, sotto il menù");
+        expect(stepSummary({ ...t, slot: "after" }, "contenuto", L, () => "")).toBe("Mercoledì dello spritz · sotto il menù");
+    });
+
+    it("«Le ore» in breve: uguale in tutte, o diversa in alcune sedi", () => {
+        const w = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] as [number, number][] };
+        const t: Tunnel = { ...live("menu"), qmode: "momenti", when: w };
+        expect(oreSummary(t, ["a"])).toBe("Lun–Ven · 12:00–15:00");
+        expect(oreSummary(t, ["a", "b"])).toBe("Lun–Ven · 12:00–15:00 · uguale in tutte e due le sedi");
+        expect(oreSummary(t, ["a", "b", "c", "d"])).toBe("Lun–Ven · 12:00–15:00 · uguale in tutte le 4 sedi");
+        const per = { a: structuredClone(w), b: structuredClone(w), c: { days: [5, 6] } };
+        expect(oreSummary({ ...t, per }, ["a", "b", "c"])).toBe("Lun–Ven · 12:00–15:00 · uguale in 2, diversa in 1 sede");
+        // «Dipende dalla sede» ma ancora tutte uguali
+        expect(oreSummary({ ...t, per: { a: structuredClone(w), b: structuredClone(w) } }, ["a", "b"])).toBe("Lun–Ven · 12:00–15:00 · uguale in tutte e due le sedi");
     });
 });
 
@@ -104,14 +225,14 @@ describe("tunnel di creazione: la bozza tenuta da parte nel Calendario", () => {
     });
 
     it("lo stile aperto da «E adesso?» parte dal quando e dal dove del menù", () => {
-        const from: FromMenu = { name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto"], groupIds: [] }, per: null };
+        const from: From = { kind: "menu", dish: null, onda: "on", name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto"], groupIds: [] }, per: null };
         const t = newTunnel("stile", ALL, from);
         expect(t).toMatchObject({ qmode: "momenti", when: { days: [0, 1, 2, 3, 4] }, where: { activityIds: ["porto"] }, aside: false, per: null });
     });
 
     it("le ore diverse per sede del menù passano allo stile, copiate", () => {
         const per = { porto: { days: [0, 1, 2, 3, 4] }, lido: { days: [5, 6] } };
-        const from: FromMenu = { name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto", "lido"], groupIds: [] }, per };
+        const from: From = { kind: "menu", dish: null, onda: "on", name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto", "lido"], groupIds: [] }, per };
         const t = newTunnel("stile", ALL, from);
         expect(t.per).toEqual(per);
         expect(t.per).not.toBe(per);
@@ -128,7 +249,7 @@ describe("tunnel di creazione: il titolo e cosa si perde uscendo", () => {
 
     it("appena aperto non c'è niente da perdere; una scelta o un nome sì", () => {
         expect(isDirty(newTunnel("menu", ALL))).toBe(false);
-        expect(isDirty({ ...newTunnel("menu", ALL), menuType: "classico" })).toBe(true);
+        expect(isDirty({ ...newTunnel("menu", ALL), name: "Pranzo" })).toBe(true);
         expect(isDirty({ ...newTunnel("storia", ALL), title: "Il forno" })).toBe(true);
         expect(isDirty({ ...newTunnel("stile", ALL), name: "  " })).toBe(false);
         expect(isDirty({ ...newTunnel("stile", ALL), i: 1 })).toBe(true);
@@ -261,5 +382,15 @@ describe("tunnel di creazione: il menù letto dall'AI", () => {
         const t = { ...newTunnel("menu", ALL), impOpen: true };
         expect(isDirty(t)).toBe(true);
         expect(blocker(t, "sezioni", OWNER)).toContain("import aperto");
+    });
+});
+
+describe("tunnel della storia: c'è qualcosa da perdere uscendo?", () => {
+    it("no dopo «A cosa serve», che si legge e basta; sì appena si sceglie o si scrive (difetto 5)", () => {
+        const t: Tunnel = { ...newTunnel("storia", ALL), i: 1 };
+        expect(isDirty(t)).toBe(false);
+        expect(isDirty({ ...t, about: "prod" })).toBe(true);
+        expect(isDirty({ ...t, i: 2 })).toBe(true);
+        expect(isDirty({ ...t, title: "La nostra cucina" })).toBe(true);
     });
 });

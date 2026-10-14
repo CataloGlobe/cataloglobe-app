@@ -14,25 +14,13 @@ Uno stile si crea e si modifica nel tunnel: `/business/:businessId/crea/stile` e
 - **Abbonamento fermo**: il Salva si ferma su `useEnsureActive`.
 - Prove: `src/tests/creaModel.test.ts` (aspetto, leggibilità), `src/tests/creaEdit.test.ts` (nome senza versione, «Torna a questa» + Salva).
 
-## Il vecchio editor
+## L'anteprima
 
-**Percorso**: `/business/:businessId/styles/:styleId` → `StyleEditorPage`. Ancora montato, ma nessun link ci porta: le note qui sotto valgono per lui e per l'anteprima (`StylePreview`), che il tunnel riusa.
-
-```
-StyleEditorPage
-├── StylePropertiesPanel (una sola vista: in `fieldset disabled` + banner per chi non ha `styles.write`,
-│   per l'abbonamento fermo e per gli stili di sistema — StylePropertiesReadOnly è uscito, §50.11/3)
-├── StyleVersionsPopover
-└── StylePreview
-     ├── PublicThemeScope
-     └── CollectionView (mode="preview", MOCK_FEATURED + MOCK_SECTION_GROUPS inline)
-```
+Il vecchio editor (`StyleEditorPage`, `/styles/:styleId`) non c'è più (deciso da Alex l'11/10): `styles/:styleId` apre il tunnel di modifica (`StyleTunnelRedirect`). Di lui restano `StylePreview` (il telefono del tunnel, `StilePhone`) e `StyleTokenModel`.
 
 - `StylePreview` passa al `CollectionView` sia `scrollContainerEl` sia `viewportWidthEl` (entrambi `screenEl` del device frame). Senza `viewportWidthEl`, `window.innerWidth` del browser editor farebbe collassare l'header in preview mobile.
 - `headerRadius` passato come valore numerico dal campo `appearanceRadius` del `CollectionStyle` — NON letto via `getComputedStyle`. Helper `borderRadiusToPx("none"|"soft"|"rounded") -> 0|10|20` in `src/features/public/utils/mapStyleTokensToCssVars.ts`.
-- `navigationStyle` valori correnti: `"filled" | "outline" | "tabs" | "minimal" | "tinted"`. I valori deprecati `"pill"`, `"chip"` e `"dot"` (variante rimossa) sono rimappati a `"filled"` in `parseTokens` — la label UI nel PropertiesPanel resta "Pill" per familiarità. `"tinted"` ("Sfondo soffuso") riusa il token `--pub-primary-soft` già consumato altrove (AllergenIcon, CharacteristicIcon, CollectionView, MoreSheet, FeaturedCard).
+- `navigationStyle` valori correnti: `"filled" | "outline" | "tabs" | "minimal" | "tinted"`. I valori deprecati `"pill"`, `"chip"` e `"dot"` (variante rimossa) sono rimappati a `"filled"` in `parseTokens` — la parola nel tunnel resta "Pill" per familiarità. `"tinted"` ("Sfondo soffuso") riusa il token `--pub-primary-soft` già consumato altrove (AllergenIcon, CharacteristicIcon, CollectionView, MoreSheet, FeaturedCard).
 - Responsive grid card è basato su container queries: misura larghezza di `.container` (device frame in preview, body in runtime). Coerente preview/runtime by design.
 - Runtime e preview devono restare sincronizzati: `parseTokens()` converte i token nel `collectionStyle` usato da CollectionView.
-- **Salva in testata** (`HeaderSaveAction`) con guardia all'uscita (`useUnsavedChangesGuard`); l'avviso «Stile in uso» è un `ConfirmDialog` che non si spegne (via «Non chiedere più» e la chiave `cataloglobe-style-skip-confirm-*`, §34.5/3). Rilegge le regole al Salva e nomina chi vede la modifica e quando (`describeStyleSaveWarning`, §34.5/1–2): senza regole vive non si apre. Stile di sistema: «Duplica e personalizza» in testata.
-- **Editor stretto** (container query `style-editor`, sotto 600 px): il pannello resta a destra e comprimibile ma si sovrappone all'anteprima ed è largo al più quanto l'editor. L'anteprima mobile non scala (`DeviceFrame` mobile): a 768 con pannello aperto è tagliata a sinistra.
 - **Elenco**: `CardGrid` con `StyleSwatch` (SVG, colori negli attributi `fill`) nell'area media, o `DataTable` con lo swatch compatto. `StyleSwatch` vive in `src/components/ui/StyleSwatch/` (due consumatori: Stili e la card del menù, §49.3); `label` gli dà un nome accessibile quando il campione dice qualcosa che il testo non dice.

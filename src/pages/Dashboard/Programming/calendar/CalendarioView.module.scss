@@ -7,9 +7,9 @@
     color: var(--text);
     // un colore per tipo, uguale a quello delle corsie
     // menù, visibilità e «diversa» sono token del tema, anche in scuro
-    --cal-menu: var(--brand-primary);
-    --cal-style: #0e9488;
-    --cal-featured: #d97706;
+    --cal-menu: var(--kind-menu);
+    --cal-style: var(--kind-style);
+    --cal-featured: var(--kind-featured);
     --cal-price: #2563eb;
     --cal-visibility: var(--color-gray-500);
     --cal-shade: rgba(15, 23, 42, 0.08);
@@ -18,8 +18,6 @@
 }
 
 :global([data-theme="dark"]) .root {
-    --cal-style: #2dd4bf;
-    --cal-featured: #fbbf24;
     --cal-price: #60a5fa;
     --cal-shade: rgba(0, 0, 0, 0.35);
 }
@@ -188,6 +186,51 @@ button.dqsedi {
         white-space: nowrap;
     }
 }
+// «In quali sedi?»: il pannello delle sedi sempre aperto, nel passo «Dove»
+.sbox {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    max-width: 460px;
+    max-height: 330px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    background: var(--surface);
+    @include type.fs(text);
+}
+.sft {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 28px;
+    font-variant-numeric: tabular-nums;
+}
+.dqsrch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    align-self: stretch;
+    max-width: 460px;
+    padding: 5px 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text-muted);
+    input {
+        width: 100%;
+        border: 0;
+        outline: none;
+        background: none;
+        font: inherit;
+        @include type.fs(text);
+        color: var(--text);
+    }
+    &:focus-within {
+        box-shadow: var(--shadow-focus);
+    }
+}
 .dqrows {
     display: flex;
     flex-direction: column;
@@ -201,6 +244,10 @@ button.dqsedi {
     overflow: hidden;
     &[data-open] {
         border-color: var(--brand-primary);
+    }
+    // la sede con ore sue
+    &[data-dif] {
+        background: var(--brand-primary-soft);
     }
 }
 .dqhd {
@@ -219,6 +266,16 @@ button.dqsedi {
     b {
         @include type.fs(text);
         min-width: 90px;
+        small {
+            margin-left: 6px;
+            @include type.fs(small);
+            font-weight: 400;
+            color: var(--text-muted);
+            &[data-dif] {
+                font-weight: 600;
+                color: var(--brand-primary);
+            }
+        }
     }
     span {
         flex: 1 1 180px;
@@ -350,6 +407,13 @@ button.dqsedi {
 }
 .lg.off {
     border-top: 2px dashed var(--text-muted);
+}
+.lg.spenta,
+.fls.off.spenta::before {
+    opacity: 0.55;
+}
+.fname.spenta {
+    color: var(--text-muted);
 }
 .lg.hid {
     width: auto;
@@ -590,7 +654,7 @@ button.dqsedi {
         min-width: 0;
     }
     &.pv {
-        color: var(--brand-primary);
+        color: var(--k, var(--brand-primary));
         font-weight: 600;
     }
 }
@@ -1006,6 +1070,14 @@ button.dqsedi {
         background: color-mix(in srgb, var(--text-warning) 14%, var(--surface));
         color: var(--text-warning);
     }
+    &.live {
+        background: var(--success-50);
+        color: var(--text-success);
+    }
+}
+.ichn {
+    flex: 1;
+    min-width: 0;
 }
 .iacts {
     display: flex;
@@ -1245,15 +1317,26 @@ button.dqsedi {
         border-radius: var(--radius-control);
     }
     .fcal {
-        min-width: 480px;
+        min-width: 520px;
     }
+    // i nomi dei menù interi, anche con «nuovo» accanto (giro del 2026-10-14, difetto 3)
     .fhead,
     .fday {
-        grid-template-columns: 58px 132px minmax(0, 1fr);
+        grid-template-columns: 58px 172px minmax(0, 1fr);
     }
     .fhead > div:nth-child(2),
     .flabs {
         left: 58px;
+    }
+    // «nuovo» lo dicono già il colore e il bordo tratteggiato (spiegati sotto la settimana):
+    // la parola resta per chi legge con lo screen reader e lascia lo spazio al nome
+    .fname em.pv {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
     .fdl {
         padding: 6px 8px;
@@ -1280,8 +1363,27 @@ button.dqsedi {
 .iaway {
     align-self: flex-start;
 }
+.wsel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.wsl {
+    min-width: 0;
+    max-width: 240px;
+}
+.wsn {
+    @include type.fs(note);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    b {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+}
 .fls.pv {
-    outline: 1.5px dashed var(--brand-primary);
+    outline: 1.5px dashed var(--k, var(--brand-primary));
     outline-offset: 1px;
 }
 .fname em {
@@ -1291,7 +1393,7 @@ button.dqsedi {
     flex: none;
     margin-left: auto;
     &.pv {
-        color: var(--brand-primary);
+        color: var(--k, var(--brand-primary));
     }
 }
 
@@ -1641,7 +1743,8 @@ button.dqsedi {
         top: 1px;
         bottom: 1px;
         border-radius: 5px;
-        background: var(--brand-primary);
+        // nel tunnel, il colore del tipo (punto 19); nel Calendario, di marca
+        background: var(--k, var(--brand-primary));
     }
 }
 .iband.drag .ibt {
@@ -1656,6 +1759,134 @@ button.dqsedi {
             filter: brightness(1.1);
         }
     }
+}
+/* l'ora scritta, col suo orologio */
+.tpk {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.hin.tin {
+    width: 84px;
+    flex: none;
+    padding-right: 30px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    &[aria-expanded="true"] {
+        border-color: var(--brand-primary);
+        box-shadow: var(--shadow-focus);
+    }
+}
+.tpb {
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    padding: 3px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-grid;
+    place-items: center;
+    &:hover {
+        background: var(--hover-bg);
+        color: var(--text);
+    }
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+    }
+}
+.tpop {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: var(--z-float);
+    width: 248px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    box-shadow: var(--shadow-overlay);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.tph {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    h5 {
+        margin: 0;
+        @include type.fs(fine);
+        font-weight: 600;
+        color: var(--text-muted);
+        letter-spacing: 0.02em;
+    }
+    &.nd {
+        padding: 8px;
+        margin: 0 -2px;
+        border-radius: var(--radius-control);
+        background: var(--bg);
+    }
+}
+.tpg {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    &.m {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    button {
+        font: inherit;
+        @include type.fs(note);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 5px 0;
+        font-variant-numeric: tabular-nums;
+        cursor: pointer;
+        &:hover {
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+        }
+        &:focus-visible {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 1px;
+        }
+        &[aria-pressed="true"] {
+            background: var(--brand-primary);
+            border-color: var(--brand-primary);
+            color: var(--on-brand);
+        }
+    }
+}
+.nday {
+    @include type.fs(note);
+    font-weight: 600;
+    color: var(--brand-primary);
+    background: var(--brand-primary-soft);
+    border-radius: var(--radius-pill);
+    padding: 1px 8px;
+    white-space: nowrap;
+}
+/* sulla barra, dopo lo 0: il giorno dopo */
+.ibnd {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    z-index: 2;
+    pointer-events: none;
+    border-left: 2px solid var(--text);
+    border-radius: 0 6px 6px 0;
+    background: repeating-linear-gradient(-45deg, transparent 0 4px, color-mix(in srgb, var(--text) 16%, transparent) 4px 6px);
+}
+.ibl span.mid {
+    font-weight: 700;
+    color: var(--text);
 }
 .ibh {
     position: absolute;

@@ -1,0 +1,16 @@
+// Un colore per tipo di cosa (menù, stile, in evidenza, storia): le corsie
+// del Calendario e i tunnel di creazione usano gli stessi.
+// Solo back office: lo importa `main.tsx`, non la pagina pubblica, così non
+// pesa sul CSS iniziale del bundle pubblico.
+:root {
+  --kind-menu: var(--brand-primary);
+  --kind-style: #0e9488;
+  --kind-featured: #d97706;
+  --kind-story: #e11d48;
+}
+
+[data-theme="dark"] {
+  --kind-style: #2dd4bf;
+  --kind-featured: #fbbf24;
+  --kind-story: #fb7185;
+}

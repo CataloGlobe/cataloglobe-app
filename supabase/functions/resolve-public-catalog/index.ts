@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
     resolveActivityCatalogs,
+    type ResolvedCatalog,
     type ResolvedCategory,
     type ResolvedCollections,
     type ResolvedProduct,
@@ -88,13 +89,25 @@ function collectProductIds(p: ResolvedProduct | ResolvedVariant, ids: EntityIdSe
     }
 }
 
+/**
+ * I cataloghi del payload: quello in cima e quelli degli altri menù di adesso
+ * (`menus`, giudice nuovo). Ognuno passa dalle stesse traduzioni, abbinamenti
+ * e storie.
+ */
+function payloadCatalogs(resolved: ResolvedCollections | null | undefined): ResolvedCatalog[] {
+    const catalogs: ResolvedCatalog[] = [];
+    if (resolved?.catalog) catalogs.push(resolved.catalog);
+    for (const menu of resolved?.menus ?? []) if (menu.catalog) catalogs.push(menu.catalog);
+    return catalogs;
+}
+
 function collectIds(
     resolved: ResolvedCollections | null | undefined,
     closures: PublicClosure[] | null | undefined
 ): EntityIdSet {
     const ids = emptyIdSet();
 
-    for (const cat of resolved?.catalog?.categories ?? []) {
+    for (const cat of payloadCatalogs(resolved).flatMap(catalog => catalog.categories ?? [])) {
         if (cat?.id) ids.categoryIds.add(cat.id);
         for (const p of cat.products ?? []) {
             collectProductIds(p, ids);
@@ -254,7 +267,9 @@ async function applyAllTranslations(
     }
 
     // Walk + mutate in-place.
-    for (const cat of resolved?.catalog?.categories ?? []) applyCategory(cat, map);
+    for (const catalog of payloadCatalogs(resolved)) {
+        for (const cat of catalog.categories ?? []) applyCategory(cat, map);
+    }
     for (const f of resolved?.featured?.before_catalog ?? []) applyFeatured(f, map);
     for (const f of resolved?.featured?.after_catalog ?? []) applyFeatured(f, map);
     for (const c of closures ?? []) applyClosure(c, map);
@@ -551,14 +566,18 @@ Deno.serve(async (req: Request) => {
         // frontend troverà sempre l'abbinato), (b) realizza la degradazione
         // silenziosa dell'abbinato nascosto/assente, (c) evita di esporre nel
         // payload id/note di prodotti nascosti da regola visibilità.
+        // Con più menù (`menus`) l'abbinamento vale dentro ciascun catalogo.
         {
-            const productsById = new Map<string, ResolvedProduct>();
-            for (const category of resolved.catalog?.categories ?? []) {
-                for (const product of category.products) {
-                    if (product.is_visible) productsById.set(product.id, product);
+            const productsByCatalog = payloadCatalogs(resolved).map(catalog => {
+                const productsById = new Map<string, ResolvedProduct>();
+                for (const category of catalog.categories ?? []) {
+                    for (const product of category.products) {
+                        if (product.is_visible) productsById.set(product.id, product);
+                    }
                 }
-            }
-            const activeIds = [...productsById.keys()];
+                return productsById;
+            });
+            const activeIds = [...new Set(productsByCatalog.flatMap(productsById => [...productsById.keys()]))];
             if (activeIds.length > 0) {
                 const { data: pairingData, error: pairingErr } = await supabase
                     .from("product_pairings")
@@ -578,21 +597,23 @@ Deno.serve(async (req: Request) => {
                     };
                     const rows = (pairingData ?? []) as RawPairingRow[];
                     type PairingRef = { paired_product_id: string; note: string | null; sort_order: number };
-                    const byProduct = new Map<string, PairingRef[]>();
-                    for (const row of rows) {
-                        // Attach solo se l'abbinato è presente-e-visibile nel catalogo attivo.
-                        if (!productsById.has(row.paired_product_id)) continue;
-                        const list = byProduct.get(row.product_id) ?? [];
-                        list.push({
-                            paired_product_id: row.paired_product_id,
-                            note: row.note ?? null,
-                            sort_order: row.sort_order
-                        });
-                        byProduct.set(row.product_id, list);
-                    }
-                    for (const [productId, refs] of byProduct) {
-                        const product = productsById.get(productId);
-                        if (product) product.pairings = refs;
+                    for (const productsById of productsByCatalog) {
+                        const byProduct = new Map<string, PairingRef[]>();
+                        for (const row of rows) {
+                            // Attach solo se l'abbinato è presente-e-visibile nello stesso catalogo.
+                            if (!productsById.has(row.product_id) || !productsById.has(row.paired_product_id)) continue;
+                            const list = byProduct.get(row.product_id) ?? [];
+                            list.push({
+                                paired_product_id: row.paired_product_id,
+                                note: row.note ?? null,
+                                sort_order: row.sort_order
+                            });
+                            byProduct.set(row.product_id, list);
+                        }
+                        for (const [productId, refs] of byProduct) {
+                            const product = productsById.get(productId);
+                            if (product) product.pairings = refs;
+                        }
                     }
                 }
             }
@@ -633,9 +654,11 @@ Deno.serve(async (req: Request) => {
                         }
                     }
                     for (const [productId, story] of storyByProductId) {
-                        const product = productsById.get(productId);
-                        if (product) {
-                            product.story_ref = { id: story.id, title: story.title, cover: story.cover_media };
+                        for (const productsById of productsByCatalog) {
+                            const product = productsById.get(productId);
+                            if (product) {
+                                product.story_ref = { id: story.id, title: story.title, cover: story.cover_media };
+                            }
                         }
                     }
                 }

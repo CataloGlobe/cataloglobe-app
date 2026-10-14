@@ -25,6 +25,23 @@ export function Opt({ on, icon, title, text, onClick, disabled, later, done }: {
     );
 }
 
+/** Una delle due risposte di «Dove e quando» (D189): icona a sinistra, il segno di spunta quando è scelta. */
+export function Pick({ on, lead, icon, title, text, onClick, disabled, later }: { on: boolean; lead?: boolean; icon: ReactNode; title: string; text: string; onClick: () => void; disabled?: boolean; later?: string }) {
+    return (
+        <button type="button" className={cx(s.opt, s.pk, lead && s.lead)} aria-pressed={on} disabled={disabled} onClick={onClick}>
+            <span className={s.oi}>{icon}</span>
+            <span>
+                <b>{title}</b>
+                <span>{text}</span>
+                {later && <span className={s.later}>{later}</span>}
+            </span>
+            <span className={s.tick} aria-hidden>
+                <Check size={12} strokeWidth={2.5} />
+            </span>
+        </button>
+    );
+}
+
 export function Chip({ on, onClick, children, style, disabled }: { on: boolean; onClick: () => void; children: ReactNode; style?: React.CSSProperties; disabled?: boolean }) {
     return (
         <button type="button" className={s.chip} aria-pressed={on} onClick={onClick} style={style} disabled={disabled}>

@@ -1,9 +1,10 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
-import { ArrowRight, Pencil, Trash2, X } from "lucide-react";
+import { ArrowRight, Pencil, Power, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { KIND_LABEL, durLabel, eur, hhmm, q, why, type CalEntry, type CalKind, type CalSeat, type Line, type LineSeg } from "./calendarModel";
 import type { DropItem } from "./calendarWrites";
+import { DB_LATER, NEW_MODEL } from "./calendarFlags";
 import s from "./CalendarioView.module.scss";
 
 export type ProductInfo = { category: string | null; listPrice: number | null };
@@ -30,6 +31,8 @@ export type CalendarioPanelProps = {
     /** La sezione intera; `only` = il piatto toccato, da modificare da solo. */
     onFull: (only?: string) => void;
     onDrop: (item?: DropItem) => Promise<void>;
+    /** «Spegni» (false) e «Metti in onda» (true): la regola resta. Senza, c'è solo «Togli». */
+    onEnable?: (on: boolean) => Promise<void>;
 };
 
 const fH = (g: { from: number; to: number }) => hhmm(g.from) + "–" + hhmm(g.to);
@@ -41,6 +44,22 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
     const k = e.kind;
     const [confirm, setConfirm] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+
+    const spento = !!e.spento;
+    // lo stile sta nella regola del menù: spegnerlo da solo spegnerebbe anche il menù
+    const offLater = k === "style" && !!p.pairedName && !spento;
+    const enable = async (on: boolean) => {
+        if (!p.onEnable) return;
+        setBusy(true);
+        try {
+            await p.onEnable(on);
+            setConfirm(null);
+        } finally {
+            setBusy(false);
+        }
+    };
+    // la fascia toccata finisce dopo mezzanotte: è la stessa serata
+    const late = NEW_MODEL.overnight && g ? e.when.ranges?.find(([a, b]) => b > 1440 && a <= g.from && g.from < b) : undefined;
 
     const drop = async (item?: DropItem) => {
         setBusy(true);
@@ -102,7 +121,14 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
                 </>
             );
         else if (g.covers.length)
-            why1 = (
+            why1 =
+            k === "menu" && NEW_MODEL.multiMenu ? (
+                <>
+                    <h4>Perché vince</h4>
+                    <p>Prende il posto di {g.covers.map(q).join(", ")}.</p>
+                    <p className={s.muted}>Al posto degli altri menù.</p>
+                </>
+            ) : (
                 <>
                     <h4>Perché vince</h4>
                     <ul>
@@ -147,7 +173,14 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
                         {g.state === "on" ? "." : ", ma non si vede."}
                     </p>
                 )}
+                {spento && (
+                    <>
+                        <p>Pronto, non in onda</p>
+                        <p className={s.muted}>La sua voce nel Calendario resta, spenta, con sedi e orari: lo ritrovi uguale quando lo rimetti in onda.</p>
+                    </>
+                )}
                 {why1}
+                {late && <p>Anche dopo mezzanotte: fino alle {hhmm(late[1])} è la stessa serata.</p>}
                 {dish ? (
                     <>
                         <h4>I piatti di questa data</h4>
@@ -208,7 +241,7 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
                             {durLabel(e.when)}
                             {whereTxt}
                         </p>
-                        {k === "menu" && <p className={s.muted}>Menù classico: nelle sue ore i clienti vedono solo questo.</p>}
+                        {k === "menu" && !NEW_MODEL.multiMenu && <p className={s.muted}>Menù classico: nelle sue ore i clienti vedono solo questo.</p>}
                     </>
                 )}
             </div>
@@ -228,16 +261,44 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
                             </Button>
                         </span>
                     </>
+                ) : confirm === "off" ? (
+                    <>
+                        <span>
+                            <b>Spegnere {q(e.thing)}?</b> La sua voce nel Calendario resta, spenta, con sedi e orari: lo ritrovi uguale quando lo rimetti in onda.
+                            {p.pairedName && ` Si spegne anche lo stile ${q(p.pairedName)}, che oggi sta nella stessa regola.`}
+                        </span>
+                        <span className={s.hfa}>
+                            <Button size="sm" variant="secondary" onClick={() => setConfirm(null)}>
+                                Annulla
+                            </Button>
+                            <Button size="sm" variant="primary" loading={busy} onClick={() => void enable(false)}>
+                                Spegni
+                            </Button>
+                        </span>
+                    </>
                 ) : (
                     <>
+                        {p.writable && p.onEnable && !spento && (
+                            // un pulsante spento non riceve il mouse: il perché sta sul suo involucro (difetto 10)
+                            <span data-tip={offLater ? `Arriva col database nuovo\n~Oggi lo stile sta nella stessa regola di «${p.pairedName}»: spegnerlo spegnerebbe anche il menù.` : undefined} style={offLater ? { display: "inline-flex", cursor: "not-allowed" } : { display: "contents" }}>
+                                <Button size="sm" variant="secondary" leftIcon={<Power size={16} />} disabled={offLater} style={offLater ? { pointerEvents: "none" } : undefined} aria-label={offLater ? `Spegni: ${DB_LATER}` : undefined} onClick={() => setConfirm("off")}>
+                                    Spegni
+                                </Button>
+                            </span>
+                        )}
                         {p.writable && (
                             <Button size="sm" variant="ghost" className={s.dangerT} leftIcon={<Trash2 size={16} />} aria-label="Togli dal calendario" onClick={() => setConfirm("all")}>
                                 Togli
                             </Button>
                         )}
                         {p.writable && (
-                            <Button size="sm" variant="primary" rightIcon={<ArrowRight size={16} />} onClick={() => p.onFull()} className={s.hfa}>
+                            <Button size="sm" variant={spento ? "secondary" : "primary"} rightIcon={spento ? undefined : <ArrowRight size={16} />} onClick={() => p.onFull()} className={s.hfa}>
                                 Modifica completa
+                            </Button>
+                        )}
+                        {p.writable && p.onEnable && spento && (
+                            <Button size="sm" variant="primary" loading={busy} onClick={() => void enable(true)}>
+                                Metti in onda
                             </Button>
                         )}
                     </>

@@ -1,7 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { sidebarLink } from "./nav";
-import { MISSING_STYLE, RULE, STYLE, stubStili, type StiliStub, type WriteCall } from "./stiliStub";
+import { RULE, STYLE, stubStili, type StiliStub, type WriteCall } from "./stiliStub";
 import type { Row } from "./restStub";
 
 /**
@@ -24,10 +23,6 @@ function dialog(page: Page): Locator {
 
 function write(stub: StiliStub, key: string): WriteCall | undefined {
     return stub.writes.find(w => w.key === key);
-}
-
-function writes(stub: StiliStub, key: string): WriteCall[] {
-    return stub.writes.filter(w => w.key === key);
 }
 
 /** Il nome dello stile, in griglia o in lista. */
@@ -64,33 +59,6 @@ async function search(page: Page, text: string): Promise<void> {
         await page.getByRole("button", { name: "Cerca", exact: true }).click();
     }
     await field.fill(text);
-}
-
-async function noSideScroll(page: Page): Promise<void> {
-    const overflow = await page.evaluate(() => {
-        const de = document.documentElement;
-        const scrollers = [de, ...Array.from(document.querySelectorAll<HTMLElement>("main"))];
-        return Math.max(...scrollers.map(el => el.scrollWidth - el.clientWidth));
-    });
-    expect(overflow).toBeLessThanOrEqual(0);
-}
-
-/** Il campo del nome nell'editor. */
-function nameField(page: Page): Locator {
-    return main(page).getByRole("textbox", { name: /^Nome stile/ });
-}
-
-/**
- * Cambia un token (Arrotondamento → Morbido): una modifica che il pubblico
- * vede. Il solo nome non crea una versione né chiede l'avviso (S3).
- */
-async function touchToken(page: Page): Promise<void> {
-    await main(page).getByRole("radio", { name: "Morbido", exact: true }).click();
-}
-
-/** Salva dell'editor: in fondo al pannello oggi, in testata domani. */
-function saveButton(page: Page): Locator {
-    return page.getByRole("button", { name: "Salva", exact: true }).first();
 }
 
 /**
@@ -294,171 +262,7 @@ test.describe("Stili — elenco ricomposto (P2)", () => {
     });
 });
 
-test.describe("Stili — editor", () => {
-    test("bozza: Salva crea una versione, lo stile in uso chiede conferma", async ({ page }) => {
-        wireStyleWrites(stub);
-        await openStyle(page, STYLE.estate);
-        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
-        await nameField(page).fill("Estate 2026 e2e");
-        await touchToken(page);
-        await saveButton(page).click();
-        const confirm = page.getByRole("alertdialog");
-        await expect(confirm).toContainText("Stile in uso");
-        await confirm.getByRole("button", { name: "Salva comunque" }).click();
-        await expect.poll(() => write(stub, "style_versions.POST")?.body).toMatchObject({ style_id: STYLE.estate, version: 4 });
-        await expect.poll(() => write(stub, "styles.PATCH")?.body).toMatchObject({ name: "Estate 2026 e2e" });
-    });
-
-    test("uno stile che non veste niente si salva senza conferma", async ({ page }) => {
-        wireStyleWrites(stub);
-        await openStyle(page, STYLE.sera);
-        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
-        await nameField(page).fill("Sera tardi e2e");
-        await saveButton(page).click();
-        await expect.poll(() => write(stub, "styles.PATCH")?.body).toMatchObject({ name: "Sera tardi e2e" });
-        await expect(page.getByRole("alertdialog")).toHaveCount(0);
-    });
-
-    test("Annulla torna al salvato senza scrivere", async ({ page }) => {
-        await openStyle(page, STYLE.sera);
-        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
-        await nameField(page).fill("Da buttare");
-        await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
-        // Da P3 «Annulla» chiede conferma (HeaderSaveAction); oggi torna subito.
-        const confirm = page.getByRole("alertdialog");
-        if (await confirm.isVisible().catch(() => false)) {
-            await confirm.getByRole("button", { name: /Annulla le modifiche|Scarta|Esci senza salvare/ }).click();
-        }
-        await expect(nameField(page)).toHaveValue("Sera e2e");
-        expect(stub.writes.filter(w => !w.key.startsWith("translation"))).toHaveLength(0);
-    });
-
-    test("Versioni: elenco, ripristino come versione nuova", async ({ page }) => {
-        wireStyleWrites(stub);
-        await openStyle(page, STYLE.estate);
-        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
-        await page.getByRole("button", { name: /Versione 3/ }).first().click();
-        await expect(page.getByRole("button", { name: /^v3\b/ })).toBeVisible();
-        await expect(page.getByRole("button", { name: /^v1\b/ })).toBeVisible();
-        await page.getByRole("button", { name: /^v2\b/ }).click();
-        await page.getByRole("button", { name: /^Ripristina/ }).click();
-        // Estate è in uso: il ripristino passa dall'avviso, come il Salva (S2).
-        await page.getByRole("alertdialog").getByRole("button", { name: "Ripristina comunque" }).click();
-        await expect.poll(() => write(stub, "style_versions.POST")?.body).toMatchObject({
-            style_id: STYLE.estate,
-            version: 4,
-            config: { colors: { primary: "#ef4444" } }
-        });
-    });
-
-    test("stile di sistema: «Duplica e personalizza» apre la copia", async ({ page }) => {
-        wireStyleWrites(stub);
-        await openStyle(page, STYLE.base);
-        const duplicate = page.getByRole("button", { name: "Duplica e personalizza" });
-        await expect(duplicate).toBeVisible({ timeout: 15_000 });
-        await duplicate.click();
-        await expect.poll(() => (write(stub, "styles.POST")?.body as Row | undefined)?.name).toBe("Copia di Stile base e2e");
-        await expect(page).toHaveURL(/\/styles\/e2e5e000-0000-4000-a000-0000000009\d\d$/);
-    });
-});
-
-test.describe("Stili — editor ricomposto (P3)", () => {
-    test("stile che non esiste: lo dice, e riporta all'elenco", async ({ page }) => {
-        await openStyle(page, MISSING_STYLE);
-        await expect(main(page).getByText("Stile non trovato")).toBeVisible({ timeout: 15_000 });
-        await main(page).getByRole("button", { name: "Torna a Stili" }).click();
-        await expect(page).toHaveURL(/\/styles$/);
-    });
-
-    test("errore di caricamento: non è «non trovato», e «Riprova» ricarica", async ({ page }) => {
-        let fail = true;
-        await page.route(/\/rest\/v1\/styles\?/, route =>
-            fail && route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
-        );
-        await openStyle(page, STYLE.sera);
-        await expect(main(page).getByText("Non è stato possibile caricare lo stile")).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
-        fail = false;
-        await main(page).getByRole("button", { name: "Riprova" }).click();
-        await expect(nameField(page)).toHaveValue("Sera e2e");
-    });
-
-    test("uscita con modifiche: la guardia chiede, «Annulla» resta", async ({ page }) => {
-        await openStyle(page, STYLE.sera);
-        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
-        await nameField(page).fill("Sera e2e bis");
-        await (await sidebarLink(page, "Menù")).click();
-        const guard = page.getByRole("alertdialog");
-        await expect(guard).toContainText("Modifiche non salvate");
-        await guard.getByRole("button", { name: /^(Annulla|Resta)/ }).click();
-        await expect(page).toHaveURL(new RegExp(`/styles/${STYLE.sera}$`));
-        await expect(nameField(page)).toHaveValue("Sera e2e bis");
-    });
-
-    test("l'avviso «in uso» non si spegne: niente «Non chiedere più»", async ({ page }) => {
-        await openStyle(page, STYLE.estate);
-        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
-        await nameField(page).fill("Estate bis e2e");
-        await touchToken(page);
-        await saveButton(page).click();
-        const confirm = page.getByRole("alertdialog");
-        await expect(confirm).toContainText("Versioni");
-        await expect(confirm.getByRole("checkbox")).toHaveCount(0);
-        await confirm.getByRole("button", { name: "Annulla" }).click();
-        expect(await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith("cataloglobe-style-skip-confirm")))).toEqual([]);
-    });
-
-    test("stile di sistema: lo stesso pannello, spento, anche per chi scrive", async ({ page }) => {
-        await openStyle(page, STYLE.base);
-        await expect(page.getByRole("button", { name: "Duplica e personalizza" })).toBeVisible({ timeout: 15_000 });
-        await expect(nameField(page)).toBeDisabled();
-        await expect(main(page).getByText("Tipografia", { exact: true })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
-    });
-});
-
-test.describe("Stili — editor a 375 (P4)", () => {
-    test("il pannello sta nello schermo e si comprime", async ({ page }) => {
-        await openStyle(page, STYLE.sera);
-        await expect(nameField(page)).toBeVisible({ timeout: 15_000 });
-        await page.setViewportSize({ width: 375, height: 800 });
-        await page.reload();
-        await expect(nameField(page)).toBeVisible({ timeout: 15_000 });
-        const panel = page.locator("aside").filter({ hasText: "Proprietà stile" });
-        const box = await panel.boundingBox();
-        expect(box).not.toBeNull();
-        expect(box!.x).toBeGreaterThanOrEqual(0);
-        expect(box!.x + box!.width).toBeLessThanOrEqual(375);
-        // Il bordo destro del campo nome non è tagliato.
-        const field = await nameField(page).boundingBox();
-        expect(field!.x + field!.width).toBeLessThanOrEqual(box!.x + box!.width);
-        await page.getByRole("button", { name: "Comprimi pannello" }).click();
-        await expect(page.getByRole("button", { name: "Apri proprietà stile" })).toBeVisible();
-        await expect(panel).toHaveCount(0);
-    });
-});
-
 test.describe("Stili — permessi (P1)", () => {
-    test("editor senza styles.write: sola lettura, niente Salva né ripristino", async ({ page }) => {
-        await stub.revoke("styles.write");
-        await openStyle(page, STYLE.estate);
-        await stub.revoked;
-        await expect(main(page).getByText(/^Sola lettura/)).toBeVisible({ timeout: 15_000 });
-        await expect(nameField(page)).toBeDisabled();
-        await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
-        await page.getByRole("button", { name: /Versione 3/ }).first().click();
-        await page.getByRole("button", { name: /^v2\b/ }).click();
-        await expect(page.getByRole("button", { name: /^Ripristina/ })).toHaveCount(0);
-    });
-
-    test("stile di sistema senza styles.write: niente «Duplica e personalizza»", async ({ page }) => {
-        await stub.revoke("styles.write");
-        await openStyle(page, STYLE.base);
-        await stub.revoked;
-        await expect(main(page).getByText("Stile di sistema").first()).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByRole("button", { name: "Duplica e personalizza" })).toHaveCount(0);
-    });
-
     test("senza styles.read: il blocco, e nessuna lettura degli stili", async ({ page }) => {
         // Senza il permesso la voce «Stili» non è nella sidebar: si entra dalla Panoramica.
         await openBusinessPage(page, "overview", "Panoramica");
@@ -498,57 +302,6 @@ test.describe("Stili — dove vestono (§50.13)", () => {
         await expect(table.getByRole("row", { name: /Stile base e2e/ })).not.toContainText("Programmato");
     });
 
-    test("editor: l'avviso nomina le sedi che vedono la modifica subito", async ({ page }) => {
-        await openStyle(page, STYLE.estate);
-        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
-        await nameField(page).fill("Estate bis e2e");
-        await touchToken(page);
-        await saveButton(page).click();
-        const confirm = page.getByRole("alertdialog");
-        await expect(confirm).toContainText("Centro e2e e Porto e2e");
-        await expect(confirm).toContainText("subito");
-        await expect(confirm).toContainText("Versioni");
-        // La sede sospesa non vede niente, e non è nominata.
-        await expect(confirm).not.toContainText("Lago e2e");
-    });
-
-    test("editor: uno stile solo su regole ferme si salva senza avviso", async ({ page }) => {
-        wireStyleWrites(stub);
-        await openStyle(page, STYLE.autunno);
-        await expect(nameField(page)).toHaveValue("Autunno e2e", { timeout: 15_000 });
-        await nameField(page).fill("Autunno 2026 e2e");
-        await saveButton(page).click();
-        await expect.poll(() => write(stub, "styles.PATCH")?.body, { timeout: 5_000 }).toMatchObject({ name: "Autunno 2026 e2e" });
-        await expect(page.getByRole("alertdialog")).toHaveCount(0);
-    });
-
-    test("editor: programmato e nessuna sede adesso, l'avviso lo dice", async ({ page }) => {
-        // Lo stile di sistema non si modifica: la regola programmata passa su Sera.
-        stub.tables.schedule_layout.find(l => l.schedule_id === RULE.seraPorto)!.style_id = STYLE.sera;
-        await openStyle(page, STYLE.sera);
-        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
-        await nameField(page).fill("Sera bis e2e");
-        await touchToken(page);
-        await saveButton(page).click();
-        const confirm = page.getByRole("alertdialog");
-        await expect(confirm).toContainText("Nessuna sede lo mostra adesso");
-        await expect(confirm).toContainText("Porto e2e");
-    });
-});
-
-test.describe("Stili — larghezze", () => {
-    for (const width of [1280, 768, 375]) {
-        test(`${width}: elenco ed editor senza scroll di lato`, async ({ page }) => {
-            await openList(page);
-            await page.setViewportSize({ width, height: 900 });
-            await page.reload();
-            await expect(styleName(page, "Estate e2e")).toBeVisible({ timeout: 15_000 });
-            await noSideScroll(page);
-            await openStyle(page, STYLE.estate);
-            await expect(nameField(page)).toBeVisible({ timeout: 15_000 });
-            await noSideScroll(page);
-        });
-    }
 });
 
 /**
@@ -556,93 +309,6 @@ test.describe("Stili — larghezze", () => {
  * passa a `test` col commit che lo corregge.
  */
 test.describe("Stili — lotto bug A", () => {
-    test("S1: se la rilettura dopo il Salva fallisce, il salvataggio resta riuscito", async ({ page }) => {
-        wireStyleWrites(stub);
-        await page.route(/\/rest\/v1\/styles\?/, route =>
-            route.request().method() === "GET" && write(stub, "styles.PATCH")
-                ? route.fulfill({ status: 500, json: { message: "e2e" } })
-                : route.fallback()
-        );
-        await openStyle(page, STYLE.sera);
-        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
-        await touchToken(page);
-        await saveButton(page).click();
-        await expect(page.getByText(/^Stile aggiornato/)).toBeVisible();
-        await expect(page.getByRole("status").filter({ hasText: /^Salvato$/ }).first()).toBeVisible();
-        // L'errore arriverebbe dopo il successo, con la rilettura.
-        await page.waitForTimeout(1_000);
-        // Conteggio secco: `toHaveCount(0)` aspetterebbe che il toast se ne vada.
-        expect(await page.getByText("Impossibile salvare lo stile.").count()).toBe(0);
-    });
-
-    test("S1: dopo il Salva, senza ricaricare, versione e data sono quelle scritte", async ({ page }) => {
-        wireStyleWrites(stub);
-        await openStyle(page, STYLE.sera);
-        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
-        await expect(page.getByRole("button", { name: /Versione 1/ }).first()).toContainText("Aggiornata 19/03/2026");
-        await touchToken(page);
-        await saveButton(page).click();
-        await expect(page.getByRole("status").filter({ hasText: /^Salvato$/ }).first()).toBeVisible();
-        // Pannello: versione nuova e data della scrittura (orologio fermo al 23/09).
-        const control = page.getByRole("button", { name: /Versione 2/ }).first();
-        await expect(control).toContainText("Aggiornata 23/09/2026");
-        await control.click();
-        const current = page.getByRole("button", { name: /^v2\b/ });
-        await expect(current).toBeVisible();
-        await expect(current).toContainText("attiva");
-        await expect(page.getByRole("button", { name: /^v1\b/ })).not.toContainText("attiva");
-        // Nessuna seconda lettura dello stile dopo la scrittura.
-        expect(writes(stub, "styles.PATCH")).toHaveLength(1);
-    });
-
-    test("S3: cambiare solo il nome non crea una versione", async ({ page }) => {
-        wireStyleWrites(stub);
-        await openStyle(page, STYLE.sera);
-        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
-        await nameField(page).fill("Sera tardi e2e");
-        await saveButton(page).click();
-        await expect.poll(() => write(stub, "styles.PATCH")?.body).toMatchObject({ name: "Sera tardi e2e" });
-        expect(writes(stub, "style_versions.POST")).toHaveLength(0);
-    });
-
-    test("S3: il solo nome di uno stile in uso si salva senza avviso", async ({ page }) => {
-        wireStyleWrites(stub);
-        await openStyle(page, STYLE.estate);
-        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
-        await nameField(page).fill("Estate 2026 e2e");
-        await saveButton(page).click();
-        await expect.poll(() => write(stub, "styles.PATCH")?.body, { timeout: 5_000 }).toMatchObject({ name: "Estate 2026 e2e" });
-        await expect(page.getByRole("alertdialog")).toHaveCount(0);
-    });
-
-    test("S2: con modifiche non salvate «Ripristina» è spento", async ({ page }) => {
-        await openStyle(page, STYLE.estate);
-        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
-        await touchToken(page);
-        await page.getByRole("button", { name: /Versione 3/ }).first().click();
-        await page.getByRole("button", { name: /^v2\b/ }).click();
-        await expect(page.getByRole("button", { name: /^Ripristina/ })).toBeDisabled();
-        await expect(page.getByText(/Salva o annulla le modifiche/)).toBeVisible();
-    });
-
-    test("S2: ripristinare uno stile in uso passa dall'avviso «Stile in uso»", async ({ page }) => {
-        wireStyleWrites(stub);
-        await openStyle(page, STYLE.estate);
-        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
-        await page.getByRole("button", { name: /Versione 3/ }).first().click();
-        await page.getByRole("button", { name: /^v2\b/ }).click();
-        await page.getByRole("button", { name: /^Ripristina/ }).click();
-        const confirm = page.getByRole("alertdialog");
-        await expect(confirm).toContainText("Stile in uso");
-        await expect(confirm).toContainText("Centro e2e e Porto e2e");
-        expect(writes(stub, "style_versions.POST")).toHaveLength(0);
-        await confirm.getByRole("button", { name: /comunque$/ }).click();
-        await expect.poll(() => write(stub, "style_versions.POST")?.body).toMatchObject({
-            style_id: STYLE.estate,
-            config: { colors: { primary: "#ef4444" } }
-        });
-    });
-
     test("S4: elenco letto prima che una regola lo usasse: si apre il sostitutivo, non la conferma", async ({ page }) => {
         await openList(page);
         // Un'altra sessione mette Notte su una regola dopo la lettura dell'elenco.
@@ -656,49 +322,4 @@ test.describe("Stili — lotto bug A", () => {
         await expect(drawer).toContainText("Notte nuova e2e");
     });
 
-    for (const size of [
-        { width: 768, height: 900 },
-        { width: 1280, height: 600 }
-    ]) {
-        test(`S7: a ${size.width}×${size.height} l'anteprima mobile sta nel suo spazio`, async ({ page }) => {
-            await page.setViewportSize(size);
-            await openStyle(page, STYLE.sera);
-            await expect(nameField(page)).toBeVisible({ timeout: 15_000 });
-            const frame = page.locator(".preview-mobile");
-            await expect(frame).toBeVisible();
-            await page.waitForTimeout(600);
-            const fits = await frame.evaluate(el => {
-                const host = el.parentElement!.parentElement!.getBoundingClientRect();
-                const box = el.getBoundingClientRect();
-                return box.left >= host.left - 1 && box.right <= host.right + 1 && box.top >= host.top - 1 && box.bottom <= host.bottom + 1;
-            });
-            expect(fits).toBe(true);
-        });
-    }
-
-    test("S8: l'avviso «Stile in uso» resta aperto se la finestra si stringe", async ({ page }) => {
-        await page.setViewportSize({ width: 1280, height: 900 });
-        await openStyle(page, STYLE.estate);
-        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
-        await touchToken(page);
-        await saveButton(page).click();
-        const confirm = page.getByRole("alertdialog");
-        await expect(confirm).toContainText("Stile in uso");
-        await page.setViewportSize({ width: 700, height: 900 });
-        await page.waitForTimeout(500);
-        await expect(confirm).toContainText("Stile in uso");
-    });
-
-    test("S8: «Scartare le modifiche?» resta aperto se la finestra si stringe", async ({ page }) => {
-        await page.setViewportSize({ width: 1280, height: 900 });
-        await openStyle(page, STYLE.sera);
-        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
-        await nameField(page).fill("Sera bis e2e");
-        await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
-        const confirm = page.getByRole("alertdialog");
-        await expect(confirm).toContainText("Scartare le modifiche");
-        await page.setViewportSize({ width: 700, height: 900 });
-        await page.waitForTimeout(500);
-        await expect(confirm).toContainText("Scartare le modifiche");
-    });
 });

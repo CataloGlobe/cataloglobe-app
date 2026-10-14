@@ -37,13 +37,14 @@ import {
     whereText,
     perText,
     listIt,
+    thingName,
     type Draft,
     type DraftLookups,
     type Impatto,
     type PickProduct,
     type PickThing
 } from "./calendarDraft";
-import { CAL_KINDS, KIND_LABEL, durLabel, eur, type Axis, type CalKind, type CalWhen } from "./calendarModel";
+import { CAL_KINDS, KIND_LABEL, durLabel, eur, type Axis, type CalEntry, type CalKind, type CalWhen, type Voce } from "./calendarModel";
 import { DoveQuandoPasso, QuandoPasso, ScontriAvviso, Warn } from "./CalendarioPassi";
 import s from "./CalendarioView.module.scss";
 
@@ -58,7 +59,9 @@ const ADD_T: Record<CalKind, string> = {
     featured: "Nuovo In evidenza in calendario"
 };
 const KDESC: Record<CalKind, string> = {
-    menu: "Un menù classico o un multi menù, nei giorni e nelle ore che scegli: prende il posto degli altri.",
+    menu: NEW_MODEL.multiMenu
+        ? "Un menù nei giorni e nelle ore che scegli: insieme agli altri o al loro posto."
+        : "Un menù classico o un multi menù, nei giorni e nelle ore che scegli: prende il posto degli altri.",
     style: "L'aspetto della pagina per un periodo: Natale, l'estate.",
     price: "Uno sconto barrato o un prezzo nuovo, per il tempo che scegli.",
     visibility: "Piatti nascosti dal menù, o che restano e si leggono «Non disponibile».",
@@ -80,6 +83,10 @@ const NEW_THING: Partial<Record<CalKind, [string, string]>> = {
 
 // dove e quando in un passo solo (D145): mentre si scelgono le ore l'anteprima guarda già le sedi giuste
 const sectionSteps = (multi: boolean) => ["Cosa", multi ? "Dove e quando" : "Quando", "Riepilogo"];
+/** Menù, stile e in evidenza seguono il tunnel: dopo «Cosa», il dove e il quando si scelgono lì. */
+const tunnelSteps = (multi: boolean) => (multi ? ["Cosa", "Dove", "Quando", "Controlla"] : ["Cosa", "Quando", "Controlla"]);
+const q = (n: string) => "«" + n + "»";
+const NOUN: Partial<Record<CalKind, string>> = { menu: "menù", style: "stile", featured: "In evidenza" };
 
 export type Leave = { why: "exit" | "root" | "del" | "new"; to?: CalKind };
 
@@ -113,6 +120,14 @@ export type CalendarioSectionProps = {
     onDrop: () => void;
     onKeep: (to: CalKind) => void;
     onGoNew: (to: CalKind) => void;
+    /** La voce che la cosa ha già nel Calendario, accesa o spenta. */
+    voce: (k: CalKind, id: string) => Voce | null;
+    /** Il dove e il quando di questo tipo si scelgono nel tunnel (chi può modificarlo e gestisce il Calendario). */
+    tunnel: (k: CalKind) => boolean;
+    /** Va avanti nel tunnel: `add` da «Aggiungi», per una cosa senza voce. */
+    onTunnel: (k: CalKind, id: string, add: boolean) => void;
+    /** «Modifica la sua voce». */
+    onVoce: (e: CalEntry) => void;
 };
 
 /* ---------- la sezione intera: Cosa · Quando · Dove · Riepilogo ---------- */
@@ -184,15 +199,22 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         </div>
     );
 
-    const steps = sectionSteps(L.multi);
+    // la voce che la cosa scelta ha già; e se da qui si prosegue nel tunnel
+    const voce = D && D.mode === "add" && !isDish(D.kind) && D.thing ? p.voce(D.kind, D.thing) : null;
+    const tunnel = !!D && D.mode === "add" && !isDish(D.kind) && p.tunnel(D.kind);
+    const oneVoice = !!voce && tunnel && NEW_MODEL.multiRange;
+    const viaTunnel = tunnel && (!voce || oneVoice);
+    const steps = viaTunnel ? tunnelSteps(L.multi) : sectionSteps(L.multi);
     const title = !D ? "Cosa vuoi mettere in calendario?" : edit ? "Modifica · " + draftLabel(D, L) : ADD_T[D.kind];
     const head = (
         <div className={s.ihead}>
             <h2>{title}</h2>
-            {D && (
+            {D ? (
                 <p className={s.muted}>
-                    {edit ? "Le modifiche si vedono nell'anteprima e vanno in onda quando salvi." : "Tre passi; nell'anteprima vedi già dove va in onda."}
+                    {edit ? "Le modifiche si vedono nell'anteprima e vanno in onda quando salvi." : viaTunnel ? "Scegli cosa, poi dove e quando." : "Tre passi; nell'anteprima vedi già dove va in onda."}
                 </p>
+            ) : (
+                <p className={s.muted}>Scegli cosa, poi dove e quando.</p>
             )}
         </div>
     );
@@ -231,6 +253,8 @@ export function CalendarioSection(p: CalendarioSectionProps) {
 
     const miss = missing(D, L), bad = invalid(D), last = D.step === steps.length - 1;
     const blocked = miss || bad || waitsForDb(D) || scontriWait(D, p.effect.scontri);
+    // una voce per cosa: chi ce l'ha già si modifica da lì
+    const stop = !miss && oneVoice ? "Ha già la sua voce: modificala da lì" : "";
     const body = [
         cosa,
         () =>
@@ -243,10 +267,11 @@ export function CalendarioSection(p: CalendarioSectionProps) {
     ][D.step]();
     const next = () =>
         upd(d => {
-            if (d.step === 0 && miss) {
+            if (d.step === 0 && (miss || stop)) {
                 d.tried = true;
                 return;
             }
+            if (viaTunnel) return;
             d.step = Math.min(steps.length - 1, d.step + 1);
             d.seen = Math.max(d.seen, d.step);
         });
@@ -270,7 +295,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                 <div className={s.istrow}>
                     <ol className={s.isteps}>
                         {steps.map((n, i) => {
-                            const can = edit || i <= D.seen, done = !edit && i < D.step;
+                            const can = !viaTunnel && (edit || i <= D.seen), done = !edit && i < D.step;
                             return (
                                 <li key={n}>
                                     <button
@@ -290,6 +315,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                     </ol>
                     <span className={`${s.hfa} ${s.iacts2}`}>
                         {last && blocked && <span className={s.muted}>{blocked}</span>}
+                        {stop && <span className={s.muted}>{stop}</span>}
                         <Button size="sm" variant="ghost" onClick={exit}>
                             Annulla
                         </Button>
@@ -299,7 +325,16 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                             </Button>
                         )}
                         {!last && (
-                            <Button size="sm" variant={edit ? "secondary" : "primary"} rightIcon={<ArrowRight size={16} />} onClick={next}>
+                            <Button
+                                size="sm"
+                                variant={edit ? "secondary" : "primary"}
+                                rightIcon={<ArrowRight size={16} />}
+                                disabled={!!stop}
+                                onClick={() => {
+                                    next();
+                                    if (viaTunnel && !miss && !stop && D.thing) p.onTunnel(D.kind, D.thing, true);
+                                }}
+                            >
                                 Avanti
                             </Button>
                         )}
@@ -477,13 +512,26 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                     {nw[0]}
                 </Button>
                 <p className={s.muted}>
-                    {d.kind === "menu" ? "Si crea nel tunnel di creazione, dove scegli se è classico o multi: si esce dal Calendario." : "Si crea nel tunnel di creazione: si esce dal Calendario."}
+                    {d.kind === "menu" && !tunnel ? "Si crea nel tunnel di creazione, dove scegli se è classico o multi: si esce dal Calendario." : "Si crea nel tunnel di creazione: si esce dal Calendario."}
                 </p>
             </>
         );
+        const N = NOUN[d.kind]!;
+        // «in onda» o «pronto, non in onda»: lo dice il Calendario
+        const stato = (id: string) => (p.voce(d.kind, id)?.on ? "in onda" : "pronto, non in onda");
+        const badge = (id: string) => <span className={`${s.badge} ${stato(id) === "in onda" ? s.live : ""}`}>{stato(id)}</span>;
+        const has =
+            voce && d.thing ? (
+                <Warn>
+                    {q(thingName(d, L) ?? "")} ha già la sua voce nel Calendario{voce.on ? "" : ", spenta"}: {durLabel(voce.entry.when)}.{oneVoice ? ` Una voce per ${N}: la modifichi da lì.` : ""}{" "}
+                    <button type="button" className={s.dqlink} onClick={() => p.onVoce(voce.entry)}>
+                        Modifica la sua voce
+                    </button>
+                </Warn>
+            ) : null;
         // con menù e stile separati (D120) l'altro non si sceglie qui: resta quello di sempre
         const pair =
-            (d.kind === "menu" || d.kind === "style") && !NEW_MODEL.splitLayout ? (
+            (d.kind === "menu" || d.kind === "style") && !NEW_MODEL.splitLayout && !viaTunnel ? (
                 <div className={s.ifl}>
                     <h4>{d.kind === "menu" ? "Con lo stile" : "Con il menù"}</h4>
                     <select
@@ -524,16 +572,21 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                                     <span className={s.imn}>
                                         <b>{x.name}</b>
                                     </span>
-                                    <span className={s.badge}>Menù classico</span>
+                                    {badge(x.id)}
                                 </button>
                             ))}
                         </div>
-                        <p className={s.muted}>
-                            Nelle sue ore i clienti vedono solo il menù che scegli. Per farne vedere più di uno insieme, scegli un multi menù: il cliente trova un riquadro per menù.
-                        </p>
-                        <p className={`${s.muted} ${s.ilater}`}>
-                            <Layers size={13} aria-hidden /> Il multi menù {DB_LATER}.
-                        </p>
+                        {has}
+                        {!tunnel && (
+                            <>
+                                <p className={s.muted}>
+                                    Nelle sue ore i clienti vedono solo il menù che scegli. Per farne vedere più di uno insieme, scegli un multi menù: il cliente trova un riquadro per menù.
+                                </p>
+                                <p className={`${s.muted} ${s.ilater}`}>
+                                    <Layers size={13} aria-hidden /> Il multi menù {DB_LATER}.
+                                </p>
+                            </>
+                        )}
                         {newLink}
                     </div>
                     {pair}
@@ -556,10 +609,12 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                                 onClick={() => upd(dd => void (dd.thing = x.id))}
                             >
                                 <span className={s.sq} />
-                                {x.name}
+                                <span className={s.ichn}>{x.name}</span>
+                                {badge(x.id)}
                             </button>
                         ))}
                     </div>
+                    {has}
                     {newLink}
                 </div>
                 {pair}

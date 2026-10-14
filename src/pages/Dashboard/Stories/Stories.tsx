@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { DataTableDragHandle, SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
-import { ScrollText } from "lucide-react";
+import { ScrollText, Store, Utensils } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -17,7 +17,10 @@ import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { getActivities } from "@/services/supabase/activities";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { describeStoryAppearance, storyAppearance, type AppearanceActivity } from "@/utils/ruleAppearance";
+import { appearanceOf, describeStoryOnAir, storyAbout, STORY_UNSEEN_LABEL, type AppearanceActivity } from "@/utils/ruleAppearance";
+import { useRuleAppearance } from "@/hooks/useRuleAppearance";
+import { listCatalogProductPairs } from "@/services/supabase/catalogs";
+import { DB } from "../Programming/calendar/calendarFlags";
 import StoryDeleteDialog from "./StoryDeleteDialog";
 import { StoryBrandCard } from "./components/StoryBrandCard";
 import { StoryBrandDrawer } from "./components/StoryBrandDrawer";
@@ -40,7 +43,6 @@ import {
     type DragEndEvent
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { ACTIVE_LABEL } from "@/utils/activityStatus";
 
 type StoryFilter = "all" | "drafts" | "sede" | "noCover";
 
@@ -76,6 +78,37 @@ export default function Stories() {
             .then(list => setActivities(list.map(a => ({ id: a.id, name: a.name, status: a.status }))))
             .catch(error => console.warn("[Stories] sedi non caricate:", error));
     }, [tenantId, canRead]);
+
+    // «Nessuno la vede» per il prodotto (punto 18): vale da quando la storia di un
+    // prodotto sta solo nella sua scheda, cioè col database nuovo. Fino ad allora
+    // compare anche sotto il menù, e l'elenco non lo dice.
+    const hasProductStory = stories.some(story => story.product_id !== null);
+    const watchMenus = DB.ready && canRead && hasProductStory;
+    const ruleAppearance = useRuleAppearance(tenantId, watchMenus);
+    const [pairs, setPairs] = useState<{ catalog_id: string; product_id: string }[] | null>(null);
+    useEffect(() => {
+        if (!tenantId || !watchMenus) return;
+        listCatalogProductPairs(tenantId)
+            .then(setPairs)
+            .catch(error => console.warn("[Stories] menù dei prodotti non caricati:", error));
+    }, [tenantId, watchMenus]);
+    // I prodotti che stanno in un menù in onda; null = non si sa.
+    const liveProducts = useMemo(() => {
+        const index = ruleAppearance.index;
+        if (!watchMenus || !index || !pairs) return null;
+        const live = new Map<string, boolean>();
+        const out = new Set<string>();
+        for (const pair of pairs) {
+            let on = live.get(pair.catalog_id);
+            if (on === undefined) {
+                const summary = appearanceOf(index, { kind: "catalog", id: pair.catalog_id }).summary;
+                on = summary === "liveNow" || summary === "assigned";
+                live.set(pair.catalog_id, on);
+            }
+            if (on) out.add(pair.product_id);
+        }
+        return out;
+    }, [watchMenus, ruleAppearance.index, pairs]);
 
     // Il cappello (§50.11/4): la card in cima all'elenco lo mostra com'è, il
     // drawer lo modifica e salva subito.
@@ -136,6 +169,7 @@ export default function Stories() {
 
     usePageHeader({
         title: "Storie",
+        subtitle: "Ogni storia sta con la cosa che racconta.",
         actions,
         compact: headerCompact
     });
@@ -188,20 +222,27 @@ export default function Stories() {
     const filterOptions = (
         [
             { value: "all", label: "Tutte" },
-            { value: "drafts", label: "Bozze" },
+            { value: "drafts", label: "Pronte, non in onda" },
             { value: "sede", label: "Legate a una sede" },
             { value: "noCover", label: "Senza copertina" }
         ] as const
     ).map(option => ({ ...option, count: stories.filter(item => matchesFilter(item, option.value)).length }));
 
-    const whereText = (item: StoryWithProduct) => {
-        const where = describeStoryAppearance(storyAppearance(item, activities, !canEdit));
+    // Di cosa parla (punto 18): il prodotto, oppure il locale con la sua sede.
+    const aboutCell = (item: StoryWithProduct) => {
+        const about = storyAbout(item, activities);
         return (
-            <Text variant={isPhone ? "caption" : "body-sm"} colorVariant={where.muted || isPhone ? "muted" : undefined}>
-                {where.label}
-            </Text>
+            <span className={styles.about}>
+                {about.kind === "product" ? <Utensils aria-hidden="true" /> : <Store aria-hidden="true" />}
+                <Text as="span" variant={isPhone ? "caption" : "body-sm"} colorVariant={isPhone ? "muted" : undefined} className={styles.aboutLabel}>
+                    {about.label}
+                </Text>
+            </span>
         );
     };
+    const onAirOf = (item: StoryWithProduct) =>
+        describeStoryOnAir(item, activities, !canEdit, item.product_id && liveProducts ? liveProducts.has(item.product_id) : null);
+    const unseenProduct = stories.some(item => item.product_id !== null && liveProducts !== null && onAirOf(item).state === "unseen");
 
     const columns: ColumnDefinition<StoryWithProduct>[] = [
         ...(canReorder
@@ -234,38 +275,35 @@ export default function Stories() {
                     <Text variant="body-sm" weight={600}>
                         {item.title}
                     </Text>
-                    {isPhone && whereText(item)}
+                    {isPhone && aboutCell(item)}
                 </div>
             )
         },
         {
-            id: "where",
-            header: "Dove appare",
+            id: "about",
+            header: "Di cosa parla",
             width: "0.8fr",
             hideOnPhone: true,
-            cell: (_value, item) => whereText(item)
-        },
-        {
-            id: "product",
-            header: "Prodotto collegato",
-            width: "0.6fr",
-            hideOnPhone: true,
-            cell: (_value, item) => (
-                <Text variant="body-sm" colorVariant={item.product ? undefined : "muted"}>
-                    {item.product?.name ?? "—"}
-                </Text>
-            )
+            cell: (_value, item) => aboutCell(item)
         },
         {
             id: "status",
             header: "Stato",
-            width: "120px",
-            cell: (_value, item) => (
-                <StatusBadge
-                    variant={item.status === "published" ? "success" : "neutral"}
-                    label={item.status === "published" ? ACTIVE_LABEL : "Bozza"}
-                />
-            )
+            width: "200px",
+            align: "right",
+            cell: (_value, item) => {
+                const onAir = onAirOf(item);
+                return (
+                    <div className={styles.statusCell}>
+                        <StatusBadge variant={onAir.tone} label={onAir.label} />
+                        {onAir.why && !isPhone && (
+                            <Text variant="caption" colorVariant="muted">
+                                {onAir.why}
+                            </Text>
+                        )}
+                    </div>
+                );
+            }
         },
         {
             id: "actions",
@@ -358,6 +396,11 @@ export default function Stories() {
                         />
                     </SortableContext>
                 </DndContext>
+                {unseenProduct && (
+                    <Text variant="caption" colorVariant="muted">
+                        «{STORY_UNSEEN_LABEL}»: il prodotto oggi non è in nessun menù in onda.
+                    </Text>
+                )}
             </>
         );
     };

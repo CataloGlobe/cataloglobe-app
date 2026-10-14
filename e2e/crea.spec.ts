@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPageByUrl } from "./business";
-import { MENU, PRODUCT, SEDE, STYLE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { FEATURED, MENU, PRODUCT, RULE, SEDE, STYLE, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 import { StubError, type Row } from "./restStub";
 
 /**
@@ -30,6 +30,36 @@ function main(page: Page) {
 }
 const button = (page: Page, name: string | RegExp) => main(page).getByRole("button", { name, exact: typeof name === "string" });
 const next = (page: Page) => button(page, "Avanti").click();
+/** «Avanti» con qualcosa che manca: resta acceso, non va avanti e lo dice sotto l'elemento da sistemare. */
+const stuck = async (page: Page, why: string) => {
+    await expect(button(page, "Avanti")).toBeEnabled();
+    await next(page);
+    await expect(main(page).getByRole("alert").filter({ hasText: why })).toBeVisible();
+};
+/** Ogni creazione finisce con «E adesso?» (D194): «Ho finito» porta alla sua pagina. */
+const finito = async (page: Page) => {
+    await expect(main(page).getByRole("heading", { name: "E adesso?" })).toBeVisible({ timeout: 15_000 });
+    await button(page, /^Ho finito/).click();
+};
+/** «Dove» (D189): prima la domanda, «Sì, lo metto in onda». */
+const onAir = (page: Page) => button(page, /^Sì, (lo|la) metto in onda/).click();
+/** «In quali sedi?»: il riquadro delle sedi del passo «Dove», sempre aperto. */
+/** La seconda parte del «Quando»: in quelle ore c'è già un altro, e si sceglie cosa fare. */
+const insieme = async (page: Page, name: string) => {
+    await expect(main(page).getByRole("navigation", { name: "Parti del Quando" }).getByRole("button", { name: /^2/ })).toHaveAttribute("aria-current", "step");
+    await main(page).locator("[data-insieme]").getByRole("button", { name: new RegExp("^" + name) }).click();
+};
+const sediBox = (page: Page) => main(page).getByRole("group", { name: "Sedi" });
+const allSedi = (page: Page) => sediBox(page).getByRole("checkbox", { name: /^Tutte le sedi, anche le nuove/ });
+/** Dal passo prima di «Dove» fino a «Controlla», tenendolo pronto: niente sedi né orari, e il «Quando» si salta. */
+async function toReady(page: Page) {
+    await next(page);
+    await button(page, /^No, per ora (lo|la) tengo pront/).click();
+    await next(page);
+    await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+}
+const saveReady = (page: Page) => button(page, /^Salva e tieni pront/).click();
+
 /** La fila dei passi (nella barra in alto c'è anche la lista del percorso). */
 const rail = (page: Page) => main(page).getByRole("list").filter({ has: page.getByRole("button", { name: /Controlla$/ }) });
 
@@ -61,8 +91,6 @@ function wireMenu(stub: ProgrammazioneStub) {
 }
 
 async function walkMenu(page: Page, name = "  Pranzo veloce  ") {
-    await button(page, /^Menù classico/).click();
-    await next(page);
     await main(page).getByLabel("Nome del menù").fill(name);
     await next(page);
     await button(page, "Aggiungi una categoria").click();
@@ -104,8 +132,6 @@ const PHOTO = { name: "menu.png", mimeType: "image/png", buffer: Buffer.from("iV
 const photoInput = (page: Page) => main(page).locator('input[type="file"][aria-label="Foto o PDF del menù"]');
 
 async function readPhoto(page: Page) {
-    await button(page, /^Menù classico/).click();
-    await next(page);
     await main(page).getByLabel("Nome del menù").fill("Carta");
     await button(page, /^Da una foto o un PDF/).click();
     // la foto si carica nel passo dopo, che si apre già sull'import (D180)
@@ -144,9 +170,7 @@ test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
     });
 
     test("il passo 0: «Avanti» va solo ai passi scelti, e senza modifiche non si salva", async ({ page }) => {
-        await expect(button(page, "Avanti")).toBeDisabled();
-        await expect(main(page).getByText("Scegli almeno una cosa")).toBeVisible();
-        await expect(button(page, "Tieni come bozza")).toHaveCount(0);
+        await stuck(page, "Scegli almeno una cosa");
         await main(page).getByRole("checkbox", { name: /^Categorie e piatti/ }).click();
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Categorie e piatti" })).toBeVisible();
@@ -154,6 +178,24 @@ test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(button(page, "Salva le modifiche")).toBeDisabled();
         await expect(main(page).getByText("Non hai cambiato niente")).toBeVisible();
+    });
+
+    test("da «Controlla», se manca qualcosa «Salva le modifiche» porta al passo e al campo", async ({ page }) => {
+        await main(page).getByRole("checkbox", { name: /^Il nome/ }).click();
+        await next(page);
+        await main(page).getByLabel("Nome del menù").fill("");
+        await rail(page).getByRole("button", { name: /Controlla$/ }).click();
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+        await button(page, "Salva le modifiche").click();
+        // niente si salva: si torna al nome, segnato e col fuoco
+        await expect(main(page).getByRole("alert").filter({ hasText: "Manca il nome del menù" })).toBeVisible();
+        await expect(main(page).getByLabel("Nome del menù")).toBeFocused();
+        await expect(main(page).getByLabel("Nome del menù")).toHaveClass(/bad/);
+        // sistemato, il segno va via
+        await main(page).getByLabel("Nome del menù").fill("Carta d'autunno");
+        await expect(main(page).getByRole("alert").filter({ hasText: "Manca il nome del menù" })).toHaveCount(0);
+        await expect(main(page).getByLabel("Nome del menù")).not.toHaveClass(/bad/);
+        expect(stub.writes).toEqual([]);
     });
 
     test("si salva solo quello che è cambiato; un passo grigio toccato lo chiede Controlla", async ({ page }) => {
@@ -206,12 +248,87 @@ test.describe("Tunnel: modificare una cosa già creata (D140)", () => {
         await rail(page).getByRole("button", { name: /Il nome$/ }).click();
         await main(page).getByLabel("Nome del menù").fill("Altro");
         await button(page, "Esci").click();
-        const dlg = page.getByRole("alertdialog", { name: "Uscire dal tunnel?" });
-        await expect(dlg.getByRole("button")).toHaveText(["Resta qui", "Esci senza salvare", "Salva le modifiche ed esci"]);
+        const dlg = page.getByRole("alertdialog", { name: "Modifiche non salvate" });
+        await expect(dlg.getByRole("button")).toHaveText(["Resta", "Esci senza salvare", "Salva le modifiche ed esci"]);
         await dlg.getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/catalogs$/);
         expect(stub.writes).toEqual([]);
     });
+});
+
+test.describe("Tunnel: «Salva le modifiche ed esci» passa gli stessi controlli di «Salva»", () => {
+    test('"Salva le modifiche ed esci" con un conflitto aperto nel Calendario non salva: lo dice e si resta nel tunnel', async ({ page }) => {
+        stub = await stubProgrammazione(page);
+        await emptyCategories(page);
+        // «Pranzo e2e» va in onda a Centro, dal lunedì al venerdì: portato a tutte le sedi e sempre, pari merito con «carta»
+        await openBusinessPageByUrl(page, `crea/menu/${MENU.pranzo}?da=menu`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
+        await main(page).getByRole("checkbox", { name: /^Quando/ }).click();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
+        await allSedi(page).click();
+        await expect(main(page).getByText("Tutte, anche quelle che aprirai")).toBeVisible();
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
+        await button(page, /^Sempre/).click();
+        await button(page, "Esci").click();
+        await page.getByRole("alertdialog", { name: "Modifiche non salvate" }).getByRole("button", { name: "Salva le modifiche ed esci" }).click();
+        // le sedi nuove incrociano altri menù: prima si chiede «insieme o al posto» (D196)
+        await expect(page.getByText(/^Scegli: a .+ c'è un incrocio nuovo, insieme o al posto degli altri: torna a «Quando»\.$/)).toBeVisible();
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
+        await expect(page).not.toHaveURL(/\/catalogs$/);
+        expect(stub.writes).toEqual([]);
+    });
+});
+
+test("in modifica «Controlla» dice com'era: «Prima: …» sotto ogni gruppo e le sedi dove non cambia niente (punto 5)", async ({ page }) => {
+    stub = await stubProgrammazione(page);
+    await emptyCategories(page);
+    // «Pranzo e2e» va in onda a Centro: portato a tutte le sedi, a Lago e Porto prima non c'era
+    await openBusinessPageByUrl(page, `crea/menu/${MENU.pranzo}?da=menu`);
+    await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+    await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
+    await next(page);
+    await allSedi(page).click();
+    await rail(page).getByRole("button", { name: /Controlla$/ }).click();
+    await expect(main(page).getByText(/^In onda in 3 sedi · /)).toBeVisible();
+    // il gruppo: l'esito, «Prima: …» e le sue sedi
+    const nuovo = main(page).locator("div").filter({ has: page.getByText("Prende il posto di «Carta e2e»", { exact: true }) }).filter({ has: page.getByText("Prima: non c'era", { exact: true }) }).last();
+    await expect(nuovo).toBeVisible();
+    await expect(nuovo.getByRole("button", { name: "Lago e2e" })).toBeVisible();
+    await expect(nuovo.getByRole("button", { name: "Porto e2e" })).toBeVisible();
+    const fermo = main(page).locator("div").filter({ has: page.getByText("In 1 sede non cambia niente", { exact: true }) }).filter({ has: page.getByRole("button") }).last();
+    await expect(fermo.getByRole("button", { name: "Centro e2e" })).toBeVisible();
+    expect(stub.writes).toEqual([]);
+});
+
+test("in modifica «L'ordine» parte da quello salvato di ogni sede: spostarlo aspetta il database nuovo (punto 15)", async ({ page }) => {
+    // a Porto ci sono anche «Serata jazz» e «Promo autunno»: l'ordine salvato mette «Luci di Natale» secondo
+    stub = await stubProgrammazione(page, {
+        positions: [
+            { activity_id: SEDE.porto, featured_content_id: FEATURED.jazz, position: 0 },
+            { activity_id: SEDE.porto, featured_content_id: FEATURED.natale, position: 1 },
+            { activity_id: SEDE.porto, featured_content_id: FEATURED.autunno, position: 2 }
+        ]
+    });
+    await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
+    await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+    await expect(main(page).getByRole("checkbox", { name: /^L'ordine 2° di 3/ })).toBeVisible();
+    await main(page).getByRole("checkbox", { name: /^L'ordine/ }).click();
+    await next(page);
+    await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true, level: 3 })).toBeVisible();
+    await expect(main(page).getByText("In cima al menù i contenuti in evidenza stanno uno sotto l'altro. Ogni sede tiene il suo ordine.")).toBeVisible();
+    await expect(button(page, /^Mostralo per primo/)).toHaveCount(0);
+    await button(page, /^Porto e2e/).click();
+    const righe = main(page).getByRole("list", { name: "L'ordine" }).getByRole("listitem");
+    await expect(righe).toHaveText([/^Serata jazz e2e/, /^Luci di Natale e2ein modifica/, /^Promo autunno e2e/]);
+    await button(page, "Sposta su: Luci di Natale e2e").click();
+    await expect(righe).toHaveText([/^Luci di Natale e2e/, /^Serata jazz e2e/, /^Promo autunno e2e/]);
+    await next(page);
+    await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+    await expect(main(page).getByText("«L'ordine»: si salva col database nuovo").first()).toBeVisible();
+    expect(stub.writes).toEqual([]);
 });
 
 test.describe("Tunnel di creazione — ingressi", () => {
@@ -250,30 +367,55 @@ test.describe("Tunnel di creazione — menù", () => {
         await emptyCategories(page);
     });
 
+    test("copia da un altro menù: «Quale menù copi?» porta categorie e piatti", async ({ page }) => {
+        await cartaCom(page);
+        await open(page, "menu");
+        await main(page).getByLabel("Nome del menù").fill("Cena");
+        await button(page, /^Copia da un altro menù/).click();
+        await stuck(page, "Scegli da quale menù copiare");
+        await expect(main(page).getByRole("radiogroup", { name: "Menù da copiare" })).toHaveClass(/bad/);
+        await main(page).getByLabel("Nome del menù").fill("");
+        const list = main(page).getByRole("radiogroup", { name: "Menù da copiare" });
+        await expect(main(page).getByRole("heading", { name: "Quale menù copi?" })).toBeVisible();
+        const carta = list.getByRole("radio").filter({ hasText: /2 categorie · 3 piatti · (in onda|pronto, non in onda)$/ }).first();
+        await carta.click();
+        await expect(carta).toHaveAttribute("aria-checked", "true");
+        // senza un nome prende quello del menù copiato
+        await expect(main(page).getByLabel("Nome del menù")).toHaveValue(/ \(copia\)$/);
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Categorie e piatti" })).toBeVisible();
+        await expect(main(page).getByText("Pizze").first()).toBeVisible();
+        await expect(main(page).getByText("Dolci").first()).toBeVisible();
+    });
+
     test("i passi: Avanti si accende quando il passo è fatto, i fatti si riaprono", async ({ page }) => {
         await open(page, "menu");
         const steps = rail(page);
-        await expect(steps.getByRole("button")).toHaveText(["1Che menù è", "2Da dove parti", "3Categorie e piatti", "4Dove e quando", "5Controlla", "E adesso?"]);
-        await expect(button(page, "Avanti")).toBeDisabled();
-        await expect(main(page).getByText("Scegli che menù è")).toBeVisible();
-        // il multi menù arriva col database nuovo
-        await expect(button(page, /^Multi menù/)).toBeDisabled();
-        await button(page, /^Menù classico/).click();
-        await next(page);
+        await expect(steps.getByRole("button")).toHaveText(["1Da dove parti", "2Categorie e piatti", "3Dove", "4Quando", "5Controlla", "E adesso?"]);
+        // senza nome «Avanti» non va avanti: segna il campo, ci mette il fuoco e dice cosa manca
+        await stuck(page, "Manca il nome del menù");
+        await expect(main(page).getByLabel("Nome del menù")).toBeFocused();
+        await expect(main(page).getByLabel("Nome del menù")).toHaveClass(/bad/);
+        await expect(main(page).getByRole("heading", { name: "Da dove parti" })).toBeVisible();
+        // il passo «Che menù è» non c'è più: il multi menù non si crea da qui
+        await expect(button(page, /^Multi menù/)).toHaveCount(0);
         await expect(main(page).getByRole("heading", { level: 2 })).toHaveText("Nuovo menù");
         await main(page).getByLabel("Nome del menù").fill("Cena");
         await expect(main(page).getByRole("heading", { level: 2 })).toHaveText("Nuovo menù · Cena");
+        await next(page);
         // il passo fatto si riapre dalla fila
-        await steps.getByRole("button", { name: /Che menù è/ }).click();
-        await expect(button(page, /^Menù classico/)).toHaveAttribute("aria-pressed", "true");
+        await steps.getByRole("button", { name: /Da dove parti/ }).click();
+        await expect(main(page).getByLabel("Nome del menù")).toHaveValue("Cena");
         await expect(steps.getByRole("button", { name: /Controlla/ })).toBeDisabled();
     });
 
-    test("Tieni come bozza: menù, sezioni e piatti, niente nel Calendario; si atterra sul menù", async ({ page }) => {
+    test("Lo tengo pronto (D189): menù, sezioni e piatti, niente nel Calendario; si atterra sul menù", async ({ page }) => {
         wireMenu(stub);
         await open(page, "menu", "menu");
         await walkMenu(page);
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         // il nome senza gli spazi ai lati (#240)
         expect(bodyOf(stub, "catalogs.POST")).toMatchObject({ name: "Pranzo veloce" });
@@ -284,43 +426,189 @@ test.describe("Tunnel di creazione — menù", () => {
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
     });
 
+    test("il Quando: l'ora si scrive o si sceglie dall'orologio, e una fascia può finire il giorno dopo", async ({ page }) => {
+        wireMenu(stub);
+        await open(page, "menu");
+        await walkMenu(page, "Pranzo veloce");
+        await next(page);
+        await onAir(page);
+        await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
+        await next(page);
+        await button(page, /^Solo in certi momenti/).click();
+        const dalle = main(page).getByRole("textbox", { name: "Dalle", exact: true }), alle = main(page).getByRole("textbox", { name: "Alle", exact: true });
+        await expect(dalle).toHaveValue("12:00");
+        await expect(alle).toHaveValue("15:00");
+        await expect(main(page).getByText(/Scrivi l'ora \(22, 2230 o 22:30\) o sceglila dall'orologio/)).toBeVisible();
+        // scritta senza i due punti; quello che non è un'ora non cambia niente
+        await alle.fill("2210");
+        await alle.press("Enter");
+        await expect(alle).toHaveValue("22:15");
+        await alle.fill("ciao");
+        await alle.press("Enter");
+        await expect(alle).toHaveValue("22:15");
+        // le frecce: un quarto d'ora per volta
+        await alle.press("ArrowUp");
+        await expect(alle).toHaveValue("22:30");
+        // l'inizio dopo la fine: la fascia passa la mezzanotte
+        await dalle.fill("23");
+        await dalle.press("Enter");
+        await expect(dalle).toHaveValue("23:00");
+        await expect(main(page).getByText("del giorno dopo", { exact: true })).toBeVisible();
+        // l'orologio della fine: le ore dello stesso giorno e quelle del giorno dopo
+        await main(page).getByRole("button", { name: "Scegli l'ora: Alle", exact: true }).click();
+        const clock = main(page).getByRole("dialog", { name: "Alle", exact: true });
+        await expect(clock.getByRole("heading", { name: "Stesso giorno" })).toBeVisible();
+        await expect(clock.getByRole("heading", { name: "Giorno dopo" })).toBeVisible();
+        await clock.getByRole("button", { name: "05", exact: true }).click();
+        await expect(alle).toHaveValue("05:30");
+        await clock.getByRole("button", { name: ":00", exact: true }).click();
+        await expect(clock).toHaveCount(0);
+        await expect(alle).toHaveValue("05:00");
+        await expect(main(page).getByText("del giorno dopo", { exact: true })).toBeVisible();
+        // l'orologio dell'inizio ha tutte le ore
+        await button(page, "Scegli l'ora: Dalle").click();
+        await expect(main(page).getByRole("dialog", { name: "Dalle" }).getByRole("heading", { name: "Ora", exact: true })).toBeVisible();
+        await main(page).getByRole("dialog", { name: "Dalle" }).getByRole("button", { name: "19", exact: true }).click();
+        await expect(dalle).toHaveValue("19:00");
+        await main(page).getByRole("heading", { name: "Quando", exact: true }).click();
+        await expect(main(page).getByRole("dialog")).toHaveCount(0);
+        // di sera a Porto c'è già la carta: prima la seconda parte del Quando
+        await next(page);
+        await insieme(page, "Mostralo al posto degli altri");
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+        await expect(main(page).getByText("Dopo mezzanotte: si salva col database nuovo").first()).toBeVisible();
+    });
+
     test("Metti in onda: la regola nel Calendario, poi «E adesso?» e «Ho finito»", async ({ page }) => {
         wireMenu(stub);
         wireRule(stub);
         await open(page, "menu");
         await walkMenu(page, "Pranzo veloce");
         await next(page);
-        // Dove e quando, un passo solo (D145): le sedi col bottone del Calendario, poi solo Porto
-        await expect(main(page).getByRole("heading", { name: "Dove e quando" })).toBeVisible();
-        await main(page).getByRole("button", { name: /^Tutte le sedi · \d+, anche le nuove$/ }).click();
-        await page.getByRole("dialog", { name: "Sedi" }).getByRole("button", { name: "Solo Porto e2e" }).click();
-        await page.keyboard.press("Escape");
-        await expect(main(page).getByRole("button", { name: "Porto e2e", exact: true })).toBeVisible();
-        // sotto, il quando: prima la domanda, poi il modulo del Calendario
+        // il Dove viene prima del Quando: se va in onda, e in quali sedi
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
+        // prima la domanda (D189): finché non si sceglie, niente sedi né ore e non si va avanti
+        await stuck(page, "Scegli una delle due per andare avanti");
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
+        await expect(sediBox(page)).toHaveCount(0);
+        await onAir(page);
+        // le sedi si scelgono apposta: si parte da nessuna
+        await expect(main(page).getByText("Nessuna sede scelta")).toBeVisible();
+        await stuck(page, "Scegli almeno una sede");
+        await expect(main(page).locator("[data-sbox]")).toHaveClass(/bad/);
+        await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
+        await expect(main(page).getByText(/^1 di \d+ scelte$/)).toBeVisible();
+        await expect(main(page).getByText("Le ore si scelgono nel passo dopo, «Quando».")).toBeVisible();
+        await next(page);
+        // il Quando: le ore, col modulo del Calendario
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await expect(button(page, /^Sempre/)).toHaveAttribute("aria-pressed", "true");
+        // con una sede sola scelta non c'è «Dipende dalla sede»
+        await expect(button(page, /^Dipende dalla sede/)).toHaveCount(0);
         await button(page, /^Solo in certi momenti/).click();
         await expect(main(page).getByText("Anteprima · Menù")).toBeVisible();
+        // a pranzo a Porto c'è già la carta: il Quando ha una seconda parte, «In onda insieme»
+        const parti = main(page).getByRole("navigation", { name: "Parti del Quando" });
+        await expect(parti.getByRole("button", { name: /Le ore$/ })).toHaveAttribute("aria-current", "step");
+        await button(page, "Avanti: in onda insieme").click();
+        await expect(main(page).getByText("Le ore: Lun–Ven · 12:00–15:00")).toBeVisible();
+        await expect(main(page).getByText("In quelle ore c'è già un altro menù a Porto e2e.")).toBeVisible();
+        await expect(main(page).getByText("Come li mostri ai clienti?")).toBeVisible();
+        await expect(main(page).getByText("Scegli una risposta: sotto compaiono gli altri menù con cui si incrocia.")).toBeVisible();
+        // finché non si sceglie non si va avanti
+        await stuck(page, "Scegli: insieme o al posto degli altri");
+        await expect(main(page).getByRole("group", { name: "Insieme o al posto" })).toHaveClass(/bad/);
+        // «Cambia» riporta alle ore, e la scelta si fa dopo
+        await button(page, "Cambia").click();
+        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
+        await next(page);
+        await insieme(page, "Mostralo al posto degli altri");
+        await expect(main(page).getByRole("button", { name: /^Mostralo al posto degli altri/ })).toHaveAttribute("aria-pressed", "true");
+        // una sede sola: sotto, menù per menù, con quello che vede il cliente
+        await expect(main(page).getByRole("heading", { name: "A Porto e2e, menù per menù" })).toBeVisible();
+        // le regole di oggi valgono «al posto»: la carta sta da sola, e si sceglie quale si vede (punto 4)
+        await expect(main(page).getByText("Dal lunedì al venerdì dalle 12 alle 15, sta da solo", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("Dal lunedì al venerdì dalle 12 alle 15 si vede", { exact: true })).toBeVisible();
+        const voce = main(page).getByRole("group", { name: "Porto e2e, Carta e2e" });
+        await expect(voce.getByRole("button", { name: "Pranzo veloce" })).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).locator("[data-insieme]").getByText("Al posto di", { exact: true })).toBeVisible();
+        await voce.getByRole("button", { name: "Carta e2e" }).click();
+        await expect(main(page).locator("[data-insieme]").getByText("Al posto di", { exact: true })).toHaveCount(0);
+        await expect(main(page).locator("[data-insieme]").getByText("solo Carta e2e", { exact: true })).toBeVisible();
+        await voce.getByRole("button", { name: "Pranzo veloce" }).click();
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(main(page).getByText(/dal lunedì al venerdì, dalle 12:00 alle 15:00/)).toBeVisible();
-        await expect(main(page).getByText("Cosa cambia nel calendario")).toBeVisible();
+        // «Cosa cambia nel calendario»: la somma e le sedi per esito
+        const cosa = main(page).getByText("Cosa cambia nel calendario").locator("..");
+        await expect(cosa.getByText(/^In onda in 1 sede · .*15 ore a settimana/)).toBeVisible();
+        await expect(cosa.getByText("Prende il posto di «Carta e2e»")).toBeVisible();
+        await expect(cosa.getByRole("button", { name: "Porto e2e" }).first()).toHaveAttribute("aria-pressed", "false");
+        await expect(cosa.getByText("Periodi in cui cambia")).toBeVisible();
+        await expect(cosa.getByText("Si vede «Pranzo veloce», «Carta e2e» no")).toBeVisible();
         await button(page, "Metti in onda").click();
-        await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce è in onda" })).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce", exact: true })).toBeVisible({ timeout: 15_000 });
         expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "layout", name: expect.stringMatching(/^Pranzo veloce/) });
         const on = writesOf(stub, "schedules.PATCH").map(w => first(w.body)).find(b => "time_mode" in b);
         expect(on).toMatchObject({ enabled: true, days_of_week: [1, 2, 3, 4, 5], time_from: "12:00", time_to: "15:00" });
         expect(bodyOf(stub, "schedule_layout.POST")).toMatchObject({ catalog_id: ID.catalog, schedule_id: ID.rule });
         expect(bodyOf(stub, "rpc.update_schedule_targets")).toMatchObject({ p_targets: [{ target_type: "activity", target_id: SEDE.porto }] });
-        // «E adesso?»: tre strade e «Ho finito»
-        await expect(button(page, /^Dagli i tuoi colori/)).toBeVisible();
-        await expect(button(page, /^Metti qualcosa in evidenza/)).toBeVisible();
-        await expect(button(page, /^Racconta una storia/)).toBeVisible();
-        await expect(button(page, "Tieni come bozza")).toHaveCount(0);
+        // «E adesso?»: cosa hai fatto, tre strade (dal suo primo piatto) e «Ho finito»
+        await expect(main(page).getByText(/^«Pranzo veloce» è in onda a Porto e2e, .+\. Vuoi creare subito qualcos'altro\?$/)).toBeVisible();
+        await expect(button(page, /^Dagli i tuoi colori/)).toContainText("Uno stile per questo menù. Nelle stesse sedi e ore.");
+        await expect(button(page, /^Metti in evidenza «/)).toBeVisible();
+        await expect(button(page, /^Racconta «/)).toBeVisible();
+        await expect(main(page).getByText("Quello che crei da qui ha già le sedi e le ore di «Pranzo veloce»: puoi cambiarle.")).toBeVisible();
         await button(page, /^Ho finito/).click();
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`));
     });
 
-    test("da «E adesso?»: lo stile ha il quando e il dove del menù, finito si torna lì", async ({ page }) => {
+    test("il Quando con più sedi: «Dipende dalla sede», una sede «diversa» e «Torna come le altre»", async ({ page }) => {
+        await open(page, "menu");
+        await walkMenu(page, "Pranzo veloce");
+        await next(page);
+        await onAir(page);
+        // con alcune sedi scelte c'è «Togli tutte»; con tutte, vale anche per quelle che aprirai
+        await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
+        await expect(main(page).getByText("Quello che vale per una sede vince su quello che vale per tutte.")).toBeVisible();
+        await button(page, "Togli tutte").click();
+        await expect(main(page).getByText("Nessuna sede scelta")).toBeVisible();
+        await allSedi(page).click();
+        await expect(main(page).getByText("Vale anche per le sedi che aprirai.")).toBeVisible();
+        await expect(button(page, "Togli tutte")).toHaveCount(0);
+        await next(page);
+        await expect(main(page).getByText("Le ore in cui i clienti lo vedono. A destra la settimana della sede che scegli sopra.")).toBeVisible();
+        await expect(button(page, /^Sempre/)).toContainText(/In tutte (e due le|e tre le|le \d+) sedi, tutti i giorni, a tutte le ore\./);
+        await button(page, /^Solo in certi momenti/).click();
+        await button(page, /^Dipende dalla sede/).click();
+        await expect(button(page, /^Dipende dalla sede/)).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByText("Le ore di ogni sede: la settimana a destra segue la sede che scegli sopra.")).toBeVisible();
+        await expect(main(page).getByText(/^Tutte partono da .+\. Apri una sede per cambiarla\.$/)).toBeVisible();
+        const porto = main(page).getByRole("button", { name: /^Porto e2e/ });
+        await expect(porto).toContainText("come le altre");
+        // la settimana a destra: una sede alla volta, con le frecce e «Sede da guardare»
+        const guarda = main(page).getByRole("combobox", { name: "Sede da guardare" });
+        await expect(guarda).toBeVisible();
+        const prima = await guarda.inputValue();
+        await expect(main(page).getByText(/^1 di 3/)).toBeVisible();
+        await main(page).getByRole("button", { name: /^Sede successiva: / }).click();
+        await expect(main(page).getByText(/^2 di 3/)).toBeVisible();
+        expect(await guarda.inputValue()).not.toBe(prima);
+        // aprire una sede la porta nella settimana
+        await porto.click();
+        await expect(guarda.locator("option:checked")).toContainText("Porto e2e");
+        await expect(main(page).getByText("Cambiando qui, cambia solo Porto e2e.")).toBeVisible();
+        await main(page).getByRole("button", { name: "Sab e Dom", exact: true }).click();
+        await expect(porto).toContainText("diversa");
+        await button(page, "Torna come le altre").click();
+        await expect(porto).toContainText("come le altre");
+        // una sola risposta alla volta: «Solo in certi momenti» rimette le stesse ore a tutte
+        await button(page, /^Solo in certi momenti/).click();
+        await expect(main(page).getByRole("button", { name: /^Porto e2e/ })).toHaveCount(0);
+    });
+
+    test("da «E adesso?»: lo stile eredita sedi e orari del menù e chiede di confermarli; finito, ha il suo «E adesso?»", async ({ page }) => {
         wireMenu(stub);
         wireRule(stub);
         stub.onWrite("styles.POST", ({ body }) => ({ id: ID.style, ...first(body) }));
@@ -329,38 +617,126 @@ test.describe("Tunnel di creazione — menù", () => {
         await open(page, "menu");
         await walkMenu(page, "Pranzo veloce");
         await next(page);
+        await onAir(page);
+        await allSedi(page).click();
+        await next(page);
         await button(page, /^Solo in certi momenti/).click();
+        await next(page);
+        // il conto vale per tutte le sedi scelte, non solo per la prima: a Porto c'è già la carta
+        await insieme(page, "Mostralo al posto degli altri");
+        // «È uguale per tutte e tre le sedi?»: con «No, cambia» le sedi dove si incrocia, una per riga.
+        // A Centro c'è «Pranzo e2e», messo solo per lei: oggi vince lui, ma si sceglie lo stesso (D196)
+        const box = main(page).locator("[data-insieme]");
+        const uguale = box.getByRole("group", { name: "È uguale per tutte e tre le sedi?" });
+        await uguale.getByRole("button", { name: "No, cambia" }).click();
+        await expect(box.getByText("1 di 3 sedi viste")).toBeVisible();
+        await expect(box.getByRole("button", { name: /Centro e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
+        await expect(box.getByText("Al posto di «Pranzo e2e», che oggi qui vince: si salva col database nuovo. Per ora lascia «Pranzo e2e».")).toBeVisible();
+        // ogni menù col pallino del suo colore, e sotto la sede aperta i suoi giorni: solo quando la settimana a destra non c'è
+        await expect(box.locator("li[style*='--c']").filter({ hasText: "Pranzo e2e" })).toHaveCount(1);
+        const giorni = box.getByRole("list", { name: "I giorni di Centro e2e", includeHidden: true });
+        await expect(giorni).toContainText(/^.+\d\d:\d\d–\d\d:\d\d: Pranzo e2e/);
+        await expect(giorni).toBeHidden();
+        const vp = page.viewportSize()!;
+        await page.setViewportSize({ width: 1000, height: vp.height });
+        await expect(giorni).toBeVisible();
+        await page.setViewportSize(vp);
+        // la prossima sede si apre da sola, e la settimana a destra passa a lei
+        await box.getByRole("button", { name: "Prossima sede: Lago e2e" }).click();
+        await box.getByRole("button", { name: "Prossima sede: Porto e2e" }).click();
+        await expect(box.getByText("3 di 3 sedi viste")).toBeVisible();
+        await expect(box.getByText("Le hai viste tutte.")).toBeVisible();
+        await expect(box.getByRole("button", { name: /Porto e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
+        await expect(main(page).getByRole("combobox", { name: "Sede da guardare" }).locator("option:checked")).toHaveText(/^Porto e2e/);
+        // una sede diversa dalle altre si vede, ma il database di oggi tiene una risposta sola
+        // le regole di oggi valgono «al posto»: a Porto la carta sta da sola, e si sceglie quale si vede (punto 4)
+        await expect(box.getByText(/, sta da solo$/).first()).toBeVisible();
+        await box.getByRole("group", { name: "Porto e2e, Carta e2e" }).getByRole("button", { name: "Carta e2e" }).click();
+        await expect(box.getByText("diversa", { exact: true })).toBeVisible();
+        await expect(box.getByText("· 1 diversa")).toBeVisible();
+        await next(page);
+        await expect(main(page).getByText("Scelte diverse fra le sedi: si salva col database nuovo").first()).toBeVisible();
+        await button(page, "Indietro").click();
+        await uguale.getByRole("button", { name: "Sì, uguale" }).click();
+        await expect(box.getByText(/^In tutte e tre le sedi «.+» si vede da solo, al posto degli altri menù\. A Centro e2e oggi vince «Pranzo e2e»: lì si salva col database nuovo\. Per ora lascia «Pranzo e2e»\. Prende il posto anche dei menù che stanno da soli \(.+\)\.$/)).toBeVisible();
+        // al posto anche a Centro: oggi lì vince «Pranzo e2e», quindi aspetta il database nuovo
+        await next(page);
+        await expect(main(page).getByText("Al posto di «Pranzo e2e» a Centro e2e: si salva col database nuovo. Per ora lascia «Pranzo e2e».").first()).toBeVisible();
+        await button(page, "Indietro").click();
+        // a Centro «Pranzo e2e» da solo è quello che succede oggi: si salva
+        await uguale.getByRole("button", { name: "No, cambia" }).click();
+        const centro = box.getByRole("button", { name: /Centro e2e.*1 menù/ });
+        if ((await centro.getAttribute("aria-expanded")) !== "true") await centro.click();
+        await box.getByRole("group", { name: "Centro e2e, Pranzo e2e" }).getByRole("button", { name: "Pranzo e2e" }).click();
+        await expect(box.getByText("solo Pranzo e2e", { exact: true })).toBeVisible();
         await next(page);
         await button(page, "Metti in onda").click();
         await button(page, /^Dagli i tuoi colori/).click({ timeout: 15_000 });
-        await expect(main(page).getByText("Fa parte di «Pranzo veloce»: finito, si torna a «E adesso?».")).toBeVisible();
         await next(page);
         await main(page).getByLabel("Nome dello stile").fill("Pranzo");
         await next(page);
         await button(page, "Blu").click();
         await next(page);
-        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
-        await expect(main(page).getByText("Già compilato dal menù «Pranzo veloce»: puoi cambiarlo.")).toBeVisible();
+        // il menù era in onda: lo è già anche lo stile, e le sedi sono le sue, da confermare
+        await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
+        const sedi = main(page).getByRole("group", { name: "Stesse sedi di «Pranzo veloce»" });
+        await expect(sedi).toContainText("Tutte le sedi");
+        await expect(sedi).toContainText("Le hai appena scelte per «Pranzo veloce».");
+        await expect(main(page).locator("[data-sbox]")).toHaveCount(0);
+        await stuck(page, "Conferma le sedi o cambiale");
+        await expect(sedi).toHaveClass(/bad/);
+        // «Cambio sedi» apre il riquadro delle sedi, già con quelle del menù
+        await sedi.getByRole("button", { name: "Cambio sedi" }).click();
+        await expect(main(page).getByText("Partono dalle sedi di «Pranzo veloce»: cambia quello che serve.")).toBeVisible();
+        await expect(allSedi(page)).toHaveAttribute("aria-checked", "true");
+        await next(page);
+        // gli orari: confermati restano quelli del menù
+        const ore = main(page).getByRole("group", { name: "Stessi orari di «Pranzo veloce»" });
+        await expect(ore).toContainText("Li hai appena scelti per «Pranzo veloce».");
+        await expect(button(page, /^Solo in certi momenti/)).toHaveCount(0);
+        await stuck(page, "Conferma gli orari o cambiali");
+        await ore.getByRole("button", { name: "Sì, gli stessi" }).click();
+        await expect(main(page).getByText("Stessi orari di «Pranzo veloce»", { exact: true })).toBeVisible();
+        await next(page);
+        // in tre sedi a quelle ore c'è già uno stile (a Centro quello di «Pranzo e2e», che lì oggi vince):
+        // la seconda parte del Quando, e la settimana una sede alla volta
+        await expect(main(page).getByText("In quelle ore c'è già un altro stile in 3 sedi.")).toBeVisible();
+        await expect(main(page).getByRole("combobox", { name: "Sede da guardare" })).toBeVisible();
+        await button(page, /^Prende il posto degli altri/).click();
+        await next(page);
+        await expect(main(page).getByText(/^Al posto di «(.+)» a Centro e2e: si salva col database nuovo\. Per ora lascia «\1»\.$/).first()).toBeVisible();
+        await button(page, "Indietro").click();
+        // a Centro lo lascia: è quello che succede oggi, e si salva
+        const sbox = main(page).locator("[data-insieme]");
+        await sbox.getByRole("button", { name: "No, cambia" }).click();
+        await sbox.getByRole("group", { name: /^Centro e2e, / }).getByRole("button", { name: "Lascia l'altro" }).click();
+        await expect(sbox.getByText(/^Qui, in quelle ore, resta lo stile «.+»\.$/)).toBeVisible();
         await next(page);
         await button(page, "Metti in onda").click();
-        await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce è in onda" })).toBeVisible({ timeout: 15_000 });
-        await expect(button(page, /^Dagli i tuoi colori/)).toContainText("Fatto: puoi aggiungerne un altro.");
+        // lo stile ha il suo «E adesso?»
+        await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo", exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(button(page, /^Un menù per queste ore/)).toContainText("Il menù che i clienti vedono con questo stile. Nelle stesse sedi e ore.");
+        await expect(button(page, /^Racconta il locale/)).toBeVisible();
+        await button(page, /^Ho finito/).click();
+        await expect(page).toHaveURL(/\/styles$/);
     });
 
-    test("Esci con qualcosa scritto: «Resta qui» resta, «Esci senza salvare» torna indietro", async ({ page }) => {
+    test("Esci con qualcosa scritto: «Resta» resta, «Esci senza salvare» torna indietro", async ({ page }) => {
         await open(page, "menu", "menu");
         // senza niente scritto si esce subito
         await button(page, "Esci").click();
         await expect(page).toHaveURL(/\/catalogs$/);
         await page.goBack();
-        await button(page, /^Menù classico/).click();
+        await main(page).getByLabel("Nome del menù").fill("Cena");
         await button(page, "Esci").click();
-        const dlg = page.getByRole("alertdialog", { name: "Uscire dal tunnel?" });
+        const dlg = page.getByRole("alertdialog", { name: "Modifiche non salvate" });
         await expect(dlg).toBeVisible();
-        await expect(dlg.getByRole("button")).toHaveText(["Resta qui", "Esci senza salvare", "Tieni come bozza ed esci"]);
-        await dlg.getByRole("button", { name: "Resta qui" }).click();
+        // creando non c'è più «Tieni come bozza ed esci» (D189): o si resta o si esce senza salvare
+        await expect(dlg.getByText("Quello che hai scritto non è ancora salvato. Se esci senza salvare, lo perdi.")).toBeVisible();
+        await expect(dlg.getByRole("button")).toHaveText(["Resta", "Esci senza salvare"]);
+        await dlg.getByRole("button", { name: "Resta" }).click();
         await expect(dlg).toBeHidden();
-        await expect(button(page, /^Menù classico/)).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByLabel("Nome del menù")).toHaveValue("Cena");
         await button(page, "Esci").click();
         await dlg.getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/catalogs$/);
@@ -370,7 +746,8 @@ test.describe("Tunnel di creazione — menù", () => {
     test("il salvataggio che non riesce lo dice, e si resta nel tunnel", async ({ page }) => {
         await open(page, "menu");
         await walkMenu(page);
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
         await expect(page.getByText("Non siamo riusciti a salvare il menù. Riprova.")).toBeVisible();
         await expect(page).toHaveURL(/\/crea\/menu/);
     });
@@ -387,15 +764,14 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(button(page, /^1 già fra i tuoi prodotti/)).toBeVisible();
         await expect(button(page, /^1 da controllare/)).toBeVisible();
         // con l'import aperto non si va avanti
-        await expect(button(page, "Avanti")).toBeDisabled();
-        await expect(main(page).getByText("Hai un import aperto: aggiungi i piatti o butta via l'import")).toBeVisible();
+        await stuck(page, "Hai un import aperto: aggiungi i piatti o butta via l'import");
         await button(page, "Aggiungi 2 piatti al menù").click();
         await expect(main(page).getByText("2 piatti aggiunti da «menu.png».")).toBeVisible();
         await expect(button(page, "Togli Bufalina")).toBeVisible();
         expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
-        await next(page);
-        await next(page);
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "catalogs.POST")).toMatchObject({ name: "Carta" });
         expect(writesOf(stub, "catalog_categories.POST").map(w => first(w.body).name)).toEqual(["Pizze"]);
@@ -417,7 +793,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await button(page, "Annulla l'import: togli questi 2 piatti").click();
         await expect(main(page).getByText("Il menù è vuoto")).toBeVisible();
         await button(page, "Esci").click();
-        await page.getByRole("alertdialog", { name: "Uscire dal tunnel?" }).getByRole("button", { name: "Esci senza salvare" }).click();
+        await page.getByRole("alertdialog", { name: "Modifiche non salvate" }).getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(page).toHaveURL(/\/catalogs$/);
         expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
     });
@@ -428,8 +804,6 @@ test.describe("Tunnel di creazione — menù", () => {
         stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-00000000009" + n++, ...first(body) }));
         stub.onWrite("catalog_category_products.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-000000000010", ...first(body) }));
         await open(page, "menu", "menu");
-        await button(page, /^Menù classico/).click();
-        await next(page);
         await main(page).getByLabel("Nome del menù").fill("Carta");
         await next(page);
         const name = main(page).getByLabel("Nome della categoria");
@@ -448,7 +822,9 @@ test.describe("Tunnel di creazione — menù", () => {
         await dish.fill("Marg");
         await main(page).getByRole("option", { name: /Margherita e2e/ }).click();
         await expect(button(page, "Porta fuori da Pizze")).toBeVisible();
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         const cats = writesOf(stub, "catalog_categories.POST").map(w => first(w.body));
         expect(cats.map(c => [c.name, c.level, c.sort_order])).toEqual([["Pizze", 1, 0], ["Rosse", 2, 0], ["Dolci", 1, 1]]);
@@ -463,12 +839,14 @@ test.describe("Tunnel di creazione — menù", () => {
         stub.onWrite("catalog_category_products.POST", ({ body }) => ({ id: "e2ec7000-0000-4000-a000-000000000010", ...first(body) }));
         await open(page, "menu", "menu");
         await walkMenu(page);
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
         await expect(page.getByText("Non siamo riusciti a salvare il menù. Riprova.")).toBeVisible();
         expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
         // ora il piatto si salva: si riprende da lì
         stub.onWrite("products.POST", ({ body }) => ({ ...first(body) }));
-        await button(page, "Tieni come bozza").click();
+        await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
         expect(writesOf(stub, "catalog_categories.POST")).toHaveLength(1);
@@ -480,10 +858,12 @@ test.describe("Tunnel di creazione — menù", () => {
         wireMenu(stub);
         await open(page, "menu", "menu");
         await walkMenu(page);
-        await button(page, "Tieni come bozza").evaluate((el: HTMLElement) => {
+        await toReady(page);
+        await button(page, "Salva e tieni pronto").evaluate((el: HTMLElement) => {
             el.click();
             el.click();
         });
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
     });
@@ -495,7 +875,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(page).toHaveURL(/[?&]vista=calendario/);
         await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
         await main(page).getByRole("button", { name: /^Menù/ }).first().click();
-        await expect(main(page).getByText("Si crea nel tunnel di creazione, dove scegli se è classico o multi: si esce dal Calendario.")).toBeVisible();
+        await expect(main(page).getByText("Si crea nel tunnel di creazione: si esce dal Calendario.")).toBeVisible();
         await main(page).getByRole("button", { name: /Crea un menù nuovo/ }).click();
         await expect(page.getByText("Creare un menù nuovo?")).toBeVisible();
         await expect(page.getByText("Si apre il tunnel di creazione: tieni da parte la bozza, e il suo quando e il suo dove vengono con te.")).toBeVisible();
@@ -518,18 +898,38 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByRole("navigation", { name: "Percorso" }).getByRole("button", { name: "Calendario" })).toBeVisible();
         await walkMenu(page);
         await next(page);
-        await main(page).getByRole("button", { name: "Porto e2e", exact: true }).click();
-        const pop = page.getByRole("dialog", { name: "Sedi" });
-        await expect(pop.getByRole("checkbox", { name: "Porto e2e" })).toBeChecked();
-        await expect(pop.getByRole("checkbox", { name: "Centro e2e" })).not.toBeChecked();
-        await page.keyboard.press("Escape");
-        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
+        await onAir(page);
+        await expect(sediBox(page).getByRole("checkbox", { name: "Porto e2e" })).toBeChecked();
+        await expect(sediBox(page).getByRole("checkbox", { name: "Centro e2e" })).not.toBeChecked();
         await expect(main(page).getByText("Dalla bozza che hai tenuto da parte nel Calendario: puoi cambiarlo.")).toBeVisible();
+        await next(page);
+        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
         // uscire senza salvare lascia la bozza dov'è
         await button(page, "Esci").click();
         await page.getByRole("alertdialog").getByRole("button", { name: "Esci senza salvare" }).click();
-        await expect(page).toHaveURL(/\/scheduling$/);
+        await expect(page).toHaveURL(/\/scheduling\?vista=calendario$/);
         expect(await page.evaluate(t => sessionStorage.getItem("calendario:da-parte:" + t), TENANT_ID)).toContain('"kind":"menu"');
+    });
+});
+
+test.describe("Tunnel di creazione — il locale con una sede sola", () => {
+    test("in quelle ore c'è già un altro menù: sotto, menù per menù, come con più sedi", async ({ page }) => {
+        stub = await stubProgrammazione(page, { oneSeat: true });
+        wireMenu(stub);
+        wireRule(stub);
+        await open(page, "menu");
+        await walkMenu(page, "Pranzo veloce");
+        await next(page);
+        await onAir(page);
+        await button(page, /^Solo in certi momenti/).click();
+        // con una sede il riquadro sta sotto le ore, senza la seconda parte del Quando
+        await main(page).locator("[data-insieme]").getByRole("button", { name: /^Mostralo al posto degli altri/ }).click();
+        await expect(main(page).getByRole("heading", { name: "A Porto e2e, menù per menù" })).toBeVisible();
+        const voce = main(page).getByRole("group", { name: "Porto e2e, Carta e2e" });
+        await expect(voce.getByRole("button", { name: "Pranzo veloce" })).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).locator("[data-insieme]").getByText("Al posto di", { exact: true })).toBeVisible();
+        // niente «È uguale per…?»: c'è una sede sola
+        await expect(main(page).getByText(/^È uguale per/)).toHaveCount(0);
     });
 });
 
@@ -567,7 +967,9 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await pal.getByRole("button").nth(12).click();
         await expect(pal).toHaveCount(0);
         await expect(second.getByRole("button", { name: "Un tuo colore" })).toBeVisible();
-        await button(page, "Tieni come bozza").click();
+        await toReady(page);
+        await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
         expect(bodyOf(stub, "styles.POST")).toMatchObject({ name: "Natale", is_system: false });
         const config = JSON.stringify(bodyOf(stub, "style_versions.POST").config);
@@ -599,21 +1001,88 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await button(page, /^Dei piatti/).click();
         await main(page).getByLabel("Titolo", { exact: true }).fill("Pizza del giorno");
         // coi piatti aperti e nessuno scelto non si va avanti
-        await expect(button(page, "Avanti")).toBeDisabled();
+        await stuck(page, "Aggiungi almeno un piatto");
         await piatti.getByRole("checkbox", { name: /Margherita e2e/ }).click();
         await next(page);
+        await onAir(page);
+        await allSedi(page).click();
         await next(page);
-        await button(page, "Pubblica").click();
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
+        await next(page);
+        // D187: nelle sedi c'è già altro in evidenza, quindi «L'ordine»; il nuovo parte per primo
+        await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true, level: 3 })).toBeVisible();
+        await expect(button(page, /^Mostralo per primo in tutte le sedi/)).toHaveAttribute("aria-pressed", "true");
+        await next(page);
+        await button(page, "Metti in onda").click();
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Pizza del giorno", status: "published", content_type: "promo" });
         expect(writesOf(stub, "featured_content_products.POST")).toHaveLength(1);
         expect(bodyOf(stub, "schedule_featured_contents.POST")).toMatchObject({ featured_content_id: ID.featured, slot: "before_catalog" });
     });
 
-    test("storia: racconto e blocchi, pubblicata", async ({ page }) => {
+    test("in evidenza: la data sulla card, il pulsante a scelta e «Fino al…» nel Quando (D187)", async ({ page }) => {
+        await open(page, "evidenza", "evidenza");
+        await main(page).getByLabel("Titolo", { exact: true }).fill("Serata karaoke");
+        // «Quando succede»: solo un'informazione, scritta sulla card
+        const data = main(page).getByRole("region", { name: "Quando succede" });
+        await expect(data.getByRole("button", { name: "Nessuna data" })).toHaveAttribute("aria-pressed", "true");
+        await data.getByRole("button", { name: "Un giorno" }).click();
+        await expect(data.getByText("facoltativa · sulla card: Mercoledì 23 set", { exact: true })).toBeVisible();
+        await data.getByRole("textbox", { name: "Ora" }).fill("21");
+        await data.getByRole("textbox", { name: "Ora" }).blur();
+        await expect(data.getByText("facoltativa · sulla card: Mercoledì 23 set, dalle 21", { exact: true })).toBeVisible();
+        // «Il pulsante»: niente link libero; senza piatti «Vedi il piatto» e «Aggiungi all'ordine» sono spenti
+        await expect(button(page, /^Un pulsante/)).toHaveCount(0);
+        const pulsante = main(page).getByRole("radiogroup", { name: "Il pulsante" });
+        await expect(pulsante.getByRole("radio", { name: /^Nessun pulsante/ })).toBeChecked();
+        await expect(pulsante.getByRole("radio", { name: /^Vedi il piatto.*Solo con dei piatti collegati\./ })).toBeDisabled();
+        await expect(pulsante.getByRole("radio", { name: /^Aggiungi all'ordine/ })).toBeDisabled();
+        await next(page);
+        await onAir(page);
+        await allSedi(page).click();
+        await next(page);
+        // punto 14: il giorno della card diventa la fine del periodo, e lo si dice
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
+        await expect(main(page).getByText("Fino al 23 set, il giorno del contenuto: puoi cambiarlo.", { exact: true })).toBeVisible();
+        await next(page);
+        // «L'ordine»: uguale in tutte le sedi, oppure sede per sede con le righe da spostare
+        await expect(main(page).getByRole("heading", { name: "L'ordine", exact: true, level: 3 })).toBeVisible();
+        await main(page).getByRole("radio", { name: "No, cambia" }).click();
+        await expect(main(page).getByText("Apri la sede da cambiare.")).toBeVisible();
+        await button(page, /^Porto e2e.*Per primo · 4 contenuti.*Cambia$/).click();
+        const righe = main(page).getByRole("list", { name: "L'ordine" });
+        await expect(righe.getByRole("listitem")).toHaveCount(4);
+        await expect(righe.getByRole("listitem").first()).toContainText("Serata karaoke");
+        await righe.getByRole("button", { name: "Sposta giù: Serata karaoke" }).click();
+        await expect(righe.getByRole("listitem").nth(1)).toContainText("Serata karaoke");
+        await expect(button(page, /^Porto e2e.*2° di 4 · 4 contenuti.*Chiudi$/)).toBeVisible();
+        // sopra il telefono le sedi da guardare: quella aperta è scelta
+        const guarda = page.getByRole("group", { name: "Sede da guardare" });
+        await expect(guarda.getByRole("button", { name: "Porto e2e" })).toHaveAttribute("aria-pressed", "true");
+        // «Sì»: torna per primo dappertutto
+        await main(page).getByRole("radio", { name: "Sì", exact: true }).click();
+        await expect(button(page, /^Mostralo per primo in tutte le sedi/)).toHaveAttribute("aria-pressed", "true");
+        await next(page);
+        // le colonne della data arrivano col database nuovo: fino ad allora non si salva
+        await expect(button(page, "Metti in onda")).toBeDisabled();
+        await expect(main(page).getByText("«Quando succede»: si salva col database nuovo")).toBeVisible();
+    });
+
+    test("storia di un prodotto: di cosa parla, racconto e blocchi, in onda senza sedi né orari (D191)", async ({ page }) => {
         stub.onWrite("stories.POST", ({ body }) => ({ id: ID.story, ...first(body) }));
         stub.onWrite("stories.PATCH", ({ body }) => ({ id: ID.story, ...first(body) }));
         await open(page, "storia", "storie");
+        await next(page);
+        // «Di cosa parla»: prima il tipo, poi il prodotto, cercandolo
+        await expect(main(page).getByRole("heading", { name: "Di cosa parla" })).toBeVisible();
+        await stuck(page, "Scegli di cosa parla");
+        await button(page, /^Un prodotto/).click();
+        await stuck(page, "Scegli il prodotto");
+        const prodotti = main(page).getByRole("radiogroup", { name: "Prodotti" });
+        await main(page).getByRole("textbox", { name: "Cerca un prodotto" }).fill("tiramisu");
+        await expect(prodotti.getByRole("radio")).toHaveCount(1);
+        await prodotti.getByRole("radio", { name: /^Tiramisù e2e/ }).click();
         await next(page);
         await main(page).getByLabel("Occhiello").fill("Il forno");
         await main(page).getByLabel("Titolo", { exact: true }).fill("Il forno a legna");
@@ -623,12 +1092,19 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await button(page, "Testo").click();
         await main(page).getByRole("textbox", { name: "Scrivi un paragrafo..." }).fill("Lo accendiamo alle sei.");
         await next(page);
-        // la storia ha un orario solo: niente «hanno le stesse ore?»
-        await expect(main(page).getByRole("radio", { name: "No, cambiano" })).toHaveCount(0);
+        // «In onda?»: niente sedi e niente orari, solo la scelta
+        await expect(main(page).getByRole("heading", { name: "In onda?" })).toBeVisible();
+        await expect(main(page).locator("[data-sbox]")).toHaveCount(0);
+        await stuck(page, "Scegli una delle due per andare avanti");
+        await onAir(page);
         await next(page);
-        await button(page, "Pubblica").click();
-        await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });
-        expect(bodyOf(stub, "stories.POST")).toMatchObject({ title: "Il forno a legna", eyebrow: "Il forno", status: "draft" });
+        await expect(main(page).getByText("Dove e quando «Tiramisù e2e» è nel menù: la storia «Il forno a legna» compare in fondo alla scheda di «Tiramisù e2e».")).toBeVisible();
+        await button(page, "Metti in onda").click();
+        await expect(main(page).getByText("«Il forno a legna» è in onda: si vede in fondo alla scheda di «Tiramisù e2e».")).toBeVisible({ timeout: 15_000 });
+        await finito(page);
+        await expect(page).toHaveURL(/\/stories$/, { timeout: 15_000 });
+        expect(bodyOf(stub, "stories.POST")).toMatchObject({ title: "Il forno a legna", eyebrow: "Il forno", status: "draft", activity_id: null });
+        expect(bodyOf(stub, "stories.POST").product_id).toBeTruthy();
         const done = bodyOf(stub, "stories.PATCH");
         expect(done).toMatchObject({ status: "published" });
         expect(JSON.stringify(done.body_blocks)).toContain("Lo accendiamo alle sei.");
@@ -636,18 +1112,21 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
 });
 
 test.describe("Tunnel di creazione — chi non gestisce il Calendario", () => {
-    test("niente Quando né Dove; «Salva» lascia la bozza a chi gestisce il Calendario", async ({ page }) => {
+    test("niente Quando né Dove; «Salva e tieni pronto» lascia la messa in onda a chi gestisce il Calendario", async ({ page }) => {
         stub = await stubProgrammazione(page);
         await stub.revoke("scheduling.write");
         await open(page, "evidenza");
         await stub.revoked;
-        await expect(rail(page).getByRole("button")).toHaveText(["1Il contenuto", "2Controlla"]);
+        await expect(rail(page).getByRole("button")).toHaveText(["1Il contenuto", "2Controlla", "E adesso?"]);
         await main(page).getByLabel("Titolo", { exact: true }).fill("Chiusi per ferie");
         await next(page);
-        await expect(button(page, "Pubblica")).toHaveCount(0);
-        // «Salva» lascia una bozza e nessuna regola nel Calendario (#360.8: prima non si cliccava)
+        await expect(button(page, "Metti in onda")).toHaveCount(0);
+        // nessuna scelta (D189): sempre pronto, con la riga della pagina
+        await expect(main(page).getByText("La messa in onda la decide chi gestisce il Calendario. Con «Salva e tieni pronto» questo contenuto resta in «In evidenza» come «Pronto, non in onda», con tutti i controlli fatti.")).toBeVisible();
+        // «Salva e tieni pronto» lascia una bozza e nessuna regola nel Calendario (#360.8: prima non si cliccava)
         stub.onWrite("featured_contents.POST", ({ body }) => ({ id: ID.featured, ...first(body) }));
-        await button(page, "Salva").click();
+        await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Chiusi per ferie", status: "draft" });
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
@@ -661,7 +1140,7 @@ test.describe("Tunnel di creazione — permessi (#360.8)", () => {
         await openBusinessPageByUrl(page, "crea/menu?da=menu");
         await stub.revoked;
         await expect(main(page).getByText("Non puoi crearlo")).toBeVisible({ timeout: 20_000 });
-        await expect(button(page, /^Menù classico/)).toHaveCount(0);
+        await expect(main(page).getByLabel("Nome del menù")).toHaveCount(0);
     });
 });
 
@@ -691,7 +1170,7 @@ test.describe("Tunnel di creazione — misure", () => {
         // al telefono la barra laterale è chiusa: si entra da computer e si stringe
         await page.setViewportSize({ width: 375, height: 760 });
         await expect(main(page).getByRole("complementary", { name: "Così lo vede il cliente" })).toBeHidden();
-        await button(page, /^Menù classico/).click();
+        await main(page).getByLabel("Nome del menù").fill("Cena");
         await expect(button(page, "Avanti")).toBeEnabled();
         const side = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(side).toBeLessThanOrEqual(0);
@@ -743,5 +1222,262 @@ test.describe("Tunnel dello stile: modificare (D186)", () => {
         // una parte sola torna com'era
         await button(page, "Torna com'era").click();
         await expect(button(page, "Rosso")).toHaveAttribute("aria-pressed", "true");
+    });
+});
+
+test.describe("Dove e Quando: in onda o pronto (D189)", () => {
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+    });
+
+    /** I scritti di un contenuto in evidenza e della sua regola, tutti finti. */
+    function wireEvid() {
+        stub.onWrite("featured_contents.POST", ({ body }) => ({ id: ID.featured, ...first(body) }));
+        stub.onWrite("featured_contents.PATCH", ({ body }) => [{ ...first(body) }]);
+        stub.onWrite("featured_content_products.POST", () => null);
+        stub.onWrite("schedules.POST", () => ({ id: ID.rule }));
+        stub.onWrite("schedules.PATCH", () => [{ id: ID.rule }]);
+        stub.onWrite("schedules.DELETE", () => null);
+        stub.onWrite("schedule_featured_contents.DELETE", () => null);
+        stub.onWrite("schedule_featured_contents.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+    }
+    /** «Luci di Natale e2e» ancora da mettere in onda: pubblicato no, la sua regola sì. */
+    async function nataleDraft(page: Page) {
+        // la riga è scritta qui: route.fetch() uscirebbe sulla rete vera invece di passare dai dati finti
+        const row = { id: FEATURED.natale, tenant_id: TENANT_ID, title: "Luci di Natale e2e", status: "draft" };
+        await page.route(/\/rest\/v1\/featured_contents\?/, async route => {
+            const request = route.request();
+            if (request.method() !== "GET" || !request.url().includes(FEATURED.natale)) return route.fallback();
+            const wantsObject = (request.headers()["accept"] ?? "").includes("vnd.pgrst.object");
+            await route.fulfill({ json: wantsObject ? row : [row] });
+        });
+    }
+
+    test("creando nessuna delle due è scelta: «Avanti» spento finché non si sceglie, la fila dice com'è", async ({ page }) => {
+        await open(page, "menu", "menu");
+        await walkMenu(page);
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible();
+        await expect(main(page).getByText("Due scelte: se i clienti lo vedono e in quali sedi. Si cambia quando vuoi.")).toBeVisible();
+        await expect(main(page).getByText("Vuoi che i clienti lo vedano appena salvi?")).toBeVisible();
+        await stuck(page, "Scegli una delle due per andare avanti");
+        // niente sedi finché non si sceglie
+        await expect(sediBox(page)).toHaveCount(0);
+        await button(page, /^No, per ora lo tengo pronto/).click();
+        await expect(button(page, /^No, per ora lo tengo pronto/)).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByText("Lo salvi completo, ma nessun cliente lo vede.")).toBeVisible();
+        await expect(main(page).getByText("Nessuna sede e nessun orario. Il menù resta in «Menù» come «Pronto, non in onda». Quando vuoi, lo metti in onda da lì con «Metti in onda».")).toBeVisible();
+        await expect(rail(page).getByRole("button", { name: /Dove\s*· non in onda/ })).toBeVisible();
+        // tenuto pronto, il «Quando» si salta: nella fila è spento
+        await expect(rail(page).getByRole("button", { name: /Quando/ })).toBeDisabled();
+        // si cambia idea con un clic: tornano le sedi, tutte da scegliere
+        await onAir(page);
+        await expect(sediBox(page)).toBeVisible();
+        await expect(allSedi(page)).toHaveAttribute("aria-checked", "false");
+        await expect(rail(page).getByRole("button", { name: /Dove\s*· in onda/ })).toBeVisible();
+    });
+
+    test("menù tenuto pronto: in Controlla la frase, il Calendario non cambia e i controlli fatti", async ({ page }) => {
+        await open(page, "menu", "menu");
+        await walkMenu(page, "Pranzo veloce");
+        await toReady(page);
+        await expect(main(page).getByText(/^Il menù «Pranzo veloce» è pronto ma spento: nessun cliente lo vede finché non lo metti in onda\.$/)).toBeVisible();
+        await expect(main(page).getByText("Niente: non è in onda in nessuna sede.")).toBeVisible();
+        await expect(main(page).getByText("Il contenuto è completo")).toBeVisible();
+        await expect(main(page).getByText("Nessun errore da correggere")).toBeVisible();
+        await expect(main(page).getByText("Pronto per andare in onda in qualunque sede")).toBeVisible();
+        await expect(button(page, "Salva e tieni pronto")).toBeEnabled();
+        await expect(button(page, "Metti in onda")).toHaveCount(0);
+    });
+
+    test("stile: «Sì, lo metto in onda» fa la sua regola nel Calendario", async ({ page }) => {
+        stub.onWrite("styles.POST", ({ body }) => ({ id: ID.style, ...first(body) }));
+        stub.onWrite("style_versions.POST", ({ body }) => ({ id: ID.version, ...first(body) }));
+        stub.onWrite("styles.PATCH", ({ body }) => ({ id: ID.style, name: "Natale", ...first(body) }));
+        wireRule(stub);
+        await open(page, "stile", "stili");
+        await next(page);
+        await main(page).getByLabel("Nome dello stile").fill("Natale");
+        await next(page);
+        await next(page);
+        await onAir(page);
+        // in tutte le sedi e sempre sarebbe a pari merito con lo stile di base, e il Calendario lo ferma:
+        // una sede e certi momenti, come il menù di «Metti in onda»
+        await sediBox(page).getByRole("checkbox", { name: "Porto e2e" }).click();
+        await next(page);
+        await button(page, /^Solo in certi momenti/).click();
+        // in quelle ore c'è già lo stile di base: la seconda parte, «Con gli altri stili»
+        await button(page, "Avanti: con gli altri stili").click();
+        await expect(main(page).getByText("Che stile prende la pagina in quelle ore?")).toBeVisible();
+        await stuck(page, "Scegli: prende il posto dell'altro o lo lascia");
+        // «Lascia gli altri» il database di oggi non lo sa tenere: si vede, il salvataggio aspetta
+        await insieme(page, "Lascia gli altri");
+        await next(page);
+        await expect(main(page).getByText(/la pagina prende lo stile «Natale», ma dove c'è già un altro stile resta quello/)).toBeVisible();
+        await expect(main(page).getByText("Lascia gli altri stili: si salva col database nuovo").first()).toBeVisible();
+        await button(page, "Indietro").click();
+        await insieme(page, "Prende il posto degli altri");
+        await next(page);
+        await button(page, "Metti in onda").click();
+        await finito(page);
+        await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
+        expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "layout" });
+        expect(bodyOf(stub, "schedule_layout.POST")).toMatchObject({ style_id: ID.style });
+    });
+
+    test("in evidenza tenuto pronto: resta bozza, nessuna regola nel Calendario", async ({ page }) => {
+        wireEvid();
+        await open(page, "evidenza", "evidenza");
+        await main(page).getByLabel("Titolo", { exact: true }).fill("Chiusi per ferie");
+        await toReady(page);
+        await saveReady(page);
+        await finito(page);
+        await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
+        expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Chiusi per ferie", status: "draft" });
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+    });
+
+    test("storia tenuta pronta: resta bozza", async ({ page }) => {
+        stub.onWrite("stories.POST", ({ body }) => ({ id: ID.story, ...first(body) }));
+        stub.onWrite("stories.PATCH", ({ body }) => ({ id: ID.story, ...first(body) }));
+        await open(page, "storia", "storie");
+        await next(page);
+        // la storia del locale: con più sedi, una sede
+        await button(page, /^Il locale/).click();
+        await stuck(page, "Scegli la sede");
+        await main(page).getByRole("radiogroup", { name: "Sedi" }).getByRole("radio").first().click();
+        await next(page);
+        await main(page).getByLabel("Titolo", { exact: true }).fill("Il forno a legna");
+        await next(page);
+        await button(page, "Testo").click();
+        await main(page).getByRole("textbox", { name: "Scrivi un paragrafo..." }).fill("Lo accendiamo alle sei.");
+        await next(page);
+        await button(page, /^No, per ora la tengo pronta/).click();
+        await next(page);
+        await expect(main(page).getByText(/^La storia «Il forno a legna» è pronta ma spenta: nessun cliente la vede finché non la metti in onda\.$/)).toBeVisible();
+        await button(page, "Salva e tieni pronta").click();
+        await finito(page);
+        await expect(page).toHaveURL(/\/stories$/, { timeout: 15_000 });
+        expect(bodyOf(stub, "stories.PATCH")).toMatchObject({ status: "draft", product_id: null });
+        expect(bodyOf(stub, "stories.PATCH").activity_id).toBeTruthy();
+    });
+
+    test("«Metti in onda» dall'elenco: si apre la modifica già sul «Dove», con «Sì» scelto; poi il «Quando»", async ({ page }) => {
+        wireEvid();
+        await nataleDraft(page);
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza&metti=1`);
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible({ timeout: 20_000 });
+        await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
+        // le sedi sono quelle della sua voce
+        await expect(allSedi(page)).toHaveAttribute("aria-checked", "true");
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
+        await expect(main(page).getByText("È la sua voce nel Calendario: cambiandola qui, cambia anche lì.")).toBeVisible();
+        await next(page);
+        // il Dove e il Quando, ciascuno col suo «Prima» e «Adesso»
+        await expect(main(page).getByText("Prima: non in onda")).toHaveCount(2);
+        await expect(main(page).getByText(/^Adesso: in onda, /)).toHaveCount(2);
+        await button(page, "Salva le modifiche").click();
+        await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
+        expect(writesOf(stub, "featured_contents.PATCH").map(w => first(w.body))).toContainEqual(expect.objectContaining({ status: "published" }));
+        const on = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + RULE.natale);
+        expect(on.map(w => first(w.body))).toContainEqual(expect.objectContaining({ enabled: true }));
+    });
+
+    test("dal Calendario (punti 22 e 24): solo il dove e il quando; da «Aggiungi» il pulsante è «Metti in onda» e si torna al Calendario", async ({ page }) => {
+        wireEvid();
+        // «Modifica completa»: le caselle sono solo quelle del Calendario
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=calendario`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await expect(main(page).getByRole("navigation", { name: "Percorso" }).getByRole("button", { name: "Calendario" })).toBeVisible();
+        await expect(main(page).getByRole("checkbox")).toHaveCount(2);
+        await expect(main(page).getByRole("checkbox", { name: /^Dove/ })).toBeVisible();
+        await expect(main(page).getByRole("checkbox", { name: /^Quando/ })).toBeVisible();
+        // da «Aggiungi», per una cosa pronta: già sul «Dove», e si mette in onda
+        await nataleDraft(page);
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=calendario&metti=1`);
+        await expect(main(page).getByRole("heading", { name: "Dove", exact: true })).toBeVisible({ timeout: 20_000 });
+        await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
+        await next(page);
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+        await expect(button(page, "Salva le modifiche")).toHaveCount(0);
+        await button(page, "Metti in onda").click();
+        await expect(page).toHaveURL(/\/scheduling\?vista=calendario$/, { timeout: 15_000 });
+        const on = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + RULE.natale);
+        expect(on.map(w => first(w.body))).toContainEqual(expect.objectContaining({ enabled: true }));
+    });
+
+    test("spegnere e riaccendere: la voce del Calendario si spegne e resta, poi si riaccende la stessa", async ({ page }) => {
+        wireEvid();
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        // punto 8: il Dove e il Quando sono due caselle
+        await expect(main(page).getByRole("checkbox", { name: /^Dove In onda · Tutte le sedi/ })).toBeVisible();
+        await expect(main(page).getByRole("checkbox", { name: /^Quando In onda · / })).toBeVisible();
+        await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
+        await next(page);
+        // modificando si parte da com'è: in onda
+        await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
+        await button(page, /^No, per ora lo tengo pronto/).click();
+        await expect(main(page).getByText(/^Salvando, questo contenuto esce da tutte le sedi: da quel momento nessun cliente lo vede\. La sua voce nel Calendario resta, spenta/)).toBeVisible();
+        // spento, il «Quando» si salta: «Avanti» porta a «Controlla»
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
+        await expect(main(page).getByText(/^Prima: in onda, /)).toBeVisible();
+        await expect(main(page).getByText(/esce da tutte le sedi: da quando salvi nessun cliente lo vede\./)).toBeVisible();
+        await expect(main(page).getByText(/si spegne e resta lì, pronta per tornare in onda\./)).toBeVisible();
+        await button(page, "Salva le modifiche").click();
+        await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
+        const off = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + RULE.natale);
+        expect(off.map(w => first(w.body))).toEqual([{ enabled: false }]);
+        expect(writesOf(stub, "schedules.DELETE")).toHaveLength(0);
+    });
+
+    test("riaccendere un contenuto pronto con la sua voce: torna pubblicato, la voce si riscrive accesa", async ({ page }) => {
+        wireEvid();
+        await nataleDraft(page);
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
+        await expect(main(page).getByRole("checkbox", { name: /^Dove Non in onda/ })).toBeVisible({ timeout: 20_000 });
+        await expect(main(page).getByRole("checkbox", { name: /^Quando Non in onda/ })).toBeVisible();
+        await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
+        await next(page);
+        await expect(button(page, /^No, per ora lo tengo pronto/)).toHaveAttribute("aria-pressed", "true");
+        await onAir(page);
+        // rimesso in onda, «Avanti» passa dal «Quando» anche se non era scelto
+        await next(page);
+        await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
+        await next(page);
+        await button(page, "Salva le modifiche").click();
+        await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
+        expect(writesOf(stub, "featured_contents.PATCH").map(w => first(w.body))).toContainEqual(expect.objectContaining({ status: "published" }));
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+    });
+
+    test("spento in una regola con altri contenuti: ne fa una sua spenta e l'altra resta accesa", async ({ page }) => {
+        wireEvid();
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.jazz}?da=evidenza`);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await main(page).getByRole("checkbox", { name: /^Dove/ }).click();
+        await next(page);
+        await button(page, /^No, per ora lo tengo pronto/).click();
+        await next(page);
+        await button(page, "Salva le modifiche").click();
+        await expect(page).toHaveURL(/\/featured/, { timeout: 15_000 });
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(1);
+        const mine = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + ID.rule).map(w => first(w.body));
+        expect(mine).toContainEqual(expect.objectContaining({ enabled: false }));
+        // la regola di partenza non si spegne: esce solo lui
+        const shared = writesOf(stub, "schedules.PATCH").filter(w => w.params.get("id") === "eq." + RULE.promoPorto).map(w => first(w.body));
+        expect(shared).not.toContainEqual(expect.objectContaining({ enabled: false }));
+    });
+
+    test("chi non gestisce il Calendario non sceglie, nemmeno modificando: niente «Dove» né «Quando»", async ({ page }) => {
+        await stub.revoke("scheduling.write");
+        await openBusinessPageByUrl(page, `crea/evidenza/${FEATURED.natale}?da=evidenza`);
+        await stub.revoked;
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi modificare?" })).toBeVisible({ timeout: 20_000 });
+        await expect(main(page).getByRole("checkbox", { name: /^(Dove|Quando)/ })).toHaveCount(0);
     });
 });
