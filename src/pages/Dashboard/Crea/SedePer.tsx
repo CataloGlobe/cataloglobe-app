@@ -6,7 +6,7 @@ import { ArrowRight, Check, ChevronDown, CircleCheck, Eye, Search } from "lucide
 import { Button } from "@components/ui/Button/Button";
 import { DB_WAIT, listIt, type Impatto, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { thingName, type Tunnel } from "./creaModel";
-import { hAltri, hCopreText, hDiff, hDiverse, hEsito, hSet, hVal, nTutteSedi, type HAltro, type HVal } from "./creaSedePer";
+import { hAltri, hCopreText, hDiff, hDiverse, hEsito, hSet, hSolo, hVal, nTutteSedi, type HAltro, type HVal } from "./creaSedePer";
 import s from "./Crea.module.scss";
 
 const q = (x: string) => "«" + x + "»";
@@ -24,6 +24,20 @@ export function Esito({ t, sede, altri }: { t: Tunnel; sede: string; altri: read
             <span className={s.rv}>{v}</span>
         </span>
     );
+    // i menù che stanno da soli: il tuo, al posto di chi; e dove si vede solo l'altro (punto 4)
+    if (hSolo(t))
+        return (
+            <span className={s.res2}>
+                {ln("Il cliente vede", me)}
+                {e.pos.length > 0 && ln("Al posto di", listIt(e.pos))}
+                {altri.filter(a => e.solo.includes(a.con)).map(a => (
+                    <span key={a.con} className={s.rl}>
+                        <span className={s.rk}>{cap(a.quando)}</span>
+                        <span className={s.rv}>solo {a.con}</span>
+                    </span>
+                ))}
+            </span>
+        );
     return t.kind === "stile" ? (
         <span className={s.res2}>
             {ln("Lo stile", me)}
@@ -40,7 +54,8 @@ export function Esito({ t, sede, altri }: { t: Tunnel; sede: string; altri: read
 }
 
 export function Voci({ t, u, sede, altri, colori }: { t: Tunnel; u: U; sede: Sede; altri: readonly HAltro[]; colori?: Impatto["colori"] }) {
-    const opts: [HVal, string][] = t.kind === "stile" ? [["pos", "Prende il posto"], ["ins", "Lascia l'altro"]] : [["ins", "Insieme"], ["pos", "Al posto"]];
+    const solo = hSolo(t);
+    const opts = (a: HAltro): [HVal, string][] => (solo ? [["pos", thingName(t)], ["ins", cap(a.con)]] : t.kind === "stile" ? [["pos", "Prende il posto"], ["ins", "Lascia l'altro"]] : [["ins", "Insieme"], ["pos", "Al posto"]]);
     return (
         <ul className={s.hms}>
             {altri.map(a => {
@@ -50,14 +65,17 @@ export function Voci({ t, u, sede, altri, colori }: { t: Tunnel; u: U; sede: Sed
                         <span className={s.dot} aria-hidden="true" />
                         <span className={s.hmt}>
                             <b>{a.con}</b>
-                            <span>{cap(a.quando)}</span>
+                            <span>{cap(a.quando) + (solo ? ", sta da solo" : "")}</span>
                         </span>
-                        <span className={s.hseg} role="group" aria-label={`${sede.name}, ${a.con}`}>
-                            {opts.map(([k, l]) => (
-                                <button key={k} type="button" aria-pressed={v === k} onClick={() => u(x => hSet(x, sede.id, a.con, k))}>
-                                    {l}
-                                </button>
-                            ))}
+                        <span className={s.hmc}>
+                            {solo && <span className={s.hml}>{cap(a.quando)} si vede</span>}
+                            <span className={s.hseg} role="group" aria-label={`${sede.name}, ${a.con}`}>
+                                {opts(a).map(([k, l]) => (
+                                    <button key={k} type="button" aria-pressed={v === k} onClick={() => u(x => hSet(x, sede.id, a.con, k))}>
+                                        {l}
+                                    </button>
+                                ))}
+                            </span>
                         </span>
                         {why && <span className={s.hint}>{why}</span>}
                     </li>
@@ -123,6 +141,9 @@ export function SedePer({ t, u, scontri, sedi, onSede, eff }: { t: Tunnel; u: U;
     const inTutte = all ? "In " + tutte : few ? "A " + tutte : `Nelle ${withX.length} sedi con incroci`;
     const cop = withX.filter(x => altri.get(x.id)?.some(a => a.copre)), copCon = [...new Set(cop.flatMap(x => (altri.get(x.id) ?? []).filter(a => a.copre).map(a => q(a.con))))];
     const copNote = !cop.length ? "" : t.insieme ? (stile ? "" : ` Tranne a ${listIt(cop.map(x => x.name))}: lì resta ${listIt(copCon)}, che sta al posto degli altri.`) : ` A ${listIt(cop.map(x => x.name))} oggi vince ${listIt(copCon)}: lì ${DB_WAIT}.`;
+    // i menù che stanno da soli: la regola per tutti, nella frase di «Sì, uguale» (punto 4)
+    const soli = hSolo(t) ? [...new Set(withX.flatMap(x => (altri.get(x.id) ?? []).map(a => a.con)))] : [];
+    const soloRule = !soli.length ? "" : t.insieme ? ` I menù che stanno da soli (${listIt(soli)}) restano da soli nei loro giorni.` : ` Prende il posto anche dei menù che stanno da soli (${listIt(soli)}).`;
     const d = t.insieme, nd = hDiverse(t, altri), ns = withX.filter(x => seen.has(x.id)).length, nxt = withX.find(x => !seen.has(x.id));
     const list = withX.filter(x => !qv || norm(x.name).includes(norm(qv)));
     return (
@@ -141,7 +162,7 @@ export function SedePer({ t, u, scontri, sedi, onSede, eff }: { t: Tunnel; u: U;
                     <Eye size={15} aria-hidden />
                     <span>
                         {inTutte} {q(thingName(t))} {stile ? (d ? "lascia gli altri stili nelle loro ore." : "prende il posto degli altri stili.") : d ? "si vede insieme agli altri menù." : "si vede da solo, al posto degli altri menù."}
-                        {copNote}
+                        {soli.length ? (d ? "" : copNote) + soloRule : copNote}
                     </span>
                 </p>
             )}

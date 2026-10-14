@@ -6,7 +6,7 @@
 // le reggono (D149); le prove le accendono da sé.
 // `evid`: in evidenza, la data sulla card e il pulsante senza link libero (D187).
 const ON = (import.meta.env.DEV || import.meta.env.VITE_OFFICINA_CALENDARIO === "true") && import.meta.env.MODE !== "test";
-export const NEW_MODEL = { multiRange: ON, overnight: ON, multiMenu: ON, splitLayout: ON, newestWins: ON, evid: ON };
+export const NEW_MODEL = { multiRange: ON, overnight: ON, multiMenu: ON, splitLayout: ON, newestWins: ON, evid: ON, soloMenu: ON };
 /** Il database salva già le novità: diventa true con le migrazioni di Lorenzo. */
 export const DB = { ready: false };
 export const DB_LATER = "arriva col database nuovo";

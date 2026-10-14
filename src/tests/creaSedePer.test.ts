@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import type { Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { Tunnel } from "@/pages/Dashboard/Crea/creaModel";
-import { copreWait, hAltri, hCopreText, hCoperte, hDiff, hDiverse, hEsito, hKeys, hNuove, hSet, hVal, nascosto, nTutteSedi, sedePerWait } from "@/pages/Dashboard/Crea/creaSedePer";
+import { copreWait, hAltri, hCopreText, hCoperte, hDiff, hDiverse, hEsito, hKeys, hNuove, hPeriodi, hSet, hSolo, hVal, nascosto, nTutteSedi, sedePerWait } from "@/pages/Dashboard/Crea/creaSedePer";
 
 const sc = (ids: string[], con: string, quando: string, vince = true): Scontro => ({ sedi: ids, ids, con, quando, vince, pari: false });
 const T = (p: Partial<Tunnel>): Tunnel => ({ kind: "menu", onda: "on", ...p }) as Tunnel;
@@ -76,5 +77,38 @@ describe("sede per sede: insieme o al posto", () => {
         expect(hNuove(hAltri(SC), base)).toEqual(["a", "b", "c"]);
         expect(hNuove(hAltri([sc(["a"], "Carta", "a pranzo"), sc(["c"], "Perso", "la sera", false)]), base)).toEqual(["c"]);
         expect(hNuove(hAltri([sc(["a"], "Carta", "a cena")]), base)).toEqual([]);
+    });
+});
+
+describe("i menù che stanno da soli (punto 4)", () => {
+    const keep = NEW_MODEL.soloMenu;
+    beforeEach(() => void (NEW_MODEL.soloMenu = true));
+    afterEach(() => void (NEW_MODEL.soloMenu = keep));
+    const altri = hAltri(SC);
+
+    it("vale per i menù, non per gli stili", () => {
+        expect(hSolo({ kind: "menu" })).toBe(true);
+        expect(hSolo({ kind: "stile" })).toBe(false);
+    });
+
+    it("con «insieme» resta l'altro, da solo; al posto si vede il tuo", () => {
+        expect(hEsito(T({ insieme: true }), "a", altri.get("a")!)).toEqual({ ins: [], pos: [], solo: ["Carta", "Colazioni"] });
+        const t = T({ insieme: false });
+        hSet(t, "a", "Carta", "ins");
+        expect(hEsito(t, "a", altri.get("a")!)).toEqual({ ins: [], pos: ["Colazioni"], solo: ["Carta"] });
+        // sotto la voce niente frase: lo dice la riga «solo …»
+        expect(hCopreText(T({ insieme: true }), { con: "Perso", quando: "la sera", copre: true }, "ins")).toBe("");
+    });
+
+    it("in «Controlla» i periodi per menù e risposta, con le loro sedi", () => {
+        const t = T({ insieme: false });
+        hSet(t, "b", "Carta", "ins");
+        expect(hPeriodi(t, altri)).toEqual([
+            { key: "Carta|false", con: "Carta", quando: "a pranzo", lui: false, ids: ["a"] },
+            { key: "Colazioni|false", con: "Colazioni", quando: "la mattina", lui: false, ids: ["a"] },
+            { key: "Carta|true", con: "Carta", quando: "a pranzo", lui: true, ids: ["b"] },
+            { key: "Perso|false", con: "Perso", quando: "la sera", lui: false, ids: ["c"] }
+        ]);
+        expect(hPeriodi(T({ insieme: null as unknown as boolean }), altri)).toEqual([]);
     });
 });

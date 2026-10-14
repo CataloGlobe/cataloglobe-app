@@ -2,6 +2,7 @@
 // menù per menù (o stile per stile). Puro. Di base ogni sede segue la risposta
 // data sopra; una voce cambiata fa la sede «diversa» («Sì, uguale» le toglie tutte). Si salva col database nuovo.
 import { DB_WAIT, type Scontro, type SedeEff } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import type { Nascosto, Tunnel } from "./creaModel";
 
 /** `ins`: insieme (menù) o «lascia l'altro» (stile); `pos`: al posto. */
@@ -34,6 +35,13 @@ export function hAltri(scontri: readonly Scontro[]): Map<string, HAltro[]> {
 /** Le sedi dove almeno un altro oggi vince sul tuo. */
 export const hCoperte = (altri: ReadonlyMap<string, HAltro[]>): string[] => [...altri].filter(([, l]) => l.some(a => a.copre)).map(([id]) => id);
 
+/**
+ * I menù che stanno da soli (punto 4): le regole di oggi valgono «al posto» (D196, punto 1),
+ * quindi ogni menù già in onda sta da solo e in ogni incrocio si sceglie quale si vede.
+ * Si tiene «ins» = si vede l'altro, «pos» = si vede il tuo: «insieme» lascia l'altro da solo.
+ */
+export const hSolo = (t: Pick<Tunnel, "kind">) => t.kind === "menu" && NEW_MODEL.soloMenu;
+
 export const hDef = (t: Tunnel): HVal | null => (t.insieme == null ? null : t.insieme ? "ins" : "pos");
 export const hVal = (t: Tunnel, sede: string, con: string): HVal | null => (t.insieme == null ? null : (t.hm?.[key(sede, con)] ?? hDef(t)));
 export const hDiff = (t: Tunnel, sede: string, altri: readonly HAltro[]): boolean => altri.some(a => hVal(t, sede, a.con) !== hDef(t));
@@ -56,13 +64,28 @@ export const hDiverse = (t: Tunnel, altri: ReadonlyMap<string, HAltro[]>): numbe
  */
 export function hEsito(t: Tunnel, sede: string, altri: readonly HAltro[]): { ins: string[]; pos: string[]; solo: string[] } {
     const v = (a: HAltro) => hVal(t, sede, a.con);
-    const solo = t.kind === "menu" ? altri.filter(a => a.copre && v(a) === "ins").map(a => a.con) : [];
+    const solo = t.kind === "menu" ? altri.filter(a => (hSolo(t) || a.copre) && v(a) === "ins").map(a => a.con) : [];
     return { ins: altri.filter(a => v(a) === "ins" && !solo.includes(a.con)).map(a => a.con), pos: altri.filter(a => v(a) === "pos").map(a => a.con), solo };
+}
+
+/** In «Controlla», i menù che stanno da soli: per menù e risposta, quando e in quali sedi (punto 4). */
+export type HPeriodo = { key: string; con: string; quando: string; lui: boolean; ids: string[] };
+export function hPeriodi(t: Tunnel, altri: ReadonlyMap<string, HAltro[]>): HPeriodo[] {
+    if (!hSolo(t) || t.onda !== "on" || t.insieme == null) return [];
+    const g = new Map<string, HPeriodo>();
+    for (const [id, l] of altri)
+        for (const a of l) {
+            const lui = hVal(t, id, a.con) === "ins", k = a.con + "|" + lui;
+            const p = g.get(k) ?? { key: k, con: a.con, quando: a.quando, lui, ids: [] };
+            p.ids.push(id);
+            g.set(k, p);
+        }
+    return [...g.values()];
 }
 
 /** Sotto la voce di un altro che oggi vince: cosa succede con la risposta scelta. */
 export function hCopreText(t: Tunnel, a: HAltro, v: HVal | null): string {
-    if (!a.copre || v == null) return "";
+    if (!a.copre || v == null || (hSolo(t) && v === "ins")) return "";
     if (v === "pos") return `Al posto di ${q(a.con)}, che oggi qui vince: ${DB_WAIT}.`;
     return t.kind === "stile" ? `Qui, in quelle ore, resta lo stile ${q(a.con)}.` : `${q(a.con)} sta al posto degli altri: qui, in quelle ore, il tuo non si vede.`;
 }

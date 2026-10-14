@@ -1035,6 +1035,16 @@ export default function CalendarioView({
     const pvAx = useMemo(() => (pvList ? axisFor(pvList) : axis), [pvList, axis]);
     // con «Mettili insieme» l'anteprima lo aggiunge; chi tocca si guarda come se prendesse il posto
     const judged = useMemo(() => (pvList && draft?.insieme ? pvList.map(e => (e.preview && e.kind === "menu" ? { ...e, add: false } : e)) : pvList), [pvList, draft?.insieme]);
+    // i menù che stanno da soli (punto 4): dove si vede l'altro, in quella sede vince lui (resta l'ordine fra gli altri)
+    const solo = NEW_MODEL.soloMenu && draft?.kind === "menu" && !!draft.lui;
+    const luiFor = useCallback(
+        (list: CalEntry[], id: string) => {
+            if (!solo) return list;
+            const lui = (thing: string) => (draft?.insieme ? !draft.tuo?.includes(id + "|" + thing) : !!draft?.lui?.includes(id + "|" + thing));
+            return list.map(e => (!e.preview && e.kind === "menu" && lui(e.thing) ? { ...e, tscore: e.tscore + 1e6, created: e.created + 1e15, solo: true as const } : e));
+        },
+        [solo, draft?.insieme, draft?.lui, draft?.tuo]
+    );
     // nei tunnel non c'è la «Sede» in alto a destra: valgono tutte le sedi della bozza
     const pvBase = anteprima ? sedi : shown;
     const pvReach = pvEntries.length ? pvBase.filter(x => reaches(x.id)) : pvBase;
@@ -1069,7 +1079,25 @@ export default function CalendarioView({
             const gg = new Map<string, number[]>();
             for (let i = 0; i < 7; i++) {
                 let on = 0, touched = false;
-                const d = dayOfWeek(week + i), ls = fLines(dayCtx(judged, draft.kind, seat, week + i), pvAx);
+                const d = dayOfWeek(week + i), ls = fLines(dayCtx(luiFor(judged, x.id), draft.kind, seat, week + i), pvAx);
+                // chi incrocia chi lo dicono le regole di oggi, senza le scelte dei menù che stanno da soli
+                const ls0 = solo ? fLines(dayCtx(judged, draft.kind, seat, week + i), pvAx) : ls;
+                for (const l of ls0.filter(l => l.preview))
+                    for (const g of l.segs) {
+                        if (g.state === "on") {
+                            if (g.covers.length) touched = true;
+                            g.covers.forEach(c => {
+                                const lo = g.reps.find(e => e.thing === c);
+                                if (g.win && lo) tocca(c, true, tie(g.win, lo, seat), d, g.from, g.to);
+                            });
+                        } else {
+                            if (g.by) touched = true;
+                            // resta l'altro solo perché c'era prima: lo dice l'avviso
+                            if (g.win && g.self && tie(g.win, g.self, seat)) tocca(g.by, false, true, d, g.from, g.to);
+                            // lo copre un'altra regola che oggi vince (più vicina alla sede, orari più stretti): è un incrocio anche questo, e si sceglie (D196)
+                            else if (g.by && (draft.kind === "menu" || draft.kind === "style")) tocca(g.by, false, false, d, g.from, g.to, true);
+                        }
+                    }
                 const seen = new Set<string>();
                 for (const l of ls.filter(l => l.preview))
                     for (const g of l.segs) {
@@ -1084,22 +1112,10 @@ export default function CalendarioView({
                         const m = g.to - g.from;
                         if (g.state === "on") {
                             on += m;
-                            if (g.covers.length) touched = true;
-                            g.covers.forEach(c => {
-                                cov.add(c);
-                                const lo = g.reps.find(e => e.thing === c);
-                                if (g.win && lo) tocca(c, true, tie(g.win, lo, seat), d, g.from, g.to);
-                            });
+                            g.covers.forEach(c => cov.add(c));
                         } else {
                             off += m;
-                            if (g.by) {
-                                by.add(g.by);
-                                touched = true;
-                            }
-                            // resta l'altro solo perché c'era prima: lo dice l'avviso
-                            if (g.win && g.self && tie(g.win, g.self, seat)) tocca(g.by, false, true, d, g.from, g.to);
-                            // lo copre un'altra regola che oggi vince (più vicina alla sede, orari più stretti): è un incrocio anche questo, e si sceglie (D196)
-                            else if (g.by && (draft.kind === "menu" || draft.kind === "style")) tocca(g.by, false, false, d, g.from, g.to, true);
+                            if (g.by) by.add(g.by);
                         }
                     }
                 if (on) {
@@ -1352,7 +1368,7 @@ export default function CalendarioView({
                                     </span>
                                 </div>
                             )}
-                            {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel, { only: draft.kind, list: coperta(x.id) ? judged! : pvList, ax: pvAx, pv: draft.mode === "edit" ? "in modifica" : "nuovo" })}
+                            {rows(x, [0, 1, 2, 3, 4, 5, 6], dayLabel, { only: draft.kind, list: solo ? luiFor(judged!, x.id) : coperta(x.id) ? judged! : pvList, ax: pvAx, pv: draft.mode === "edit" ? "in modifica" : "nuovo" })}
                         </div>
                     ))}
                 </div>

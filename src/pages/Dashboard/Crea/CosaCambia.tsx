@@ -1,11 +1,12 @@
 // «Cosa cambia nel calendario», in «Controlla»: la somma e le sedi per esito.
 // Toccare una sede la sceglie per la settimana del «Quando».
 import { useState } from "react";
-import { ArrowLeftRight, CalendarCheck, CalendarOff, Check, CircleDashed, Layers } from "lucide-react";
+import { ArrowLeftRight, Calendar, CalendarCheck, CalendarOff, Check, CircleDashed, Layers } from "lucide-react";
 import { q, durLabel, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { hoursText, type SedeEff } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { CreaKind as Kind } from "./creaModel";
 import { effChips, effSum, type EffIco, type EffPrima, type EffVal } from "./creaEffetto";
+import type { HPeriodo } from "./creaSedePer";
 import s from "./Crea.module.scss";
 
 const ICO: Record<EffIco, typeof Layers> = { off: CalendarOff, posto: ArrowLeftRight, insieme: Layers, solo: CircleDashed };
@@ -20,8 +21,14 @@ export function CosaCambia({
     pair,
     sede,
     onSede,
-    prima
+    prima,
+    periodi,
+    me
 }: {
+    /** I menù che stanno da soli: quando si vede solo lui, o il tuo al suo posto (punto 4). */
+    periodi?: readonly HPeriodo[];
+    /** Il nome del tuo. */
+    me?: string;
     sedi: readonly SedeEff[];
     kind: Kind;
     /** La risposta «insieme / al posto», unica o sede per sede. */
@@ -112,6 +119,26 @@ export function CosaCambia({
                         <p className={s.hint}>Nel calendario non cambia niente.</p>
                     ))}
             </div>
+            {!!periodi?.length && (
+                <>
+                    <h5 className={s.ch5}>Periodi in cui cambia</h5>
+                    <div className={s.cgs}>
+                        {periodi.map(p => (
+                            <div key={p.key} className={`${s.cg} ${s.per}`}>
+                                <div className={s.cgh}>
+                                    <span className={s.cdate}>
+                                        <Calendar size={12} aria-hidden />
+                                        {p.quando.charAt(0).toUpperCase() + p.quando.slice(1)}
+                                    </span>
+                                    <b>{p.lui ? "Si vede solo " + q(p.con) : "Si vede " + q(me ?? "") + ", " + q(p.con) + " no"}</b>
+                                    {multi && <span className={s.cn}>{sediN(p.ids.length)}</span>}
+                                </div>
+                                {chips("p" + p.key, p.ids)}
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
         </>
     );
 }

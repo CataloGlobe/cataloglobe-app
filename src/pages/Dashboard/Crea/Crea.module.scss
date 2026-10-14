@@ -1173,6 +1173,28 @@ select.in {
     flex-direction: column;
     gap: 8px;
 }
+// i menù che stanno da soli, in «Controlla» (punto 4)
+.ch5 {
+    margin: 14px 0 6px;
+    @include cal.fs(fine);
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.cdate {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--c-brand) 12%, var(--surface));
+    color: var(--c-brand);
+    @include cal.fs(fine);
+    font-weight: 600;
+}
+.cg.per .cgh {
+    flex-wrap: wrap;
+}
 .cg {
     border: 1px solid var(--border);
     border-radius: var(--radius-surface);
@@ -2295,6 +2317,16 @@ select.in {
 }
 .hmn > .hmt {
     flex: 1;
+}
+.hmc {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+}
+.hml {
+    @include cal.fs(fine);
+    color: var(--text-muted);
 }
 // i giorni della sede aperta: solo quando la settimana a destra non c'è
 .hdays {

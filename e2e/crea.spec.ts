@@ -527,13 +527,16 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByRole("button", { name: /^Mostralo al posto degli altri/ })).toHaveAttribute("aria-pressed", "true");
         // una sede sola: sotto, menù per menù, con quello che vede il cliente
         await expect(main(page).getByRole("heading", { name: "A Porto e2e, menù per menù" })).toBeVisible();
-        await expect(main(page).getByText("Dal lunedì al venerdì dalle 12 alle 15", { exact: true })).toBeVisible();
+        // le regole di oggi valgono «al posto»: la carta sta da sola, e si sceglie quale si vede (punto 4)
+        await expect(main(page).getByText("Dal lunedì al venerdì dalle 12 alle 15, sta da solo", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("Dal lunedì al venerdì dalle 12 alle 15 si vede", { exact: true })).toBeVisible();
         const voce = main(page).getByRole("group", { name: "Porto e2e, Carta e2e" });
-        await expect(voce.getByRole("button", { name: "Al posto" })).toHaveAttribute("aria-pressed", "true");
+        await expect(voce.getByRole("button", { name: "Pranzo veloce" })).toHaveAttribute("aria-pressed", "true");
         await expect(main(page).locator("[data-insieme]").getByText("Al posto di", { exact: true })).toBeVisible();
-        await voce.getByRole("button", { name: "Insieme" }).click();
+        await voce.getByRole("button", { name: "Carta e2e" }).click();
         await expect(main(page).locator("[data-insieme]").getByText("Al posto di", { exact: true })).toHaveCount(0);
-        await voce.getByRole("button", { name: "Al posto" }).click();
+        await expect(main(page).locator("[data-insieme]").getByText("solo Carta e2e", { exact: true })).toBeVisible();
+        await voce.getByRole("button", { name: "Pranzo veloce" }).click();
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(main(page).getByText(/dal lunedì al venerdì, dalle 12:00 alle 15:00/)).toBeVisible();
@@ -541,7 +544,9 @@ test.describe("Tunnel di creazione — menù", () => {
         const cosa = main(page).getByText("Cosa cambia nel calendario").locator("..");
         await expect(cosa.getByText(/^In onda in 1 sede · .*15 ore a settimana/)).toBeVisible();
         await expect(cosa.getByText("Prende il posto di «Carta e2e»")).toBeVisible();
-        await expect(cosa.getByRole("button", { name: "Porto e2e" })).toHaveAttribute("aria-pressed", "false");
+        await expect(cosa.getByRole("button", { name: "Porto e2e" }).first()).toHaveAttribute("aria-pressed", "false");
+        await expect(cosa.getByText("Periodi in cui cambia")).toBeVisible();
+        await expect(cosa.getByText("Si vede «Pranzo veloce», «Carta e2e» no")).toBeVisible();
         await button(page, "Metti in onda").click();
         await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce", exact: true })).toBeVisible({ timeout: 15_000 });
         expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "layout", name: expect.stringMatching(/^Pranzo veloce/) });
@@ -644,24 +649,26 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(box.getByRole("button", { name: /Porto e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
         await expect(main(page).getByRole("combobox", { name: "Sede da guardare" }).locator("option:checked")).toHaveText(/^Porto e2e/);
         // una sede diversa dalle altre si vede, ma il database di oggi tiene una risposta sola
-        await box.getByRole("group", { name: "Porto e2e, Carta e2e" }).getByRole("button", { name: "Insieme" }).click();
+        // le regole di oggi valgono «al posto»: a Porto la carta sta da sola, e si sceglie quale si vede (punto 4)
+        await expect(box.getByText(/, sta da solo$/).first()).toBeVisible();
+        await box.getByRole("group", { name: "Porto e2e, Carta e2e" }).getByRole("button", { name: "Carta e2e" }).click();
         await expect(box.getByText("diversa", { exact: true })).toBeVisible();
         await expect(box.getByText("· 1 diversa")).toBeVisible();
         await next(page);
         await expect(main(page).getByText("Scelte diverse fra le sedi: si salva col database nuovo").first()).toBeVisible();
         await button(page, "Indietro").click();
         await uguale.getByRole("button", { name: "Sì, uguale" }).click();
-        await expect(box.getByText(/^In tutte e tre le sedi «.+» si vede da solo, al posto degli altri menù\. A Centro e2e oggi vince «Pranzo e2e»: lì si salva col database nuovo\.$/)).toBeVisible();
+        await expect(box.getByText(/^In tutte e tre le sedi «.+» si vede da solo, al posto degli altri menù\. A Centro e2e oggi vince «Pranzo e2e»: lì si salva col database nuovo\. Prende il posto anche dei menù che stanno da soli \(.+\)\.$/)).toBeVisible();
         // al posto anche a Centro: oggi lì vince «Pranzo e2e», quindi aspetta il database nuovo
         await next(page);
         await expect(main(page).getByText("Al posto di «Pranzo e2e» a Centro e2e: si salva col database nuovo").first()).toBeVisible();
         await button(page, "Indietro").click();
-        // «Insieme» a Centro è quello che succede oggi: si salva
+        // a Centro «Pranzo e2e» da solo è quello che succede oggi: si salva
         await uguale.getByRole("button", { name: "No, cambia" }).click();
         const centro = box.getByRole("button", { name: /Centro e2e.*1 menù/ });
         if ((await centro.getAttribute("aria-expanded")) !== "true") await centro.click();
-        await box.getByRole("group", { name: "Centro e2e, Pranzo e2e" }).getByRole("button", { name: "Insieme" }).click();
-        await expect(box.getByText("«Pranzo e2e» sta al posto degli altri: qui, in quelle ore, il tuo non si vede.")).toBeVisible();
+        await box.getByRole("group", { name: "Centro e2e, Pranzo e2e" }).getByRole("button", { name: "Pranzo e2e" }).click();
+        await expect(box.getByText("solo Pranzo e2e", { exact: true })).toBeVisible();
         await next(page);
         await button(page, "Metti in onda").click();
         await button(page, /^Dagli i tuoi colori/).click({ timeout: 15_000 });
@@ -919,7 +926,7 @@ test.describe("Tunnel di creazione — il locale con una sede sola", () => {
         await main(page).locator("[data-insieme]").getByRole("button", { name: /^Mostralo al posto degli altri/ }).click();
         await expect(main(page).getByRole("heading", { name: "A Porto e2e, menù per menù" })).toBeVisible();
         const voce = main(page).getByRole("group", { name: "Porto e2e, Carta e2e" });
-        await expect(voce.getByRole("button", { name: "Al posto" })).toHaveAttribute("aria-pressed", "true");
+        await expect(voce.getByRole("button", { name: "Pranzo veloce" })).toHaveAttribute("aria-pressed", "true");
         await expect(main(page).locator("[data-insieme]").getByText("Al posto di", { exact: true })).toBeVisible();
         // niente «È uguale per…?»: c'è una sede sola
         await expect(main(page).getByText(/^È uguale per/)).toHaveCount(0);

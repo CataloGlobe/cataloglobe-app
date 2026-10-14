@@ -17,7 +17,7 @@ import { NEW_MODEL, invalid, sediOf, type Draft, type DraftLookups, type Impatto
 import type { Axis, CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.scss";
 import { qautoNote } from "./evidData";
-import { KIND, ONDA, inhAsk, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, nTutte, offLater, ondaChange, oreSummary, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, type Ctx, type StepId, type Tunnel, type CreaKind } from "./creaModel";
+import { KIND, ONDA, inhAsk, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, nTutte, offLater, ondaChange, oreSummary, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, thingName, type Ctx, type StepId, type Tunnel, type CreaKind } from "./creaModel";
 import { hidFeatured } from "./stileLook";
 import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Pick, Sh, Toggle } from "./CreaUi";
@@ -25,7 +25,7 @@ import { ImagePick } from "./ImagePick";
 import { InhBox } from "./InhBox";
 import { InsiemeBox, type Nuovi } from "./InsiemeBox";
 import { CosaCambia } from "./CosaCambia";
-import { hVal, nascosto } from "./creaSedePer";
+import { hAltri, hPeriodi, hVal, nascosto } from "./creaSedePer";
 
 export type U = (fn: (t: Tunnel) => void) => void;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -731,6 +731,8 @@ export function Controlla({
         <CosaCambia sedi={effect.sedi} kind={t.kind} insieme={t.insieme == null ? false : (sede, con) => hVal(t, sede, con)} when={effWhen(t)} multi={L.multi} pair={effect.pair}
             sede={wkSede}
             onSede={onSede}
+            periodi={hPeriodi(t, hAltri(effect.scontri))}
+            me={thingName(t)}
             prima={t.edit?.orig.onda === "on" && effect.prima ? { sedi: effect.prima, val: t.edit.orig.insieme == null ? false : (sede, con) => hVal(t.edit!.orig, sede, con) } : undefined}
         />
     ) : (

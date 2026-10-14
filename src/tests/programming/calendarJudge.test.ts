@@ -41,6 +41,15 @@ describe("chi vince nel Calendario (D135 A)", () => {
         expect(why(nuovo, vecchio, seat, where)).toBe("è l'ultimo che hai messo");
     });
 
+    it("con i menù che stanno da soli: chi vince l'hai scelto al posto degli altri (G2), o l'hai lasciato da solo (punto 4)", () => {
+        const solo = NEW_MODEL.soloMenu;
+        NEW_MODEL.newestWins = NEW_MODEL.soloMenu = true;
+        const vecchio = menu("vecchio", { created: 1 }), nuovo = menu("nuovo", { created: 2 });
+        expect(why(nuovo, vecchio, seat, where)).toBe("hai scelto di mostrarlo al posto degli altri");
+        expect(why({ ...vecchio, solo: true }, nuovo, seat, where)).toBe("sta da solo in quelle ore");
+        NEW_MODEL.soloMenu = solo;
+    });
+
     it("finché il menù del cliente non cambia, il Calendario dice come va davvero: priorità, poi il più vecchio", () => {
         NEW_MODEL.newestWins = false;
         expect(first(menu("vecchio", { created: 1 }), menu("nuovo", { created: 2 }))).toBe("vecchio");

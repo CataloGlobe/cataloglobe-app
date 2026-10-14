@@ -83,6 +83,13 @@ export type Draft = {
     name: string | null;
     /** Un menù che si accavalla con un altro: true = «Mettili insieme», altrimenti prende il suo posto (D135). */
     insieme?: boolean;
+    /**
+     * I menù che stanno da soli (punto 4): con «insieme» si vede solo l'altro, tranne
+     * le coppie «sede|menù» in `tuo`; altrimenti si vede il tuo, tranne quelle in `lui`.
+     * Solo le bozze dei tunnel le hanno: il Calendario da solo resta com'è.
+     */
+    lui?: string[];
+    tuo?: string[];
     orig: string;
     before: string | null;
 };

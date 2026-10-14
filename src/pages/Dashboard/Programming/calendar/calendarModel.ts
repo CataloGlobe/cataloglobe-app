@@ -55,6 +55,8 @@ export type CalEntry = {
     preview?: boolean;
     /** Regola spenta: «pronto, non in onda». Non gareggia, sta su una linea sua. */
     spento?: boolean;
+    /** Nel tunnel: un menù lasciato da solo in quella sede, che vince sul tuo (punto 4). */
+    solo?: true;
 };
 
 export type CalNames = {
@@ -232,10 +234,13 @@ export const tie = (w: CalEntry, l: CalEntry, seat: CalSeat) => (spec(w, seat) ?
 
 /** Perché `w` vince su `l`, in una frase. */
 export function why(w: CalEntry, l: CalEntry, seat: CalSeat, whereFor: (e: CalEntry) => string): string {
+    // nel tunnel, il menù che hai lasciato da solo in quella sede (punto 4)
+    if (w.solo) return "sta da solo in quelle ore";
     const sw = spec(w, seat) ?? -1, sl = spec(l, seat) ?? -1;
     if (sw !== sl) return `vale ${whereFor(w)}, l'altro ${whereFor(l)}: vince il più vicino alla sede`;
     if (w.tscore !== l.tscore) return "ha orari più stretti";
-    if (NEW_MODEL.newestWins) return "è l'ultimo che hai messo";
+    // le regole dei menù valgono «al posto» (D196, punto 1): vince quello messo per ultimo, al posto degli altri (G2)
+    if (NEW_MODEL.newestWins) return NEW_MODEL.soloMenu && w.kind === "menu" ? "hai scelto di mostrarlo al posto degli altri" : "è l'ultimo che hai messo";
     if (w.priority !== l.priority) return "ha la priorità più alta";
     return "c'era prima";
 }

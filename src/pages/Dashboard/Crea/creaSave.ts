@@ -72,6 +72,12 @@ export function draftFor(t: Tunnel, kind: CalKind, thing: string, pair: string |
     D.when = cloneWhen(effWhen(t));
     D.per = clonePer(t.per);
     D.insieme = kind === "menu" && !!t.insieme;
+    // i menù che stanno da soli (punto 4): le scelte sede per sede diverse dalla risposta di sopra
+    if (NEW_MODEL.soloMenu && kind === "menu") {
+        const hm = Object.entries(t.hm ?? {});
+        D.lui = hm.filter(([, v]) => v === "ins").map(([k]) => k);
+        D.tuo = hm.filter(([, v]) => v === "pos").map(([k]) => k);
+    }
     return D;
 }
 
