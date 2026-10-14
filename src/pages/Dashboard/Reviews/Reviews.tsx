@@ -553,7 +553,7 @@ export default function Reviews() {
                 }}
                 short={compact}
                 sort={{
-                  label: "Ordine",
+                  label: "Ordina",
                   value: sortBy,
                   options: SORT_OPTIONS,
                   onChange: setSortBy,

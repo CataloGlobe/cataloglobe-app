@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpDown, Check, ChevronDown } from "lucide-react";
 import { Menu } from "@/components/ui/Menu";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import s from "./FilterFit.module.scss";
 
 export type FilterFitSort<T extends string> = {
-    /** Per i lettori di schermo: «Ordine». */
+    /** Inizio del nome per i lettori di schermo, «Ordina»: contiene la parola che si vede (WCAG 2.5.3). */
     label: string;
     value: T;
     options: readonly { value: T; label: string }[];
@@ -55,7 +57,10 @@ export function FilterFit<T extends string>({ children, active, onClear, aside, 
         setZip(tooWide);
     }, []);
 
-    useLayoutEffect(fit);
+    // Prima del disegno solo quando cambia ciò che decide la riga; i numeri
+    // nelle pill e il resto del contenuto li segue il MutationObserver qui sotto.
+    const sortValue = sort?.value;
+    useLayoutEffect(fit, [fit, active, short, sortValue]);
 
     useEffect(() => {
         const row = rowRef.current;
@@ -68,9 +73,13 @@ export function FilterFit<T extends string>({ children, active, onClear, aside, 
         const ro = new ResizeObserver(later);
         ro.observe(row);
         if (row.parentElement) ro.observe(row.parentElement);
+        // testi e figli, non gli attributi: `data-zip` lo scrive `fit` stesso
+        const mo = new MutationObserver(fit);
+        mo.observe(row, { childList: true, subtree: true, characterData: true });
         return () => {
             cancelAnimationFrame(raf);
             ro.disconnect();
+            mo.disconnect();
         };
     }, [fit]);
 
@@ -103,6 +112,9 @@ function FilterPanel({ active, onClear, children }: { active: number; onClear?: 
     const popRef = useRef<HTMLDivElement>(null);
     const id = useId();
 
+    // il foglio copre la pagina: il Tab resta dentro finché è aperto
+    useFocusTrap(popRef, open && sheet);
+
     // sotto il pulsante, a sinistra, dentro la finestra
     useLayoutEffect(() => {
         if (!open || sheet) return;
@@ -125,14 +137,21 @@ function FilterPanel({ active, onClear, children }: { active: number; onClear?: 
         };
     }, [open, sheet]);
 
+    // il fuoco sul pannello: Tab porta alle pill, senza accendere l'anello su una
+    // scelta; di nuovo se il pannello rinasce passando la soglia dei 641
+    useEffect(() => {
+        if (open) popRef.current?.focus({ preventScroll: true });
+    }, [open, sheet]);
+
     // si chiude cliccando fuori o con Esc, e il fuoco torna al pulsante
     useEffect(() => {
         if (!open) return setPos(AWAY);
-        // il fuoco sul pannello: Tab porta alle pill, senza accendere l'anello su una scelta
-        popRef.current?.focus({ preventScroll: true });
         const off = (ev: MouseEvent) => {
             const t = ev.target as Node;
-            if (!popRef.current?.contains(t) && !btnRef.current?.contains(t)) setOpen(false);
+            if (popRef.current?.contains(t) || btnRef.current?.contains(t)) return;
+            setOpen(false);
+            // il fuoco torna al pulsante; se il clic cade su un altro comando, il fuoco va lì
+            btnRef.current?.focus({ preventScroll: true });
         };
         const esc = (ev: KeyboardEvent) => {
             if (ev.key !== "Escape") return;
@@ -154,6 +173,7 @@ function FilterPanel({ active, onClear, children }: { active: number; onClear?: 
             id={id}
             className={`${s.pop} ${sheet ? s.popSheet : ""}`}
             role="dialog"
+            aria-modal={sheet || undefined}
             aria-label="Mostra solo"
             tabIndex={-1}
             style={sheet ? undefined : pos}
@@ -178,25 +198,26 @@ function FilterPanel({ active, onClear, children }: { active: number; onClear?: 
 
     return (
         <>
-            <button
-                ref={btnRef}
-                type="button"
-                className={s.fzBtn}
-                data-on={active ? "" : undefined}
-                aria-haspopup="dialog"
-                aria-expanded={open}
-                aria-controls={open ? id : undefined}
-                aria-label={label}
-                title="Mostra solo"
-                onClick={() => setOpen(o => !o)}
-            >
-                <svg viewBox="0 0 24 24" aria-hidden className={s.fzIcon}>
-                    <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
-                    <circle cx="15" cy="7" r="2.2" />
-                    <circle cx="9" cy="17" r="2.2" />
-                </svg>
-                {active > 0 && <i className={s.count}>{active}</i>}
-            </button>
+            <Tooltip content="Mostra solo">
+                <button
+                    ref={btnRef}
+                    type="button"
+                    className={s.fzBtn}
+                    data-on={active ? "" : undefined}
+                    aria-haspopup="dialog"
+                    aria-expanded={open}
+                    aria-controls={open ? id : undefined}
+                    aria-label={label}
+                    onClick={() => setOpen(o => !o)}
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden className={s.fzIcon}>
+                        <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+                        <circle cx="15" cy="7" r="2.2" />
+                        <circle cx="9" cy="17" r="2.2" />
+                    </svg>
+                    {active > 0 && <i className={s.count}>{active}</i>}
+                </button>
+            </Tooltip>
             {open && createPortal(sheet ? <div className={s.veil}>{pop}</div> : pop, document.body)}
         </>
     );
@@ -208,13 +229,13 @@ function SortMenu<T extends string>({ sort, icon, short }: { sort: FilterFitSort
         <Menu
             align="end"
             trigger={
-                <button
+                <SortTrigger
+                    tip={icon}
                     type="button"
                     className={s.sortBtn}
                     data-icon={icon ? "" : undefined}
                     data-short={short ? "" : undefined}
                     aria-label={`${sort.label}: ${current}`}
-                    title={icon ? "Ordina" : undefined}
                 >
                     <ArrowUpDown size={18} aria-hidden className={s.sortIcon} />
                     <span className={s.sortName}>{current}</span>
@@ -222,7 +243,7 @@ function SortMenu<T extends string>({ sort, icon, short }: { sort: FilterFitSort
                         Ordina
                     </span>
                     <ChevronDown size={14} aria-hidden className={s.chev} />
-                </button>
+                </SortTrigger>
             }
         >
             {sort.options.map(o => (
@@ -237,6 +258,15 @@ function SortMenu<T extends string>({ sort, icon, short }: { sort: FilterFitSort
             ))}
         </Menu>
     );
+}
+
+/**
+ * Il pulsante di «Ordina». Il trigger del Menu gli passa `ref` e gestori, e
+ * da icona il nome lo dice il Tooltip, che si aggancia allo stesso pulsante.
+ */
+function SortTrigger({ tip, ...props }: ComponentProps<"button"> & { tip: boolean }) {
+    const btn = <button {...props} />;
+    return tip ? <Tooltip content="Ordina">{btn}</Tooltip> : btn;
 }
 
 /** Un gruppo in più nel pannello «Mostra solo», col suo titolo (es. «Passati da»). */

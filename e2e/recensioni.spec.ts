@@ -167,7 +167,7 @@ test.describe("Recensioni", () => {
         await openPage(page);
         // Nella D l'ordine è un menù (pillola o icona con le frecce), non una tendina.
         if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
-            await main(page).getByRole("button", { name: /^Ordine:/ }).click();
+            await main(page).getByRole("button", { name: /^Ordina:/ }).click();
             await page.getByRole("menuitem", { name: "Dal voto più alto" }).click();
         } else {
             await main(page).getByRole("combobox", { name: "Ordine" }).selectOption("ratingDesc");
