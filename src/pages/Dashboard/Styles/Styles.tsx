@@ -34,7 +34,7 @@ import { VetrinaHead, type VetrinaView } from "../Vetrina/VetrinaHead";
 import { VetrinaCrea } from "../Vetrina/VetrinaCrea";
 import { StylePhone, VetrinaCard, VetrinaNone } from "../Vetrina/VetrinaCard";
 import { useCompactHead } from "../Vetrina/useCompactHead";
-import { leadOf, matchesOnAir, onAirOf, sortVetrina, type OnAir, type OnAirFilter, type VetrinaSort } from "../Vetrina/vetrinaModel";
+import { leadOf, matchesOnAir, onAirOf, onAirOptions, sortVetrina, type OnAir, type OnAirFilter, type VetrinaSort } from "../Vetrina/vetrinaModel";
 import vs from "../Vetrina/Vetrina.module.scss";
 
 const OFF_AIR: OnAir = { state: "off", when: null, where: null };
@@ -380,7 +380,7 @@ export default function Styles() {
                                     preview={<StylePhone palette={stylePalette(style)} />}
                                     name={
                                         <>
-                                            {style.name}
+                                            <span>{style.name}</span>
                                             {style.is_system && <i className={vs.sys}>Di sistema</i>}
                                         </>
                                     }
@@ -448,7 +448,8 @@ export default function Styles() {
                             lead={lead}
                             filter={onAirFilter}
                             onFilter={setOnAirFilter}
-                            counts={onAirCounts}
+                            filterOptions={onAirOptions(onAirCounts)}
+                            filterAll="all"
                             sort={sort}
                             onSort={setSort}
                             query={searchQuery}

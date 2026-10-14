@@ -47,7 +47,7 @@ import { VetrinaHead, type VetrinaView } from "../Vetrina/VetrinaHead";
 import { VetrinaCrea } from "../Vetrina/VetrinaCrea";
 import { MenuPaper, VetrinaCard, VetrinaNone } from "../Vetrina/VetrinaCard";
 import { useCompactHead } from "../Vetrina/useCompactHead";
-import { leadOf, matchesOnAir, onAirOf, sortVetrina, type OnAir, type OnAirFilter, type VetrinaSort } from "../Vetrina/vetrinaModel";
+import { leadOf, matchesOnAir, onAirOf, onAirOptions, sortVetrina, type OnAir, type OnAirFilter, type VetrinaSort } from "../Vetrina/vetrinaModel";
 import vs from "../Vetrina/Vetrina.module.scss";
 import styles from "./Catalogs.module.scss";
 
@@ -698,7 +698,8 @@ export default function Catalogs() {
                     lead={lead}
                     filter={onAirFilter}
                     onFilter={setOnAirFilter}
-                    counts={onAirCounts}
+                    filterOptions={onAirOptions(onAirCounts)}
+                    filterAll="all"
                     sort={sort}
                     onSort={setSort}
                     query={searchQuery}

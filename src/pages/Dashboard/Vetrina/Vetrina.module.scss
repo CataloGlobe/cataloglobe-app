@@ -39,10 +39,22 @@
     view-transition-name: mv-lead;
 }
 
-// Le sedi che non mostrano niente (`b.dn`).
-.down {
+// Le sedi che non mostrano niente, i prodotti senza prezzo (`b.dn`).
+.down,
+.strong {
+    padding: 0 0.22em;
+    border-radius: 0.3em;
     font-weight: inherit;
+    background: var(--d-warm-soft);
     color: var(--d-s-wait-ink);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+
+// Un numero da dire senza famiglia: «12 prodotti» (`.answer b`).
+.strong {
+    background: var(--d-soft2);
+    color: var(--d-brand-deep);
 }
 
 .bar {

@@ -57,7 +57,7 @@ export function onAirOf(appearance: Appearance | null, activities: readonly Appe
 }
 
 /** Un pezzo della frase: testo, un nome della famiglia, o una mancanza (`b.dn`). */
-export type LeadPart = { text: string } | { name: string } | { down: string };
+export type LeadPart = { text: string } | { name: string } | { down: string } | { strong: string };
 
 /** Le parole della frase per famiglia: il soggetto quando niente è in onda, e l'attacco. */
 export type LeadWords = {
@@ -122,6 +122,15 @@ export type OnAirFilter = "all" | "on" | "off";
 export function matchesOnAir(filter: OnAirFilter, onAir: OnAir): boolean {
     if (filter === "all") return true;
     return filter === "on" ? onAir.state !== "off" : onAir.state === "off";
+}
+
+/** Le pill Tutti, In onda, Non in onda coi loro numeri. */
+export function onAirOptions(counts: Record<OnAirFilter, number>) {
+    return [
+        { value: "all" as const, label: "Tutti", count: counts.all },
+        { value: "on" as const, label: "In onda", count: counts.on },
+        { value: "off" as const, label: "Non in onda", count: counts.off }
+    ];
 }
 
 /** «Ordina» di Menù, Stili, In evidenza e Storie (D209 chiusa). */

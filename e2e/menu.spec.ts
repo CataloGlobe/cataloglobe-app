@@ -150,7 +150,7 @@ test.describe("Menù — elenco", () => {
         await expect(page.getByRole("button", { name: "Importa con AI" })).toHaveCount(0);
 
         for (const name of ["Carta e2e", "Pranzo e2e", "Vuoto e2e"]) {
-            await expect(main(page).getByText(name)).toBeVisible();
+            await expect(item(page, name)).toBeVisible();
         }
         // Carta: 7 categorie, 22 collegamenti (le due varianti comprese).
         const carta = item(page, "Carta e2e").locator("xpath=ancestor::*[contains(., 'categorie') and contains(., 'prodotti')][1]");
@@ -237,6 +237,12 @@ test.describe("Menù — elenco", () => {
         await openList(page);
         await actionsOf(item(page, "Pranzo e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
+        if (await lookD(page)) {
+            // Nella D un menù in onda non apre la conferma: l'avviso dice di toglierlo dal Calendario.
+            await expect(page.getByText(/«Pranzo e2e» è in onda: prima toglilo dal Calendario/)).toBeVisible();
+            expect(stub.writes.filter(w => w.key === "catalogs.DELETE")).toHaveLength(0);
+            return;
+        }
         await expect(dialog(page)).toContainText("Pranzo feriale");
         await expect(dialog(page).getByRole("button", { name: "Elimina" })).toBeDisabled();
         expect(stub.writes.filter(w => w.key === "catalogs.DELETE")).toHaveLength(0);
@@ -399,6 +405,7 @@ test.describe("Menù — dettaglio", () => {
 
     test("le tab della categoria: baseline a tutta larghezza, a filo sotto la testata", async ({ page }) => {
         await openCarta(page);
+        test.skip(await lookD(page), "la scheda del menù nella D non è di questa PR (la baseline è della grafica di oggi)");
         await selectCategory(page, "Antipasti");
         const tablist = main(page).getByRole("tablist");
         const card = tablist.locator("xpath=ancestor::section[1]");
@@ -752,6 +759,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
 
     test("griglia: stato e categorie vuote sulla card, senza campione dello stile", async ({ page }) => {
         await openList(page);
+        test.skip(await lookD(page), "nella D la card dice «In onda adesso»: la prova il test D qui sotto");
         await (await viewRadio(page, "grid")).click();
         const carta = cardOf(page, "Carta e2e");
         await expect(carta).toContainText("Attivo adesso in Centro e2e");
@@ -774,6 +782,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await page.unrouteAll({ behavior: "ignoreErrors" });
         stub = await stubMenu(page, { twoStyles: true });
         await openList(page);
+        test.skip(await lookD(page), "nella D la card dice «In onda adesso»: la prova il test D qui sotto");
         await (await viewRadio(page, "grid")).click();
         const carta = cardOf(page, "Carta e2e");
         await expect(carta).toContainText("Attivo adesso in 2 sedi");
@@ -783,6 +792,20 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
         await expect(row).toContainText("Attivo adesso in 2 sedi");
         await expect(row).not.toContainText("+1 stile");
         await expect(row.getByRole("img", { name: /^Stile / })).toHaveCount(0);
+    });
+
+    test("D: la card dice se è in onda, dove, e «Metti in onda» se è spento", async ({ page }) => {
+        await openList(page);
+        test.skip(!(await lookD(page)), "solo nella D");
+        const card = (name: string) => item(page, name).locator("xpath=ancestor::article[1]");
+        await expect(card("Carta e2e")).toContainText("In onda adesso");
+        await expect(card("Carta e2e")).toContainText("Centro e2e");
+        await expect(card("Carta e2e")).toContainText("7 categorie");
+        await expect(card("Vuoto e2e").getByRole("button", { name: "Metti in onda Vuoto e2e" })).toBeVisible();
+        // «In onda prima»: la Carta apre la griglia.
+        await expect(main(page).locator("article").first()).toContainText("Carta e2e");
+        // La frase in cima nomina chi è in onda.
+        await expect(main(page).getByText(/^Adesso in onda/).first()).toBeVisible();
     });
 
     test("dettaglio: la barra dice dove è attivo, il pannello nomina ogni sede e perché", async ({ page }) => {
@@ -824,6 +847,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
 
     test("eliminazione: lo stato delle regole è quello del Calendario", async ({ page }) => {
         await openList(page);
+        test.skip(await lookD(page), "nella D un menù in onda non si elimina: lo prova «un menù usato da una regola non si elimina»");
         await actionsOf(item(page, "Carta e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina", exact: true }).click();
         const rules = dialog(page).getByRole("list", { name: "Regole del Calendario collegate" });

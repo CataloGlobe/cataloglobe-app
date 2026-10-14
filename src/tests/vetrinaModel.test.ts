@@ -45,7 +45,7 @@ describe("Menù e vetrina: la riga «In onda»", () => {
 
 describe("Menù e vetrina: la frase in cima", () => {
     const text = (parts: ReturnType<typeof leadOf>) =>
-        parts.map(p => ("text" in p ? p.text : "name" in p ? `[${p.name}]` : `{${p.down}}`)).join("");
+        parts.map(p => ("text" in p ? p.text : "name" in p ? `[${p.name}]` : "down" in p ? `{${p.down}}` : `*${p.strong}*`)).join("");
 
     it("con più sedi: chi, dove, e chi non mostra niente", () => {
         const parts = leadOf(
