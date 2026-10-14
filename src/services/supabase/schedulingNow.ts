@@ -66,3 +66,21 @@ export function toRomeDateTime(date: Date): RomeDateTime {
 export function getNowInRome(): RomeDateTime {
     return toRomeDateTime(new Date());
 }
+
+/**
+ * L'istante di Roma di un minuto dello stesso giorno di `now` (0-1439), per
+ * chiedere al giudice «e alle 19:00?» (`laterMenusToday`). Il giorno del cambio
+ * d'ora l'orologio salta o ripete un'ora: si parte dallo scarto di oggi e si
+ * corregge una volta sull'ora letta a Roma. Un minuto che non esiste (02:30
+ * dell'ultima domenica di marzo) cade sull'istante subito dopo il salto.
+ */
+export function romeInstantAtMinute(now: RomeDateTime, minuteOfDay: number): RomeDateTime {
+    const nowMinute = now.hour * 60 + now.minute;
+    const guess = now.epoch - now.second * 1000 + (minuteOfDay - nowMinute) * 60_000;
+    const first = toRomeDateTime(new Date(guess));
+    const dayShift = first.day === now.day ? 0 : first.epoch > now.epoch ? 1440 : -1440;
+    const drift = minuteOfDay - (first.hour * 60 + first.minute + dayShift);
+    if (drift === 0) return first;
+    const second = toRomeDateTime(new Date(guess + drift * 60_000));
+    return second.hour * 60 + second.minute === minuteOfDay ? second : first;
+}

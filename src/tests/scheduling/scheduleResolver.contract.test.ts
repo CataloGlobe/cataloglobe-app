@@ -81,7 +81,7 @@ class FakeQueryBuilder implements PromiseLike<{ data: unknown[] | null; error: u
             ...row,
             layout: {
                 catalog_id: scheduleLayout.catalog_id ?? null,
-                style: []
+                style: scheduleLayout.style ?? []
             }
         };
     }
@@ -123,25 +123,61 @@ function buildSchedule(
     };
 }
 
+/**
+ * Le fasce come le scrive il ponte (mig 20261014090000) dalle colonne di
+ * oggi, per le tabelle che non le danno già: il resolver legge solo le fasce.
+ */
+function withBridgeSlots(tables: TableRows): TableRows {
+    if (tables.schedule_slots) return tables;
+    const toMinutes = (value: unknown) =>
+        typeof value === "string" ? Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5)) : null;
+    const slots: Array<Record<string, unknown>> = [];
+    for (const row of tables.schedules ?? []) {
+        if (row.time_mode !== "window") continue;
+        const days = (row.days_of_week as number[] | null) ?? null;
+        const from = toMinutes(row.time_from);
+        const rawTo = toMinutes(row.time_to);
+        const slot = (daysOfWeek: number[] | null, start: number, end: number) =>
+            slots.push({
+                id: `slot-${String(row.id)}`,
+                schedule_id: row.id,
+                days_of_week: daysOfWeek,
+                start_minute: start,
+                end_minute: end,
+                sort_order: 0
+            });
+        if (from === null || rawTo === null) {
+            if (days !== null) slot(days, 0, 1440);
+            continue;
+        }
+        const to = rawTo === 1439 && from < 1439 ? 1440 : rawTo;
+        if (to <= from) slot([], 0, 1440);
+        else slot(days, from, to);
+    }
+    return { ...tables, schedule_slots: slots };
+}
+
 async function resolveIds(params: {
     tables: TableRows;
     activityId: string;
     now: RomeDateTime;
 }) {
-    const fakeSupabase = createFakeSupabase(params.tables);
+    const fakeSupabase = createFakeSupabase(withBridgeSlots(params.tables));
     const web = await resolveWebRules({
         supabase: fakeSupabase,
         activityId: params.activityId,
         tenantId: TEST_TENANT_ID,
         now: params.now,
-        includeLayoutStyle: false
+        includeLayoutStyle: false,
+        includeLaterMenus: true
     });
     const edge = await resolveEdgeRules({
         supabase: fakeSupabase,
         activityId: params.activityId,
         tenantId: TEST_TENANT_ID,
         now: params.now,
-        includeLayoutStyle: false
+        includeLayoutStyle: false,
+        includeLaterMenus: true
     });
     return { web, edge };
 }
@@ -451,6 +487,185 @@ describe("Scheduling consistency contract", () => {
                 }
             }
         }
+    });
+
+    it("14. giudice nuovo: fasce vere oltre la mezzanotte, con le sedi della fascia", async () => {
+        const tables: TableRows = {
+            activity_group_members: [],
+            schedule_targets: [
+                { id: "t-1", schedule_id: "night", target_type: "activity", target_id: "activity-1" },
+                { id: "t-2", schedule_id: "night", target_type: "activity", target_id: "activity-2" }
+            ],
+            schedule_layout: [
+                { schedule_id: "base", catalog_id: "catalog-base" },
+                { schedule_id: "night", catalog_id: "catalog-night" }
+            ],
+            schedules: [
+                buildSchedule({ id: "base", rule_type: "layout", apply_to_all: true }),
+                buildSchedule({ id: "night", rule_type: "layout", time_mode: "window" })
+            ],
+            // Sabato 19:00-02:00, solo nella sede 1.
+            schedule_slots: [
+                { id: "s-1", schedule_id: "night", days_of_week: [6], start_minute: 1140, end_minute: 1560, sort_order: 0 }
+            ],
+            schedule_slot_targets: [{ slot_id: "s-1", schedule_target_id: "t-1" }]
+        };
+        // Domenica 29/03/2026 01:30 a Roma.
+        const sundayNight = toRomeDateTime(new Date("2026-03-29T00:30:00.000Z"));
+        const one = await resolveIds({ tables, activityId: "activity-1", now: sundayNight });
+        expect(one.edge).toEqual(one.web);
+        expect(one.web.layout.catalogId).toBe("catalog-night");
+        const two = await resolveIds({ tables, activityId: "activity-2", now: sundayNight });
+        expect(two.web.layout.catalogId).toBe("catalog-base");
+    });
+
+    it("15. giudice nuovo: due menù «insieme» in onda, il primo per sort_order; «al posto» li copre", async () => {
+        const tables: TableRows = {
+            activity_group_members: [],
+            schedule_targets: [],
+            schedule_layout: [],
+            schedule_menu: [
+                { schedule_id: "lunch", catalog_id: "catalog-lunch" },
+                { schedule_id: "wine", catalog_id: "catalog-wine" },
+                { schedule_id: "xmas", catalog_id: "catalog-xmas" }
+            ],
+            catalogs: [
+                { id: "catalog-lunch", tenant_id: TEST_TENANT_ID, sort_order: 2 },
+                { id: "catalog-wine", tenant_id: TEST_TENANT_ID, sort_order: 1 },
+                { id: "catalog-xmas", tenant_id: TEST_TENANT_ID, sort_order: 3 }
+            ],
+            schedules: [
+                { ...buildSchedule({ id: "lunch", rule_type: "layout", apply_to_all: true }), rule_type: "menu", overlap_mode: "together" },
+                { ...buildSchedule({ id: "wine", rule_type: "layout", apply_to_all: true }), rule_type: "menu", overlap_mode: "together" },
+                {
+                    ...buildSchedule({ id: "xmas", rule_type: "layout", apply_to_all: true, time_mode: "window" }),
+                    rule_type: "menu",
+                    overlap_mode: "replace"
+                }
+            ],
+            // «Al posto» solo la sera: alle 13 si vedono gli «insieme», «xmas» è più tardi.
+            schedule_slots: [
+                { id: "s-x", schedule_id: "xmas", days_of_week: null, start_minute: 1140, end_minute: 1380, sort_order: 0 }
+            ]
+        };
+        const noon = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
+        const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now: noon });
+        expect(edge).toEqual(web);
+        expect(web.menus.map(m => [m.catalogId, m.state, m.startMinute, m.endMinute, m.sortOrder])).toEqual([
+            ["catalog-wine", "now", 0, 1440, 1],
+            ["catalog-lunch", "now", 0, 1440, 2],
+            ["catalog-xmas", "later", 1140, 1380, 3]
+        ]);
+        expect(web.layout.catalogId).toBe("catalog-wine");
+        expect(web.layoutCandidateCount).toBe(3);
+
+        const evening = toRomeDateTime(new Date("2026-03-26T19:00:00.000Z"));
+        const later = await resolveIds({ tables, activityId: "activity-1", now: evening });
+        // Alle 20 «xmas» copre gli «insieme»; dalle 23 tornano, più tardi oggi.
+        expect(later.web.menus.map(m => [m.catalogId, m.state, m.startMinute])).toEqual([
+            ["catalog-xmas", "now", 1140],
+            ["catalog-wine", "later", 1380],
+            ["catalog-lunch", "later", 1380]
+        ]);
+    });
+
+    it("16. giudice nuovo: prezzi, disponibilità e in evidenza si sommano, il più preciso per primo", async () => {
+        const tables: TableRows = {
+            activity_group_members: [],
+            schedule_targets: [
+                { schedule_id: "price-seat", target_type: "activity", target_id: "activity-1" }
+            ],
+            schedule_layout: [],
+            schedules: [
+                buildSchedule({ id: "price-all", rule_type: "price", apply_to_all: true }),
+                buildSchedule({ id: "price-seat", rule_type: "price", created_at: "2025-01-01T00:00:00.000Z" }),
+                buildSchedule({ id: "vis-a", rule_type: "visibility", apply_to_all: true, visibility_mode: "disable" }),
+                buildSchedule({
+                    id: "vis-b",
+                    rule_type: "visibility",
+                    apply_to_all: true,
+                    created_at: "2026-02-01T00:00:00.000Z"
+                }),
+                buildSchedule({ id: "feat-a", rule_type: "featured", apply_to_all: true }),
+                buildSchedule({ id: "feat-b", rule_type: "featured", apply_to_all: true, created_at: "2026-02-01T00:00:00.000Z" })
+            ]
+        };
+        const noon = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
+        const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now: noon });
+        expect(edge).toEqual(web);
+        expect(web.priceRuleIds).toEqual(["price-seat", "price-all"]);
+        expect(web.priceRuleId).toBe("price-seat");
+        expect(web.visibilityRules).toEqual([
+            { scheduleId: "vis-b", mode: "hide" },
+            { scheduleId: "vis-a", mode: "disable" }
+        ]);
+        expect(web.featuredRuleIds).toEqual(["feat-b", "feat-a"]);
+    });
+
+    it("17. ruleTypes layout+price (ordini): menù e prezzi, niente «più tardi» né altri strati", async () => {
+        const fakeSupabase = createFakeSupabase(withBridgeSlots(MIXED_FIXTURE));
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
+        const params = { supabase: fakeSupabase, activityId: "activity-1", tenantId: TEST_TENANT_ID, now };
+        const web = await resolveWebRules({ ...params, ruleTypes: ["layout", "price"] });
+        const edge = await resolveEdgeRules({ ...params, ruleTypes: ["layout", "price"] });
+        expect(edge).toEqual(web);
+        expect(web.layout.catalogId).toBe("catalog-a");
+        expect(web.menus.every(m => m.state === "now")).toBe(true);
+        expect(web.priceRuleId).toBe("dated-price");
+        expect(web.visibilityRules).toEqual([]);
+        expect(web.featuredRuleIds).toEqual([]);
+    });
+
+    it("18. giudice nuovo: una regola di stile copre lo stile del menù, il menù resta", async () => {
+        const styleOf = (id: string) => ({ id, name: `Stile ${id}`, current_version: { config: { id } } });
+        const tables: TableRows = {
+            activity_group_members: [],
+            schedule_targets: [],
+            schedule_layout: [{ schedule_id: "base", catalog_id: "catalog-base", style: styleOf("style-base") }],
+            schedule_style: [{ schedule_id: "evening", style_id: "style-evening", style: styleOf("style-evening") }],
+            schedules: [
+                buildSchedule({ id: "base", rule_type: "layout", apply_to_all: true }),
+                {
+                    ...buildSchedule({
+                        id: "evening",
+                        rule_type: "layout",
+                        apply_to_all: true,
+                        time_mode: "window",
+                        created_at: "2026-02-01T00:00:00.000Z"
+                    }),
+                    rule_type: "style"
+                }
+            ],
+            schedule_slots: [
+                { id: "s-e", schedule_id: "evening", days_of_week: null, start_minute: 1140, end_minute: 1440, sort_order: 0 }
+            ]
+        };
+        const fakeSupabase = createFakeSupabase(tables);
+        const resolveAt = async (iso: string) => {
+            const params = {
+                supabase: fakeSupabase,
+                activityId: "activity-1",
+                tenantId: TEST_TENANT_ID,
+                now: toRomeDateTime(new Date(iso)),
+                includeLayoutStyle: true
+            };
+            const web = await resolveWebRules(params);
+            expect(await resolveEdgeRules(params)).toEqual(web);
+            return web;
+        };
+        const noon = await resolveAt("2026-03-26T12:00:00.000Z");
+        expect([noon.layout.catalogId, noon.layout.styleData?.id, noon.styleScheduleId]).toEqual([
+            "catalog-base",
+            "style-base",
+            "base"
+        ]);
+        const evening = await resolveAt("2026-03-26T19:00:00.000Z");
+        expect([evening.layout.catalogId, evening.layout.styleData?.id, evening.styleScheduleId]).toEqual([
+            "catalog-base",
+            "style-evening",
+            "evening"
+        ]);
+        expect(evening.layout.styleData?.config).toEqual({ id: "style-evening" });
     });
 });
 
