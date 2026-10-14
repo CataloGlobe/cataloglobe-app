@@ -9,10 +9,16 @@
 // (frontend rendering, not importable from a Deno Edge Function). If the formula
 // changes, update BOTH places.
 //
-// Pricing pipeline mirrors src/services/supabase/resolveActivityCatalogs.ts
-// (lines ~1743–1790, `applyPriceOverridesToCatalog`):
-//   - scheduleResolver returns the winning priceRuleId (a schedule id) only.
-//   - Caller queries `schedule_price_overrides` filtered by that schedule_id.
+// Menus (piano 9b, passo 3c): with the new judge more menus can be on air at
+// once («insieme»). A dish is orderable when it is in ANY menu on air now
+// (`menus` with state "now"), the same menus the public page shows.
+//
+// Pricing pipeline mirrors resolveActivityCatalogs.ts (price layer,
+// `applyPriceOverridesToCatalog`):
+//   - scheduleResolver returns every price rule on air (`priceRuleIds`), most
+//     precise first. For the same dish the first rule that touches it owns
+//     all of its prices (dish and formats); two rules never mix on a dish.
+//   - Caller queries `schedule_price_overrides` for those schedule ids.
 //   - option_value_id IS NULL  → product-level override; replaces absolute_price
 //                                 of every PRIMARY_PRICE value of that product.
 //   - option_value_id IS NOT NULL → value-level override; replaces absolute_price
@@ -188,7 +194,7 @@ export async function validateAndSnapshotOrderItems(
 
     const session = await _loadCustomerSession(supabase, customerSessionId);
 
-    const { catalogId, priceRuleId } = await _resolveActiveCatalog(
+    const { catalogIds, priceRuleIds } = await _resolveActiveCatalog(
         supabase,
         session.activity_id,
         session.tenant_id
@@ -198,14 +204,14 @@ export async function validateAndSnapshotOrderItems(
 
     const { ids: catalogProductIds, parentByVariant } = await _loadCatalogProductIds(
         supabase,
-        catalogId,
+        catalogIds,
         session.tenant_id
     );
     const invalidProductIds = requestedProductIds.filter(id => !catalogProductIds.has(id));
     if (invalidProductIds.length > 0) {
         throw new ValidateOrderItemsError(
             "PRODUCT_NOT_IN_CATALOG",
-            "Uno o più prodotti non sono nel catalogo attivo per questa sede.",
+            "Uno o più prodotti non sono nei menù attivi per questa sede.",
             { invalid_product_ids: invalidProductIds }
         );
     }
@@ -239,7 +245,7 @@ export async function validateAndSnapshotOrderItems(
     const priceOverrides = await _loadPriceOverrides(
         supabase,
         session.tenant_id,
-        priceRuleId,
+        priceRuleIds,
         requestedProductIds
     );
 
@@ -256,7 +262,8 @@ export async function validateAndSnapshotOrderItems(
         return _validateAndSnapshotItem(req, product, productOverrides);
     });
 
-    return _assembleValidatedOrder(session, items, priceRuleId, notes);
+    // Audit only (orders-architecture §4.2): the most precise price rule.
+    return _assembleValidatedOrder(session, items, priceRuleIds[0] ?? null, notes);
 }
 
 // ============================================================
@@ -340,7 +347,7 @@ async function _resolveActiveCatalog(
     supabase: SupabaseClient,
     activityId: string,
     tenantId: string
-): Promise<{ catalogId: string; priceRuleId: string | null }> {
+): Promise<{ catalogIds: string[]; priceRuleIds: string[] }> {
     const result = await resolveRulesForActivity({
         supabase,
         activityId,
@@ -350,22 +357,21 @@ async function _resolveActiveCatalog(
         ruleTypes: ["layout", "price"]
     });
 
-    if (!result.layout.catalogId) {
+    // Without `includeLaterMenus` the resolver returns only the menus on air.
+    const catalogIds = result.menus.filter(menu => menu.state === "now").map(menu => menu.catalogId);
+    if (catalogIds.length === 0) {
         throw new ValidateOrderItemsError(
             "INTERNAL_ERROR",
             "Nessun catalogo attivo per questa sede in questo momento."
         );
     }
 
-    return {
-        catalogId: result.layout.catalogId,
-        priceRuleId: result.priceRuleId
-    };
+    return { catalogIds, priceRuleIds: result.priceRuleIds };
 }
 
 async function _loadCatalogProductIds(
     supabase: SupabaseClient,
-    catalogId: string,
+    catalogIds: string[],
     tenantId: string
 ): Promise<{ ids: Set<string>; parentByVariant: Map<string, string> }> {
     // catalog_category_products links (catalog, category, product). It also
@@ -377,7 +383,7 @@ async function _loadCatalogProductIds(
     const { data, error } = await supabase
         .from("catalog_category_products")
         .select("category_id, product_id, variant_product_id")
-        .eq("catalog_id", catalogId)
+        .in("catalog_id", catalogIds)
         .eq("tenant_id", tenantId);
 
     if (error) {
@@ -567,18 +573,18 @@ async function _loadProductDetails(
 async function _loadPriceOverrides(
     supabase: SupabaseClient,
     tenantId: string,
-    priceRuleId: string | null,
+    priceRuleIds: string[],
     productIds: string[]
 ): Promise<Map<string, PriceOverridesForProduct>> {
     const out = new Map<string, PriceOverridesForProduct>();
-    if (!priceRuleId || productIds.length === 0) return out;
+    if (priceRuleIds.length === 0 || productIds.length === 0) return out;
 
-    // tenant_id filter: an override row of another tenant attached to this
-    // price rule must not change what this tenant's customers pay.
+    // tenant_id filter: an override row of another tenant attached to these
+    // price rules must not change what this tenant's customers pay.
     const { data, error } = await supabase
         .from("schedule_price_overrides")
-        .select("product_id, option_value_id, override_price")
-        .eq("schedule_id", priceRuleId)
+        .select("schedule_id, product_id, option_value_id, override_price")
+        .in("schedule_id", priceRuleIds)
         .eq("tenant_id", tenantId)
         .in("product_id", productIds);
 
@@ -590,8 +596,25 @@ async function _loadPriceOverrides(
         );
     }
 
-    type Row = { product_id: string; option_value_id: string | null; override_price: number | string };
-    for (const row of (data ?? []) as Row[]) {
+    type Row = {
+        schedule_id: string;
+        product_id: string;
+        option_value_id: string | null;
+        override_price: number | string;
+    };
+    const rows = (data ?? []) as Row[];
+    // Same rule as the public page: the first rule (in `priceRuleIds` order)
+    // that touches a dish owns all of its prices.
+    const rank = new Map(priceRuleIds.map((id, index) => [id, index]));
+    const owner = new Map<string, number>();
+    for (const row of rows) {
+        const r = rank.get(row.schedule_id);
+        if (r === undefined) continue;
+        const current = owner.get(row.product_id);
+        if (current === undefined || r < current) owner.set(row.product_id, r);
+    }
+    for (const row of rows) {
+        if (owner.get(row.product_id) !== rank.get(row.schedule_id)) continue;
         let entry = out.get(row.product_id);
         if (!entry) {
             entry = { productLevelOverride: null, optionLevelOverrides: new Map() };
