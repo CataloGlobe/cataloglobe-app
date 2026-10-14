@@ -6,7 +6,6 @@ import { LOOK_D } from "@styles/lookD";
 import type { AppSidebarNavGroup } from "@/components/layout/AppSidebar/AppSidebar";
 import { currentItem, isItemRoot } from "@/components/layout/AppSidebar/isItemActive";
 import { useReadPageHeader } from "@/context/useReadPageHeader";
-import { LOOK_D } from "@styles/lookD";
 import { SediInAlto } from "./SediInAlto";
 import styles from "./PageTitleBar.module.scss";
 
