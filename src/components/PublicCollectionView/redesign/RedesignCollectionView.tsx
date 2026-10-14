@@ -37,6 +37,7 @@ import { animateBrowserBack, passageRunning, runMenuPassage } from "./menus/menu
 import { nowMenus, shouldChoose } from "./menus/menuList";
 import type { MenuSheetBinding } from "./menus/menuSheet";
 import { useDemoMenus } from "./menus/provaMenu";
+import { findInMenus, otherNowCatalogs } from "./menus/menuProducts";
 import type { PublicMenu } from "@/types/resolvedCollections";
 
 /**
@@ -270,10 +271,25 @@ export default function RedesignCollectionView({
         };
     }, [booking, enableReservations, slug, langCtx?.currentLang, langCtx?.baseLanguage, navigate]);
     // Con la sede che prenota, «Prenota» apre i passi nel foglio invece della pagina /prenota.
+    // Gli altri menu di adesso, per il carrello: si ordina da tutti (piano 9b, passo 4).
+    const otherMenuGroups = useMemo(
+        () =>
+            menus
+                ? otherNowCatalogs(menuList, chosenId, menus.catalog).map(catalog => menus.view(catalog).sectionGroups)
+                : [],
+        [menus, menuList, chosenId]
+    );
     const sheetsSlot = useMemo<SheetsSlot>(
         () => ({
             ...baseSheetsSlot,
-            render: context => <LazyVenueSheets {...context} booking={booking} menus={menuSheet} />,
+            render: context => (
+                <LazyVenueSheets
+                    {...context}
+                    product={{ ...context.product, findProduct: findInMenus(context.product.findProduct, otherMenuGroups) }}
+                    booking={booking}
+                    menus={menuSheet}
+                />
+            ),
             openBooking: booking ? openBookingSheet : undefined,
             preferenceFilter: {
                 count: preferences.length,
@@ -281,7 +297,7 @@ export default function RedesignCollectionView({
                 clear: clearPreferences
             }
         }),
-        [booking, preferences, menuSheet]
+        [booking, preferences, menuSheet, otherMenuGroups]
     );
     // Pagina di prova della PR 1: `?prova-tecnica=1` su una sede, solo con il flag.
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("prova-tecnica")) {

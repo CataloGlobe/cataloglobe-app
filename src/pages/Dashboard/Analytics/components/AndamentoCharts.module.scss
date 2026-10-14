@@ -1,6 +1,8 @@
 /* I grafici di Andamento (D154): colori dai token, i numeri allineati. */
 
 @use "@styles/scheda-type" as type;
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 .spark {
     display: block;
@@ -45,4 +47,85 @@
     fill: none;
     stroke-width: 2;
     stroke-linejoin: round;
+}
+
+/* ===== Direzione D (artifact v28, `.chart`, `.col`, `.bub`, L210-224) ===== */
+@keyframes growD {
+    from {
+        transform: scaleY(0.04);
+    }
+}
+
+@keyframes popD {
+    from {
+        opacity: 0;
+        transform: scale(0.6);
+    }
+}
+
+.axis {
+    @include look-d {
+        @include d-type(axis);
+
+        fill: var(--d-muted);
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.grid {
+    @include look-d {
+        stroke: color-mix(in srgb, var(--d-muted) 22%, transparent);
+    }
+}
+
+.col {
+    fill: color-mix(in srgb, var(--d-brand) 32%, var(--d-surface));
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: growD calc(var(--d-dur) + 180ms) var(--d-ease-move) both;
+    animation-delay: calc(var(--i) * 16ms);
+    transition: fill 0.15s ease;
+
+    @media (hover: hover) and (pointer: fine) {
+        &:hover {
+            fill: var(--d-brand-deep);
+        }
+    }
+}
+
+.hi {
+    fill: var(--d-brand-deep);
+}
+
+.pv {
+    fill: none;
+    stroke: var(--d-muted);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 4;
+    opacity: 0.7;
+}
+
+.bub {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: popD 260ms var(--d-ease-move) 420ms both;
+
+    rect {
+        fill: var(--d-warm);
+    }
+
+    text {
+        @include d-type(axis);
+
+        fill: var(--d-surface);
+        font-weight: 600;
+    }
+}
+
+.spark {
+    @include look-d {
+        polyline {
+            stroke: var(--d-brand);
+        }
+    }
 }

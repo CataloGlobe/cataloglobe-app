@@ -1,17 +1,11 @@
 import { Link } from "react-router-dom";
-import { CalendarCheck, ChevronRight, Globe, Receipt, Search, Sparkles, Star, type LucideIcon } from "lucide-react";
+import { ChevronRight, Sparkles } from "lucide-react";
+import { ROW_ICONS } from "../utils/andamentoIcons";
 import { Sparkline } from "./AndamentoCharts";
 import { sedeColor } from "../utils/andamentoFormat";
 import { compareValue, formatDelta, type AndamentoRow, type AnswerPart, type RowKey, type SedeCompared } from "../utils/andamentoRows";
 import styles from "../Analytics.module.scss";
 
-const ROW_ICONS: Record<RowKey, LucideIcon> = {
-    pagina: Globe,
-    tavolo: Receipt,
-    prenotazioni: CalendarCheck,
-    recensioni: Star,
-    ricerche: Search
-};
 
 export function Delta({ value }: { value: number | null }) {
     if (value === null) return null;

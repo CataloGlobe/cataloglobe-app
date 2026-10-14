@@ -4,10 +4,12 @@
 import { useId, type ReactNode } from "react";
 import { CalendarHeart, ChefHat, Megaphone, MousePointerClick, Plus, Tag, UtensilsCrossed } from "lucide-react";
 import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import { hasDishes, type Tunnel } from "./creaModel";
+import { EvidPulsante, EvidQuandoSuccede } from "./EvidNuovo";
 import { IDEE, dropDishes, dropIdea, ideaOf, pickIdea, type IdeaId } from "./evidIdee";
 import { EvidPiatti, type U } from "./CreaSteps";
-import { Chip, Field, Sh } from "./CreaUi";
+import { Field, Sh } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
 import s from "./Crea.module.scss";
 import st from "./StileAspetto.module.scss";
@@ -93,10 +95,12 @@ export function EvidAggiungi({ title, why, onClick }: { title: string; why: stri
     );
 }
 
-export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u: U; owner: boolean; imageUrl: string | null; pick: readonly PickProduct[]; L: DraftLookups }) {
+export function EvidContenuto({ t, u, imageUrl, pick, L, pro }: { t: Tunnel; u: U; imageUrl: string | null; pick: readonly PickProduct[]; L: DraftLookups; pro: boolean }) {
     const ids = { title: useId(), sub: useId(), text: useId(), inner: useId(), cta: useId(), link: useId(), img: useId() };
     const ex = ideaOf(t.idea)?.ex ?? ["Giovedì karaoke", "Facoltativo", "Come lo diresti al tavolo."];
     const dishes = hasDishes(t);
+    // un contenuto salvato col link libero lo tiene finché c'è: il pulsante nuovo arriva tolto quello
+    const fresh = NEW_MODEL.evid && !t.cta;
     return (
         <>
             <Sh title="Il contenuto">Quello che diresti a voce arrivando al tavolo. I piatti e il pulsante si aggiungono solo se servono.</Sh>
@@ -104,7 +108,7 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                 {!t.edit && <EvidIdee t={t} u={u} />}
                 <EvidParte title="Cosa dici" now={t.title.trim() ? `«${t.title.trim()}»` : "ancora vuoto"}>
                     <Field label="Titolo" id={ids.title}>
-                        <input className={s.in} id={ids.title} value={t.title} placeholder={ex[0]} autoComplete="off" onChange={ev => u(x => void (x.title = ev.target.value))} />
+                        <input className={s.in} id={ids.title} data-bad="title" value={t.title} placeholder={ex[0]} autoComplete="off" onChange={ev => u(x => void (x.title = ev.target.value))} />
                     </Field>
                     <Field label="Sottotitolo" id={ids.sub}>
                         <input className={s.in} id={ids.sub} value={t.sub} placeholder={ex[1]} autoComplete="off" onChange={ev => u(x => void (x.sub = ev.target.value))} />
@@ -132,20 +136,8 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                             <p className={s.hint}>Lo vedi solo tu.</p>
                         </div>
                     </div>
-                    {owner && !t.edit && (
-                        <div className={s.blk}>
-                            <h4>Dove sulla pagina</h4>
-                            <div className={s.chips}>
-                                <Chip on={t.slot === "before"} onClick={() => u(x => void (x.slot = "before"))}>
-                                    Sopra il menù
-                                </Chip>
-                                <Chip on={t.slot === "after"} onClick={() => u(x => void (x.slot = "after"))}>
-                                    Sotto il menù
-                                </Chip>
-                            </div>
-                        </div>
-                    )}
                 </EvidParte>
+                {NEW_MODEL.evid && <EvidQuandoSuccede t={t} u={u} />}
                 {dishes && (
                     <EvidParte
                         icon={<UtensilsCrossed size={17} />}
@@ -161,20 +153,21 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                         <div className={s.row2}>
                             <div className={s.f}>
                                 <label htmlFor={ids.cta}>La scritta sul pulsante</label>
-                                <input className={s.in} id={ids.cta} value={t.ctaText} autoComplete="off" onChange={ev => u(x => void (x.ctaText = ev.target.value))} />
+                                <input className={s.in} id={ids.cta} data-bad="cta" value={t.ctaText} autoComplete="off" onChange={ev => u(x => void (x.ctaText = ev.target.value))} />
                             </div>
                             <div className={s.f}>
                                 <label htmlFor={ids.link}>Dove porta</label>
-                                <input className={s.in} id={ids.link} value={t.ctaLink} placeholder="https://" inputMode="url" autoComplete="off" onChange={ev => u(x => void (x.ctaLink = ev.target.value))} />
+                                <input className={s.in} id={ids.link} data-bad="link" value={t.ctaLink} placeholder="https://" inputMode="url" autoComplete="off" onChange={ev => u(x => void (x.ctaLink = ev.target.value))} />
                                 <p className={s.hint}>Un link: le prenotazioni, i biglietti, una pagina tua.</p>
                             </div>
                         </div>
                     </EvidParte>
                 )}
-                {(!dishes || !t.cta) && (
+                {fresh && <EvidPulsante t={t} u={u} pro={pro} />}
+                {(!dishes || (!t.cta && !fresh)) && (
                     <div className={e.adds}>
                         {!dishes && <EvidAggiungi title="Dei piatti" why="Per far ordinare adesso: consigli, offerte, un menù a prezzo unico" onClick={() => u(x => void (x.evType = "promo"))} />}
-                        {!t.cta && <EvidAggiungi title="Un pulsante" why="Porta a una pagina: prenotazioni, biglietti, un modulo" onClick={() => u(x => void (x.cta = true))} />}
+                        {!t.cta && !fresh && <EvidAggiungi title="Un pulsante" why="Porta a una pagina: prenotazioni, biglietti, un modulo" onClick={() => u(x => void (x.cta = true))} />}
                     </div>
                 )}
             </div>

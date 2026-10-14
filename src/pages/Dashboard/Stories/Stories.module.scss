@@ -14,6 +14,37 @@
   min-width: 0;
 }
 
+// Di cosa parla: icona e nome su una riga, il nome si tronca.
+.about {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+
+  svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    color: var(--text-muted);
+  }
+}
+
+.aboutLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+
 .subtitle {
   white-space: nowrap;
   overflow: hidden;

@@ -8,7 +8,8 @@ const read = (file: string) => readFileSync(path.resolve(__dirname, "../../..", 
 
 const APP_ONLY = [
     '<link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />',
-    '<link href="/fonts/app-inter.css" rel="stylesheet" />'
+    '<link href="/fonts/app-inter.css" rel="stylesheet" />',
+    '<link href="/fonts/app-d.css" rel="stylesheet" />'
 ];
 const LANDING_ONLY = [
     '<link rel="preload" href="/fonts/app/young-serif-400-normal-latin.woff2" as="font" type="font/woff2" crossorigin />',

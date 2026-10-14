@@ -17,6 +17,8 @@ interface MenuProps {
     contentClassName?: string;
     /** `compact`: righe 32, icone 14, divisori rientrati (menù dell'account, Officina). */
     density?: "default" | "compact";
+    /** Aperto e chiuso: chi ha più viste nel pannello torna alla prima a ogni apertura. */
+    onOpenChange?: (open: boolean) => void;
 }
 
 export function Menu({
@@ -25,13 +27,14 @@ export function Menu({
     align = "start",
     side = "bottom",
     contentClassName,
-    density = "default"
+    density = "default",
+    onOpenChange
 }: MenuProps) {
     const className = [styles.content, density === "compact" && styles.compact, contentClassName]
         .filter(Boolean)
         .join(" ");
     return (
-        <RadixDropdownMenu.Root>
+        <RadixDropdownMenu.Root onOpenChange={onOpenChange}>
             <RadixDropdownMenu.Trigger asChild>{trigger}</RadixDropdownMenu.Trigger>
             <RadixDropdownMenu.Portal>
                 <RadixDropdownMenu.Content
@@ -54,7 +57,10 @@ interface MenuItemProps {
     leading?: ReactNode;
     /** `destructive` in --danger (va in fondo, dopo un divisore); `accent` in brand per l'azione che fa avanzare (es. «Pubblica»). */
     variant?: "default" | "destructive" | "accent";
-    onSelect?: () => void;
+    /** Riceve l'evento di Radix: `event.preventDefault()` tiene aperto il menù (cambio di vista). */
+    onSelect?: (event: Event) => void;
+    /** Classe in più sulla voce (le voci speciali del menù dell'account). */
+    className?: string;
     disabled?: boolean;
     /**
      * Sotto-testo `caption` sotto l'etichetta (scheda «Menu», anatomia). Per
@@ -141,10 +147,11 @@ function MenuItem({
     target,
     trailing,
     leading,
-    info
+    info,
+    className: extraClassName
 }: MenuItemProps) {
     const infoRef = useRef<HTMLSpanElement>(null);
-    const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : variant === "accent" ? ` ${styles.accent}` : ""}${description ? ` ${styles.withDescription}` : ""}`;
+    const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : variant === "accent" ? ` ${styles.accent}` : ""}${description ? ` ${styles.withDescription}` : ""}${extraClassName ? ` ${extraClassName}` : ""}`;
     const content = (
         <>
             {Icon && <Icon size={16} />}
@@ -205,10 +212,15 @@ function MenuSeparator() {
 
 interface MenuLabelProps {
     children: ReactNode;
+    className?: string;
 }
 
-function MenuLabel({ children }: MenuLabelProps) {
-    return <RadixDropdownMenu.Label className={styles.label}>{children}</RadixDropdownMenu.Label>;
+function MenuLabel({ children, className }: MenuLabelProps) {
+    return (
+        <RadixDropdownMenu.Label className={className ? `${styles.label} ${className}` : styles.label}>
+            {children}
+        </RadixDropdownMenu.Label>
+    );
 }
 
 Menu.Item = MenuItem;

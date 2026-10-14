@@ -72,3 +72,31 @@
 .disabled .caret {
   opacity: 0.6;
 }
+
+// --- Direzione D (artifact v28, `.dd.f .ddb`): campo a 16 px con il filo
+// grigio-lilla; aperto o a fuoco il filo diventa indaco con l'alone tenue. ---
+.select {
+  @include look-d {
+    border-radius: var(--d-r-ctl);
+    border-color: var(--d-field-line);
+    font-size: 13.5px;
+    font-weight: 500;
+
+    &:hover:not(:disabled):not(:focus-visible) {
+      border-color: color-mix(in srgb, var(--d-brand) 35%, transparent);
+    }
+
+    &:focus-visible {
+      border-color: color-mix(in srgb, var(--d-brand) 55%, transparent);
+      box-shadow: 0 0 0 4px var(--d-soft);
+    }
+
+    @include touch-input-font;
+  }
+}
+
+.caret {
+  @include look-d {
+    color: var(--d-muted);
+  }
+}

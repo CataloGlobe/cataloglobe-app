@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
 import { sectionRow, sidebarLink } from "./nav";
-import { MATRIX_RULE_NAME, MENU, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, STYLE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { FEATURED, MATRIX_RULE_NAME, MENU, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, STYLE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
  * Programmazione (lotto `ds-5-programmazione`, P0). Scritto sulla pagina di
@@ -550,11 +550,11 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
         await expect(main(page).getByText(/^Sola lettura/)).toHaveCount(0);
     });
 
-    test("cablaggio: «Nuova regola» dalla sede nasce con la RPC, già sulla sede (T9b)", async ({ page }) => {
+    test("cablaggio: «Aggiungi» dalla sede nasce con la RPC, già sulla sede (T9b)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000780";
         stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
         await openSeatList(page, SEDE.centro, "price");
-        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await page.getByRole("button", { name: /^Aggiungi/ }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
         const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
         expect(body.p_rule_type).toBe("price");
@@ -581,11 +581,11 @@ test.describe("Programmazione — ruolo di sede con più sedi", () => {
         stub = await stubProgrammazione(page, {});
     });
 
-    test("cablaggio: «Nuova regola» dall'azienda nasce sulle sue sedi (T9b)", async ({ page }) => {
+    test("cablaggio: «Aggiungi» dall'azienda nasce sulle sue sedi (T9b)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000781";
         stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
         await openList(page, "layout");
-        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await page.getByRole("button", { name: /^Aggiungi/ }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
         const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
         const targets = JSON.stringify(body.p_targets);
@@ -622,6 +622,36 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByRole("button", { name: "28 settembre – 4 ottobre 2026" })).toBeVisible();
         await main(page).getByRole("button", { name: "Oggi" }).click();
         await expect(main(page).getByRole("button", { name: "21–27 settembre 2026" })).toBeVisible();
+    });
+
+    test("una regola spenta è una linea «pronto, non in onda»: dal pannello «Metti in onda», e «Spegni» su una accesa", async ({ page }) => {
+        stub.onWrite("schedules.PATCH", touched);
+        await openList(page, "layout");
+        await openCalendar(page);
+        await guarda(page, "Centro e2e");
+        await expect(main(page).getByText("pronto, non in onda", { exact: true })).toBeVisible();
+        // lunedì: la corsia Menù aperta ha una linea per il pranzo acceso e una, tratteggiata, per la regola spenta
+        await main(page).getByRole("button", { name: /^Menù · / }).first().click();
+        await main(page).getByRole("button", { name: /^Pranzo e2e · .*Pronto, non in onda\./ }).first().click();
+        const panel = main(page).getByRole("complementary", { name: "Pranzo e2e" });
+        await expect(panel.getByText("Pronto, non in onda", { exact: true })).toBeVisible();
+        await expect(panel.getByText("La sua voce nel Calendario resta, spenta, con sedi e orari: lo ritrovi uguale quando lo rimetti in onda.")).toBeVisible();
+        await expect(panel.getByRole("button", { name: "Spegni" })).toHaveCount(0);
+        await panel.getByRole("button", { name: "Metti in onda" }).click();
+        await expect.poll(() => writesOf(stub, "schedules.PATCH").length).toBe(1);
+        expect(writesOf(stub, "schedules.PATCH")[0].params.get("id")).toBe(`eq.${RULE.spento}`);
+        expect(writesOf(stub, "schedules.PATCH")[0].body).toEqual({ enabled: true });
+        await expect(main(page).getByText("In onda: Pranzo e2e.")).toBeVisible();
+        // la regola accesa: «Spegni» chiede conferma e dice che la voce resta
+        await main(page).getByRole("button", { name: /^Pranzo e2e · 11:00–15:00\. In onda\./ }).first().click();
+        await panel.getByRole("button", { name: "Spegni" }).click();
+        await expect(panel.getByText("Spegnere «Pranzo e2e»?")).toBeVisible();
+        await expect(panel.getByRole("button", { name: "Togli dal calendario" })).toHaveCount(0);
+        await panel.getByRole("button", { name: "Spegni" }).click();
+        await expect.poll(() => writesOf(stub, "schedules.PATCH").length).toBe(2);
+        expect(writesOf(stub, "schedules.PATCH")[1].params.get("id")).toBe(`eq.${RULE.pranzo}`);
+        expect(writesOf(stub, "schedules.PATCH")[1].body).toEqual({ enabled: false });
+        await expect(main(page).getByText("Spento: Pranzo e2e. Resta pronto, non in onda.")).toBeVisible();
     });
 
     test("si apre su oggi; il calendarietto porta al giorno; «Oggi» riporta su oggi quando non si vede", async ({ page }) => {
@@ -893,7 +923,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(main(page).getByText("Prende il posto di un altro a pari merito: si salva col database nuovo")).toBeVisible();
         await avviso.getByRole("radio", { name: "Mettili insieme" }).click();
         await expect(avviso.getByText("In quelle ore ci sono tutti e due: il cliente sceglie.")).toBeVisible();
-        await expect(main(page).getByText("Due menù insieme: si salva col database nuovo")).toBeVisible();
+        await expect(main(page).getByText("Due menù insieme: si salva col database nuovo. Per ora scegli «al posto».")).toBeVisible();
         // il riepilogo e l'anteprima lo dicono: si aggiunge, non prende il posto
         await expect(main(page).getByText(/«Carta e2e» si aggiunge agli altri menù/).first()).toBeVisible();
         await expect(main(page).getByText("Quando si sovrappongono c'è insieme a «Pranzo e2e»: il cliente sceglie.")).toBeVisible();
@@ -903,18 +933,64 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
     });
 
+    test("punti 22 e 23: «Quale menù» dice chi è in onda; chi ha già la sua voce si modifica da lì, gli altri proseguono nel tunnel", async ({ page }) => {
+        await openList(page, "layout");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
+        await expect(main(page).getByText("Scegli cosa, poi dove e quando.")).toBeVisible();
+        await expect(main(page).getByText("Un menù nei giorni e nelle ore che scegli: insieme agli altri o al loro posto.")).toBeVisible();
+        await main(page).getByRole("button", { name: /^Menù/ }).first().click();
+        // i passi sono quelli del tunnel: Cosa · Dove · Quando · Controlla
+        for (const n of ["1 Cosa", "2 Dove", "3 Quando", "4 Controlla"]) await expect(main(page).getByRole("button", { name: n, exact: true })).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "2 Dove", exact: true })).toBeDisabled();
+        await expect(main(page).getByRole("radio", { name: "Carta e2e in onda" })).toBeVisible();
+        await expect(main(page).getByRole("radio", { name: "Cena e2e pronto, non in onda" })).toBeVisible();
+        // lo stile non si sceglie qui: lo chiede il tunnel
+        await expect(main(page).getByRole("combobox", { name: "Lo stile che va col menù" })).toHaveCount(0);
+        // una voce per menù
+        await main(page).getByRole("radio", { name: /^Pranzo e2e/ }).click();
+        await expect(main(page).getByText(/^«Pranzo e2e» ha già la sua voce nel Calendario: .+\. Una voce per menù: la modifichi da lì\./)).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "Avanti" })).toBeDisabled();
+        await expect(main(page).getByText("Ha già la sua voce: modificala da lì")).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "Modifica la sua voce" })).toBeVisible();
+        // chi non ce l'ha prosegue nel tunnel, già sul dove
+        await main(page).getByRole("radio", { name: /^Cena e2e/ }).click();
+        await expect(main(page).getByRole("button", { name: "Modifica la sua voce" })).toHaveCount(0);
+        await main(page).getByRole("button", { name: "Avanti" }).click();
+        await expect(page).toHaveURL(new RegExp(`/crea/menu/${MENU.cena}\\?da=calendario&metti=1$`));
+    });
+
+    test("punto 24: una voce sola si modifica nel tunnel, aperto dal Calendario; più voci restano qui", async ({ page }) => {
+        await openList(page, "featured");
+        await openCalendar(page);
+        await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
+        await main(page).getByRole("button", { name: /^Menù/ }).first().click();
+        // «Pranzo e2e» sta in due regole: la sua voce si modifica ancora qui
+        await main(page).getByRole("radio", { name: /^Pranzo e2e/ }).click();
+        await main(page).getByRole("button", { name: "Modifica la sua voce" }).click();
+        await expect(main(page).getByRole("heading", { name: /^Modifica · Pranzo e2e/ })).toBeVisible();
+        await main(page).getByRole("button", { name: "Torna al calendario" }).click();
+        // «Luci di Natale e2e» ha una voce sola: il dove e il quando si cambiano nel tunnel
+        await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
+        await main(page).getByRole("button", { name: /^In evidenza/ }).first().click();
+        await main(page).getByRole("radio", { name: /^Luci di Natale e2e/ }).click();
+        await main(page).getByRole("button", { name: "Modifica la sua voce" }).click();
+        await expect(page).toHaveURL(new RegExp(`/crea/evidenza/${FEATURED.natale}\\?da=calendario$`));
+    });
+
     test("cablaggio: «Dove e quando» è un passo solo; le sedi col bottone «Sedi», le ore diverse fanno due regole (D145)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000782";
         stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
         stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
-        stub.onWrite("schedule_layout.PATCH", () => [{ id: NEW_ID }]);
-        stub.onWrite("schedule_layout.POST", () => null);
+        stub.onWrite("schedule_visibility_overrides.DELETE", () => null);
+        stub.onWrite("schedule_visibility_overrides.POST", () => null);
         stub.onWrite("rpc.update_schedule_targets", () => null);
         await openList(page, "layout");
         await openCalendar(page);
         await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
-        await main(page).getByRole("button", { name: /^Menù/ }).first().click();
-        await main(page).getByRole("radio", { name: /Pranzo e2e/ }).click();
+        // menù, stile e in evidenza proseguono nel tunnel: il passo unico resta per prezzi e disponibilità
+        await main(page).getByRole("button", { name: /^Disponibilità/ }).first().click();
+        await main(page).getByRole("checkbox", { name: /Tiramisù e2e/ }).click();
         await main(page).getByRole("button", { name: "Avanti" }).click();
         // dove e quando insieme: tre passi
         await expect(main(page).getByRole("button", { name: "2 Dove e quando" })).toHaveAttribute("aria-current", "step");

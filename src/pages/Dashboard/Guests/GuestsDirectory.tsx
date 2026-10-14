@@ -17,7 +17,7 @@
 // esplicitato da `formatVisitCount`, e la nota in fondo spiega perché due
 // colleghi possono leggere numeri diversi.
 
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { BookUser } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { Card } from "@/components/ui/Card/Card";
@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
+import { LOOK_D } from "@styles/lookD";
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
 import { formatAbsenceCount, formatVisitCount, visibilityFootnote } from "@/utils/guestVisibilityCopy";
 import { formatPhoneForDisplay, formatShortVisitDate } from "./guestFormat";
@@ -99,24 +100,30 @@ export default function GuestsDirectory({
         );
     }
 
+    const head = (
+        <div className={styles.head} aria-hidden>
+            <span />
+            <span>Cliente</span>
+            <span>Ultimi 12 mesi</span>
+            <span>Ultima volta</span>
+            <span>Da sapere</span>
+        </div>
+    );
+
     return (
         <div className={styles.guestsWrap}>
+            {/* Nella D le intestazioni stanno sopra la card (v28, `.gl-head`). */}
+            {LOOK_D && head}
             <Card flush>
-                <div className={styles.head} aria-hidden>
-                    <span />
-                    <span>Cliente</span>
-                    <span>Ultimi 12 mesi</span>
-                    <span>Ultima volta</span>
-                    <span>Da sapere</span>
-                </div>
+                {!LOOK_D && head}
                 <ul className={styles.list} aria-label="Clienti">
-                    {guests.map(g => {
+                    {guests.map((g, i) => {
                         const activity = activityByGuest.get(g.id);
                         const tags = tagsByGuest.get(g.id);
                         const sedi = activity?.sedi.map(s => s.name).join(" · ");
                         const know = knowByGuest.get(g.id);
                         return (
-                            <li key={g.id}>
+                            <li key={g.id} style={{ "--i": Math.min(i, 12) } as CSSProperties}>
                                 <button
                                     type="button"
                                     className={styles.row}
@@ -128,7 +135,7 @@ export default function GuestsDirectory({
                                         <span className={styles.nameLine}>
                                             <span className={styles.name}>{g.display_name}</span>
                                             {isRegular(activity, tags) && <span className={styles.sign}>abituale</span>}
-                                            {isNew(g, today) && <span className={styles.sign}>nuovo</span>}
+                                            {isNew(g, today) && <span className={`${styles.sign} ${styles.signNew}`}>nuovo</span>}
                                         </span>
                                         <span className={styles.phone}>
                                             {[formatPhoneForDisplay(g.phone_e164), sedi].filter(Boolean).join(" · ")}

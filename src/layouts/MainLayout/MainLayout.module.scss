@@ -91,3 +91,55 @@ $global-header-height: 56px;
     padding: 16px;
   }
 }
+
+// ===== Direzione D (artifact v28) =====
+// Cornice: testata ferma, scorre solo il contenuto. Il padding del contenuto
+// tiene le ombre delle carte dentro l'area che scorre (v28 `.fx .page`).
+// Il riquadro di dettaglio è una terza colonna, staccata di 12 sopra e sotto.
+@include look-d {
+  // Il pulsante tondo della barra sta fuori dalla carta, nel corpo.
+  .body {
+    position: relative;
+  }
+
+  .content {
+    padding: 18px clamp(14px, 2.4vw, 28px) 28px;
+    overscroll-behavior: contain;
+  }
+
+  .detail {
+    width: clamp(350px, 29%, 440px);
+    margin: 12px 0;
+    border-left: 0;
+    border-radius: var(--d-r-card) 0 0 var(--d-r-card);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow-pane);
+    overflow: hidden;
+    position: relative;
+    z-index: 7;
+
+    // Sotto 1024 il riquadro copre il contenuto, non la barra (binario 68
+    // + margine 12 + 24 di aria, come la v28 `left: sw + 24`).
+    @include below-sidebar {
+      position: absolute;
+      inset: 0 0 0 104px;
+      width: auto;
+      margin: 0;
+      border-radius: var(--d-r-card);
+    }
+
+    // Al telefono copre tutto, barra in alto compresa (v28 `.spane` fixed).
+    @media (max-width: 860px) {
+      inset: 0;
+      border-radius: 0;
+      z-index: var(--z-float);
+    }
+  }
+
+  // Al telefono la barra è una carta in alto, sopra testata e contenuto.
+  @media (max-width: 860px) {
+    .body {
+      flex-direction: column;
+    }
+  }
+}

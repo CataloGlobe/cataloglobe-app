@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // ConfirmDialog — scheda «ConfirmDialog»: «sei sicuro?», solo per
 // l'irreversibile. Pannello 420, padding 24, radius-surface,
 // shadow-overlay, z-overlay. Solo token.
@@ -31,7 +33,7 @@
 }
 
 .wide {
-  // tre bottoni su una riga («Resta qui», «Esci senza salvare», «Tieni come bozza ed esci»)
+  // tre bottoni su una riga («Resta qui», «Esci senza salvare», «Salva le modifiche ed esci»)
   width: 520px;
 }
 
@@ -63,4 +65,51 @@
   align-items: center;
   gap: var(--space-8);
   margin-left: auto;
+}
+
+// --- Direzione D (artifact v28, `#smodal`): velo indaco leggero senza sfocatura,
+// finestra a 28 px con l'ombra lunga, titolo in Bricolage, frase in secondario. ---
+.overlay {
+  @include look-d {
+    background: rgba(20, 20, 50, 0.34);
+    backdrop-filter: none;
+  }
+}
+
+.panel {
+  @include look-d {
+    width: 400px;
+    gap: 10px;
+    border: none;
+    border-radius: var(--d-r-card);
+    box-shadow: var(--d-shadow-modal);
+  }
+}
+
+.wide {
+  @include look-d {
+    width: 520px;
+  }
+}
+
+.title {
+  @include look-d {
+    font-family: var(--d-f-display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+}
+
+.content {
+  @include look-d {
+    color: var(--d-muted);
+    font-size: 14px;
+  }
+}
+
+.footer {
+  @include look-d {
+    margin-top: 8px;
+  }
 }

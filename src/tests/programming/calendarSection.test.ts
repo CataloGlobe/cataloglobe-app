@@ -28,6 +28,8 @@ import {
     isDirty,
     missing,
     NEW_MODEL,
+    parseTime,
+    setRangeTime,
     perText,
     syncPer,
     timeFields,
@@ -35,7 +37,7 @@ import {
     writeAside,
     type DraftLookups
 } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { axisFor, dayCtx, dayNum, entriesFromRules, fState, order, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { axisFor, dayCtx, dayNum, entriesFromRules, fLines, fState, offLines, order, thingIdOf, voceOf, why } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { compareCandidates, specificityFor } from "@shared/scheduleCompetition";
 import { dropDraft, PartialSaveError, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 
@@ -101,6 +103,53 @@ const happy = () =>
 const entryOf = (r: LayoutRule, i = 0) => entriesFromRules([r], names)[i];
 
 beforeEach(() => vi.clearAllMocks());
+
+describe("regole spente: pronto, non in onda", () => {
+    const layout = { catalog_id: "c1", style_id: "s1" } as LayoutRule["layout"];
+    const accesa = rule({ enabled: true, layout });
+    const spenta = rule({ enabled: false, applyToAll: true, activityIds: [], layout, time_mode: "window", days_of_week: [1], time_from: "12:00:00", time_to: "15:00:00" });
+    const bozza = rule({ enabled: false, layout: { catalog_id: null, style_id: null } as LayoutRule["layout"] });
+    const prezzo = rule({ enabled: false, rule_type: "price", price_overrides: [{ product_id: "p1", product_name: "Spritz", override_price: 4, show_original_price: true, option_value_id: null }] as LayoutRule["price_overrides"] });
+    const all = [accesa, spenta, bozza, prezzo];
+    it("le accese e le spente stanno in due elenchi; bozze, prezzi e disponibilità spenti restano fuori", () => {
+        expect(entriesFromRules(all, names).map(e => e.ruleId)).toEqual([accesa.id, accesa.id]);
+        const off = entriesFromRules(all, names, true);
+        expect(off.map(e => [e.ruleId, e.kind, e.spento])).toEqual([[spenta.id, "menu", true], [spenta.id, "style", true]]);
+    });
+    it("la voce di una cosa: in quante regole sta, e se una è in onda", () => {
+        const on = entriesFromRules(all, names), off = entriesFromRules(all, names, true);
+        expect(on.map(thingIdOf)).toEqual(["c1", "s1"]);
+        expect(voceOf(on, off, "menu", "c1")).toMatchObject({ count: 2, on: true, entry: { ruleId: accesa.id } });
+        expect(voceOf([], off, "menu", "c1")).toMatchObject({ count: 1, on: false, entry: { spento: true } });
+        expect(voceOf(on, off, "menu", "c9")).toBeNull();
+    });
+    it("la linea spenta sta nelle ore che avrebbe, solo nei suoi giorni", () => {
+        const off = entriesFromRules(all, names, true), seat = { activityId: "a1", groupIds: [] }, ax = { from: 480, to: 1440 };
+        const lun = dayNum(2026, 8, 21);
+        expect(offLines(off, "menu", seat, lun, ax).map(l => l.segs)).toEqual([[{ from: 720, to: 900 }]]);
+        expect(offLines(off, "menu", seat, lun + 1, ax)).toEqual([]);
+        expect(offLines(off, "price", seat, lun, ax)).toEqual([]);
+    });
+});
+
+describe("una fascia che passa la mezzanotte (punto 26)", () => {
+    const layout = { catalog_id: "c1", style_id: "s1" } as LayoutRule["layout"];
+    const notte = rule({ enabled: true, applyToAll: true, activityIds: [], layout, time_mode: "window", days_of_week: [5], time_from: "22:00:00", time_to: "02:00:00" });
+    const list = entriesFromRules([notte], names), seat = { activityId: "a1", groupIds: [] };
+    const ven = dayNum(2026, 8, 25);
+    it("l'asse arriva dove finisce l'ultima fascia, e parte dalla prima", () => {
+        expect(axisFor(list)).toEqual({ from: 480, to: 1560 });
+        const alba = rule({ enabled: true, applyToAll: true, activityIds: [], layout, time_mode: "window", time_from: "05:30:00", time_to: "01:00:00" });
+        expect(axisFor(entriesFromRules([alba], names))).toEqual({ from: 300, to: 1500 });
+    });
+    it("si disegna nel giorno in cui comincia: il venerdì fino alle 02:00, il sabato niente", () => {
+        const ax = axisFor(list);
+        const segs = (d: number) => fLines(dayCtx(list, "menu", seat, d), ax).flatMap(l => l.segs.filter(x => x.state === "on").map(x => [x.from, x.to]));
+        expect(segs(ven)).toEqual([[1320, 1560]]);
+        expect(segs(ven + 1)).toEqual([]);
+        expect(fState(dayCtx(list, "menu", seat, ven), 1500).win?.ruleId).toBe(notte.id);
+    });
+});
 
 describe("bozza della sezione", () => {
     it("i tempi tornano come li scrive l'editor: domenica = 0, fine alle 24 → 23:59", () => {
@@ -449,6 +498,55 @@ describe("le novità della versione 10 (D120, D149)", () => {
         const D = blankDraft("style", ALL, null);
         D.thing = "s1";
         expect(waitsForDb(D)).toBe("Uno stile da solo: si salva col database nuovo");
+    });
+});
+
+describe("l'ora scritta a mano e la fascia che passa la mezzanotte (tunnel, punto 3)", () => {
+    const keep = { ...NEW_MODEL };
+    afterEach(() => void Object.assign(NEW_MODEL, keep));
+
+    it("si scrive 22, 2230, 22:30 o 22.30; si arrotonda al quarto d'ora", () => {
+        expect(parseTime("22")).toBe(1320);
+        expect(parseTime("2230")).toBe(1350);
+        expect(parseTime("22:30")).toBe(1350);
+        expect(parseTime("22.30")).toBe(1350);
+        expect(parseTime(" 9 ")).toBe(540);
+        expect(parseTime("22:10")).toBe(1335);
+        expect(parseTime("24")).toBe(0);
+        expect(parseTime("")).toBeNull();
+        expect(parseTime("ciao")).toBeNaN();
+        expect(parseTime("25")).toBeNaN();
+        expect(parseTime("12:70")).toBeNaN();
+    });
+
+    it("con la notte: una fine prima dell'inizio è del giorno dopo, e segue l'inizio", () => {
+        NEW_MODEL.overnight = true;
+        const r: [number, number] = [23 * 60, 24 * 60];
+        setRangeTime(r, 1, 5 * 60);
+        expect(r).toEqual([1380, 1440 + 300]);
+        // l'inizio scende sotto la fine: la fine torna nello stesso giorno
+        setRangeTime(r, 0, 2 * 60);
+        expect(r).toEqual([120, 300]);
+        // e risale sopra: di nuovo il giorno dopo
+        setRangeTime(r, 0, 12 * 60);
+        expect(r).toEqual([720, 1440 + 300]);
+        // le frecce: un quarto d'ora sotto lo zero è 23:45
+        setRangeTime(r, 0, -15);
+        expect(r[0]).toBe(1425);
+    });
+
+    it("senza la notte: la fine resta com'è scritta (lo dice `invalid`) e lo 0 è mezzanotte", () => {
+        NEW_MODEL.overnight = false;
+        const r: [number, number] = [12 * 60, 15 * 60];
+        setRangeTime(r, 1, 0);
+        expect(r).toEqual([720, 1440]);
+        setRangeTime(r, 1, 10 * 60);
+        expect(r).toEqual([720, 600]);
+        const D = blankDraft("menu", ALL, null);
+        D.when = { ranges: [r] };
+        expect(invalid(D)).toBe("Una fascia finisce prima di cominciare");
+        setRangeTime(r, 0, 9 * 60);
+        expect(r).toEqual([540, 600]);
     });
 });
 

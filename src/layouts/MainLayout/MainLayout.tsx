@@ -36,6 +36,7 @@ import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { useSediVista } from "@/hooks/useSediVista";
 
 import { DetailPaneHostContext, type DetailPaneHost } from "@/components/layout/DetailPane/DetailPaneContext";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./MainLayout.module.scss";
 import { isCanceledAllowedPath } from "./canceledAllowedPath";
 
@@ -63,6 +64,13 @@ const CREA_TITLES: Record<string, string> = {
     stile: 'Nuovo stile',
     evidenza: 'Nuovo contenuto in evidenza',
     storia: 'Nuova storia',
+};
+// con l'id in fondo il tunnel modifica: il titolo lo dice (giro del 2026-10-14, difetto 12)
+const CREA_EDIT_TITLES: Record<string, string> = {
+    menu: 'Modifica il menù',
+    stile: 'Modifica lo stile',
+    evidenza: 'Modifica il contenuto in evidenza',
+    storia: 'Modifica la storia',
 };
 
 /**
@@ -107,7 +115,7 @@ function resolvePageTitle(
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
     // I tunnel di creazione (D124): il titolo dice cosa si sta creando.
-    if (first === 'crea') return CREA_TITLES[second] ?? 'Crea';
+    if (first === 'crea') return (third ? CREA_EDIT_TITLES[second] : CREA_TITLES[second]) ?? 'Crea';
 
     // Una pagina, due parti: «Regole» e, con la vista, «Calendario».
     if (first === 'scheduling') return new URLSearchParams(search).get('vista') === 'calendario' ? 'Calendario' : 'Regole';
@@ -120,7 +128,8 @@ export default function MainLayout() {
     // Sotto 768 la sidebar è un cassetto; fra 768 e 1024 parte collassata
     // (design system §2, breakpoint-sidebar): la scelta manuale resta
     // possibile, ma non viene salvata finché la finestra è stretta.
-    const isMobile = useMediaQuery("(max-width: 767px)");
+    // Nella D la barra passa in alto sotto 861 (v28); fuori dalla D, sotto 768.
+    const isMobile = useMediaQuery(LOOK_D ? "(max-width: 860px)" : "(max-width: 767px)");
     const isNarrow = useMediaQuery("(max-width: 1023px)");
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
@@ -380,7 +389,9 @@ export default function MainLayout() {
     };
     // Notifiche in alto a destra della pagina (Lorenzo, 2026-10-09), non più
     // in cima alla sidebar. Sotto 768 le tiene la testata (`AppHeader`).
-    const titleBarActions = isMobile ? undefined : (
+    const detailAside = <aside ref={setDetailSlot} className={styles.detail} aria-label="Dettaglio" />;
+
+    const titleBarActions = isMobile && !LOOK_D ? undefined : (
         <>
             <AiUsagePill usage={aiUsage.usage} />
             <HeaderNotifications scope="tenant" tenantId={selectedTenant?.id ?? null} />
@@ -395,7 +406,7 @@ export default function MainLayout() {
                         <OperationalAlerts />
                         {/* Sul desktop la sidebar va a tutta altezza e prende logo,
                             campanella e dove sei (Officina): la testata resta al telefono. */}
-                        {isMobile && (
+                        {isMobile && !LOOK_D && (
                             <header className={styles.globalHeader}>
                                 <AppHeader
                                     onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
@@ -430,9 +441,12 @@ export default function MainLayout() {
                                             </DetailPaneHostContext.Provider>
                                         </div>
                                     </div>
-                                    <aside ref={setDetailSlot} className={styles.detail} aria-label="Dettaglio" />
+                                    {!LOOK_D && detailAside}
                                 </div>
                             </main>
+                            {/* Nella D il riquadro è una colonna sua, alta quanto
+                                la finestra, accanto a testata e contenuto (v28). */}
+                            {LOOK_D && detailAside}
                         </div>
 
                         {/* Drawer import AI: reso a livello di layout, FUORI dall'Outlet,

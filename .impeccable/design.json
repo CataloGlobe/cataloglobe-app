@@ -1,83 +1,174 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-05T00:00:00Z",
-  "title": "Design System: CataloGlobe Admin",
+  "generatedAt": "2026-10-14T00:00:00Z",
+  "title": "Design System: CataloGlobe Admin (direction D)",
   "extensions": {
     "colorMeta": {
-      "indigo-primary": {
+      "brand": {
         "role": "primary",
-        "displayName": "Indigo Action",
-        "canonical": "#6366f1",
-        "darkValue": "#2563eb",
-        "tonalRamp": ["#1e1b4b", "#312e81", "#3730a3", "#4338ca", "#4648c6", "#6366f1", "#a5b4fc", "#e0e7ff"]
+        "displayName": "Brand",
+        "canonical": "#6a5cf5",
+        "note": "Action and selection."
       },
-      "slate-bg": {
+      "brand-deep": {
+        "role": "primary",
+        "displayName": "Brand Deep",
+        "canonical": "#3d2fc0",
+        "note": "Text on soft fills, hover of the primary."
+      },
+      "bg-lilac": {
         "role": "neutral",
-        "displayName": "Slate Background",
-        "canonical": "#f8fafc",
-        "darkValue": "#0f172a",
-        "tonalRamp": ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#cbd5e1", "#e2e8f0", "#f8fafc"]
+        "displayName": "Lilac Background",
+        "canonical": "#f1effb"
       },
       "surface": {
         "role": "neutral",
         "displayName": "Surface",
-        "canonical": "#ffffff",
-        "darkValue": "#1e293b"
+        "canonical": "#ffffff"
       },
       "ink": {
         "role": "neutral",
         "displayName": "Ink",
-        "canonical": "#0f172a",
-        "darkValue": "#f9fafb"
+        "canonical": "#1d1840"
       },
-      "amber-warning": {
-        "role": "tertiary",
-        "displayName": "Amber Warning",
-        "canonical": "#f59e0b",
-        "tonalRamp": ["#b45309", "#d97706", "#f59e0b", "#fcd34d", "#fde68a", "#fef3c7", "#fffbeb"]
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#59547c"
       },
-      "emerald-success": {
+      "warm": {
         "role": "tertiary",
-        "displayName": "Emerald Success",
-        "canonical": "#10b981",
-        "tonalRamp": ["#065f46", "#047857", "#059669", "#10b981", "#6ee7b7", "#bbf7d0", "#d1fae5", "#f0fdf4"]
+        "displayName": "Warm (coral)",
+        "canonical": "#ee5f3f",
+        "note": "Only for what needs attention now."
       },
-      "red-danger": {
+      "good": {
         "role": "tertiary",
-        "displayName": "Red Danger",
-        "canonical": "#dc2626",
-        "tonalRamp": ["#450a0a", "#7f1d1d", "#b91c1c", "#dc2626", "#f87171", "#fecdd3", "#fff1f2"]
+        "displayName": "Good",
+        "canonical": "#047857"
+      },
+      "status-new": {
+        "role": "tertiary",
+        "displayName": "Service: new",
+        "canonical": "#2f8fe0",
+        "tonalRamp": [
+          "#0e4d87",
+          "#2f8fe0",
+          "#e1efff"
+        ]
+      },
+      "status-work": {
+        "role": "tertiary",
+        "displayName": "Service: in progress",
+        "canonical": "#e09a1a",
+        "tonalRamp": [
+          "#855306",
+          "#e09a1a",
+          "#fff0cf"
+        ]
+      },
+      "status-ready": {
+        "role": "tertiary",
+        "displayName": "Service: ready",
+        "canonical": "#1f9d6b",
+        "tonalRamp": [
+          "#0c5f41",
+          "#1f9d6b",
+          "#daf4e7"
+        ]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Rare page-level hero numerals; not a per-section reflex." },
-      "headline": { "displayName": "Headline", "purpose": "Page titles in the PageHeader." },
-      "title": { "displayName": "Title", "purpose": "Section and card headings." },
-      "body": { "displayName": "Body", "purpose": "Default reading text; cap prose 65-75ch." },
-      "label": { "displayName": "Label", "purpose": "Buttons and control labels; 0.05em tracking." }
+      "page-title": {
+        "displayName": "Page title",
+        "purpose": "Title bar title; Bricolage 20/700."
+      },
+      "pane-title": {
+        "displayName": "Pane title",
+        "purpose": "Panes and dialogs; 18/700."
+      },
+      "number": {
+        "displayName": "Number",
+        "purpose": "Figures on cards; Bricolage 26 (22 under 640)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Figtree 13-13.5, line-height 1.45."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Buttons and tabs; Figtree 13/600."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Section labels in menus; 10.5/700, 0.08em uppercase."
+      }
     },
     "shadows": [
-      { "name": "card-rest", "value": "0 2px 6px rgba(0,0,0,0.03)", "purpose": "Content surfaces at rest (near-flat)." },
-      { "name": "card-hover", "value": "0 4px 10px rgba(0,0,0,0.08)", "purpose": "Card hover, paired with translateY(-2px)." },
-      { "name": "focus-ring", "value": "0 0 0 3px rgba(99,102,241,0.25)", "purpose": "Keyboard focus / active input; always visible." },
-      { "name": "focus-ring-danger", "value": "0 0 0 3px rgba(220,38,38,0.2)", "purpose": "Focus on danger / error controls." },
-      { "name": "menu", "value": "0 10px 38px -10px rgba(22,23,24,0.35), 0 10px 20px -15px rgba(22,23,24,0.2)", "purpose": "Floating dropdowns / popovers." },
-      { "name": "tooltip", "value": "0 4px 16px rgba(0,0,0,0.12)", "purpose": "Tooltips." },
-      { "name": "toast", "value": "0 8px 24px rgba(0,0,0,0.15)", "purpose": "Toasts." },
-      { "name": "drawer", "value": "-4px 0 24px -4px rgba(0,0,0,0.1)", "purpose": "Right-side SystemDrawer edge." },
-      { "name": "modal", "value": "0 20px 60px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.05)", "purpose": "Centered modal (non-CRUD only)." }
+      {
+        "name": "card",
+        "value": "0 2px 0 rgba(61,47,192,.06), 0 18px 40px -18px rgba(61,47,192,.22)",
+        "purpose": "Cards and white controls on the lilac."
+      },
+      {
+        "name": "pop",
+        "value": "0 24px 54px -18px rgba(30,25,90,.45), 0 0 0 1px color-mix(in srgb, #59547c 14%, transparent)",
+        "purpose": "Menus and dropdowns."
+      },
+      {
+        "name": "pane",
+        "value": "-14px 0 40px -22px rgba(61,47,192,.4)",
+        "purpose": "Detail pane and drawers."
+      },
+      {
+        "name": "modal",
+        "value": "0 30px 70px -20px rgba(20,20,60,.5)",
+        "purpose": "Dialogs."
+      },
+      {
+        "name": "focus",
+        "value": "2px solid #4a4de0, offset 2px",
+        "purpose": "Keyboard focus; fields also get a 4px soft ring."
+      }
     ],
     "motion": [
-      { "name": "duration-fast", "value": "150ms", "purpose": "Dominant transition duration (hover, state)." },
-      { "name": "duration-standard", "value": "200ms", "purpose": "Buttons and larger state changes." },
-      { "name": "ease-default", "value": "ease", "purpose": "General-purpose transitions." },
-      { "name": "ease-drawer", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Drawer slide in/out." },
-      { "name": "ease-enter", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Menu / tooltip enter (150ms), ease-out." }
+      {
+        "name": "duration",
+        "value": "280ms",
+        "purpose": "--d-dur, state changes."
+      },
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "--d-ease, widths and plain moves."
+      },
+      {
+        "name": "ease-move",
+        "value": "cubic-bezier(0.34, 1.45, 0.64, 1)",
+        "purpose": "--d-ease-move, small spring on entrances (menus, panes, toasts)."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "1ms",
+        "purpose": "Every animation and transition under prefers-reduced-motion."
+      }
     ],
     "breakpoints": [
-      { "name": "mobile", "value": "768px", "note": "Ad-hoc; no breakpoint token file exists." },
-      { "name": "tablet", "value": "900px", "note": "Ad-hoc media query." },
-      { "name": "wide", "value": "980px", "note": "Ad-hoc media query." }
+      {
+        "name": "phone",
+        "value": "860px",
+        "note": "Under 861 the sidebar becomes the top card (v28)."
+      },
+      {
+        "name": "frame",
+        "value": "1024px",
+        "note": "From 1024 up: window-high frame, fixed title bar; under it controls are 44px."
+      },
+      {
+        "name": "small",
+        "value": "640px",
+        "note": "Smaller numbers, single-column popovers."
+      }
     ]
   },
   "components": [
@@ -85,101 +176,113 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Default primary action; the one place indigo fills a control.",
+      "description": "Main action: brand pill.",
       "html": "<button class=\"ds-btn-primary\">Salva</button>",
-      "css": ".ds-btn-primary { background: var(--brand-primary, #6366f1); color: #fff; font-weight: 500; font-size: 0.9rem; line-height: 1; padding: 0.55rem 0.9rem; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s ease, box-shadow 0.2s ease; } .ds-btn-primary:hover { background: var(--brand-primary-hover, #4648c6); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.25); } .ds-btn-primary:disabled { opacity: 0.6; pointer-events: none; }"
+      "css": ".ds-btn-primary { background: #6a5cf5; color: #fff; font: 600 13px Figtree, system-ui, sans-serif; height: 38px; padding: 0 16px; border: 0; border-radius: 999px; cursor: pointer; transition: transform .12s ease-out; } .ds-btn-primary:hover { background: #3d2fc0; } .ds-btn-primary:active { transform: scale(.97); } .ds-btn-primary:focus-visible { outline: 2px solid #4a4de0; outline-offset: 2px; }"
     },
     {
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Neutral secondary action.",
-      "html": "<button class=\"ds-btn-secondary\">Annulla</button>",
-      "css": ".ds-btn-secondary { background: #e6ebf0; color: var(--text, #0f172a); font-weight: 500; font-size: 0.9rem; line-height: 1; padding: 0.55rem 0.9rem; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s ease; } .ds-btn-secondary:hover { background: #dbe2e8; } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.25); }"
-    },
-    {
-      "name": "Danger Button",
-      "kind": "button",
-      "refersTo": "button-danger",
-      "description": "Destructive action inside delete drawers / confirms.",
-      "html": "<button class=\"ds-btn-danger\">Elimina</button>",
-      "css": ".ds-btn-danger { background: #dc2626; color: #fff; font-weight: 500; font-size: 0.9rem; line-height: 1; padding: 0.55rem 0.9rem; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s ease; } .ds-btn-danger:hover { background: #b91c1c; } .ds-btn-danger:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(220,38,38,0.2); }"
+      "description": "White pill with the card shadow.",
+      "html": "<button class=\"ds-btn-secondary\">Esporta</button>",
+      "css": ".ds-btn-secondary { background: #fff; color: #1d1840; font: 600 13px Figtree, system-ui, sans-serif; height: 38px; padding: 0 14px; border: 1px solid color-mix(in srgb, #59547c 16%, transparent); border-radius: 999px; box-shadow: 0 2px 0 rgba(61,47,192,.06), 0 18px 40px -18px rgba(61,47,192,.22); cursor: pointer; } .ds-btn-secondary:active { transform: scale(.97); }"
     },
     {
       "name": "Text Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "Standard text field used across forms and drawers.",
-      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Nome prodotto\" />",
-      "css": ".ds-input { background: var(--card-bg, #fff); color: var(--text, #0f172a); font-size: 0.95rem; padding: 0.62rem 0.85rem; border: 1.5px solid var(--border, #cbd5e1); border-radius: 8px; width: 100%; transition: border-color 0.15s ease, box-shadow 0.15s ease; } .ds-input::placeholder { color: #64748b; } .ds-input:focus-visible { outline: none; border-color: var(--brand-primary, #6366f1); box-shadow: 0 0 0 3px rgba(99,102,241,0.25); } .ds-input:disabled { opacity: 0.6; background: var(--hover-bg, #f1f5f9); }"
+      "description": "Field at 16px radius.",
+      "html": "<input class=\"ds-input\" placeholder=\"Cerca\" />",
+      "css": ".ds-input { height: 38px; padding: 0 12px; border: 1px solid color-mix(in srgb, #59547c 30%, transparent); border-radius: 16px; background: #fff; color: #1d1840; font: 500 13.5px Figtree, system-ui, sans-serif; } .ds-input:focus { border-color: color-mix(in srgb, #6a5cf5 55%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, #6a5cf5 10%, #fff); outline: none; }"
     },
     {
       "name": "Card",
       "kind": "card",
       "refersTo": "card",
-      "description": "Content surface for grouped info; never nested.",
-      "html": "<div class=\"ds-card\"><h3>Sede</h3><p>Trattoria del Porto</p></div>",
-      "css": ".ds-card { background: var(--card-bg, #fff); color: var(--text, #0f172a); border: 1px solid var(--border, #e2e8f0); border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: box-shadow 0.15s ease, transform 0.15s ease; } .ds-card:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.08); transform: translateY(-2px); } .ds-card h3 { font-weight: 600; font-size: 1.25rem; margin: 0 0 0.25rem; } .ds-card p { color: #475569; margin: 0; }"
+      "description": "White card on the lilac, 28px radius, no border.",
+      "html": "<section class=\"ds-card\"><h3>La pagina</h3><p>1379 visite</p></section>",
+      "css": ".ds-card { background: #fff; border-radius: 28px; padding: 22px; box-shadow: 0 2px 0 rgba(61,47,192,.06), 0 18px 40px -18px rgba(61,47,192,.22); color: #1d1840; }"
     },
     {
-      "name": "Status Badge",
+      "name": "Status Tag",
       "kind": "chip",
-      "refersTo": "status-badge",
-      "description": "Pill status indicator; color always paired with a dot + label.",
-      "html": "<span class=\"ds-status ds-status--success\"><span class=\"ds-status__dot\"></span>Pubblicata</span>",
-      "css": ".ds-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; line-height: 1; padding: 4px 10px; border-radius: 999px; } .ds-status__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.9; } .ds-status--success { background: #d1fae5; color: #065f46; }"
+      "refersTo": "status-tag",
+      "description": "One color, one meaning; 8px radius.",
+      "html": "<span class=\"ds-tag\">Nuova</span>",
+      "css": ".ds-tag { display: inline-flex; padding: 2px 8px; border-radius: 8px; background: #e1efff; color: #0e4d87; font: 600 12px Figtree, system-ui, sans-serif; }"
     },
     {
-      "name": "DataTable Row",
+      "name": "Segmented Control",
       "kind": "custom",
-      "refersTo": "datatable-row",
-      "description": "Standard table shell with sticky header and 56px rows.",
-      "html": "<table class=\"ds-table\"><thead><tr><th>Prodotto</th><th>Prezzo</th></tr></thead><tbody><tr><td>Margherita</td><td>7,50 &euro;</td></tr></tbody></table>",
-      "css": ".ds-table { width: 100%; border-collapse: collapse; border: 1px solid var(--border, #e2e8f0); border-radius: 12px; overflow: hidden; background: var(--card-bg, #fff); } .ds-table thead th { position: sticky; top: 0; background: var(--hover-bg, #f1f5f9); text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.72; padding: 12px 24px; min-height: 44px; } .ds-table tbody td { padding: 12px 24px; height: 56px; border-bottom: 1px solid var(--border, #e2e8f0); color: var(--text, #0f172a); transition: background 0.18s ease; } .ds-table tbody tr:hover td { background: var(--hover-bg, #f1f5f9); }"
+      "refersTo": "button-secondary",
+      "description": "White pill track with a sliding brand thumb.",
+      "html": "<div class=\"ds-seg\"><button aria-pressed=\"true\">30 giorni</button><button>90 giorni</button></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: #fff; box-shadow: 0 2px 0 rgba(61,47,192,.06), 0 18px 40px -18px rgba(61,47,192,.22); } .ds-seg button { border: 0; background: none; padding: 6px 12px; border-radius: 999px; font: 600 13px Figtree, system-ui, sans-serif; color: #59547c; } .ds-seg [aria-pressed=true] { background: #3d2fc0; color: #fff; }"
+    },
+    {
+      "name": "Sidebar Card",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Lilac card 224 wide (rail 68), current item white with brand-deep text.",
+      "html": "<nav class=\"ds-side\"><a aria-current=\"page\">Andamento</a><a>Recensioni</a></nav>",
+      "css": ".ds-side { display: grid; gap: 2px; width: 224px; padding: 18px 12px; border-radius: 24px; background: color-mix(in srgb, #6a5cf5 9%, #f1effb); } .ds-side a { padding: 8px 10px; border-radius: 16px; color: #6d678f; font: 500 13.5px Figtree, system-ui, sans-serif; } .ds-side [aria-current=page] { background: #fff; color: #3d2fc0; }"
     },
     {
       "name": "Right-side Drawer",
       "kind": "custom",
       "refersTo": "card",
-      "description": "SystemDrawer — the CRUD surface; never a centered modal.",
-      "html": "<aside class=\"ds-drawer\"><header class=\"ds-drawer__hd\">Nuovo prodotto</header><div class=\"ds-drawer__body\">&hellip;</div></aside>",
-      "css": ".ds-drawer { width: 520px; max-width: 100%; height: 100%; background: var(--card-bg, #fff); box-shadow: -4px 0 24px -4px rgba(0,0,0,0.1); display: flex; flex-direction: column; } .ds-drawer__hd { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border, #e2e8f0); font-weight: 600; font-size: 1.125rem; } .ds-drawer__body { padding: 1.5rem; overflow-y: auto; flex: 1; }"
+      "description": "All CRUD; slides in from the right with the spring, rounded on the left.",
+      "html": "<aside class=\"ds-drawer\">…</aside>",
+      "css": ".ds-drawer { position: fixed; top: 12px; bottom: 12px; right: 0; width: min(520px, 100vw); background: #fff; border-radius: 28px 0 0 28px; box-shadow: -14px 0 40px -22px rgba(61,47,192,.4); }"
     }
   ],
   "narrative": {
-    "northStar": "The Quiet Operator",
-    "overview": "CataloGlobe Admin is a dependable business tool that disappears into the task. Its users are restaurant and shop owners — largely non-technical, often 40+, on a phone in-store — plus staff who live in the live Orders board during a shift. The interface earns trust by being calm, legible, and predictable: slate neutrals carry the surface, and the indigo brand color appears only where action, selection, or state actually happen. It is fully theme-aware (light + dark, both AA), Stripe-dashboard dense without legacy-POS crowding, single-family Inter on a fixed rem scale, with short 150-250ms state motion and no page-load choreography.",
+    "northStar": "The Friendly Counter",
+    "overview": "Direction D (artifact «Back office, direzione D» v28, approved 2026-10-14): a lilac canvas with white 28px cards and an indigo-tinted shadow, Bricolage Grotesque for titles and numbers, Figtree for the rest, one brand violet for action and selection and coral only for what needs attention now. Pages answer in words before numbers. Light only. Ships behind VITE_BACKOFFICE_D; with the switch off the previous system (The Quiet Operator) stays until a separate cleanup PR after PR 5.",
     "keyCharacteristics": [
-      "Slate neutrals carry the surface; indigo marks action/selection/state only.",
-      "One type family (Inter), fixed rem scale, no fluid heading clamps.",
-      "Theme-aware: light + dark, both AA, tuned for older eyes on phones.",
-      "Soft, shallow elevation; depth grows with layer distance from the page.",
-      "Motion is feedback (150-250ms), never decoration or choreography."
+      "Lilac canvas, white cards at 28px, soft indigo shadow, no card borders.",
+      "Bricolage for titles and numbers, Figtree for everything else.",
+      "Brand violet for action and selection; coral only for 'look now'.",
+      "Pill controls 38px (44px under 1024), fields at 16px radius.",
+      "Spring on entrances, plain exits, reduced motion respected.",
+      "Light only in direction D."
     ],
     "rules": [
-      { "name": "The One Accent Rule", "body": "Indigo is the only accent. It marks action, current selection, and state — never decoration. On any screen it should touch ≤10% of the surface.", "section": "colors" },
-      { "name": "The No-Color-On-Inactive Rule", "body": "Inactive, disabled, and resting elements are neutral. Saturation is a signal; spending it on idle chrome makes real signals unreadable.", "section": "colors" },
-      { "name": "The One Family Rule", "body": "Inter does everything. No second UI face for display flavor — no serif headings, no Sora/Outfit in labels or data. Contrast comes from weight and size.", "section": "typography" },
-      { "name": "The Fixed-Scale Rule", "body": "Headings use fixed rem steps, never fluid clamp(). Users view at consistent DPI; a heading that shrinks in a sidebar looks worse.", "section": "typography" },
-      { "name": "The Flat-At-Rest Rule", "body": "Surfaces are flat or near-flat at rest. Elevation is a response to layering and state (hover, focus, floating), not a default decoration.", "section": "elevation" }
+      {
+        "name": "The One Warm Rule",
+        "body": "Coral means 'this needs you now'; never decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Color-On-Inactive Rule",
+        "body": "Resting chrome is ink and muted; saturation marks action, selection and state.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Faces Rule",
+        "body": "Bricolage only for titles and numbers; running text, labels and controls are Figtree.",
+        "section": "typography"
+      },
+      {
+        "name": "The Switch Rule",
+        "body": "Every D style sits inside @include look-d and every hex in _look-d.scss: with the switch off the app is unchanged.",
+        "section": "components"
+      }
     ],
     "dos": [
-      "Do carry surfaces on slate neutrals and spend indigo only on action, current selection, and state (≤10% of a screen).",
-      "Do keep body text ≥4.5:1 (large/bold ≥3:1) in both themes; hold placeholder text to the same 4.5:1.",
-      "Do size for older eyes on phones: comfortable body sizes, tap targets ≥44px.",
-      "Do use one family (Inter) at fixed rem steps; get contrast from weight and size.",
-      "Do keep motion to 150-250ms state feedback, with a prefers-reduced-motion fallback on every animation.",
-      "Do pair every semantic color with a non-color cue (dot, icon, label).",
-      "Do put all CRUD in a right-side SystemDrawer; ship every control with default/hover/focus/active/disabled states."
+      "Compare each PR side by side with the v28 at 1440, 820 and 390.",
+      "Answer in words before numbers; body text at 4.5:1 or better.",
+      "Tap targets 44px under 1024; respect prefers-reduced-motion.",
+      "Animate only transform and opacity.",
+      "Put all CRUD in the right-side drawer."
     ],
     "donts": [
-      "Don't ship the generic AI/SaaS template: no gradient hero-metric cards, no purple-gradient decoration, no identical icon-card grids, no tiny tracked-uppercase eyebrows.",
-      "Don't drift toward the cluttered legacy POS: no gray-on-gray chrome, unlabeled dense toolbars, or 2010-era enterprise heaviness.",
-      "Don't over-animate: no bouncy/elastic easing, no decorative motion, no page-load choreography.",
-      "Don't use background-clip:text gradient text, border-left/right >1px colored side-stripes, or glassmorphism as a default surface.",
-      "Don't introduce a second UI font, a fluid clamp() heading, or a color not already in this palette.",
-      "Don't put color or full-saturation accents on inactive/disabled states.",
-      "Don't use a centered modal for CRUD, add a top navbar, or write CSS inline."
+      "No top navbar on desktop (the phone uses the v28 top card).",
+      "No coral or brand fill as decoration, no gradients on cards.",
+      "No third font, no Bricolage in running text.",
+      "No dark theme for D until it is designed.",
+      "No inline CSS."
     ]
   }
 }

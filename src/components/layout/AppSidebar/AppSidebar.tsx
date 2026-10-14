@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
-import { Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { ChevronLeft, Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { Logo } from "@/components/ui/Logo/Logo";
-import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
+import {
+    SIDEBAR_COLLAPSED,
+    SIDEBAR_D_COLLAPSED,
+    SIDEBAR_D_EXPANDED,
+    SIDEBAR_D_MARGIN,
+    SIDEBAR_EXPANDED
+} from "@/constants/layout";
+import { D_EASE, LOOK_D } from "@styles/lookD";
 import { SidebarSection } from "./SidebarSection";
 import { currentItem } from "./isItemActive";
 import styles from "./AppSidebar.module.scss";
@@ -131,6 +138,10 @@ const SECTION_OPEN_DELAY = 60;
 const SECTION_CLOSE_DELAY = 200;
 /** Dalla riga chiusa (42) al bordo della sidebar (11), più lo spazio del pannello (6). */
 const PANEL_LABEL_OFFSET = 17;
+/** Direzione D: dal bordo della riga a quello della carta (12) più lo spazio del riquadro (6). */
+const PANEL_LABEL_OFFSET_D = 18;
+/** Direzione D: il pulsante tondo (26) sta a cavallo del bordo destro della carta. */
+const RAIL_TOGGLE_HALF = 13;
 
 /** L'ultima parte usata di ogni sezione: ci si riparte cliccando la sezione. */
 const LAST_PART_KEY = "nav:ultima-parte";
@@ -309,6 +320,24 @@ export function AppSidebar({
     useEffect(() => {
         showSection(null);
     }, [pathname, collapsed, showSection]);
+    // D al telefono: la sezione aperta resta in vista nella fila che scorre di lato.
+    const phoneNavRef = useRef<HTMLElement>(null);
+    useEffect(() => {
+        if (!LOOK_D || !isMobile) return;
+        const nav = phoneNavRef.current;
+        if (!nav) return;
+        // Al centro della fila, senza far scorrere la pagina; di nuovo se la fila cambia larghezza.
+        const center = () => {
+            const on = nav.querySelector<HTMLElement>('[aria-current="page"]');
+            if (!on) return;
+            const left = on.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft;
+            nav.scrollLeft = left - (nav.clientWidth - on.offsetWidth) / 2;
+        };
+        center();
+        const ro = new ResizeObserver(center);
+        ro.observe(nav);
+        return () => ro.disconnect();
+    }, [isMobile, pathname]);
     useEffect(
         () => () => {
             window.clearTimeout(openTimer.current);
@@ -382,7 +411,7 @@ export function AppSidebar({
                     </Text>
                 }
                 side="right"
-                sideOffset={PANEL_LABEL_OFFSET}
+                sideOffset={LOOK_D ? PANEL_LABEL_OFFSET_D : PANEL_LABEL_OFFSET}
             >
                 <span className={styles.tipAnchor}>{node}</span>
             </Tooltip>
@@ -449,11 +478,38 @@ export function AppSidebar({
     // sotto, sempre a vista: nascosto dietro il logo non lo trovava nessuno.
     const brandLogo = (
         <>
-            <Logo variant="icon" color="flat" size={27} alt="" className={styles.brandIcon} />
+            {/* A binario (D) il segno sta nei 26 px della v28 (22 di altezza = 26 di
+                larghezza): a 27 sbordava sotto il pulsante tondo. */}
+            <Logo variant="icon" color="flat" size={LOOK_D && collapsed ? 22 : 27} alt="" className={styles.brandIcon} />
             {!collapsed && <Logo variant="wordmark" color="auto" size={15} alt="" className={styles.brandWordmark} />}
         </>
     );
     const toggleLabel = collapsed ? "Apri la barra laterale" : "Chiudi la barra laterale";
+    // Direzione D (artifact v28, `#railb`): un pulsante tondo a cavallo del
+    // bordo della carta, che la segue mentre si stringe; la freccia si gira.
+    const cardWidth = collapsed ? SIDEBAR_D_COLLAPSED : SIDEBAR_D_EXPANDED;
+    const widthTransition = LOOK_D
+        ? { duration: reduceMotion ? 0 : 0.34, ease: D_EASE }
+        : { duration: reduceMotion ? 0 : 0.2, ease: "easeInOut" as const };
+    const railToggle = LOOK_D && !isMobile && (
+        <Tooltip content={`${toggleLabel} · ${TOGGLE_SHORTCUT}`} side="right" sideOffset={8}>
+            <motion.button
+                type="button"
+                className={styles.railToggle}
+                data-collapsed={collapsed || undefined}
+                onClick={onToggleCollapse}
+                aria-label={collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"}
+                aria-expanded={!collapsed}
+                aria-keyshortcuts="Meta+B Control+B"
+                initial={false}
+                animate={{ x: SIDEBAR_D_MARGIN + cardWidth - RAIL_TOGGLE_HALF }}
+                transition={{ x: widthTransition }}
+                whileTap={reduceMotion ? undefined : { scale: 0.9 }}
+            >
+                <ChevronLeft size={14} strokeWidth={2.2} aria-hidden="true" />
+            </motion.button>
+        </Tooltip>
+    );
     const toggleButton = (
         <Tooltip content={`${toggleLabel} · ${TOGGLE_SHORTCUT}`} side={collapsed ? "right" : "bottom"} sideOffset={8}>
             <button
@@ -468,6 +524,54 @@ export function AppSidebar({
         </Tooltip>
     );
 
+    // ===== Direzione D, telefono (artifact v28, sotto 861) =====
+    // La barra diventa una carta in alto: logo e avatar, sotto le sezioni che
+    // scorrono di lato. Le parti di una sezione stanno nelle schede della testata.
+    if (LOOK_D && isMobile) {
+        const phoneLink = (key: string, to: string, label: ReactNode, active: boolean) => (
+            <Link key={key} to={to} className={styles.phoneLinkD} aria-current={active ? "page" : undefined}>
+                {label}
+            </Link>
+        );
+        return (
+            <header className={styles.phoneBarD}>
+                <div className={styles.phoneTopD}>
+                    {brand?.homeTo ? (
+                        <Link to={brand.homeTo} className={styles.phoneBrandD} aria-label="CataloGlobe, vai all'inizio">
+                            <Logo variant="icon" color="flat" size={27} alt="" />
+                            <Logo variant="wordmark" color="auto" size={15} alt="" />
+                        </Link>
+                    ) : (
+                        <span className={styles.phoneBrandD}>
+                            <Logo variant="icon" color="flat" size={27} alt="" />
+                            <Logo variant="wordmark" color="auto" size={15} alt="" />
+                        </span>
+                    )}
+                    {accountSlot && <div className={styles.phoneAccountD}>{accountSlot}</div>}
+                </div>
+                <nav ref={phoneNavRef} className={styles.phoneNavD} aria-label="Menu principale">
+                    {groups.flatMap((group, i) => {
+                        if (group.icon && group.title) {
+                            const id = sectionId(group, i);
+                            const last = readLastParts()[id];
+                            const target =
+                                group.items.find(item => item.id === last && !item.disabled) ??
+                                group.items.find(item => !item.disabled);
+                            if (!target) return [];
+                            const active = Boolean(currentItem(group.items, pathname, search));
+                            return [phoneLink(id, target.to, group.title, active)];
+                        }
+                        return group.items
+                            .filter(item => !item.disabled)
+                            .map(item =>
+                                phoneLink(item.id ?? item.to, item.to, item.label, Boolean(currentItem([item], pathname, search)))
+                            );
+                    })}
+                </nav>
+            </header>
+        );
+    }
+
     return (
         <>
             {isMobile && mobileOpen && (
@@ -478,18 +582,19 @@ export function AppSidebar({
                 />
             )}
 
+            {railToggle}
             <motion.aside
                 className={[styles.sidebar, isMobile ? styles.mobile : styles.desktop].join(" ")}
                 data-collapsed={collapsed}
                 initial={false}
                 animate={{
-                    width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
+                    width: LOOK_D ? cardWidth : collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
                     x: isMobile && !mobileOpen ? -SIDEBAR_EXPANDED : 0
                 }}
                 // Solo la larghezza, breve e lineare (§51.15); il cassetto
                 // mobile scorre come prima. Movimento ridotto: nessuna transizione.
                 transition={{
-                    width: { duration: reduceMotion ? 0 : 0.2, ease: "easeInOut" },
+                    width: widthTransition,
                     x: reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 30, restDelta: 0.5 }
                 }}
                 aria-hidden={isMobile && !mobileOpen}
@@ -518,13 +623,13 @@ export function AppSidebar({
                             )}
                         </span>
                         {brand.actions && !collapsed && <span className={styles.brandActions}>{brand.actions}</span>}
-                        {!collapsed && toggleButton}
+                        {!collapsed && !LOOK_D && toggleButton}
                     </div>
                 )}
                 {/* Chiusa la cima tiene solo il segno, alto come la testata: la campanella scende sotto la linea. */}
-                {brand && !isMobile && collapsed && (
+                {brand && !isMobile && collapsed && (!LOOK_D || brand.actions) && (
                     <div className={styles.brandActionsCollapsed}>
-                        {toggleButton}
+                        {!LOOK_D && toggleButton}
                         {brand.actions}
                     </div>
                 )}
@@ -571,11 +676,11 @@ export function AppSidebar({
                         )}
                         {footerSlot}
                     </div>
-                    {(footerItems.length > 0 || accountSlot || (!isMobile && !brand)) && (
+                    {(footerItems.length > 0 || accountSlot || (!isMobile && !brand && !LOOK_D)) && (
                         <div className={styles.footer}>
                             {footerItems.length > 0 && <ul className={styles.list}>{footerItems.map(renderItem)}</ul>}
                             {accountSlot && <div className={styles.account}>{accountSlot}</div>}
-                            {!isMobile && !brand && (
+                            {!isMobile && !brand && !LOOK_D && (
                                 <button
                                     type="button"
                                     className={styles.collapseToggle}

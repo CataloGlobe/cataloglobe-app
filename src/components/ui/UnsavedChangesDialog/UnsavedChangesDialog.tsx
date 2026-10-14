@@ -20,7 +20,7 @@ type Props = {
     message?: string;
     /** Etichetta del "resta qui". Default «Annulla»; la guardia usa «Resta». */
     cancelLabel?: string;
-    /** Etichetta di `onSaveAndExit`. Default «Salva ed esci»; i tunnel di creazione: «Tieni come bozza ed esci». */
+    /** Etichetta di `onSaveAndExit`. Default «Salva ed esci»; la modifica nel tunnel: «Salva le modifiche ed esci». */
     saveLabel?: string;
     /** Il pannello largo (460), per etichette lunghe. */
     wide?: boolean;

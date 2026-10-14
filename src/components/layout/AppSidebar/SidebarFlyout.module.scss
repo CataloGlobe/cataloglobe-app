@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 // Il pannello di una sezione (Officina): a destra della sidebar, fuori da
 // lei (portale), in posizione fissa accanto alla riga. Le coordinate le
 // scrive `SidebarSection` in `--fly-top` / `--fly-left`.
@@ -112,4 +115,115 @@
   font-size: 12.5px;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+// ===== Direzione D (artifact v28, `#rtip.has`) =====
+// Il riquadro viola accanto alla barra ridotta: in cima il nome della
+// sezione in maiuscolo, sotto le parti in bianco; la parte scelta è bianca
+// col testo indaco. Entra con la molla da sinistra.
+@keyframes tipInD {
+  from {
+    opacity: 0;
+    transform: translateX(-8px) scale(0.94);
+  }
+}
+
+.panel {
+  @include look-d {
+    display: grid;
+    gap: 2px;
+    min-width: 176px;
+    max-width: 300px;
+    padding: 8px;
+    border: none;
+    border-radius: 18px;
+    background: var(--d-brand);
+    color: var(--on-brand);
+    box-shadow: 0 14px 30px -14px color-mix(in srgb, var(--d-brand-deep) 75%, transparent);
+    transform-origin: 0 18px;
+    animation: tipInD 240ms var(--d-ease-move) both;
+
+    // Ponte invisibile verso la barra: il mouse non lo chiude passando.
+    &::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -8px;
+      width: 8px;
+    }
+  }
+}
+
+.title {
+  display: none;
+
+  @include look-d {
+    @include d-type(label);
+
+    display: flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 0 10px;
+    opacity: 0.78;
+  }
+}
+
+.list {
+  @include look-d {
+    gap: 2px;
+  }
+}
+
+.item {
+  @include look-d {
+    @include d-type(control);
+
+    justify-content: space-between;
+    gap: 12px;
+    height: auto;
+    padding: 8px 10px;
+    border-radius: 11px;
+    color: var(--on-brand);
+    font-weight: 500;
+    transition: background-color 150ms ease-out;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: var(--on-brand);
+    }
+  }
+}
+
+.active,
+.active:hover {
+  @include look-d {
+    background: var(--d-surface);
+    color: var(--d-brand-deep);
+    font-weight: 600;
+  }
+}
+
+.disabled,
+.disabled:hover {
+  @include look-d {
+    background: transparent;
+    color: var(--on-brand);
+  }
+}
+
+.state {
+  @include look-d {
+    @include d-type(small);
+
+    color: inherit;
+    opacity: 0.85;
+  }
+}
+
+.dot {
+  @include look-d {
+    background: var(--d-warm);
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
+  }
 }

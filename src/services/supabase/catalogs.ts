@@ -419,6 +419,26 @@ export async function listCategoryProducts(
     return data || [];
 }
 
+/**
+ * In quali menù sta ogni prodotto: le coppie (menù, prodotto) di tutta
+ * l'azienda, a pagine da mille. Solo lettura.
+ */
+export async function listCatalogProductPairs(tenantId: string): Promise<{ catalog_id: string; product_id: string }[]> {
+    const out: { catalog_id: string; product_id: string }[] = [];
+    for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+            .from("catalog_category_products")
+            .select("catalog_id, product_id")
+            .eq("tenant_id", tenantId)
+            .order("id", { ascending: true })
+            .range(from, from + 999);
+
+        if (error) throw error;
+        out.push(...(data ?? []));
+        if (!data || data.length < 1000) return out;
+    }
+}
+
 export async function addProductToCategory(
     tenantId: string,
     catalogId: string,

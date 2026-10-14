@@ -1,6 +1,7 @@
 import { ReactNode, useContext, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { LOOK_D } from "@styles/lookD";
 import { DetailPaneHostContext, DetailPaneNavContext, type DetailPaneNav } from "./DetailPaneContext";
 import styles from "./DetailPane.module.scss";
 
@@ -56,7 +57,8 @@ export const DetailPane = ({
     position
 }: DetailPaneProps) => {
     const { slot, register } = useContext(DetailPaneHostContext);
-    const phone = useMediaQuery("(max-width: 767px)");
+    // Nella D il telefono comincia sotto 861, come la barra in alto (v28).
+    const phone = useMediaQuery(LOOK_D ? "(max-width: 860px)" : "(max-width: 767px)");
     const inSlot = !phone && slot !== null;
     const paneRef = useRef<HTMLDivElement>(null);
     const previousActiveElement = useRef<HTMLElement | null>(null);

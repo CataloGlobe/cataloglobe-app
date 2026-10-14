@@ -38,6 +38,7 @@ import { DeleteAccountDrawer } from "@/pages/Dashboard/Settings/DeleteAccountDra
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useTheme } from "@/context/Theme/useTheme";
 import type { ThemePreference } from "@/context/Theme/ThemeContext";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./WorkspaceSettingsPage.module.scss";
 import { PasswordField } from "@/pages/Auth/PasswordField";
 
@@ -390,7 +391,9 @@ export default function WorkspaceSettingsPage() {
                     ))}
                 </Card>
 
-                {/* Aspetto: come nell'artifact della navigazione (Alex, 2026-10-09). */}
+                {/* Aspetto: come nell'artifact della navigazione (Alex, 2026-10-09).
+                    Con la grafica nuova (direzione D) il tema scuro è tolto: niente scelta. */}
+                {!LOOK_D && (
                 <Card flush className={styles.card}>
                     <div className={styles.themeRow}>
                         <div className={styles.themeText}>
@@ -409,6 +412,7 @@ export default function WorkspaceSettingsPage() {
                         />
                     </div>
                 </Card>
+                )}
             </div>
 
             <DeleteAccountDrawer

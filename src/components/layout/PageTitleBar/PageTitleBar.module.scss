@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 .bar {
   display: flex;
   align-items: center;
@@ -145,4 +148,114 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
+}
+
+/* ===== Direzione D (artifact v28, `.titlebar`) ===== */
+// Testata trasparente sul lilla, senza bordo: titolo in Bricolage, scheda
+// scelta in tinta, sede come pillola bianca. Ferma sopra il contenuto che
+// scorre (cornice in MainLayout).
+@include look-d {
+  .bar {
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    min-height: 0;
+    padding: 20px clamp(14px, 2.4vw, 28px) 0;
+    background: transparent;
+    border-bottom: 0;
+    position: relative;
+    z-index: 6;
+  }
+
+  // Come `.titlebar` della v28: titolo, schede e sede vanno a capo da sole.
+  .path,
+  .section {
+    flex-wrap: wrap;
+    gap: 10px 18px;
+  }
+
+  // Quando va a capo, la sede e la campanella restano a destra (v28 a 390).
+  .actions {
+    margin-left: auto;
+  }
+
+  .sectionTitle {
+    @include d-type(page-title);
+    color: var(--d-text);
+  }
+
+  .tabs {
+    gap: 4px;
+    padding-block: 0;
+  }
+
+  .tab {
+    @include d-type(control);
+    padding: 6px 12px;
+    color: var(--d-muted);
+    transition:
+      color var(--d-dur) ease,
+      background-color var(--d-dur) ease;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background: var(--d-soft);
+        color: var(--d-brand-deep);
+      }
+    }
+
+    @media (max-width: 860px) {
+      display: inline-flex;
+      align-items: center;
+      min-height: var(--d-ctl);
+    }
+  }
+
+  .tabSelected,
+  .tabSelected:hover {
+    background: var(--d-soft);
+    color: var(--d-brand-deep);
+    box-shadow: none;
+  }
+
+  // Sotto la barra laterale (v28 a 820 e 390) la scheda scelta è solo testo
+  // in tinta: la pillola resta alla barra delle sezioni sopra.
+  @media (max-width: 860px) {
+    .tabSelected,
+    .tabSelected:hover {
+      background: none;
+    }
+  }
+
+  .tabState {
+    @include d-type(small);
+  }
+
+  .sedi {
+    margin-right: 0;
+  }
+
+  .sedeBtn {
+    height: var(--d-ctl);
+    border-radius: var(--d-r-pill);
+    border: 1px solid var(--d-line);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+    @include d-type(control);
+
+    // Nella v28 la pillola dice solo «Sede» e il nome, senza negozio.
+    > svg:first-child {
+      display: none;
+    }
+  }
+
+  .pre {
+    font-weight: 500;
+    color: var(--d-muted);
+  }
+
+  .confrontoOn {
+    border-color: var(--d-brand);
+    background: var(--d-soft);
+    color: var(--d-brand-deep);
+  }
 }

@@ -20,7 +20,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import { usePermissions } from "@/context/usePermissions";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { canDoOnActivity, canDoOnAnyActivity, canWriteRule, isTenantWide } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity, canDoOnTenant, canWriteRule, isTenantWide } from "@/lib/permissions";
 import { useDbWritableRules } from "./useDbWritableRules";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -1118,6 +1118,14 @@ export default function Programming() {
                         await (item ? dropItem(rule, item) : dropRule(rule));
                         await loadRules();
                     }}
+                    onEnable={async (rule, on) => {
+                        // si rilegge anche se fallisce: il calendario deve dire com'è davvero
+                        try {
+                            await updateScheduleEnabled(rule.id, on);
+                        } finally {
+                            await loadRules();
+                        }
+                    }}
                     section={{
                         pickList: calPickList,
                         catalogs,
@@ -1143,7 +1151,22 @@ export default function Programming() {
                         },
                         // «Crea un menù nuovo» apre il tunnel di creazione (D124)
                         onGoNew: kind =>
-                            navigate(`/business/${currentTenantId}/crea/${kind === "menu" ? "menu" : kind === "style" ? "stile" : "evidenza"}?da=calendario`)
+                            navigate(`/business/${currentTenantId}/crea/${kind === "menu" ? "menu" : kind === "style" ? "stile" : "evidenza"}?da=calendario`),
+                        // il dove e il quando di una cosa che c'è già: lo stesso tunnel, coi soli passi del Calendario
+                        canTunnel: kind =>
+                            !!permissions &&
+                            // dentro una sede resta qui: la voce nasce già su quella sede
+                            !routeActivityId &&
+                            canWrite &&
+                            tenantWide &&
+                            canEdit &&
+                            (kind === "menu"
+                                ? canDoOnTenant(permissions, "catalogs.write")
+                                : kind === "style"
+                                  ? canDoOnTenant(permissions, "styles.write")
+                                  : kind === "featured" && canDoOnAnyActivity(permissions, "featured.write")),
+                        onTunnel: (kind, id, add) =>
+                            navigate(`/business/${currentTenantId}/crea/${kind === "menu" ? "menu" : kind === "style" ? "stile" : "evidenza"}/${id}?da=calendario${add ? "&metti=1" : ""}`)
                     }}
                 />
             )}

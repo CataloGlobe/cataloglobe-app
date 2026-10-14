@@ -24,6 +24,10 @@ test("il piatto apre la scheda: blocchi, prezzi, regola, «Mostra tutti» e «Pe
     await page.getByText("Antipasti 1", { exact: true }).waitFor();
     test.skip((await page.getByRole("button", { name: "Altre opzioni" }).count()) === 0, "pagina senza redesign");
 
+    // Le card della lista scrivono il prezzo come la scheda: «9,00 €», non «€ 9,00».
+    await expect(page.getByRole("main").getByText("9,00\u00a0€", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("main").getByText(/€\s?9,00/)).toHaveCount(0);
+
     await page.getByText("Primi 1", { exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Primi 1" });
     await expect(dialog).toBeVisible();

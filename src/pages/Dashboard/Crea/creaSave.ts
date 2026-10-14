@@ -9,6 +9,7 @@ import {
     syncFeaturedContentProducts,
     updateFeaturedContent,
     updateFeaturedContentProductNote,
+    upsertFeaturedContentPositions,
     type FeaturedContent
 } from "@/services/supabase/featuredContents";
 import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase/featuredScheduling";
@@ -23,6 +24,9 @@ import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { whenOfRule, whereOfRule, type CalKind, type CalWhere } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { deriveTypeFields } from "@/pages/Dashboard/Highlights/featuredContentTypes";
 import { EV, clonePer, cloneWhen, effWhen, thingName, type Tunnel } from "./creaModel";
+import { DB, NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
+import { evidColumns } from "./evidData";
+import { ordRows } from "./evidOrd";
 import { writeSections } from "./menuSave";
 import { styleConfig } from "./creaStyle";
 
@@ -46,7 +50,7 @@ export type SaveCtx = {
     done?: Map<string, unknown>;
 };
 
-async function once<T>(c: SaveCtx, key: string, run: () => Promise<T>): Promise<T> {
+async function once<T>(c: Pick<SaveCtx, "done">, key: string, run: () => Promise<T>): Promise<T> {
     if (c.done?.has(key)) return c.done.get(key) as T;
     const v = await run();
     c.done?.set(key, v);
@@ -68,6 +72,12 @@ export function draftFor(t: Tunnel, kind: CalKind, thing: string, pair: string |
     D.when = cloneWhen(effWhen(t));
     D.per = clonePer(t.per);
     D.insieme = kind === "menu" && !!t.insieme;
+    // i menù che stanno da soli (punto 4): le scelte sede per sede diverse dalla risposta di sopra
+    if (NEW_MODEL.soloMenu && kind === "menu") {
+        const hm = Object.entries(t.hm ?? {});
+        D.lui = hm.filter(([, v]) => v === "ins").map(([k]) => k);
+        D.tuo = hm.filter(([, v]) => v === "pos").map(([k]) => k);
+    }
     return D;
 }
 
@@ -170,6 +180,47 @@ async function aspectOfFile(f: File): Promise<number | null> {
     }
 }
 
+/**
+ * Le regole di un contenuto in evidenza: quelle del Calendario, ma col posto
+ * scelto nel tunnel (sopra o sotto il menù); con le ore diverse per sede, una
+ * per ogni orario (D145). Spenta (`enabled` falso) resta nel Calendario, pronta.
+ */
+export async function writeEvidRules(t: Tunnel, c: Pick<SaveCtx, "tenantId" | "L" | "done">, id: string, name: string, enabled: boolean): Promise<string | null> {
+    let first: string | null = null;
+    for (const D of draftParts(draftFor(t, "featured", id, null))) {
+        const ruleName = autoName(D, withThing(c.L, "featured", id, name));
+        const partKey = JSON.stringify([D.when, D.where]);
+        if (c.done?.has("ruleDone:" + partKey)) {
+            first ??= c.done.get("ruleDone:" + partKey) as string;
+            continue;
+        }
+        const ruleId = await once(c, "ruleDraft:" + partKey, () => createFeaturedRuleDraft({ tenantId: c.tenantId, name: ruleName }));
+        const tf = timeFields(D.when), w = D.where;
+        await updateFeaturedRule({
+            id: ruleId,
+            tenantId: c.tenantId,
+            name: ruleName,
+            enabled,
+            startAt: ruleDateToIso(tf.startDay, "start"),
+            endAt: ruleDateToIso(tf.endDay, "end"),
+            timeFrom: tf.timeFrom,
+            timeTo: tf.timeTo,
+            daysOfWeek: tf.daysOfWeek,
+            alwaysActive: tf.alwaysActive,
+            targetMode: w.all ? "all" : w.activityIds.length ? "activities" : "groups",
+            activityIds: w.all ? [] : w.activityIds,
+            groupIds: w.all ? [] : w.groupIds,
+            featuredContents: [{ featured_content_id: id, slot: t.slot === "after" ? "after_catalog" : "before_catalog", sort_order: 0 }]
+        });
+        // come in calendarSave: la RPC rifiuta «tutte» e l'elenco vuoto
+        if (!w.all && w.activityIds.length) await updateScheduleTargets(ruleId, w.activityIds.map(targetId => ({ targetType: "activity" as const, targetId })));
+        else if (!w.all && w.groupIds.length) await updateScheduleTargets(ruleId, w.groupIds.map(targetId => ({ targetType: "activity_group" as const, targetId })));
+        c.done?.set("ruleDone:" + partKey, ruleId);
+        first ??= ruleId;
+    }
+    return first;
+}
+
 async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
     const name = thingName(t);
     const type = EV[t.evType ?? "annuncio"].type;
@@ -180,6 +231,7 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
         description: t.text.trim() || null,
         cta_text: t.cta ? t.ctaText.trim() || null : null,
         cta_url: t.cta ? t.ctaLink.trim() || null : null,
+        ...evidColumns(t),
         status: c.live ? "published" : "draft",
         ...deriveTypeFields({ type, bundlePrice: t.bundle, showOriginalTotal: t.showOrig, showImages: false })
     };
@@ -208,53 +260,22 @@ async function saveEvid(t: Tunnel, c: SaveCtx): Promise<Saved> {
     }
     if (!c.live) return { id, name, live: false, ruleId: null };
 
-    // la regola: quella del Calendario, ma col posto scelto nel tunnel (sopra o sotto il menù);
-    // con le ore diverse per sede, una per ogni orario (D145)
-    let first: string | null = null;
-    for (const D of draftParts(draftFor(t, "featured", id, null))) {
-        const ruleName = autoName(D, withThing(c.L, "featured", id, name));
-        const partKey = JSON.stringify([D.when, D.where]);
-        if (c.done?.has("ruleDone:" + partKey)) {
-            first ??= c.done.get("ruleDone:" + partKey) as string;
-            continue;
-        }
-        const ruleId = await once(c, "ruleDraft:" + partKey, () => createFeaturedRuleDraft({ tenantId: c.tenantId, name: ruleName }));
-        const tf = timeFields(D.when), w = D.where;
-        await updateFeaturedRule({
-            id: ruleId,
-            tenantId: c.tenantId,
-            name: ruleName,
-            enabled: true,
-            startAt: ruleDateToIso(tf.startDay, "start"),
-            endAt: ruleDateToIso(tf.endDay, "end"),
-            timeFrom: tf.timeFrom,
-            timeTo: tf.timeTo,
-            daysOfWeek: tf.daysOfWeek,
-            alwaysActive: tf.alwaysActive,
-            targetMode: w.all ? "all" : w.activityIds.length ? "activities" : "groups",
-            activityIds: w.all ? [] : w.activityIds,
-            groupIds: w.all ? [] : w.groupIds,
-            featuredContents: [{ featured_content_id: id, slot: t.slot === "after" ? "after_catalog" : "before_catalog", sort_order: 0 }]
-        });
-        // come in calendarSave: la RPC rifiuta «tutte» e l'elenco vuoto
-        if (!w.all && w.activityIds.length) await updateScheduleTargets(ruleId, w.activityIds.map(targetId => ({ targetType: "activity" as const, targetId })));
-        else if (!w.all && w.groupIds.length) await updateScheduleTargets(ruleId, w.groupIds.map(targetId => ({ targetType: "activity_group" as const, targetId })));
-        c.done?.set("ruleDone:" + partKey, ruleId);
-        first ??= ruleId;
-    }
+    // la regola: quella del Calendario, ma col posto scelto nel tunnel (sopra o sotto il menù)
+    const first = await writeEvidRules(t, c, id, name, true);
+    // l'ordine sede per sede (D187): solo col database nuovo
+    if (DB.ready && NEW_MODEL.evid && Object.keys(t.ord).length) await once(c, "positions", () => upsertFeaturedContentPositions(c.tenantId, ordRows(t, id, Object.keys(t.ord))));
     return { id, name, live: true, ruleId: first };
 }
 
 /* ---------- la storia ---------- */
 async function saveStoria(t: Tunnel, c: SaveCtx): Promise<Saved> {
     const name = thingName(t);
-    const w = t.where;
+    // la storia sta col suo prodotto o con la sua sede (D191); con una sede sola, col locale
     const head = {
         eyebrow: t.kicker.trim() || null,
         title: name,
-        product_id: t.linked || null,
-        // oggi una storia va in tutte le sedi o in una (D124 4: il resto col database nuovo)
-        activity_id: !w.all && w.activityIds.length === 1 && !w.groupIds.length ? w.activityIds[0] : null
+        product_id: t.about === "prod" ? t.linked || null : null,
+        activity_id: t.about === "loc" ? t.sede || null : null
     };
     // la storia nasce una volta sola: riprovando la si riscrive in fondo, con titolo e sede di adesso
     const story = await once(c, "story", async () => ({ id: (await createStory(c.tenantId, { ...head, cover_media: null, status: "draft" })).id as string }));

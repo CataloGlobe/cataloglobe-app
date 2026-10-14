@@ -19,10 +19,26 @@ function rows(page: Page) {
     return main(page).getByRole("list", { name: "Andamento" });
 }
 
+/** Con VITE_BACKOFFICE_D acceso (`data-look="d"`) Andamento è la vista unica della v28. */
+function lookD(page: Page): Promise<boolean> {
+    return page.evaluate(() => document.documentElement.dataset.look === "d");
+}
+
+/** Nella D le voci stanno in riga, in un gruppo di pulsanti. */
+function voices(page: Page) {
+    return main(page).getByRole("group", { name: "Le voci dell'andamento" });
+}
+
+async function firstRow(page: Page) {
+    return ((await lookD(page)) ? voices(page) : rows(page)).getByRole("button", { name: /La pagina/ });
+}
+
 async function openPage(page: Page): Promise<void> {
     await openBusinessPage(page, "analytics", "Andamento");
-    await expect(rows(page).getByRole("button", { name: /La pagina/ })).toBeVisible({ timeout: 15_000 });
+    await expect(await firstRow(page)).toBeVisible({ timeout: 15_000 });
 }
+
+const OLD_VIEW = "nella D la vista è un'altra: la provano i test «Andamento nella D»";
 
 async function noSideScroll(page: Page): Promise<void> {
     // Dopo un cambio di larghezza la sidebar lascia il posto con una
@@ -47,6 +63,7 @@ test.describe("Andamento", () => {
 
     test("la frase in cima, poi una riga per cosa; quella senza dati in fondo", async ({ page }) => {
         await openPage(page);
+        test.skip(await lookD(page), OLD_VIEW);
         await expect(main(page).getByText("Ultimi 30 giorni: più o meno come il mese prima.")).toBeVisible();
         await expect(main(page).getByText(/151 visite alla pagina \(come prima\) · 12 ordini dal tavolo per 240,00 €/)).toBeVisible();
         const buttons = await rows(page).getByRole("button").allTextContents();
@@ -66,6 +83,7 @@ test.describe("Andamento", () => {
 
     test("il clic apre il dettaglio accanto; le frecce passano alla riga dopo", async ({ page }) => {
         await openPage(page);
+        test.skip(await lookD(page), OLD_VIEW);
         await rows(page).getByRole("button", { name: /Al tavolo/ }).click();
         await expect(page).toHaveURL(/[?&]voce=tavolo/);
         const pane = page.getByRole("dialog", { name: "Al tavolo" });
@@ -80,6 +98,7 @@ test.describe("Andamento", () => {
 
     test("cosa cercano: quelle che non trovano niente nel menù", async ({ page }) => {
         await openPage(page);
+        test.skip(await lookD(page), OLD_VIEW);
         const row = rows(page).getByRole("button", { name: /Cosa cercano/ });
         await expect(row).toContainText("1 ricerca non trova niente");
         await row.click();
@@ -101,6 +120,7 @@ test.describe("Andamento", () => {
 
     test("«Grafico»: la striscia dei numeri, il grafico giorno per giorno; la scelta resta", async ({ page }) => {
         await openPage(page);
+        test.skip(await lookD(page), OLD_VIEW);
         await page.getByRole("radio", { name: "Grafico" }).click();
         const strip = main(page).getByRole("group", { name: "Cosa mostra il grafico" });
         await expect(strip.getByRole("button", { name: /Visite alla pagina/ })).toHaveAttribute("aria-pressed", "true");
@@ -139,6 +159,7 @@ test.describe("Andamento", () => {
 
     test("a 375 nessuno scroll orizzontale, nelle due viste", async ({ page }) => {
         await openPage(page);
+        test.skip(await lookD(page), OLD_VIEW);
         await page.setViewportSize({ width: 375, height: 800 });
         await expect(rows(page).getByRole("button", { name: /La pagina/ })).toBeVisible();
         await noSideScroll(page);
@@ -152,6 +173,7 @@ test.describe("Andamento — campione (§36)", () => {
     test("sotto le 100 visite: conteggi, niente percentuali né confronto delle visite", async ({ page }) => {
         stub = await stubAnalitiche(page, { sample: "small" });
         await openPage(page);
+        test.skip(await lookD(page), OLD_VIEW);
         const pagina = rows(page).getByRole("button", { name: /La pagina/ });
         await expect(pagina).toContainText("42 visite");
         await expect(pagina).toContainText("9 con una scelta");
@@ -186,7 +208,7 @@ test.describe("Andamento — confronto fra sedi", () => {
         const ofAltra = () => stub.calls.filter(c => c.body.p_activity_id === altra).length;
         expect(ofAltra()).toBe(0);
         await page.goto(`${paths[0]}/analitiche`);
-        await expect(rows(page).getByRole("button", { name: /La pagina/ })).toBeVisible({ timeout: 15_000 });
+        await expect(await firstRow(page)).toBeVisible({ timeout: 15_000 });
         expect(stub.calls.some(c => c.body.p_activity_id === qui)).toBe(true);
         await expect.poll(ofAltra).toBeGreaterThan(0);
         await expect(main(page).getByText(/sedi a confronto/)).toHaveCount(0);
@@ -202,5 +224,41 @@ test.describe("Andamento — confronto fra sedi", () => {
         broken = false;
         await alert.getByRole("button", { name: "Riprova" }).click();
         await expect(alert).toHaveCount(0);
+    });
+});
+
+test.describe("Andamento nella D", () => {
+    test.beforeEach(async ({ page }) => {
+        stub = await stubAnalitiche(page);
+    });
+
+    test("la frase, le voci in riga e quella senza dati con il suo link", async ({ page }) => {
+        await openPage(page);
+        test.skip(!(await lookD(page)), "solo con la D accesa");
+        await expect(main(page)).toContainText("Ultimi 30 giorni: più o meno come il mese prima.");
+        await expect(voices(page).getByRole("button", { name: /La pagina/ })).toHaveAttribute("aria-pressed", "true");
+        await expect(voices(page).getByRole("link", { name: /Apri Prenotazioni/ })).toBeVisible();
+        await expect(main(page).getByRole("img", { name: /giorno per giorno/ }).first()).toBeVisible();
+    });
+
+    test("il clic su una voce la sceglie e sotto si apre il suo dettaglio", async ({ page }) => {
+        await openPage(page);
+        test.skip(!(await lookD(page)), "solo con la D accesa");
+        const tavolo = voices(page).getByRole("button", { name: /Al tavolo/ });
+        await tavolo.click();
+        await expect(tavolo).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByRole("cell", { name: "Birra e2e" }).first()).toBeVisible();
+        await voices(page).getByRole("button", { name: /Cosa cercano/ }).click();
+        await expect(main(page).getByRole("list", { name: "Cosa cercano" }).getByRole("listitem").filter({ hasText: "senza glutine" })).toContainText(
+            "non trovato"
+        );
+    });
+
+    test("a 375 nessuno scroll orizzontale", async ({ page }) => {
+        await openPage(page);
+        test.skip(!(await lookD(page)), "solo con la D accesa");
+        await page.setViewportSize({ width: 375, height: 812 });
+        await expect(voices(page)).toBeVisible();
+        await noSideScroll(page);
     });
 });
