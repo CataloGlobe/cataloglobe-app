@@ -5,6 +5,7 @@ import {
     judge,
     laterMenusToday,
     resolveCompetition,
+    temporalScore,
     type CompetitionRule,
     type JudgeRule,
     type JudgeSlot,
@@ -51,7 +52,8 @@ function rule(input: Partial<JudgeRule> & { id: string }): JudgeRule {
         overlapByActivity: input.overlapByActivity,
         overlapByGroup: input.overlapByGroup,
         hasMenu: input.hasMenu,
-        hasStyle: input.hasStyle
+        hasStyle: input.hasStyle,
+        todayTemporalScore: input.todayTemporalScore
     };
 }
 
@@ -186,6 +188,22 @@ describe("giudice nuovo — menù (M5)", () => {
     });
 });
 
+describe("giudice nuovo — valori di sovrapposizione fuori tipo", () => {
+    it("un menù «tieni» sulla sede non si spegne: vale la scelta dopo (gruppo, regola, partenza)", () => {
+        const a = rule({ id: "a" });
+        const b = rule({ id: "b", overlapByActivity: { "sede-x": "keep" } });
+        expect(ids(judge([a, b], SEAT_X, THU_13).menus).sort()).toEqual(["a", "b"]);
+        const c = rule({ id: "c", overlap_mode: "keep", overlapByGroup: { "gruppo-nord": "replace" } });
+        expect(ids(judge([a, c], SEAT_X, THU_13).menus)).toEqual(["c"]);
+    });
+
+    it("uno stile «insieme» conta come il valore di partenza («al posto»)", () => {
+        const keep = rule({ id: "keep", rule_type: "style", overlap_mode: "keep" });
+        const odd = rule({ id: "odd", rule_type: "style", overlap_mode: "together", on_air_since: "2026-02-01T00:00:00.000Z" });
+        expect(judge([keep, odd], SEAT_X, THU_13).style?.rule.id).toBe("odd");
+    });
+});
+
 describe("giudice nuovo — stile (M5)", () => {
     it("vince la «replace» più nuova; la layout vincente conta come «replace»", () => {
         const layout = rule({ id: "layout", rule_type: "layout", on_air_since: "2026-01-01T00:00:00.000Z" });
@@ -271,6 +289,22 @@ describe("giudice nuovo — «più tardi» (scelta 1 del 2026-10-13)", () => {
         ]);
     });
 
+    it("anche inizio e fine del periodo, se cadono oggi, tagliano la giornata", () => {
+        // Parte oggi alle 14:00, senza fasce; l'altro finisce oggi alle 17:00 (fascia 15-20).
+        const fromTwo = rule({ id: "da-oggi", start_at: "2026-03-26T13:00:00.000Z" });
+        const untilFive = rule({
+            id: "fino-alle-17",
+            slots: [slot({ start: 900, end: 1200 })],
+            start_at: "2026-03-01T00:00:00.000Z",
+            end_at: "2026-03-26T16:00:00.000Z"
+        });
+        const later = laterMenusToday([fromTwo, untilFive], SEAT_X, now, instantAt);
+        expect(later.map(l => [l.entry.rule.id, l.startMinute, l.endMinute])).toEqual([
+            ["da-oggi", 840, 1440],
+            ["fino-alle-17", 900, 1020]
+        ]);
+    });
+
     it("solo ciò che il giudice mostrerà davvero: un «insieme» coperto non c'è", () => {
         const wine = rule({ id: "vini", overlap_mode: "together", slots: [slot({ start: 1140, end: 1380 })] });
         const xmas = rule({ id: "natale", overlap_mode: "replace", slots: [slot({ start: 1080, end: 1440 })] });
@@ -325,7 +359,8 @@ describe("giudice nuovo — parità con quello di oggi sulle regole layout (D83)
             activityIds: old.activityIds,
             groupIds: old.groupIds,
             slots,
-            hasMenu: old.hasPayload
+            hasMenu: old.hasPayload,
+            todayTemporalScore: temporalScore(old)
         });
     }
     function old(input: Partial<Old> & { id: string }): Old {
@@ -357,7 +392,10 @@ describe("giudice nuovo — parità con quello di oggi sulle regole layout (D83)
         old({ id: "periodo", applyToAll: true, start_at: "2026-03-27T00:00:00.000Z", end_at: "2026-03-29T00:00:00.000Z" }),
         old({ id: "rotta", activityIds: ["sede-x"], time_mode: "window", time_from: "18:00", time_to: "10:00" }),
         old({ id: "vuota", activityIds: ["sede-x"], hasPayload: false }),
-        old({ id: "giorni-sempre", activityIds: ["sede-y"], time_mode: "always", days_of_week: [1] })
+        old({ id: "giorni-sempre", activityIds: ["sede-y"], time_mode: "always", days_of_week: [1] }),
+        // «Fascia 00:00-23:59» diventa 0-1440 ma tiene il +2 degli orari: batte una «Sempre» con priorità migliore.
+        old({ id: "giorno-intero", activityIds: ["sede-y"], time_mode: "window", time_from: "00:00", time_to: "23:59", priority: 20 }),
+        old({ id: "sempre-y", activityIds: ["sede-y"], priority: 1 })
     ];
 
     it("ogni 15 minuti di una settimana, in due sedi, vince la stessa regola", () => {

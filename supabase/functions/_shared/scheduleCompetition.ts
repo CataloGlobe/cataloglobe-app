@@ -261,6 +261,12 @@ export type JudgeRule = {
     hasMenu?: boolean;
     /** layout e style: false se la regola non ha uno stile. */
     hasStyle?: boolean;
+    /**
+     * Solo `layout`: `temporalScore` sulle colonne di oggi (`time_from`/`time_to`,
+     * `days_of_week`). Le fasce del ponte non lo ridanno uguale: «Fascia 00:00-23:59»
+     * diventa 0-1440 e perderebbe il +2 degli orari. Se manca, si calcola dalle fasce.
+     */
+    todayTemporalScore?: number;
 };
 
 export type JudgeEntry<R extends JudgeRule = JudgeRule> = {
@@ -341,7 +347,8 @@ function byCreatedThenId(a: JudgeRule, b: JudgeRule): number {
 /** L'ordine di oggi (`compareCandidates`), col punteggio delle fasce: solo fra regole `layout` (D83). */
 function compareLayoutToday(a: JudgeEntry, b: JudgeEntry): number {
     if (a.specificity !== b.specificity) return b.specificity - a.specificity;
-    const temporalDelta = judgeTemporalScore(b.rule) - judgeTemporalScore(a.rule);
+    const score = (rule: JudgeRule) => rule.todayTemporalScore ?? judgeTemporalScore(rule);
+    const temporalDelta = score(b.rule) - score(a.rule);
     if (temporalDelta !== 0) return temporalDelta;
     if (a.rule.priority !== b.rule.priority) return a.rule.priority - b.rule.priority;
     return byCreatedThenId(a.rule, b.rule);
@@ -374,21 +381,35 @@ export function compareStacked(a: JudgeEntry, b: JudgeEntry): number {
     return newestFirst(a, b);
 }
 
-/** La scelta dell'incrocio per questa sede: riga della sede, poi del gruppo, poi la regola. */
+/** I valori che hanno senso per il tipo: menù «insieme» o «al posto», stile «al posto» o «tieni». */
+function overlapModesOf(ruleType: JudgeRuleType): readonly OverlapMode[] {
+    if (ruleType === "menu") return ["together", "replace"];
+    if (ruleType === "style") return ["replace", "keep"];
+    return ["replace"];
+}
+
+/**
+ * La scelta dell'incrocio per questa sede: riga della sede, poi del gruppo, poi la
+ * regola. Un valore che non vale per il tipo (un menù «tieni», uno stile «insieme»)
+ * si salta, così la regola non si spegne per un dato sbagliato.
+ */
 export function overlapModeFor(rule: JudgeRule, seat: CompetitionSeat): OverlapMode {
+    const allowed = overlapModesOf(rule.rule_type);
+    const valid = (mode: OverlapMode | null | undefined): mode is OverlapMode =>
+        mode !== null && mode !== undefined && allowed.includes(mode);
     const byActivity = rule.overlapByActivity?.[seat.activityId];
-    if (byActivity) return byActivity;
+    if (valid(byActivity)) return byActivity;
     if (rule.overlapByGroup) {
         const groupModes = seat.groupIds
             .map(groupId => rule.overlapByGroup?.[groupId])
-            .filter((mode): mode is OverlapMode => mode !== undefined)
+            .filter(valid)
             .sort();
         // Due gruppi della sede con scelte diverse: vale la prima in ordine
         // alfabetico ("keep" < "replace" < "together"), così il risultato non
         // dipende dall'ordine dei gruppi.
         if (groupModes.length > 0) return groupModes[0];
     }
-    if (rule.overlap_mode) return rule.overlap_mode;
+    if (valid(rule.overlap_mode)) return rule.overlap_mode;
     return rule.rule_type === "menu" ? "together" : "replace";
 }
 
@@ -471,7 +492,11 @@ export type LaterMenu<R extends JudgeRule = JudgeRule> = {
 };
 
 /** I minuti di oggi in cui il verdetto può cambiare, dopo `fromMinute`. */
-function boundariesToday(rules: readonly JudgeRule[], fromMinute: number): number[] {
+function boundariesToday(
+    rules: readonly JudgeRule[],
+    fromMinute: number,
+    instantAt: (minuteOfDay: number) => RomeDateTime
+): number[] {
     const cuts = new Set<number>();
     for (const rule of rules) {
         for (const slot of rule.slots) {
@@ -479,8 +504,33 @@ function boundariesToday(rules: readonly JudgeRule[], fromMinute: number): numbe
                 if (m > fromMinute && m < 1440) cuts.add(m);
             }
         }
+        // Anche inizio e fine del periodo, se cadono oggi dopo adesso: un menù che
+        // parte alle 11 è «più tardi», uno che finisce alle 15 finisce lì.
+        for (const iso of [rule.start_at, rule.end_at]) {
+            if (!iso) continue;
+            const m = firstMinuteFrom(new Date(iso).getTime(), fromMinute, instantAt);
+            if (m !== null) cuts.add(m);
+        }
     }
     return [...cuts].sort((a, b) => a - b);
+}
+
+/** Il primo minuto di oggi dopo `fromMinute` che arriva a `epoch`; null se è già passato o non è oggi. */
+function firstMinuteFrom(
+    epoch: number,
+    fromMinute: number,
+    instantAt: (minuteOfDay: number) => RomeDateTime
+): number | null {
+    const reached = (minute: number) => instantAt(minute).epoch >= epoch;
+    if (fromMinute >= 1439 || reached(fromMinute) || !reached(1439)) return null;
+    let lo = fromMinute + 1;
+    let hi = 1439;
+    while (lo < hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (reached(mid)) hi = mid;
+        else lo = mid + 1;
+    }
+    return lo;
 }
 
 /**
@@ -522,7 +572,7 @@ export function laterMenusToday<R extends JudgeRule>(
     const nowMinute = now.hour * 60 + now.minute;
     const shownNow = new Set(judge(rules, seat, now).menus.map(entry => entry.rule.id));
     const found = new Map<string, LaterMenu<R>>();
-    const cuts = boundariesToday(rules, nowMinute);
+    const cuts = boundariesToday(rules, nowMinute, instantAt);
     for (let i = 0; i < cuts.length; i++) {
         const at = instantAt(cuts[i]);
         for (const entry of judge(rules, seat, at).menus) {
