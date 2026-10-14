@@ -54,7 +54,7 @@ const uuid = (n: number) => `e2e0d000-0000-4000-a000-${String(n).padStart(12, "0
 
 export const SEDE = { centro: uuid(1), porto: uuid(2), lago: uuid(3) } as const;
 export const GROUP = { system: uuid(11), costa: uuid(12), vuoto: uuid(13) } as const;
-export const MENU = { carta: uuid(21), pranzo: uuid(22) } as const;
+export const MENU = { carta: uuid(21), pranzo: uuid(22), cena: uuid(23) } as const;
 export const STYLE = { base: uuid(31) } as const;
 export const PRODUCT = { margherita: uuid(41), diavola: uuid(42), tiramisu: uuid(43), spritz: uuid(44), birra: uuid(45) } as const;
 const SPRITZ_FORMAT = { group: uuid(51), piccolo: uuid(52), grande: uuid(53) } as const;
@@ -104,7 +104,7 @@ const CREATED = "2026-03-17T10:00:00.000Z";
 /** Le sedi in più di `{ manySeats: true }`. */
 const EXTRA_SEATS = ["Castello", "Duomo", "Fiera", "Mercato", "Navigli", "Stazione", "Teatro"];
 
-function activities(manySeats: boolean): Row[] {
+function activities(manySeats: boolean, oneSeat = false): Row[] {
     const a = (id: string, name: string, slug: string, status: "active" | "inactive", inactive_reason: string | null): Row => ({
         id,
         tenant_id: TENANT_ID,
@@ -117,6 +117,7 @@ function activities(manySeats: boolean): Row[] {
     const extra = manySeats
         ? EXTRA_SEATS.map((name, i) => a(uuid(81 + i), `${name} e2e`, `e2e-${name.toLowerCase()}`, "active", null))
         : [];
+    if (oneSeat) return [a(SEDE.porto, "Porto e2e", "e2e-porto", "active", null)];
     return [
         a(SEDE.centro, "Centro e2e", "e2e-centro", "active", null),
         a(SEDE.lago, "Lago e2e", "e2e-lago", "inactive", "closed"),
@@ -193,7 +194,7 @@ function scheduleRow(r: StubRule): Row {
     };
 }
 
-function makeTables(matrix: boolean, manySeats: boolean): Tables {
+function makeTables(matrix: boolean, manySeats: boolean, oneSeat = false): Tables {
     const rs = rules(matrix);
     const style = { id: STYLE.base, name: "Stile base e2e", current_version: { config: {} } };
     const layout = (key: keyof typeof RULE, catalog: string | null): Row => ({
@@ -260,7 +261,7 @@ function makeTables(matrix: boolean, manySeats: boolean): Tables {
             sfc("promoPorto", FEATURED.jazz, "after_catalog", 0),
             sfc("natale", FEATURED.natale, "before_catalog", 0)
         ],
-        activities: activities(manySeats),
+        activities: activities(manySeats, oneSeat),
         activity_groups: [
             { id: GROUP.system, tenant_id: TENANT_ID, name: "Tutte le sedi", is_system: true },
             { id: GROUP.costa, tenant_id: TENANT_ID, name: "Costa e2e", is_system: false },
@@ -274,7 +275,9 @@ function makeTables(matrix: boolean, manySeats: boolean): Tables {
         ],
         catalogs: [
             { id: MENU.carta, tenant_id: TENANT_ID, name: "Carta e2e" },
-            { id: MENU.pranzo, tenant_id: TENANT_ID, name: "Pranzo e2e" }
+            { id: MENU.pranzo, tenant_id: TENANT_ID, name: "Pranzo e2e" },
+            // senza regole: pronto, non in onda
+            { id: MENU.cena, tenant_id: TENANT_ID, name: "Cena e2e" }
         ],
         styles: [{ id: STYLE.base, tenant_id: TENANT_ID, name: "Stile base e2e", is_system: true, is_active: true, current_version: { version: 1 } }],
         products: products.map(p => ({
@@ -301,9 +304,18 @@ export type ProgrammazioneStub = RestStub;
 
 export async function stubProgrammazione(
     page: Page,
-    options: { matrix?: boolean; manySeats?: boolean; dbWritable?: readonly string[]; /** false: orologio vero, per le foto (Framer non si ferma) */ clock?: boolean } = {}
+    options: {
+        matrix?: boolean;
+        manySeats?: boolean;
+        /** il locale con una sede sola: solo Porto */ oneSeat?: boolean;
+        dbWritable?: readonly string[];
+        /** false: orologio vero, per le foto (Framer non si ferma) */ clock?: boolean;
+        /** l'ordine salvato dell'in evidenza (database nuovo): righe di `featured_content_positions` */
+        positions?: { activity_id: string; featured_content_id: string; position: number }[];
+    } = {}
 ): Promise<ProgrammazioneStub> {
-    const tables = makeTables(Boolean(options.matrix), Boolean(options.manySeats));
+    const tables = makeTables(Boolean(options.matrix), Boolean(options.manySeats), Boolean(options.oneSeat));
+    tables.featured_content_positions = (options.positions ?? []).map(r => ({ ...r, tenant_id: TENANT_ID }));
     const stub = await stubRest(page, {
         tables,
         // Il resolver del simulatore legge il menù come embedding di `schedules`.

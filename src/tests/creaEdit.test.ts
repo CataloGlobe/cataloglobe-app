@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Il «Riprova» in modifica (review #388, punto 2): i servizi che scrive saveSezioni, finti.
 // `fail`: la chiamata `on` fallisce una volta, dopo `skip` riuscite
-const { calls, fail, fake } = vi.hoisted(() => {
+const { calls, fail, fake, cal } = vi.hoisted(() => {
     const calls: unknown[][] = [];
+    // le voci del Calendario della cosa (anche spente): `shared` = la regola ha altri contenuti
+    const cal = { entries: [{ ruleId: "r1", rule: { featured_contents: [] as unknown[] } }] };
     const fail = { on: "", skip: 0 };
     const fake =
         (name: string, out: (...a: unknown[]) => unknown = () => undefined) =>
@@ -15,7 +17,7 @@ const { calls, fail, fake } = vi.hoisted(() => {
             }
             return Promise.resolve(out(...a));
         };
-    return { calls, fail, fake };
+    return { calls, fail, fake, cal };
 });
 vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
 vi.mock("@/services/supabase/catalogs", async orig => ({ ...(await orig<object>()), addProductToCategory: fake("addProductToCategory"), createCategory: fake("createCategory", () => ({ id: "c-new" })), updateCatalog: fake("updateCatalog") }));
@@ -23,10 +25,12 @@ vi.mock("@/services/supabase/products", async orig => ({ ...(await orig<object>(
 vi.mock("@/services/supabase/styles", async orig => ({ ...(await orig<object>()), updateStyle: fake("updateStyle") }));
 vi.mock("@/services/supabase/productOptions", async orig => ({ ...(await orig<object>()), createPrimaryPriceFormat: fake("createPrimaryPriceFormat") }));
 // la regola del Calendario di saveQuando: una voce sola, «r1»
-vi.mock("@/services/supabase/layoutScheduling", async orig => ({ ...(await orig<object>()), listLayoutRules: fake("listLayoutRules", () => []) }));
-vi.mock("@/pages/Dashboard/Crea/creaLoad", async orig => ({ ...(await orig<object>()), entriesOf: () => [{ ruleId: "r1", rule: { featured_contents: [] } }] }));
+vi.mock("@/services/supabase/layoutScheduling", async orig => ({ ...(await orig<object>()), listLayoutRules: fake("listLayoutRules", () => []), updateScheduleEnabled: fake("updateScheduleEnabled") }));
+vi.mock("@/pages/Dashboard/Crea/creaLoad", async orig => ({ ...(await orig<object>()), allEntriesOf: () => cal.entries }));
+vi.mock("@/services/supabase/featuredScheduling", async orig => ({ ...(await orig<object>()), createFeaturedRuleDraft: fake("createFeaturedRuleDraft", () => "r-new"), updateFeaturedRule: fake("updateFeaturedRule") }));
+vi.mock("@/services/supabase/stories", async orig => ({ ...(await orig<object>()), updateStory: fake("updateStory") }));
 vi.mock("@/pages/Dashboard/Programming/calendar/calendarDraft", async orig => ({ ...(await orig<object>()), draftFromEntry: () => ({ when: {}, where: { all: true, activityIds: [], groupIds: [] }, per: null }) }));
-vi.mock("@/pages/Dashboard/Programming/calendar/calendarSave", async orig => ({ ...(await orig<object>()), saveDraft: fake("saveDraft") }));
+vi.mock("@/pages/Dashboard/Programming/calendar/calendarSave", async orig => ({ ...(await orig<object>()), saveDraft: fake("saveDraft"), dropDraft: fake("dropDraft") }));
 vi.mock("@/services/supabase/featuredContents", async orig => ({
     ...(await orig<object>()),
     updateFeaturedContent: fake("updateFeaturedContent"),
@@ -35,7 +39,8 @@ vi.mock("@/services/supabase/featuredContents", async orig => ({
     updateFeaturedContentProductNote: fake("updateFeaturedContentProductNote"),
     updateFeaturedContentProductsSortOrder: fake("updateFeaturedContentProductsSortOrder")
 }));
-import { asEdit, asInside, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import { asCal, asEdit, asInside, asMetti, offLater, ondaChange, sentence, rebase, blocker, changed, changedSteps, firstBlock, isDirty, lit, newTunnel, stepFrom, stepLabel, steps, strays, tunnelTitle, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 import { saveEdit, type EditCtx } from "@/pages/Dashboard/Crea/creaEdit";
@@ -49,10 +54,9 @@ const OWNER = { owner: true, multi: true };
 
 function menu(rule: string | null = "r1"): Tunnel {
     const t = newTunnel("menu", ALL);
-    t.menuType = "classico";
     t.name = "Pranzo";
     t.sections = [{ key: "a", id: "c1", sort: 0, name: "Primi", dishes: [{ key: "b", linkId: "l1", sort: 0, productId: "p1", name: "Risotto", price: 12 }], subs: [] }];
-    return asEdit(t, "m1", { id: rule, count: rule ? 1 : 0 });
+    return asEdit(t, "m1", { id: rule, count: rule ? 1 : 0, live: !!rule });
 }
 const upd = (t: Tunnel, fn: (x: Tunnel) => void) => {
     const n = structuredClone(t);
@@ -62,13 +66,15 @@ const upd = (t: Tunnel, fn: (x: Tunnel) => void) => {
 
 describe("modifica nel tunnel: i passi", () => {
     it("il passo 0, poi solo i passi che cambiano la cosa, poi Controlla", () => {
-        expect(steps(menu(), OWNER)).toEqual(["modifica", "parti", "sezioni", "dove", "controlla"]);
+        expect(steps(menu(), OWNER)).toEqual(["modifica", "parti", "sezioni", "dove", "quando", "controlla"]);
         expect(stepLabel(menu(), "parti")).toBe("Il nome");
         expect(tunnelTitle(menu())).toBe("Modifica il menù · Pranzo");
     });
 
-    it("il «Dove e quando» c'è solo se nel Calendario ha una voce sola, e solo per chi lo gestisce", () => {
-        expect(steps(menu(null), OWNER)).toEqual(["modifica", "parti", "sezioni", "controlla"]);
+    it("il Dove e il Quando ci sono con una voce sola o nessuna (lo si mette in onda), e solo per chi gestisce il Calendario", () => {
+        // D189: senza voce si può metterlo in onda dal tunnel
+        expect(steps(menu(null), OWNER)).toEqual(["modifica", "parti", "sezioni", "dove", "quando", "controlla"]);
+        expect(steps({ ...menu(), edit: { ...menu().edit!, rules: 2 } }, OWNER)).toEqual(["modifica", "parti", "sezioni", "controlla"]);
         expect(steps(menu(), { owner: false, multi: true })).toEqual(["modifica", "parti", "sezioni", "controlla"]);
         expect(steps(menu(), { owner: true, multi: false })).toContain("quando");
     });
@@ -81,14 +87,57 @@ describe("modifica nel tunnel: i passi", () => {
     });
 });
 
+describe("modifica nel tunnel: in onda o pronto (D189)", () => {
+    const L = { multi: true, activities: new Map(), groups: new Map() } as unknown as DraftLookups;
+
+    it("la scelta parte da com'è adesso", () => {
+        expect(menu().onda).toBe("on");
+        expect(menu(null).onda).toBe("off");
+        expect(blocker(menu(null), "dove", OWNER)).toBe("");
+    });
+
+    it("cambiare idea è cambiare il «Dove e quando»; spento, sedi e orari non contano", () => {
+        expect(changed(upd(menu(), x => void (x.onda = "off")), "dove")).toBe(true);
+        const off = upd(menu(null), x => void (x.where = { all: false, activityIds: ["a"], groupIds: [] }));
+        expect(changed(off, "dove")).toBe(false);
+        expect(changed(upd(menu(null), x => void (x.onda = "on")), "dove")).toBe(true);
+    });
+
+    it("le sedi sono il Dove, le ore il Quando: cambiare le une non tocca le altre", () => {
+        const sedi = upd(menu(), x => void (x.where = { all: false, activityIds: ["a"], groupIds: [] }));
+        expect([changed(sedi, "dove"), changed(sedi, "quando")]).toEqual([true, false]);
+        const ore = upd(menu(), x => void ((x.qmode = "momenti"), (x.when = { days: [5, 6] })));
+        expect([changed(ore, "dove"), changed(ore, "quando")]).toEqual([false, true]);
+        const per = upd(menu(), x => void (x.per = { a: {}, b: { days: [5, 6] } }));
+        expect([changed(per, "dove"), changed(per, "quando")]).toEqual([false, true]);
+    });
+
+    it("spegnerlo: la frase dice che esce da tutte le sedi, «Le tue modifiche» com'era e com'è", () => {
+        const t = upd(menu(), x => void (x.onda = "off"));
+        expect(sentence(t, L)).toBe("Il menù «Pranzo» esce da tutte le sedi: da quando salvi nessun cliente lo vede.");
+        expect(ondaChange(t, "dove", L)).toEqual(["Prima: in onda, Tutte le sedi", "Adesso: no, per ora lo tengo pronto"]);
+        // tenuto pronto, il Quando si salta: fra le modifiche resta solo il Dove
+        expect(changedSteps(t, OWNER)).toEqual(["dove"]);
+        expect(ondaChange(upd(menu(null), x => void (x.onda = "on")), "quando", L)).toEqual(["Prima: non in onda", "Adesso: in onda, Sempre, tutto il giorno"]);
+        expect(ondaChange(upd(menu(null), x => void (x.onda = "on")), "dove", L)[0]).toBe("Prima: non in onda");
+    });
+
+    it("lo stile in onda non si spegne: la sua voce è quella del menù", () => {
+        const st = asEdit({ ...newTunnel("stile", ALL), name: "Sera" }, "st1", { id: "r1", count: 1, live: true });
+        expect(offLater(st)).toBe(true);
+        expect(offLater(menu())).toBe(false);
+        expect(offLater(asEdit({ ...newTunnel("stile", ALL), name: "Sera" }, "st1", { id: null, count: 0, live: false }))).toBe(false);
+    });
+});
+
 describe("modifica nel tunnel: viola e grigi", () => {
     it("«Avanti» e «Indietro» si fermano solo sui passi scelti", () => {
         const t = upd(menu(), x => void x.edit!.picked.push("sezioni"));
         expect(lit(t, "sezioni")).toBe(true);
         expect(lit(t, "parti")).toBe(false);
         expect(stepFrom(t, OWNER, 0, 1)).toBe(2);
-        expect(stepFrom(t, OWNER, 2, 1)).toBe(4);
-        expect(stepFrom(t, OWNER, 4, -1)).toBe(2);
+        expect(stepFrom(t, OWNER, 2, 1)).toBe(5);
+        expect(stepFrom(t, OWNER, 5, -1)).toBe(2);
         expect(stepFrom(t, OWNER, 2, -1)).toBe(0);
     });
 
@@ -177,7 +226,7 @@ describe("modifica nel tunnel: lo stile", () => {
         const base = structuredClone(DEFAULT_STYLE_TOKENS);
         base.card.productStyle = "compact";
         base.card.image.mode = "hide";
-        const t = asEdit({ ...newTunnel("stile", ALL), name: "Sera", look: structuredClone(base) }, "st1", { id: null, count: 0 });
+        const t = asEdit({ ...newTunnel("stile", ALL), name: "Sera", look: structuredClone(base) }, "st1", { id: null, count: 0, live: false });
         expect(styleTokens(t)).toEqual(base);
         expect(changed(t, "aspetto")).toBe(false);
         t.look.appearance.borderRadius = base.appearance.borderRadius === "none" ? "soft" : "none";
@@ -185,7 +234,7 @@ describe("modifica nel tunnel: lo stile", () => {
         expect(changed(t, "nome")).toBe(false);
     });
 
-    const sera = () => asEdit({ ...newTunnel("stile", ALL), name: "Sera", look: structuredClone(DEFAULT_STYLE_TOKENS) }, "st1", { id: null, count: 0 });
+    const sera = () => asEdit({ ...newTunnel("stile", ALL), name: "Sera", look: structuredClone(DEFAULT_STYLE_TOKENS) }, "st1", { id: null, count: 0, live: false });
     const saved = async (t: Tunnel) => {
         calls.length = 0;
         await saveEdit(t, { tenantId: "T", L: {}, names: {}, blockFiles: {}, done: new Map() } as unknown as EditCtx);
@@ -217,7 +266,7 @@ describe("modifica nel tunnel: i piatti del contenuto in evidenza (D187)", () =>
         const t = { ...newTunnel("evid", ALL), title: "Pranzo veloce" };
         t.evType = evType;
         fn(t);
-        return asEdit(t, "e1", { id: "r1", count: 1 });
+        return asEdit(t, "e1", { id: "r1", count: 1, live: true });
     }
     const promo = () => evid("promo", x => void ((x.dishes = ["p1", "p2"]), (x.notes = { p1: "-20%" })));
     const bundle = () => evid("bundle", x => void ((x.dishes = ["p1", "p2"]), (x.bundle = "24,50")));
@@ -256,7 +305,7 @@ describe("modifica nel tunnel: «Riprova» dopo un piatto nuovo fermo a metà (r
         Object.assign(fail, { on: "", skip: 0 });
     });
     const withDish = (d: Dish) => upd(menu(), x => void x.sections[0].dishes.push(d));
-    const ctx = (done: Map<string, unknown>) => ({ tenantId: "T", L: {}, names: {}, blockFiles: {}, done }) as unknown as EditCtx;
+    const ctx = (done: Map<string, unknown>) => ({ tenantId: "T", L: {}, names: {}, blockFiles: {}, done, owner: true }) as unknown as EditCtx;
     const made = () => calls.filter(c => c[0] === "createProduct").length;
 
     it("il collegamento non riesce: «Riprova» collega il prodotto già nato, non ne crea un secondo", async () => {
@@ -310,7 +359,7 @@ describe("modifica nel tunnel: il menù, le ore per sede e l'import aperto", () 
         calls.length = 0;
         Object.assign(fail, { on: "", skip: 0 });
     });
-    const ctx = () => ({ tenantId: "T", L: {}, names: {}, blockFiles: {}, done: new Map() }) as unknown as EditCtx;
+    const ctx = () => ({ tenantId: "T", L: {}, names: {}, blockFiles: {}, done: new Map(), owner: true }) as unknown as EditCtx;
 
     it("salvando il «Dove e quando», le ore diverse per sede scelte nel tunnel arrivano al Calendario", async () => {
         const per = { s1: { days: [1, 2] }, s2: { days: [6, 0] } } as unknown as Tunnel["per"];
@@ -324,6 +373,19 @@ describe("modifica nel tunnel: il menù, le ore per sede e l'import aperto", () 
         expect((saved[0][1] as { per: unknown }).per).toEqual(per);
     });
 
+    it("«Riprova» con le ore per sede: il salvataggio riceve lo stesso elenco delle regole già nate (rilettura #472)", async () => {
+        const t = upd(menu(), x => {
+            x.where = { all: false, activityIds: ["s1", "s2", "s3"], groupIds: [] };
+            x.per = { s1: { days: [1] }, s2: { days: [2] }, s3: { days: [3] } } as unknown as Tunnel["per"];
+        });
+        const c = ctx();
+        await saveEdit(t, c);
+        await saveEdit(t, c);
+        const [a, b] = calls.filter(x => x[0] === "saveDraft").map(x => x[4]);
+        expect(a).toBeInstanceOf(Set);
+        expect(b).toBe(a);
+    });
+
     it("con un import da foto ancora aperto, «Avanti» e il salvataggio si fermano anche se non è cambiato altro", () => {
         const t = upd(menu(), x => void (x.impOpen = true));
         expect(changed(t, "sezioni")).toBe(false);
@@ -332,22 +394,143 @@ describe("modifica nel tunnel: il menù, le ore per sede e l'import aperto", () 
     });
 });
 
-describe("modifica nel tunnel: «Riprova» del «Dove e quando» (rilettura #472)", () => {
+describe("modifica nel tunnel: salvare «in onda» o «pronto» (D189)", () => {
     beforeEach(() => {
         calls.length = 0;
         Object.assign(fail, { on: "", skip: 0 });
+        cal.entries = [{ ruleId: "r1", rule: { featured_contents: [] } }];
+    });
+    const ctx = (owner = true) => ({ tenantId: "T", L: { multi: true }, names: {}, blockFiles: {}, done: new Map(), owner, pair: "sty" }) as unknown as EditCtx;
+    const names = () => calls.map(c => c[0]);
+    const evid = (rule: string | null, live: boolean) => asEdit({ ...newTunnel("evid", ALL), name: "Aperitivo" }, "e1", { id: rule, count: rule ? 1 : 0, live });
+    const storia = (live: boolean) => asEdit({ ...newTunnel("storia", ALL), name: "Il forno" }, "s1", { id: null, count: 0, live });
+
+    it("spegnere un menù in onda: la sua voce si spegne e resta nel Calendario, niente si cancella", async () => {
+        await saveEdit(upd(menu(), x => void (x.onda = "off")), ctx());
+        expect(calls.find(c => c[0] === "updateScheduleEnabled")).toEqual(["updateScheduleEnabled", "r1", false]);
+        expect(names()).not.toContain("saveDraft");
+        expect(names()).not.toContain("dropDraft");
     });
 
-    it("le parti della regola già salvate restano segnate fra un tentativo e l'altro: niente regole doppie", async () => {
-        const t = upd(menu(), x => void (x.where = { all: false, activityIds: ["s1"], groupIds: [] }));
-        const done = new Map<string, unknown>();
-        const ctx = { tenantId: "T", L: {}, names: {}, blockFiles: {}, done } as unknown as EditCtx;
-        fail.on = "saveDraft";
-        await expect(saveEdit(t, ctx)).rejects.toThrow();
-        await saveEdit(t, ctx);
-        const sets = calls.filter(c => c[0] === "saveDraft").map(c => c[4]);
-        expect(sets).toHaveLength(2);
-        expect(sets[0]).toBeInstanceOf(Set);
-        expect(sets[1]).toBe(sets[0]);
+    it("rimettere in onda un menù con la voce spenta: si riscrive quella voce (che si riaccende)", async () => {
+        const t = upd(menu(), x => void (x.onda = "on"));
+        t.edit!.orig.onda = "off";
+        const saved = await saveEdit(t, ctx());
+        expect(names().filter(n => n === "saveDraft")).toHaveLength(1);
+        expect(names()).not.toContain("updateScheduleEnabled");
+        expect(saved.live).toBe(true);
+    });
+
+    it("mettere in onda un menù senza voce: ne nasce una, col suo stile", async () => {
+        cal.entries = [];
+        await saveEdit(upd(menu(null), x => void (x.onda = "on")), ctx());
+        const d = calls.find(c => c[0] === "saveDraft")!;
+        expect((d[1] as { thing: string }).thing).toBe("m1");
+        expect((d[1] as { mode: string; rule: unknown }).mode).toBe("add");
+        expect((d[1] as { rule: unknown }).rule ?? null).toBeNull();
+    });
+
+    it("in evidenza spento in una regola tutta sua: si spegne quella regola", async () => {
+        cal.entries = [{ ruleId: "r1", rule: { featured_contents: [{}] } }];
+        await saveEdit(upd(evid("r1", true), x => void (x.onda = "off")), ctx());
+        expect(calls.find(c => c[0] === "updateScheduleEnabled")).toEqual(["updateScheduleEnabled", "r1", false]);
+    });
+
+    it("in evidenza spento in una regola con altri contenuti: ne fa una sua spenta ed esce dall'altra", async () => {
+        cal.entries = [{ ruleId: "r1", rule: { featured_contents: [{}, {}] } }];
+        await saveEdit(upd(evid("r1", true), x => void (x.onda = "off")), ctx());
+        const rule = calls.find(c => c[0] === "updateFeaturedRule")![1] as { enabled: boolean; featuredContents: { featured_content_id: string }[] };
+        expect(rule.enabled).toBe(false);
+        expect(rule.featuredContents[0].featured_content_id).toBe("e1");
+        expect(names()).toContain("dropDraft");
+        expect(names()).not.toContain("updateScheduleEnabled");
+    });
+
+    it("in evidenza pronto messo in onda senza regola: torna pubblicato e la regola nasce accesa", async () => {
+        cal.entries = [];
+        await saveEdit(upd(evid(null, false), x => void (x.onda = "on")), ctx());
+        expect(calls.find(c => c[0] === "updateFeaturedContent")?.[3]).toEqual({ status: "published" });
+        expect((calls.find(c => c[0] === "updateFeaturedRule")![1] as { enabled: boolean }).enabled).toBe(true);
+    });
+
+    it("la storia: spenta torna bozza, rimessa in onda torna pubblicata", async () => {
+        await saveEdit(upd(storia(true), x => void (x.onda = "off")), ctx());
+        expect((calls.find(c => c[0] === "updateStory")![3] as { status: string }).status).toBe("draft");
+        calls.length = 0;
+        await saveEdit(upd(storia(false), x => void (x.onda = "on")), ctx());
+        expect((calls.find(c => c[0] === "updateStory")![3] as { status: string }).status).toBe("published");
+    });
+
+    it("la storia: «Di cosa parla» scrive il prodotto o la sede; il resto non si tocca (D191)", async () => {
+        const patch = () => calls.find(c => c[0] === "updateStory")![3] as Record<string, unknown>;
+        const of = (over: Partial<Tunnel>) => asEdit({ ...newTunnel("storia", ALL), name: "Il forno", ...over }, "s1", { id: null, count: 0, live: true });
+        // dal locale a un prodotto: la sede si toglie
+        await saveEdit(upd(of({ about: "loc", sede: "porto" }), x => void ((x.about = "prod"), (x.linked = "p1"))), ctx());
+        expect(patch()).toEqual({ product_id: "p1", activity_id: null });
+        calls.length = 0;
+        // da un prodotto a una sede
+        await saveEdit(upd(of({ about: "prod", linked: "p1" }), x => void ((x.about = "loc"), (x.sede = "lido"))), ctx());
+        expect(patch()).toEqual({ product_id: null, activity_id: "lido" });
+        calls.length = 0;
+        // solo un altro prodotto: la sede di prima, se c'era, resta
+        await saveEdit(upd(of({ about: "prod", linked: "p1", sede: "porto" }), x => void (x.linked = "p2")), ctx());
+        expect(patch()).toEqual({ product_id: "p2" });
+        calls.length = 0;
+        // solo «In onda?»: né prodotto né sede
+        await saveEdit(upd(of({ about: "prod", linked: "p1" }), x => void (x.onda = "off")), ctx());
+        expect(patch()).toEqual({ status: "draft" });
+    });
+
+    it("chi non gestisce il Calendario non cambia la messa in onda", async () => {
+        await saveEdit(upd(menu(), x => void (x.onda = "off")), ctx(false));
+        expect(names()).not.toContain("updateScheduleEnabled");
+        expect(names()).not.toContain("saveDraft");
+    });
+});
+
+describe("«Metti in onda» dall'elenco (D189)", () => {
+    const pronto = (rules = 0) => asEdit({ ...newTunnel("evid", ALL), name: "Aperitivo" }, "e1", { id: rules === 1 ? "r1" : null, count: rules, live: false });
+
+    it("apre la modifica sul «Dove», con «Sì» acceso; scelti il Dove e il Quando", () => {
+        const t = asMetti(pronto(), OWNER);
+        expect(steps(t, OWNER)[t.i]).toBe("dove");
+        expect(t.onda).toBe("on");
+        expect(t.edit!.picked).toEqual(["dove", "quando"]);
+        expect(stepFrom(t, OWNER, t.i, 1)).toBe(t.i + 1);
+        expect(changed(t, "dove")).toBe(true);
+    });
+
+    it("con una sede sola il passo è «Quando»", () => {
+        const one = { owner: true, multi: false }, t = asMetti(pronto(), one);
+        expect(steps(t, one)[t.i]).toBe("quando");
+    });
+
+    it("senza il passo (chi non gestisce il Calendario, o più voci) resta la modifica di sempre", () => {
+        expect(asMetti(pronto(), { owner: false, multi: true })).toEqual(pronto());
+        expect(asMetti(pronto(2), OWNER)).toEqual(pronto(2));
+    });
+});
+
+describe("dal Calendario: solo il dove e il quando (punti 22 e 24)", () => {
+    const pronto = (rules = 0) => asEdit({ ...newTunnel("evid", ALL), name: "Aperitivo" }, "e1", { id: rules === 1 ? "r1" : null, count: rules, live: false });
+
+    it("«Modifica completa»: i passi del contenuto non ci sono, si parte da «Cosa vuoi modificare?»", () => {
+        const t = asCal(pronto(1), OWNER, false);
+        expect(steps(t, OWNER)).toEqual(["modifica", "dove", "quando", "controlla"]);
+        expect(t.i).toBe(0);
+        expect(t.edit!.add).toBeUndefined();
+        expect(isDirty(t)).toBe(false);
+    });
+
+    it("da «Aggiungi»: già sul «Dove» con «Sì» acceso, come «Metti in onda»", () => {
+        const t = asCal(pronto(), OWNER, true);
+        expect(steps(t, OWNER)[t.i]).toBe("dove");
+        expect(t.onda).toBe("on");
+        expect(t.edit).toMatchObject({ cal: true, add: true, picked: ["dove", "quando"] });
+    });
+
+    it("in più regole il dove e il quando non si cambiano da qui: restano i passi di sempre", () => {
+        const t = asCal(pronto(2), OWNER, false);
+        expect(steps(t, OWNER)).toEqual(["modifica", "contenuto", "controlla"]);
     });
 });

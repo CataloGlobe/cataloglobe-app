@@ -8,6 +8,7 @@
 // cambia il database.
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 import {
+    FSLOT,
     KIND_LABEL,
     dayCtx,
     dayParts,
@@ -82,6 +83,13 @@ export type Draft = {
     name: string | null;
     /** Un menù che si accavalla con un altro: true = «Mettili insieme», altrimenti prende il suo posto (D135). */
     insieme?: boolean;
+    /**
+     * I menù che stanno da soli (punto 4): con «insieme» si vede solo l'altro, tranne
+     * le coppie «sede|menù» in `tuo`; altrimenti si vede il tuo, tranne quelle in `lui`.
+     * Solo le bozze dei tunnel le hanno: il Calendario da solo resta com'è.
+     */
+    lui?: string[];
+    tuo?: string[];
     orig: string;
     before: string | null;
 };
@@ -251,14 +259,24 @@ export function waitsForDb(D: Draft): string {
 /**
  * Dove la bozza tocca un altro menù (o stile) alle stesse ore, per sede.
  * `vince`: la bozza prende il suo posto; `pari`: solo perché è l'ultima messa
- * (con `vince` false: resta l'altro perché c'era prima, il Calendario di oggi).
+ * (con `vince` false: resta l'altro perché c'era prima, il Calendario di oggi);
+ * `copre`: resta l'altro perché oggi vince lui (più vicino alla sede o con orari più stretti), non per il pari merito.
  */
-export type Scontro = { sedi: string[]; con: string; quando: string; vince: boolean; pari: boolean };
+export type Scontro = { sedi: string[]; con: string; quando: string; vince: boolean; pari: boolean; copre?: true; /** Le stesse sedi, per id. */ ids?: string[] };
 /** «Cosa cambia nel calendario» e gli scontri, nella settimana che si vede. */
-export type Impatto = { lines: string[]; scontri: Scontro[] };
+/** Una sede, nella settimana che si vede: quanto va in onda e chi incrocia; `incroci`: i giorni in cui tocca un altro. */
+/** `giorni`: dove si incrocia, giorno per giorno in breve («Lun–Ven», «12:00–15:00: Pranzo + Brunch»). */
+export type Giorno = { days: string; txt: string };
+export type SedeEff = { id: string; name: string; mins: number; days: number; cov: string[]; by: string[]; incroci: number; giorni?: Giorno[] };
+/** `pair`: lo stile che il menù porta con sé; `prima`: in modifica, gli stessi fatti per la voce com'era salvata. */
+export type Impatto = { lines: string[]; scontri: Scontro[]; sedi?: SedeEff[]; prima?: SedeEff[]; pair?: string; /** La tinta di ogni menù o stile, come nel calendario. */ colori?: Record<string, string> };
 export const NO_IMPATTO: Impatto = { lines: [], scontri: [] };
 
-const ore = (m: number) => hhmm(m).replace(/:00$/, "").replace(/^0(\d)/, "$1");
+export const ore = (m: number) => hhmm(m).replace(/:00$/, "").replace(/^0(\d)/, "$1");
+
+// «dalle 7 a mezzanotte», «dall'una alle 3»: niente «alle 0» (giro del 2026-10-14, difetto 4)
+const oraDa = (m: number) => (m % 1440 === 0 ? "da mezzanotte" : ore(m) === "1" ? "dall'una" : `dalle ${ore(m)}`);
+const oraA = (m: number) => (m % 1440 === 0 ? "a mezzanotte" : ore(m) === "1" ? "all'una" : `alle ${ore(m)}`);
 
 /** «dal lunedì al venerdì dalle 12 alle 14»: i tratti di una settimana, giorno (0 = lunedì) → [da, a]. */
 export function quandoScontro(tratti: readonly (readonly [number, number, number])[]): string {
@@ -272,7 +290,7 @@ export function quandoScontro(tratti: readonly (readonly [number, number, number
             .sort((x, y) => Math.min(...x[1]) - Math.min(...y[1]))
             .map(([k, ds]) => {
                 const [a, b] = k.split("-").map(Number);
-                return `${ds.length === 7 ? "tutti i giorni" : daysLong(ds)} dalle ${ore(a)} alle ${ore(b)}`;
+                return `${ds.length === 7 ? "tutti i giorni" : daysLong(ds)} ${oraDa(a)} ${oraA(b)}`;
             })
     );
 }
@@ -280,7 +298,7 @@ export function quandoScontro(tratti: readonly (readonly [number, number, number
 /** Cosa aspetta il database nuovo per gli scontri (D135, D149); "" se si salva. */
 export function scontriWait(D: Draft, sc: readonly Scontro[]): string {
     if (DB.ready || !sc.some(x => x.vince)) return "";
-    if (D.kind === "menu" && D.insieme) return "Due menù insieme: " + DB_WAIT;
+    if (D.kind === "menu" && D.insieme) return "Due menù insieme: " + DB_WAIT + ". Per ora scegli «al posto».";
     if (NEW_MODEL.newestWins && sc.some(x => x.vince && x.pari)) return "Prende il posto di un altro a pari merito: " + DB_WAIT;
     return "";
 }
@@ -348,7 +366,7 @@ export function perText(per: NonNullable<Draft["per"]>, L: DraftLookups): string
 /* ---------- le frasi ---------- */
 
 const MONTH_SHORT = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
-const DAYS_L = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
+export const DAYS_L = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
 export const mShort = (d: DayNum) => dayParts(d).day + " " + MONTH_SHORT[dayParts(d).month];
 /** dall'8, all'11 */
 export const elides = (d: DayNum) => [8, 11].includes(dayParts(d).day);
@@ -438,6 +456,41 @@ export const hoursText = (m: number) => {
     const h = Math.floor(m / 60), mm = m % 60;
     return (h ? h + (h === 1 ? " ora" : " ore") : "") + (mm ? (h ? " e " : "") + mm + " minuti" : "") || "0 ore";
 };
+
+/**
+ * L'ora scritta a mano: «22», «2230», «22:30» o «22.30», arrotondata al quarto
+ * d'ora. `null` se è vuota, `NaN` se non è un'ora.
+ */
+export function parseTime(text: string): number | null {
+    const v = text.trim().replace(/[.,h ]/g, ":");
+    if (!v) return null;
+    let h: number, m = 0;
+    if (v.includes(":")) {
+        const [a, b] = v.split(":");
+        h = Number(a);
+        m = Number(b || 0);
+    } else if (/^\d{1,2}$/.test(v)) h = Number(v);
+    else if (/^\d{3,4}$/.test(v)) {
+        h = Number(v.slice(0, -2));
+        m = Number(v.slice(-2));
+    } else return NaN;
+    if (!(h >= 0 && h <= 24 && m >= 0 && m < 60)) return NaN;
+    return (h * 60 + Math.round(m / FSLOT) * FSLOT) % 1440;
+}
+
+/**
+ * Cambia l'inizio (0) o la fine (1) di una fascia. Con la notte (oltre
+ * mezzanotte), una fine che viene prima dell'inizio è del giorno dopo; senza,
+ * resta com'è scritta (lo dice `invalid`) e lo 0 della fine è mezzanotte.
+ */
+export function setRangeTime(r: [number, number], edge: 0 | 1, at: number) {
+    const c = (((Math.round(at / FSLOT) * FSLOT) % 1440) + 1440) % 1440;
+    const end = (a: number, b: number) => (NEW_MODEL.overnight ? (b % 1440 <= a ? (b % 1440) + 1440 : b % 1440) : b);
+    if (edge === 0) {
+        r[0] = c;
+        r[1] = end(c, r[1]);
+    } else r[1] = NEW_MODEL.overnight ? end(r[0], c) : c === 0 ? 1440 : c;
+}
 
 /** Le fasce in ordine, unite dove si toccano. */
 export function normRanges(rs: [number, number][]) {

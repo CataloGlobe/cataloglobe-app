@@ -40,11 +40,11 @@ describe("contenuto in evidenza: partire da un'idea", () => {
     });
 
     it("in modifica «Togli» rimette il tipo di prima, non l'annuncio (review #444)", () => {
-        const ev = asEdit({ ...newTunnel("evid", ALL), title: "Karaoke", evType: "evento" }, "f1", { id: null, count: 0 });
+        const ev = asEdit({ ...newTunnel("evid", ALL), title: "Karaoke", evType: "evento" }, "f1", { id: null, count: 0, live: false });
         ev.evType = "promo";
         dropDishes(ev);
         expect(ev.evType).toBe("evento");
-        const pr = asEdit({ ...newTunnel("evid", ALL), title: "Pranzo", evType: "promo" }, "f2", { id: null, count: 0 });
+        const pr = asEdit({ ...newTunnel("evid", ALL), title: "Pranzo", evType: "promo" }, "f2", { id: null, count: 0, live: false });
         dropDishes(pr);
         expect(pr.evType).toBeNull();
     });

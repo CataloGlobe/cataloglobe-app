@@ -203,6 +203,14 @@ describe("salvare «Categorie e piatti» in modifica", () => {
         ]);
     });
 
+    it("una variante (da un menù copiato) si scrive col suo prodotto e sé stessa accanto", async () => {
+        await writeSections([S("Primi", [D("b", { parentId: "p-padre" })])], "m1", "T");
+        expect(calls).toEqual([
+            ["createCategory", "T", "m1", "Primi", 1, null, 0],
+            ["addProductToCategory", "T", "m1", "n1", "p-padre", 0, "p-b"]
+        ]);
+    });
+
     it("un menù nuovo si scrive con le sottocategorie al loro livello", async () => {
         const ids = await writeSections([S("Primi", [], [S("Terra", [D("b")])])], "m1", "T");
         expect(calls).toEqual([

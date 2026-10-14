@@ -13,7 +13,6 @@
     --k-brand-ink: var(--on-brand-soft);
     --k-brand-soft: var(--brand-primary-soft);
     --k-brand-line: color-mix(in srgb, var(--brand-primary) 35%, var(--surface));
-    --k-lilla: var(--sidebar-bg);
     --k-bad: var(--text-warning);
     --k-bad-soft: color-mix(in srgb, var(--warning-500) 14%, transparent);
     --k-edge: color-mix(in srgb, var(--text) 28%, transparent);
@@ -166,7 +165,7 @@
     }
 }
 
-/* una parte: testata lilla come le categorie del menù */
+/* una parte: testata col colore del tipo (verde lo stile, ambra l'in evidenza), come i passi del tunnel (difetto 6) */
 .part {
     border: 1px solid var(--k-line);
     border-radius: 12px;
@@ -186,10 +185,10 @@
     padding: 9px 14px;
     border-bottom: 1px solid var(--k-line);
     border-radius: 11px 11px 0 0;
-    background: var(--k-lilla);
+    background: color-mix(in srgb, var(--k, var(--brand-primary)) 8%, var(--k-surface));
 
     b {
-        color: var(--k-brand-ink);
+        color: color-mix(in srgb, var(--k, var(--brand-primary)) 75%, var(--k-ink));
         font-weight: 650;
         @include cal.fs(strong);
     }
@@ -209,7 +208,7 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: var(--k-brand);
+    background: var(--k, var(--k-brand));
     color: var(--on-brand, var(--k-surface));
     font-weight: 700;
     @include cal.fs(badge);

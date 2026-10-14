@@ -9,8 +9,11 @@ export type SettimanaAnteprimaProps = Pick<CalendarioViewProps, "rules" | "names
     pickList?: readonly PickProduct[];
     /** «Cosa cambia nel calendario» e gli scontri con gli altri menù, a ogni cambio. */
     onEffect?: (imp: Impatto) => void;
+    /** Con più sedi: quella che si guarda, e come cambiarla. */
+    sede?: string | null;
+    onSede?: (id: string) => void;
 };
 
-export function SettimanaAnteprima({ draft, pickList, onEffect, ...p }: SettimanaAnteprimaProps) {
-    return <CalendarioView {...p} anteprima={{ draft, pickList, onEffect }} />;
+export function SettimanaAnteprima({ draft, pickList, onEffect, sede, onSede, ...p }: SettimanaAnteprimaProps) {
+    return <CalendarioView {...p} anteprima={{ draft, pickList, onEffect, sede, onSede }} />;
 }

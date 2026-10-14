@@ -865,7 +865,7 @@ export function MenuCategorie({ t, u, pick, onRead }: Props) {
         const dups = it.filter(([x]) => x.st === "dup");
         let hint = 0;
         return (
-            <div className={cx(s.card, s.rep)}>
+            <div className={cx(s.card, s.rep)} data-bad="imp">
                 <div className={cx(s.sh, s.repH)}>
                     <b>
                         Nel file «{done.file}» ho trovato {done.items.length} {done.items.length === 1 ? "piatto" : "piatti"}
@@ -1130,7 +1130,7 @@ export function MenuCategorie({ t, u, pick, onRead }: Props) {
                 </div>
                 {!imp && M.length > 0 && importBtn(false)}
             </div>
-            <div className={s.two}>
+            <div className={s.two} data-bad="secs">
                 {left}
                 <div className={s.right}>{right}</div>
             </div>

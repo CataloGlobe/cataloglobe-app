@@ -10,21 +10,26 @@ import {
     updateFeaturedContentProductsSortOrder,
     type FeaturedContent
 } from "@/services/supabase/featuredContents";
-import { listLayoutRules } from "@/services/supabase/layoutScheduling";
+import { listLayoutRules, updateScheduleEnabled } from "@/services/supabase/layoutScheduling";
 import { updateStory, type StoryUpdateInput } from "@/services/supabase/stories";
 import { uploadFeaturedContentImage, deleteStoryImageBestEffort, uploadStoryImage } from "@/services/supabase/upload";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { draftFromEntry } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
+import { dropDraft, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 import { deriveTypeFields, parsePrice } from "@/pages/Dashboard/Highlights/featuredContentTypes";
 import { EV, changed, clonePer, cloneWhen, effWhen, hasDishes, thingName, type Tunnel } from "./creaModel";
+import { evidColumns } from "./evidData";
 import { saveSezioni } from "./menuSave";
-import { entriesOf } from "./creaLoad";
+import { allEntriesOf } from "./creaLoad";
 import { styleConfig } from "./creaStyle";
-import { parts, type SaveCtx, type Saved } from "./creaSave";
+import { CAL_KIND, draftFor, parts, writeEvidRules, type SaveCtx, type Saved } from "./creaSave";
 import type { CreaData } from "./useCreaData";
 
-export type EditCtx = Pick<SaveCtx, "tenantId" | "L" | "blockFiles" | "done"> & { names: CreaData["names"] };
+export type EditCtx = Pick<SaveCtx, "tenantId" | "L" | "blockFiles" | "done" | "pair"> & {
+    names: CreaData["names"];
+    /** Chi gestisce il Calendario: solo lui cambia «in onda» (D189). */
+    owner: boolean;
+};
 
 async function saveContenuto(t: Tunnel, orig: Tunnel, tenantId: string) {
     const id = t.edit!.id, name = thingName(t);
@@ -34,7 +39,8 @@ async function saveContenuto(t: Tunnel, orig: Tunnel, tenantId: string) {
         subtitle: t.sub.trim() || null,
         description: t.text.trim() || null,
         cta_text: t.cta ? t.ctaText.trim() || null : null,
-        cta_url: t.cta ? t.ctaLink.trim() || null : null
+        cta_url: t.cta ? t.ctaLink.trim() || null : null,
+        ...evidColumns(t)
     };
     // la foto si riscrive solo se è nuova o è stata tolta: così resta la sua inquadratura
     if (t.image) {
@@ -73,16 +79,21 @@ async function savePiatti(t: Tunnel, orig: Tunnel, tenantId: string) {
         }
 }
 
-async function saveStoria(t: Tunnel, orig: Tunnel, c: EditCtx, dove: boolean) {
+async function saveStoria(t: Tunnel, orig: Tunnel, c: EditCtx, onda: boolean) {
     const id = t.edit!.id;
     const patch: StoryUpdateInput = {};
     let fresh: string | null = null;
     if (changed(t, "racconto")) {
         patch.eyebrow = t.kicker.trim() || null;
         patch.title = thingName(t);
-        patch.product_id = t.linked || null;
         if (t.cover) patch.cover_media = fresh = await uploadStoryImage(c.tenantId, id, await compressImage(t.cover, COMPRESS_PROFILES.cover));
         else if (orig.coverUrl && !t.coverUrl) patch.cover_media = null;
+    }
+    // di cosa parla (D191): il prodotto o la sede. Cambiando solo il prodotto, la sede di prima resta
+    if (changed(t, "tema")) {
+        patch.product_id = t.about === "prod" ? t.linked || null : null;
+        if (t.about === "loc") patch.activity_id = t.sede || null;
+        else if (orig.about !== "prod") patch.activity_id = null;
     }
     if (changed(t, "blocchi")) {
         const blocks = [];
@@ -94,10 +105,8 @@ async function saveStoria(t: Tunnel, orig: Tunnel, c: EditCtx, dove: boolean) {
         }
         patch.body_blocks = blocks;
     }
-    if (dove) {
-        const w = t.where;
-        patch.activity_id = !w.all && w.activityIds.length === 1 && !w.groupIds.length ? w.activityIds[0] : null;
-    }
+    // in onda o pronta (D189): la storia non ha regole, lo dice il suo stato
+    if (onda) patch.status = t.onda === "off" ? "draft" : "published";
     try {
         await updateStory(id, c.tenantId, patch);
     } catch (e) {
@@ -109,17 +118,35 @@ async function saveStoria(t: Tunnel, orig: Tunnel, c: EditCtx, dove: boolean) {
     if (orig.coverUrl && patch.cover_media !== undefined) await deleteStoryImageBestEffort(c.tenantId, id, orig.coverUrl).catch(() => {});
 }
 
-/** Il quando e il dove: si riscrive la sua regola del Calendario, come da lì. */
+/**
+ * Il quando e il dove (D189). In onda: si riscrive la sua regola del Calendario,
+ * come da lì, e se era spenta si riaccende; senza regola, ne nasce una.
+ * Tenuto pronto: la sua voce si spegne e resta nel Calendario, con sedi e ore.
+ */
 async function saveQuando(t: Tunnel, c: EditCtx) {
-    const id = t.edit!.id;
+    const ed = t.edit!, id = ed.id, kind = t.kind as "menu" | "stile" | "evid";
     const rules = await listLayoutRules(c.tenantId);
-    const e = entriesOf(t.kind, id, { rules, names: c.names }).find(x => x.ruleId === t.edit!.ruleId);
-    if (!e) throw new Error("la regola non c'è più");
-    const D = draftFromEntry(e, c.L, t.kind === "evid" && e.rule.featured_contents.length > 1 ? id : null);
+    const e = ed.ruleId ? allEntriesOf(kind, id, { rules, names: c.names }).find(x => x.ruleId === ed.ruleId) : undefined;
+    if (ed.ruleId && !e) throw new Error("la regola non c'è più");
+    const shared = kind === "evid" && !!e && e.rule.featured_contents.length > 1;
+    if (t.onda === "off") {
+        if (!e) return;
+        if (!shared) return updateScheduleEnabled(e.ruleId, false);
+        // la regola la divide con altri contenuti: ne fa una sua, spenta, e lascia l'altra
+        await writeEvidRules(ed.orig, c, id, thingName(t), false);
+        return dropDraft(draftFromEntry(e, c.L, id));
+    }
+    if (kind === "evid" && ed.orig.onda !== "on") await updateFeaturedContent(id, c.tenantId, { status: "published" });
+    if (!e) {
+        if (kind === "evid") await writeEvidRules(t, c, id, thingName(t), true);
+        else await saveDraft(draftFor(t, CAL_KIND[kind], id, c.pair), c.L, c.tenantId, parts(c, "rule:" + id));
+        return;
+    }
+    const D = draftFromEntry(e, c.L, shared ? id : null);
     D.when = cloneWhen(effWhen(t));
     D.where = { all: t.where.all, activityIds: [...t.where.activityIds], groupIds: [...t.where.groupIds] };
     D.per = clonePer(t.per);
-    // con le ore diverse per sede sono più regole: al «Riprova» quelle già nate non rinascono
+    // «Riprova»: con più orari per sede, le regole già nate non si rifanno
     await saveDraft(D, c.L, c.tenantId, parts(c, "rule:" + id));
 }
 
@@ -135,7 +162,12 @@ export async function saveEdit(t: Tunnel, c: EditCtx): Promise<Saved> {
     } else if (t.kind === "evid") {
         if (changed(t, "contenuto")) await saveContenuto(t, orig, c.tenantId);
         if (changed(t, "piatti")) await savePiatti(t, orig, c.tenantId);
-    } else if (changed(t, "racconto") || changed(t, "blocchi") || dove) await saveStoria(t, orig, c, dove);
-    if (dove && t.kind !== "storia") await saveQuando(t, c);
-    return { id, name, live: true, ruleId: e.ruleId };
+    } else {
+        // la storia non ha regole: in onda o pronta lo dice il suo stato («In onda?»)
+        const onda = changed(t, "onda");
+        if (changed(t, "tema") || changed(t, "racconto") || changed(t, "blocchi") || onda) await saveStoria(t, orig, c, onda);
+    }
+    // chi non gestisce il Calendario non cambia dove e quando (non ha il passo)
+    if (dove && c.owner && t.kind !== "storia") await saveQuando(t, c);
+    return { id, name, live: t.onda === "on", ruleId: e.ruleId };
 }

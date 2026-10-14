@@ -124,6 +124,20 @@ describe("salvare il tunnel: riprovare dopo un errore (#360.2)", () => {
         expect(vi.mocked(updateStory).mock.calls[1][2]).toMatchObject({ title: "La nostra pasta fresca" });
     });
 
+    it("storia: si salva col suo prodotto o con la sua sede, mai tutti e due (D191)", async () => {
+        vi.mocked(createStory).mockResolvedValue({ id: "storia1" } as never);
+        vi.mocked(updateStory).mockClear();
+        const head = async (over: Partial<ReturnType<typeof newTunnel>>) => {
+            vi.mocked(updateStory).mockClear();
+            await saveTunnel({ ...newTunnel("storia", ALL), title: "Il riso", ...over }, ctx());
+            return vi.mocked(updateStory).mock.calls[0][2];
+        };
+        expect(await head({ about: "prod", linked: "p1", sede: "porto" })).toMatchObject({ product_id: "p1", activity_id: null });
+        expect(await head({ about: "loc", linked: "p1", sede: "porto" })).toMatchObject({ product_id: null, activity_id: "porto" });
+        // con una sede sola il locale è quello: nessuna sede scritta
+        expect(await head({ about: "loc" })).toMatchObject({ product_id: null, activity_id: null });
+    });
+
     it("in evidenza: la regola fallisce; riprovando il contenuto è lo stesso e la regola una sola", async () => {
         vi.mocked(createFeaturedContent).mockResolvedValue({ id: "ev1" } as never);
         vi.mocked(createFeaturedRuleDraft).mockResolvedValue("regola-ev" as never);

@@ -1,17 +1,18 @@
 // Il passo «Dove e quando» della sezione Aggiungi / Modifica completa, e il
 // Quando da solo (una sede): li usano la sezione del Calendario e i tunnel di creazione.
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { Plus, TriangleAlert, X } from "lucide-react";
+import { Plus, Search, TriangleAlert, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, syncPer, whenKey, type Draft, type DraftLookups, type Scontro } from "./calendarDraft";
-import { FSLOT, dayNum, durLabel, hhmm, q, type Axis, type CalKind, type CalWhen, type CalWhere } from "./calendarModel";
-import { SediBottone } from "@/components/ui/SediPannello/SediPannello";
-import { Band, TimeSel } from "./CalendarioOrario";
+import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, setRangeTime, syncPer, whenKey, type Draft, type DraftLookups, type Scontro } from "./calendarDraft";
+import { dayNum, durLabel, hhmm, q, type Axis, type CalKind, type CalWhen, type CalWhere } from "./calendarModel";
+import { SediBottone, SediPannello } from "@/components/ui/SediPannello/SediPannello";
+import { Band, TimeField } from "./CalendarioOrario";
 import s from "./CalendarioView.module.scss";
 
-export type PassoSede = { id: string; name: string };
+export type PassoSede = { id: string; name: string; off?: true };
 export type PassoGruppo = { id: string; name: string; activityIds: string[] };
 type Upd = (fn: (d: Draft) => void) => void;
 
@@ -135,12 +136,10 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
                 />
                 {w.ranges?.map((r, j) => (
                     <div key={j} className={`${s.hrowf} ${s.irange}`}>
-                        <label className={s.hfld}>
-                            Dalle <TimeSel v={r[0]} max={1440 - FSLOT} onChange={m => upd(dd => void (dd.when.ranges![j][0] = m))} />
-                        </label>
-                        <label className={s.hfld}>
-                            alle <TimeSel v={r[1]} min={FSLOT} max={1440} onChange={m => upd(dd => void (dd.when.ranges![j][1] = m))} />
-                        </label>
+                        <span className={s.hfld}>Dalle</span>
+                        <TimeField v={r[0]} label="Dalle" onChange={m => upd(dd => setRangeTime(dd.when.ranges![j], 0, m))} />
+                        <span className={s.hfld}>alle</span>
+                        <TimeField v={r[1]} label="Alle" start={r[0]} onChange={m => upd(dd => setRangeTime(dd.when.ranges![j], 1, m))} />
                         {w.ranges!.length > 1 && (
                             <IconButton size="sm" icon={<X size={14} />} aria-label={`Togli la fascia ${hhmm(r[0])}–${hhmm(r[1])}`} onClick={() => upd(dd => void dd.when.ranges!.splice(j, 1))} />
                         )}
@@ -157,8 +156,10 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
                 <Band w={w} axis={axis} upd={upd} />
                 {w.ranges && (
                     <p className={s.muted}>
-                        Trascina le barre per spostare le fasce, a 15 minuti per volta.{" "}
-                        {NEW_MODEL.overnight ? "Anche dopo mezzanotte: fino alle 02:00 è la stessa serata." : `Dopo mezzanotte ${DB_LATER}.`}
+                        Scrivi l'ora (22, 2230 o 22:30) o sceglila dall'orologio; le frecce ↑ ↓ la spostano di 15 minuti.{" "}
+                        {NEW_MODEL.overnight
+                            ? "Una fascia può passare la mezzanotte: dalle 23 alle 5 è una sola fascia, «alle 05:00 del giorno dopo». Sulla barra, la parte a righe dopo lo 0 è il giorno dopo."
+                            : `Dopo mezzanotte ${DB_LATER}.`}
                     </p>
                 )}
                 {bad && bad.startsWith("Una fascia") && <Warn>{bad}.</Warn>}
@@ -182,6 +183,159 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
     }
 }
 
+/* ---------- le sedi ---------- */
+const WHERE_NOTE = {
+    all: "Vale anche per le sedi che aprirai.",
+    group: "Vale anche per le sedi che entreranno nel gruppo. Se cambi le sedi qui, valgono quelle scelte.",
+    some: "Quello che vale per una sede vince su quello che vale per tutte."
+};
+
+/** Le sedi scelte e come si cambiano: lo stesso per il bottone «Sedi» e per il riquadro. */
+function useSedi(d: Draft, upd: Upd, sedi: readonly PassoSede[], groups: readonly PassoGruppo[]) {
+    const w = d.where;
+    const ids = sediOf(w, sedi, groups);
+    const group = !w.all && !w.activityIds.length && w.groupIds.length ? w.groupIds : null;
+    const setWhere = (next: CalWhere) =>
+        upd(dd => {
+            dd.where = next;
+            dd.per = syncPer(dd.per, sediOf(next, sedi, groups), dd.when);
+        });
+    // tutte prese = tutte, anche quelle che si aggiungeranno; un gruppo intero = il gruppo, anche chi ci entrerà
+    const pick = (next: string[]) => {
+        if (sedi.length > 1 && next.length === sedi.length) return setWhere({ all: true, activityIds: [], groupIds: [] });
+        const g = groups.find(x => x.activityIds.length > 1 && x.activityIds.length === next.length && x.activityIds.every(id => next.includes(id)));
+        setWhere(g ? { all: false, activityIds: [], groupIds: [g.id] } : { all: false, activityIds: next, groupIds: [] });
+    };
+    const gruppi = useMemo(() => groups.map(g => ({ id: g.id, name: g.name, sedeIds: g.activityIds })), [groups]);
+    return { ids, group, pick, gruppi };
+}
+
+// il Quando di una sede: la stessa bozza, col suo quando al posto di quello di tutte
+const updPerOf =
+    (upd: Upd, id: string): Upd =>
+    fn =>
+        upd(dd => {
+            if (!dd.per?.[id]) return;
+            const one = { ...dd, when: dd.per[id] };
+            fn(one);
+            dd.per[id] = one.when;
+        });
+
+export type SediPassoProps = { draft: Draft; upd: Upd; sedi: readonly PassoSede[]; groups: readonly PassoGruppo[]; bad?: string };
+
+/**
+ * «In quali sedi?»: il riquadro delle sedi sempre aperto, nel passo «Dove».
+ * Le sedi si scelgono apposta: si parte da nessuna.
+ */
+export function SediPasso({ draft: d, upd, sedi, groups, bad }: SediPassoProps) {
+    const { ids, group, pick, gruppi } = useSedi(d, upd, sedi, groups);
+    const all = d.where.all;
+    return (
+        <div className={s.ifl}>
+            <h4>In quali sedi?</h4>
+            <div className={s.sbox} data-sbox>
+                <SediPannello
+                    sedi={sedi}
+                    gruppi={gruppi}
+                    value={ids}
+                    onChange={pick}
+                    allLabel="Tutte le sedi, anche le nuove"
+                    tag={id => (sedi.find(x => x.id === id)?.off ? <StatusBadge variant="neutral" label="Sospesa" /> : null)}
+                    noSede={q => `Nessuna sede con «${q}».`}
+                    foot={
+                        <span className={s.sft}>
+                            <span>{all ? "Tutte, anche quelle che aprirai" : ids.length ? `${ids.length} di ${sedi.length} scelte` : "Nessuna sede scelta"}</span>
+                            {ids.length > 0 && !all && (
+                                <Button size="sm" variant="ghost" onClick={() => pick([])}>
+                                    Togli tutte
+                                </Button>
+                            )}
+                        </span>
+                    }
+                />
+            </div>
+            <p className={s.muted}>
+                {all ? WHERE_NOTE.all : group ? WHERE_NOTE.group : WHERE_NOTE.some}
+                {sedi.length > 5 && " L'elenco scorre al suo interno."}
+            </p>
+            {bad === "Scegli almeno una sede" && <Warn>{bad}.</Warn>}
+        </div>
+    );
+}
+
+const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+export type OreSediProps = Pick<QuandoPassoProps, "draft" | "upd" | "durs" | "axis"> & {
+    sedi: readonly PassoSede[];
+    /** La sede appena aperta: la settimana accanto la segue. */
+    onOpen?: (id: string) => void;
+};
+
+/**
+ * «Dipende dalla sede»: una riga per sede con le sue ore. Tutte partono dalle ore
+ * scelte per tutte; quella cambiata dice «diversa» e torna come le altre con un tocco.
+ */
+export function OreSedi({ draft: d, upd, sedi, durs, axis, onOpen }: OreSediProps) {
+    const [open, setOpen] = useState<string | null>(null);
+    const [query, setQuery] = useState("");
+    const per = d.per ?? {};
+    const name = (id: string) => sedi.find(x => x.id === id)?.name ?? "sede";
+    const ids = Object.keys(per);
+    const qv = query.trim();
+    const list = ids.filter(id => !qv || fold(name(id)).includes(fold(qv)));
+    return (
+        <div className={s.ifl}>
+            <p className={s.muted}>Tutte partono da {durLabel(d.when).toLowerCase()}. Apri una sede per cambiarla.</p>
+            {ids.length > 5 && (
+                <label className={s.dqsrch}>
+                    <Search size={15} aria-hidden />
+                    <input type="search" placeholder="Cerca sede" aria-label="Cerca sede" value={query} onChange={ev => setQuery(ev.target.value)} />
+                </label>
+            )}
+            <div className={s.dqrows}>
+                {list.map(id => {
+                    const pw = per[id], dif = whenKey(pw) !== whenKey(d.when), on = open === id;
+                    return (
+                        <div key={id} className={s.dqrow} data-open={on || undefined} data-dif={dif || undefined}>
+                            <button
+                                type="button"
+                                className={s.dqhd}
+                                aria-expanded={on}
+                                onClick={() => {
+                                    if (!on) onOpen?.(id);
+                                    setOpen(on ? null : id);
+                                }}
+                            >
+                                <b>
+                                    {name(id)}
+                                    <small data-dif={dif || undefined}>{dif ? "diversa" : "come le altre"}</small>
+                                </b>
+                                <span>{durLabel(pw)}</span>
+                                <em>{on ? "Chiudi" : "Cambia"}</em>
+                            </button>
+                            {on && (
+                                <div className={s.dqin}>
+                                    <QuandoPasso draft={{ ...d, when: pw }} upd={updPerOf(upd, id)} durs={durs} axis={axis} bad={invalid({ ...d, per: null, when: pw })} />
+                                    {dif ? (
+                                        <span>
+                                            <Button size="sm" variant="ghost" leftIcon={<Undo2 size={14} />} onClick={() => upd(dd => void (dd.per && (dd.per[id] = structuredClone(dd.when))))}>
+                                                Torna come le altre
+                                            </Button>
+                                        </span>
+                                    ) : (
+                                        <p className={s.muted}>Cambiando qui, cambia solo {name(id)}.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+                {!list.length && <p className={s.muted}>Nessuna sede con «{qv}».</p>}
+            </div>
+        </div>
+    );
+}
+
 /* ---------- Dove e quando (D145, G1) ---------- */
 export type DoveQuandoProps = QuandoPassoProps & {
     sedi: readonly PassoSede[];
@@ -201,58 +355,30 @@ export type DoveQuandoProps = QuandoPassoProps & {
 export function DoveQuandoPasso({ draft: d, upd, sedi, groups, L, bad, durs, axis, quando, split: canSplit = true }: DoveQuandoProps) {
     const hid = useId();
     const [open, setOpen] = useState<string | null>(null);
-    const ids = sediOf(d.where, sedi, groups);
     const name = (id: string) => sedi.find(x => x.id === id)?.name ?? "sede";
     const w = d.where;
-    const group = !w.all && !w.activityIds.length && w.groupIds.length ? w.groupIds : null;
+    const { ids, group, pick, gruppi } = useSedi(d, upd, sedi, groups);
     const label = w.all
         ? `Tutte le sedi · ${sedi.length}, anche le nuove`
         : group
           ? listIt(group.map(g => "«" + (L.groups.get(g) ?? "gruppo") + "»")) + ` · ${ids.length} ${ids.length === 1 ? "sede" : "sedi"}`
           : undefined;
-    const setWhere = (next: CalWhere) =>
-        upd(dd => {
-            dd.where = next;
-            dd.per = syncPer(dd.per, sediOf(next, sedi, groups), dd.when);
-        });
-    // tutte prese = tutte, anche quelle che si aggiungeranno; un gruppo intero = il gruppo, anche chi ci entrerà
-    const pick = (next: string[]) => {
-        if (sedi.length > 1 && next.length === sedi.length) return setWhere({ all: true, activityIds: [], groupIds: [] });
-        const g = groups.find(x => x.activityIds.length > 1 && x.activityIds.length === next.length && x.activityIds.every(id => next.includes(id)));
-        setWhere(g ? { all: false, activityIds: [], groupIds: [g.id] } : { all: false, activityIds: next, groupIds: [] });
-    };
-    const gruppi = useMemo(() => groups.map(g => ({ id: g.id, name: g.name, sedeIds: g.activityIds })), [groups]);
     const split = (on: boolean) => {
         setOpen(null);
         upd(dd => {
             dd.per = on ? Object.fromEntries(sediOf(dd.where, sedi, groups).map(id => [id, structuredClone(dd.when)])) : null;
         });
     };
-    // il Quando di una sede: la stessa bozza, col suo quando al posto di quello di tutte
-    const updPer =
-        (id: string): Upd =>
-        fn =>
-            upd(dd => {
-                if (!dd.per?.[id]) return;
-                const one = { ...dd, when: dd.per[id] };
-                fn(one);
-                dd.per[id] = one.when;
-            });
+    const updPer = (id: string) => updPerOf(upd, id);
     const who = ids.length > 3 ? `Le ${ids.length} sedi` : listIt(ids.map(name));
     return (
         <>
-            <div className={s.ifl}>
+            <div className={s.ifl} data-bad="sedi">
                 <h4 id={hid}>Dove</h4>
                 <SediBottone className={s.dqsedi} sedi={sedi} gruppi={gruppi} value={ids} onChange={pick} future>
                     {label}
                 </SediBottone>
-                <p className={s.muted}>
-                    {w.all
-                        ? "Vale anche per le sedi che aprirai."
-                        : group
-                          ? "Vale anche per le sedi che entreranno nel gruppo. Se cambi le sedi qui, valgono quelle scelte."
-                          : "Quello che vale per una sede vince su quello che vale per tutte."}
-                </p>
+                <p className={s.muted}>{w.all ? WHERE_NOTE.all : group ? WHERE_NOTE.group : WHERE_NOTE.some}</p>
                 {bad === "Scegli almeno una sede" && <Warn>{bad}.</Warn>}
             </div>
             {canSplit && ids.length > 1 && (
@@ -333,7 +459,10 @@ export function ScontriAvviso({ kind, scontri, multi, insieme, onInsieme }: { ki
     const vinte = scontri.filter(x => x.vince);
     const frase = (x: Scontro) => {
         const t = multi ? `A ${listIt(x.sedi)}, ${x.quando}, c'è già ${q(x.con)}` : `${x.quando.charAt(0).toUpperCase()}${x.quando.slice(1)} c'è già ${q(x.con)}`;
-        return x.vince ? t + "." : `${t}: resta quello, perché c'era prima. Lì il tuo non si vede.`;
+        if (x.vince) return t + ".";
+        // lì oggi vince l'altro (più vicino alla sede, orari più stretti); nel tunnel lo dice la scelta (D196)
+        if (x.copre) return `${t}, che lì oggi vince: il tuo lì non si vede.`;
+        return `${t}: resta quello, perché c'era prima. Lì il tuo non si vede.`;
     };
     const scelta = kind === "menu" && NEW_MODEL.multiMenu && vinte.length > 0;
     return (
@@ -353,7 +482,7 @@ export function ScontriAvviso({ kind, scontri, multi, insieme, onInsieme }: { ki
                     ]}
                 />
             )}
-            {vinte.length > 0 && (
+            {vinte.length > 0 && !(kind === "style" && insieme) && (
                 <p className={s.muted}>
                     {scelta && insieme ? "In quelle ore ci sono tutti e due: il cliente sceglie." : "In quelle ore va in onda il tuo; fuori da quelle ore resta tutto com'è."}
                 </p>

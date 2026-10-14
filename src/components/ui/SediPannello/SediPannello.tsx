@@ -29,6 +29,10 @@ export type SediMoltiProps = Common & {
     allLabel?: string;
     /** Tutte prese vuol dire anche quelle che si aggiungeranno (le regole, D128): lo dice il fondo. */
     future?: boolean;
+    /** Il fondo lo scrive chi usa il pannello: «Nessuna sede scelta», «Togli tutte». */
+    foot?: ReactNode;
+    /** Quando la ricerca non trova sedi: «Nessuna sede con «…».». */
+    noSede?: (q: string) => string;
 };
 export type SediUnaProps = Common & {
     mode: "one";
@@ -163,7 +167,7 @@ export function SediPannello(p: SediPannelloProps) {
                     );
                 })
             );
-        foot = future && allSt === "on" ? "Tutte, anche quelle che aggiungerai" : `${pick.size} di ${sedi.length} scelte`;
+        foot = p.foot ?? (future && allSt === "on" ? "Tutte, anche quelle che aggiungerai" : `${pick.size} di ${sedi.length} scelte`);
     }
     const empty = shown === "sedi" ? !list.length : !glist.length;
 
@@ -190,7 +194,7 @@ export function SediPannello(p: SediPannelloProps) {
             )}
             <div id={listId} className={s.lst} role={one ? "radiogroup" : "group"} aria-label={shown === "sedi" ? "Sedi" : "Gruppi"}>
                 {rows}
-                {empty && <p className={s.none}>Niente con «{q}».</p>}
+                {empty && <p className={s.none}>{p.mode !== "one" && p.noSede && shown === "sedi" ? p.noSede(q) : `Niente con «${q}».`}</p>}
             </div>
             {foot && <div className={s.ft}>{foot}</div>}
         </div>
