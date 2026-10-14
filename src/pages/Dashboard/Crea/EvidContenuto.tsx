@@ -7,7 +7,7 @@ import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/ca
 import { hasDishes, type Tunnel } from "./creaModel";
 import { IDEE, dropDishes, dropIdea, ideaOf, pickIdea, type IdeaId } from "./evidIdee";
 import { EvidPiatti, type U } from "./CreaSteps";
-import { Chip, Field, Sh } from "./CreaUi";
+import { Field, Sh } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
 import s from "./Crea.module.scss";
 import st from "./StileAspetto.module.scss";
@@ -93,7 +93,7 @@ export function EvidAggiungi({ title, why, onClick }: { title: string; why: stri
     );
 }
 
-export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u: U; owner: boolean; imageUrl: string | null; pick: readonly PickProduct[]; L: DraftLookups }) {
+export function EvidContenuto({ t, u, imageUrl, pick, L }: { t: Tunnel; u: U; imageUrl: string | null; pick: readonly PickProduct[]; L: DraftLookups }) {
     const ids = { title: useId(), sub: useId(), text: useId(), inner: useId(), cta: useId(), link: useId(), img: useId() };
     const ex = ideaOf(t.idea)?.ex ?? ["Giovedì karaoke", "Facoltativo", "Come lo diresti al tavolo."];
     const dishes = hasDishes(t);
@@ -132,19 +132,6 @@ export function EvidContenuto({ t, u, owner, imageUrl, pick, L }: { t: Tunnel; u
                             <p className={s.hint}>Lo vedi solo tu.</p>
                         </div>
                     </div>
-                    {owner && !t.edit && (
-                        <div className={s.blk}>
-                            <h4>Dove sulla pagina</h4>
-                            <div className={s.chips}>
-                                <Chip on={t.slot === "before"} onClick={() => u(x => void (x.slot = "before"))}>
-                                    Sopra il menù
-                                </Chip>
-                                <Chip on={t.slot === "after"} onClick={() => u(x => void (x.slot = "after"))}>
-                                    Sotto il menù
-                                </Chip>
-                            </div>
-                        </div>
-                    )}
                 </EvidParte>
                 {dishes && (
                     <EvidParte

@@ -681,7 +681,7 @@ function what(t: Tunnel): string {
     const n = thingName(t);
     if (t.kind === "menu") return t.insieme ? `${q(n)} si aggiunge agli altri menù` : `${q(n)} prende il posto degli altri menù`;
     if (t.kind === "stile") return t.insieme ? `la pagina prende lo stile ${q(n)}, ma dove c'è già un altro stile resta quello` : `la pagina prende lo stile ${q(n)}`;
-    if (t.kind === "evid") return `${q(n)} va in evidenza, ${t.slot === "before" ? "sopra" : "sotto"} il menù`;
+    if (t.kind === "evid") return `${q(n)} va in evidenza, ${t.slot === "before" ? "in cima al" : "sotto il"} menù`;
     return `la storia ${q(n)} compare sotto il menù`;
 }
 
@@ -741,7 +741,7 @@ export function stepSummary(t: Tunnel, s: StepId, L: DraftLookups, styleName: (i
                 t.look.card.productStyle === "compact" ? "piatti in elenco" : "piatti a riquadri"
             ].join(" · ");
         case "contenuto":
-            return `${t.title.trim()} · ${t.slot === "before" ? "sopra" : "sotto"} il menù${t.cta ? ` · pulsante «${t.ctaText.trim()}»` : ""}${hasDishes(t) ? " · " + stepSummary(t, "piatti", L, styleName) : ""}`;
+            return `${t.title.trim()}${t.slot === "after" ? " · sotto il menù" : ""}${t.cta ? ` · pulsante «${t.ctaText.trim()}»` : ""}${hasDishes(t) ? " · " + stepSummary(t, "piatti", L, styleName) : ""}`;
         case "piatti":
             return t.evType === "bundle"
                 ? `${t.dishes.map(product).join(", ")} · ${t.bundle.trim()} €${t.showOrig ? " · totale di prima barrato" : ""}`

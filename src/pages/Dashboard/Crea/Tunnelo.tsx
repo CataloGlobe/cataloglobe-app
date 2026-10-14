@@ -487,7 +487,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 body = <StileAspetto t={t} u={u} tenantId={tenantId} rules={t.edit ? styleById.get(t.edit.id)?.usage_count ?? 0 : 0} onPeek={onPeek} seen={seen} />;
                 break;
             case "contenuto":
-                body = <EvidContenuto t={t} u={u} owner={owner} imageUrl={imageUrl} pick={data.pickList} L={L} />;
+                body = <EvidContenuto t={t} u={u} imageUrl={imageUrl} pick={data.pickList} L={L} />;
                 break;
             case "racconto":
                 body = <StoriaRacconto t={t} u={u} pick={data.pickList} coverUrl={coverUrl} />;

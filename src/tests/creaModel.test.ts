@@ -183,6 +183,16 @@ describe("il «Quando» in due parti: le ore, poi «In onda insieme» (punto 3)"
         expect(sentence({ ...t, insieme: false }, L)).not.toContain("resta quello");
     });
 
+    it("in evidenza sta in un posto solo, in cima al menù (D187); chi era sotto lo dice ancora", () => {
+        const L = { sedi: new Map(), groups: new Map(), multi: true } as never;
+        const t: Tunnel = { ...live("evid"), title: "Mercoledì dello spritz" };
+        expect(t.slot).toBe("before");
+        expect(sentence(t, L)).toContain("«Mercoledì dello spritz» va in evidenza, in cima al menù");
+        expect(stepSummary(t, "contenuto", L, () => "")).toBe("Mercoledì dello spritz");
+        expect(sentence({ ...t, slot: "after" }, L)).toContain("va in evidenza, sotto il menù");
+        expect(stepSummary({ ...t, slot: "after" }, "contenuto", L, () => "")).toBe("Mercoledì dello spritz · sotto il menù");
+    });
+
     it("«Le ore» in breve: uguale in tutte, o diversa in alcune sedi", () => {
         const w = { days: [0, 1, 2, 3, 4], ranges: [[720, 900]] as [number, number][] };
         const t: Tunnel = { ...live("menu"), qmode: "momenti", when: w };

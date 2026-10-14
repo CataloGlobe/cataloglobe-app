@@ -44,7 +44,7 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 10. «No, lo spengo» su uno stile in onda [int.]. **Fatto**: modificando uno stile in onda il «No» è «No, lo spengo» / «Resta salvato, ma nessun cliente lo vede: nelle sue ore torna lo stile di prima.» (`OndaAsk`). Resta spento con «Arriva col database nuovo» (`offLater`): oggi la sua voce è la regola del menù, e spegnerla spegnerebbe anche il menù. Prova: `creaOnda.test.ts`.
 
 ### Tunnel In evidenza
-11. Testo: si vede in un posto solo, in cima al menù (D187). **Da fare**
+11. Testo: si vede in un posto solo, in cima al menù (D187). **Fatto**: tolta dal passo «Il contenuto» la scelta «Dove sulla pagina»; ciò che si crea sta sopra il menù (`slot` resta `before`); la frase di «Controlla» dice «va in evidenza, in cima al menù» e il riassunto del passo non dice più la posizione. Un contenuto già salvato «sotto il menù» resta lì finché non lo sposta il database nuovo, e la frase lo dice ancora. Il salvataggio non cambia. Prova: `creaModel.test.ts`.
 12. «Quando succede», data informativa [int.]. **Da fare**
 13. «Il pulsante» senza link libero [int.]. **Da fare**
 14. «Fino al [giorno]: puoi cambiarlo». **Da fare**
