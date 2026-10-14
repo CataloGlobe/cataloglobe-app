@@ -1337,6 +1337,25 @@ button.dqsedi {
 .iaway {
     align-self: flex-start;
 }
+.wsel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.wsl {
+    min-width: 0;
+    max-width: 240px;
+}
+.wsn {
+    @include type.fs(note);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    b {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+}
 .fls.pv {
     outline: 1.5px dashed var(--brand-primary);
     outline-offset: 1px;

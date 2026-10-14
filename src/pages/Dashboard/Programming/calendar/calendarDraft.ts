@@ -256,7 +256,10 @@ export function waitsForDb(D: Draft): string {
  */
 export type Scontro = { sedi: string[]; con: string; quando: string; vince: boolean; pari: boolean };
 /** «Cosa cambia nel calendario» e gli scontri, nella settimana che si vede. */
-export type Impatto = { lines: string[]; scontri: Scontro[] };
+/** Una sede, nella settimana che si vede: quanto va in onda e chi incrocia; `incroci`: i giorni in cui tocca un altro. */
+export type SedeEff = { id: string; name: string; mins: number; days: number; cov: string[]; by: string[]; incroci: number };
+/** `pair`: lo stile che il menù porta con sé. */
+export type Impatto = { lines: string[]; scontri: Scontro[]; sedi?: SedeEff[]; pair?: string };
 export const NO_IMPATTO: Impatto = { lines: [], scontri: [] };
 
 export const ore = (m: number) => hhmm(m).replace(/:00$/, "").replace(/^0(\d)/, "$1");

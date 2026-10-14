@@ -24,6 +24,7 @@ import { Box, Chip, Field, Opt, Pick, Sh, Toggle } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
 import { InhBox } from "./InhBox";
 import { InsiemeBox } from "./InsiemeBox";
+import { CosaCambia } from "./CosaCambia";
 
 export type U = (fn: (t: Tunnel) => void) => void;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -533,8 +534,11 @@ export function QuandoOre({
     clash,
     scontri,
     onPart,
+    onSede,
     L
 }: {
+    /** La sede da guardare nella settimana a destra. */
+    onSede?: (id: string) => void;
     t: Tunnel;
     u: U;
     draft: Draft;
@@ -643,7 +647,7 @@ export function QuandoOre({
             </div>
             {sel !== "sempre" && (
                 <div className={cx(cal.root, s.calwrap)} data-bad="ore">
-                    {sel === "momenti" ? <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} /> : <OreSedi draft={draft} upd={updDraft} sedi={sedi} durs={durs} axis={axis} />}
+                    {sel === "momenti" ? <QuandoPasso draft={draft} upd={updDraft} durs={durs} axis={axis} bad={invalid(draft)} /> : <OreSedi onOpen={onSede} draft={draft} upd={updDraft} sedi={sedi} durs={durs} axis={axis} />}
                 </div>
             )}
             {t.edit?.ruleId && <Inherited>È la sua voce nel Calendario: cambiandola qui, cambia anche lì.</Inherited>}
@@ -694,9 +698,14 @@ export function Controlla({
     effect,
     styleName,
     seen,
+    wkSede,
+    onSede,
     onGo,
     onInsieme
 }: {
+    /** La sede che si guarda nella settimana, scelta anche da qui. */
+    wkSede: string | null;
+    onSede: (id: string) => void;
     /** Lo stile in modifica: le sedi che vedono subito quello che si salva. */
     seen?: string | null;
     t: Tunnel;
@@ -710,6 +719,16 @@ export function Controlla({
     const all = steps(t, c);
     const st = all.filter(x => x !== "controlla" && x !== "serve" && x !== "modifica" && !skipped(t, x, c));
     const fb = firstBlock(t, c);
+    // senza i fatti per sede (bozza incompleta) restano le righe della settimana
+    const cosa = effect.sedi?.length ? (
+        <CosaCambia sedi={effect.sedi} kind={t.kind} insieme={!!t.insieme} when={effWhen(t)} multi={L.multi} pair={effect.pair} sede={wkSede} onSede={onSede} />
+    ) : (
+        <ul className={s.ieff}>
+            {effect.lines.map((x, i) => (
+                <li key={i}>{x}</li>
+            ))}
+        </ul>
+    );
     if (t.edit) {
         const ch = st.filter(x => changed(t, x));
         const stray = strays(t, c);
@@ -774,11 +793,7 @@ export function Controlla({
                         {spegni ? (
                             <p>{`La sua voce (${all.filter(x => x === "dove" || x === "quando").map(x => stepSummary(t.edit!.orig, x, L, styleName)).join(" · ")}) si spegne e resta lì, pronta per tornare in onda.`}</p>
                         ) : (
-                            <ul className={s.ieff}>
-                                {effect.lines.map((x, i) => (
-                                    <li key={i}>{x}</li>
-                                ))}
-                            </ul>
+                            cosa
                         )}
                     </div>
                 )}
@@ -830,11 +845,7 @@ export function Controlla({
                 <div className={s.blk}>
                     <h4>Cosa cambia nel calendario</h4>
                     {live ? (
-                        <ul className={s.ieff}>
-                            {effect.lines.map((x, i) => (
-                                <li key={i}>{x}</li>
-                            ))}
-                        </ul>
+                        cosa
                     ) : (
                         <p>Niente: non è in onda in nessuna sede.</p>
                     )}

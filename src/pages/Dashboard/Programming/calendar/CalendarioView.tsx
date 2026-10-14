@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Calendar, Check, ChevronDown, ChevronLeft, ChevronR
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { Select } from "@/components/ui/Select/Select";
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
 import { NEW_MODEL } from "./calendarFlags";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
@@ -64,6 +65,7 @@ import {
     type Draft,
     type Impatto,
     type Scontro,
+    type SedeEff,
     type DraftLookups,
     type PickProduct,
     type PickThing,
@@ -117,6 +119,9 @@ export type CalendarioViewProps = {
         pickList?: readonly PickProduct[];
         /** Le righe «Cosa cambia nel calendario», a ogni cambio. */
         onEffect?: (imp: Impatto) => void;
+        /** Con più sedi: quella che si guarda, e come cambiarla. */
+        sede?: string | null;
+        onSede?: (id: string) => void;
     };
     section?: {
         pickList: readonly PickProduct[];
@@ -975,8 +980,13 @@ export default function CalendarioView({
         return [...list, ...pvEntries, ...pvPairs];
     }, [draft, entries, pvEntries, pvPairs]);
     const pvAx = useMemo(() => (pvList ? axisFor(pvList) : axis), [pvList, axis]);
-    const pvReach = pvEntries.length ? shown.filter(x => reaches(x.id)) : shown;
-    const pvSedi = (pvReach.length ? pvReach : pvEntries.length ? sedi.filter(x => reaches(x.id)).slice(0, 1) : shown.slice(0, 1)).slice(0, 4);
+    // nei tunnel non c'è la «Sede» in alto a destra: valgono tutte le sedi della bozza
+    const pvBase = anteprima ? sedi : shown;
+    const pvReach = pvEntries.length ? pvBase.filter(x => reaches(x.id)) : pvBase;
+    // nei tunnel con più sedi se ne guarda una alla volta, scelta dalle frecce; il conto vale per tutte
+    const pvAll = pvReach.length ? pvReach : pvEntries.length ? sedi.filter(x => reaches(x.id)).slice(0, 1) : pvBase.slice(0, 1);
+    const pvOne = anteprima && multi && pvAll.length > 1 ? pvAll.find(x => x.id === anteprima.sede) ?? pvAll[0] : null;
+    const pvSedi = pvOne ? [pvOne] : pvAll.slice(0, 4);
 
     // cosa cambia nel calendario, nella settimana che si vede; e dove si accavalla con un altro (D135)
     const effect = (): Impatto => {
@@ -985,9 +995,10 @@ export default function CalendarioView({
         const wk = week === monday ? "Questa settimana" : "Nella settimana del " + mShort(week);
         const groupsOf = new Map<string, string[]>();
         const sc = new Map<string, Scontro>();
+        const effSedi: SedeEff[] = [];
         // con «Mettili insieme» l'anteprima lo aggiunge; chi tocca si guarda come se prendesse il posto
         const judged = draft.insieme ? pvList.map(e => (e.preview && e.kind === "menu" ? { ...e, add: false } : e)) : pvList;
-        for (const x of pvSedi.length ? pvSedi : shown) {
+        for (const x of pvAll.length ? pvAll : shown) {
             const seat = seatOf(x.id), cov = new Set<string>(), by = new Set<string>();
             // chi tocca la bozza → i tratti (giorno, da, a), uniti dove si toccano
             const tocchi = new Map<string, { vince: boolean; pari: boolean; tratti: [number, number, number][] }>();
@@ -1000,15 +1011,16 @@ export default function CalendarioView({
                 else t.tratti.push([d, a, b]);
                 tocchi.set(k, t);
             };
-            let mins = 0, off = 0, days = 0;
+            let mins = 0, off = 0, days = 0, incroci = 0;
             for (let i = 0; i < 7; i++) {
-                let on = 0;
+                let on = 0, touched = false;
                 const d = dayOfWeek(week + i);
                 for (const l of fLines(dayCtx(judged, draft.kind, seat, week + i), pvAx).filter(l => l.preview))
                     for (const g of l.segs) {
                         const m = g.to - g.from;
                         if (g.state === "on") {
                             on += m;
+                            if (g.covers.length) touched = true;
                             g.covers.forEach(c => {
                                 cov.add(c);
                                 const lo = g.reps.find(e => e.thing === c);
@@ -1016,7 +1028,10 @@ export default function CalendarioView({
                             });
                         } else {
                             off += m;
-                            if (g.by) by.add(g.by);
+                            if (g.by) {
+                                by.add(g.by);
+                                touched = true;
+                            }
                             // resta l'altro solo perché c'era prima: lo dice l'avviso
                             if (g.win && g.self && tie(g.win, g.self, seat)) tocca(g.by, false, true, d, g.from, g.to);
                         }
@@ -1025,7 +1040,9 @@ export default function CalendarioView({
                     mins += on;
                     days++;
                 }
+                if (touched) incroci++;
             }
+            effSedi.push({ id: x.id, name: x.name, mins, days, cov: [...cov], by: [...by], incroci });
             const out: string[] = [], pd = mainWhen(draft).period;
             if (!mins && !off)
                 out.push(`${wk} non c'è${pd && pd.from > week + 6 ? ": comincia " + (elides(pd.from) ? "l'" : "il ") + mShort(pd.from) : pd && pd.to < week ? ": è già finito" : ""}.`);
@@ -1063,7 +1080,7 @@ export default function CalendarioView({
             if (multi) r[0] = "A " + listIt(ss) + ": " + r[0].charAt(0).toLowerCase() + r[0].slice(1);
             return r;
         });
-        return { lines, scontri: [...sc.values()] };
+        return { lines, scontri: [...sc.values()], sedi: effSedi, ...(pvPair?.kind === "style" ? { pair: pvPair.thing } : {}) };
     };
 
     // le durate che ci sono già, prima quelle dello stesso tipo: al massimo sei
@@ -1159,6 +1176,10 @@ export default function CalendarioView({
 
     const pd = draft ? mainWhen(draft).period : undefined;
     const away = !!pd && (pd.from > week + 6 || pd.to < week);
+    const effNow = anteprima && draft ? effect() : null;
+    const pvStep = (by: number) => pvAll[(pvAll.indexOf(pvOne ?? pvAll[0]) + by + pvAll.length) % pvAll.length];
+    const pvDays = (id: string) => effNow?.sedi?.find(x => x.id === id)?.incroci ?? 0;
+    const giorni = (n: number) => n + (n === 1 ? " giorno" : " giorni");
     const preview = draft && pvList && (
         <aside className={s.iprev} aria-label="Anteprima">
             <div className={s.iph}>
@@ -1175,6 +1196,28 @@ export default function CalendarioView({
                     Questa settimana non c'è: vai {elides(pd.from) ? "all'" : "al "}
                     {mShort(pd.from)}
                 </button>
+            )}
+            {pvOne && (
+                <div className={s.wsel}>
+                    <IconButton size="sm" icon={<ChevronLeft size={14} />} aria-label={`Sede precedente: ${pvStep(-1).name}`} onClick={() => anteprima?.onSede?.(pvStep(-1).id)} />
+                    <Select
+                        aria-label="Sede da guardare"
+                        containerClassName={s.wsl}
+                        value={pvOne.id}
+                        onChange={e => anteprima?.onSede?.(e.target.value)}
+                        options={pvAll.map(x => ({ value: x.id, label: x.name + (pvDays(x.id) ? " · " + giorni(pvDays(x.id)) : "") }))}
+                    />
+                    <IconButton size="sm" icon={<ChevronRight size={14} />} aria-label={`Sede successiva: ${pvStep(1).name}`} onClick={() => anteprima?.onSede?.(pvStep(1).id)} />
+                    <span className={s.wsn}>
+                        {pvAll.indexOf(pvOne) + 1} di {pvAll.length}
+                        {pvDays(pvOne.id) > 0 && (draft.kind === "menu" || draft.kind === "style") && (
+                            <>
+                                {" · "}
+                                <b>{giorni(pvDays(pvOne.id))}</b> con altri {draft.kind === "style" ? "stili" : "menù"}
+                            </>
+                        )}
+                    </span>
+                </div>
             )}
             <div className={s.dcal}>
                 <div className={`${s.fcal} ${s.pcal}`}>
@@ -1205,7 +1248,7 @@ export default function CalendarioView({
         </aside>
     );
     // i tunnel: solo l'anteprima, con le righe di cosa cambia
-    const effKey = anteprima && draft ? JSON.stringify(effect()) : "";
+    const effKey = effNow ? JSON.stringify(effNow) : "";
     const onEffect = useRef(anteprima?.onEffect);
     onEffect.current = anteprima?.onEffect;
     useEffect(() => {

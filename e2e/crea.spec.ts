@@ -478,7 +478,11 @@ test.describe("Tunnel di creazione — menù", () => {
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
         await expect(main(page).getByText(/dal lunedì al venerdì, dalle 12:00 alle 15:00/)).toBeVisible();
-        await expect(main(page).getByText("Cosa cambia nel calendario")).toBeVisible();
+        // «Cosa cambia nel calendario»: la somma e le sedi per esito
+        const cosa = main(page).getByText("Cosa cambia nel calendario").locator("..");
+        await expect(cosa.getByText(/^In onda in 1 sede · .*15 ore a settimana/)).toBeVisible();
+        await expect(cosa.getByText("Prende il posto di «Carta e2e»")).toBeVisible();
+        await expect(cosa.getByRole("button", { name: "Porto e2e" })).toHaveAttribute("aria-pressed", "false");
         await button(page, "Metti in onda").click();
         await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce", exact: true })).toBeVisible({ timeout: 15_000 });
         expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "layout", name: expect.stringMatching(/^Pranzo veloce/) });
@@ -519,7 +523,17 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByText(/^Tutte partono da .+\. Apri una sede per cambiarla\.$/)).toBeVisible();
         const porto = main(page).getByRole("button", { name: /^Porto e2e/ });
         await expect(porto).toContainText("come le altre");
+        // la settimana a destra: una sede alla volta, con le frecce e «Sede da guardare»
+        const guarda = main(page).getByRole("combobox", { name: "Sede da guardare" });
+        await expect(guarda).toBeVisible();
+        const prima = await guarda.inputValue();
+        await expect(main(page).getByText(/^1 di 3/)).toBeVisible();
+        await main(page).getByRole("button", { name: /^Sede successiva: / }).click();
+        await expect(main(page).getByText(/^2 di 3/)).toBeVisible();
+        expect(await guarda.inputValue()).not.toBe(prima);
+        // aprire una sede la porta nella settimana
         await porto.click();
+        await expect(guarda.locator("option:checked")).toContainText("Porto e2e");
         await expect(main(page).getByText("Cambiando qui, cambia solo Porto e2e.")).toBeVisible();
         await main(page).getByRole("button", { name: "Sab e Dom", exact: true }).click();
         await expect(porto).toContainText("diversa");
@@ -543,6 +557,9 @@ test.describe("Tunnel di creazione — menù", () => {
         await allSedi(page).click();
         await next(page);
         await button(page, /^Solo in certi momenti/).click();
+        await next(page);
+        // il conto vale per tutte le sedi scelte, non solo per la prima: a Porto c'è già la carta
+        await insieme(page, "Mostralo al posto degli altri");
         await next(page);
         await button(page, "Metti in onda").click();
         await button(page, /^Dagli i tuoi colori/).click({ timeout: 15_000 });
@@ -571,6 +588,11 @@ test.describe("Tunnel di creazione — menù", () => {
         await stuck(page, "Conferma gli orari o cambiali");
         await ore.getByRole("button", { name: "Sì, gli stessi" }).click();
         await expect(main(page).getByText("Stessi orari di «Pranzo veloce»", { exact: true })).toBeVisible();
+        await next(page);
+        // in due sedi a quelle ore c'è già uno stile: la seconda parte del Quando, e la settimana una sede alla volta
+        await expect(main(page).getByText("In quelle ore c'è già un altro stile in 2 sedi.")).toBeVisible();
+        await expect(main(page).getByRole("combobox", { name: "Sede da guardare" })).toBeVisible();
+        await button(page, /^Prende il posto degli altri/).click();
         await next(page);
         await button(page, "Metti in onda").click();
         // lo stile ha il suo «E adesso?»

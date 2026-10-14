@@ -105,6 +105,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const [leave, setLeave] = useState(false);
     const [going, setGoing] = useState<string | null>(null);
     const [effect, setEffect] = useState<Impatto>(NO_IMPATTO);
+    const [wkSede, setWkSede] = useState<string | null>(null);
     const [blockFiles, setBlockFiles] = useState<Record<string, File>>({});
     const [productOptions, setProductOptions] = useState<StoryProductOptions>({ items: null, failed: false });
     const refreshAiUsage = useBusinessOutletContext()?.refreshAiUsage;
@@ -549,7 +550,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 break;
             case "quando":
                 // con più sedi il Dove è già stato scelto: qui solo le ore
-                body = L.multi && draft ? <QuandoOre t={t} u={u} L={L} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} L={L} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} />;
+                body = L.multi && draft ? <QuandoOre onSede={setWkSede} t={t} u={u} L={L} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} L={L} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} />;
                 break;
             case "ordine":
                 body = <EvidOrdine t={t} u={u} L={L} others={others} alone={whereSedi.filter(id => !t.ord[id])} />;
@@ -560,7 +561,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 break;
             }
             default:
-                body = <Controlla t={t} c={c} L={L} seen={seen} effect={effect} styleName={styleName} onGo={n => go(n)} onInsieme={v => u(x => void (x.insieme = v))} />;
+                body = <Controlla t={t} c={c} L={L} seen={seen} wkSede={wkSede} onSede={setWkSede} effect={effect} styleName={styleName} onGo={n => go(n)} onInsieme={v => u(x => void (x.insieme = v))} />;
         }
 
     /* ---------- a destra ---------- */
@@ -578,6 +579,8 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             draft={{ ...momentiDraft, when: structuredClone(effWhen(t)) }}
             pickList={data.pickList}
             onEffect={setEffect}
+            sede={wkSede}
+            onSede={setWkSede}
         />
     );
     // il telefono del passo «L'ordine»: la sede aperta, o la prima

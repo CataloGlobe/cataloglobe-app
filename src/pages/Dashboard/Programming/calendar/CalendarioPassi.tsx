@@ -263,13 +263,17 @@ export function SediPasso({ draft: d, upd, sedi, groups, bad }: SediPassoProps) 
 
 const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-export type OreSediProps = Pick<QuandoPassoProps, "draft" | "upd" | "durs" | "axis"> & { sedi: readonly PassoSede[] };
+export type OreSediProps = Pick<QuandoPassoProps, "draft" | "upd" | "durs" | "axis"> & {
+    sedi: readonly PassoSede[];
+    /** La sede appena aperta: la settimana accanto la segue. */
+    onOpen?: (id: string) => void;
+};
 
 /**
  * «Dipende dalla sede»: una riga per sede con le sue ore. Tutte partono dalle ore
  * scelte per tutte; quella cambiata dice «diversa» e torna come le altre con un tocco.
  */
-export function OreSedi({ draft: d, upd, sedi, durs, axis }: OreSediProps) {
+export function OreSedi({ draft: d, upd, sedi, durs, axis, onOpen }: OreSediProps) {
     const [open, setOpen] = useState<string | null>(null);
     const [query, setQuery] = useState("");
     const per = d.per ?? {};
@@ -291,7 +295,15 @@ export function OreSedi({ draft: d, upd, sedi, durs, axis }: OreSediProps) {
                     const pw = per[id], dif = whenKey(pw) !== whenKey(d.when), on = open === id;
                     return (
                         <div key={id} className={s.dqrow} data-open={on || undefined} data-dif={dif || undefined}>
-                            <button type="button" className={s.dqhd} aria-expanded={on} onClick={() => setOpen(o => (o === id ? null : id))}>
+                            <button
+                                type="button"
+                                className={s.dqhd}
+                                aria-expanded={on}
+                                onClick={() => {
+                                    if (!on) onOpen?.(id);
+                                    setOpen(on ? null : id);
+                                }}
+                            >
                                 <b>
                                     {name(id)}
                                     <small data-dif={dif || undefined}>{dif ? "diversa" : "come le altre"}</small>
