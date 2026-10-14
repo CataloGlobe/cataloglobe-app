@@ -20,6 +20,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { flushSync } from "react-dom";
 import { BookUser, Search, UserRoundX } from "lucide-react";
 import { LOOK_D } from "@styles/lookD";
+import { useTightRow } from "@/hooks/useTightRow";
 import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -314,6 +315,9 @@ export default function Guests() {
     // Come in Recensioni: uscito dalla vista il segnaposto in cima, la parte
     // alta si stringe in una riga attaccata in alto; torna intera in cima.
     const [compact, setCompact] = useState(false);
+    const [filtersEl, setFiltersEl] = useState<HTMLDivElement | null>(null);
+    // Nella riga compatta i chip scorrono: se non ci stanno, resta solo lo scelto.
+    const tight = useTightRow(LOOK_D ? filtersEl : null, compact);
     const [top, setTop] = useState<HTMLDivElement | null>(null);
     const compactRef = useRef(false);
     useEffect(() => {
@@ -366,7 +370,7 @@ export default function Guests() {
         <>
             <div className={styles.page}>
                 {LOOK_D && <div ref={setTop} className={styles.top} aria-hidden />}
-                <div className={styles.lhead} data-compact={compact ? "" : undefined}>
+                <div className={styles.lhead} data-compact={compact ? "" : undefined} data-tight={tight ? "" : undefined}>
                 {/* ── Cerca a sinistra, «Chi non torna» a destra (D154) ── */}
                 {showTools && (
                     <div className={styles.bar}>
@@ -383,7 +387,7 @@ export default function Guests() {
                             </div>
                         ) : (
                             <Button
-                                variant="ghost"
+                                variant={LOOK_D ? "secondary" : "ghost"}
                                 size="sm"
                                 leftIcon={<Search size={15} aria-hidden />}
                                 onClick={() => setSearchOpen(true)}
@@ -430,7 +434,7 @@ export default function Guests() {
                 )}
 
                 {showTools && (
-                    <div className={styles.filters}>
+                    <div ref={setFiltersEl} className={styles.filters}>
                         <ChipGroupSingle
                             ariaLabel="Quali clienti"
                             layout={LOOK_D ? "auto" : undefined}

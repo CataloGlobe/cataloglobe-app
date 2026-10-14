@@ -508,8 +508,15 @@
     view-transition-name: g-chips;
   }
 
-  .sedeSelect {
+  // «Passati da» è una pillola bianca senza bordo, come le tendine della v28.
+  .filters .sedeSelect {
     @include d-type(control);
+
+    border-color: transparent;
+    border-radius: var(--d-r-pill);
+    background-color: var(--d-surface);
+    box-shadow: var(--d-shadow);
+    color: var(--d-text);
   }
 
   // ── La riga compatta, attaccata in alto ──
@@ -548,6 +555,11 @@
 
     .bar > :first-child {
       order: 9;
+    }
+
+    // Non ci stanno tutti: resta il chip scelto (v28, `.tight.cz`).
+    &[data-tight] [role="radiogroup"] > [role="radio"]:not([aria-checked="true"]) {
+      display: none;
     }
   }
 
@@ -662,6 +674,23 @@
     @include d-type(micro);
   }
 
+  // «nuovo» in verde (v28, `.tag.g`).
+  .signNew {
+    background: color-mix(in srgb, var(--d-good) 12%, var(--d-surface));
+    color: var(--d-good);
+  }
+
+  // Le iniziali in viola pieno, in grassetto (v28, `.av`).
+  .row > :first-child {
+    color: var(--d-brand-deep);
+    font-weight: 700;
+
+    * {
+      color: inherit;
+      font-weight: inherit;
+    }
+  }
+
   .phone,
   .yearCount {
     color: var(--d-muted);
@@ -678,6 +707,7 @@
 
   .last {
     @include d-type(row);
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
   }
 

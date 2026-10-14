@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
+import { LOOK_D } from "@styles/lookD";
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
 import { formatAbsenceCount, formatVisitCount, visibilityFootnote } from "@/utils/guestVisibilityCopy";
 import { formatPhoneForDisplay, formatShortVisitDate } from "./guestFormat";
@@ -99,16 +100,22 @@ export default function GuestsDirectory({
         );
     }
 
+    const head = (
+        <div className={styles.head} aria-hidden>
+            <span />
+            <span>Cliente</span>
+            <span>Ultimi 12 mesi</span>
+            <span>Ultima volta</span>
+            <span>Da sapere</span>
+        </div>
+    );
+
     return (
         <div className={styles.guestsWrap}>
+            {/* Nella D le intestazioni stanno sopra la card (v28, `.gl-head`). */}
+            {LOOK_D && head}
             <Card flush>
-                <div className={styles.head} aria-hidden>
-                    <span />
-                    <span>Cliente</span>
-                    <span>Ultimi 12 mesi</span>
-                    <span>Ultima volta</span>
-                    <span>Da sapere</span>
-                </div>
+                {!LOOK_D && head}
                 <ul className={styles.list} aria-label="Clienti">
                     {guests.map((g, i) => {
                         const activity = activityByGuest.get(g.id);
@@ -128,7 +135,7 @@ export default function GuestsDirectory({
                                         <span className={styles.nameLine}>
                                             <span className={styles.name}>{g.display_name}</span>
                                             {isRegular(activity, tags) && <span className={styles.sign}>abituale</span>}
-                                            {isNew(g, today) && <span className={styles.sign}>nuovo</span>}
+                                            {isNew(g, today) && <span className={`${styles.sign} ${styles.signNew}`}>nuovo</span>}
                                         </span>
                                         <span className={styles.phone}>
                                             {[formatPhoneForDisplay(g.phone_e164), sedi].filter(Boolean).join(" · ")}
