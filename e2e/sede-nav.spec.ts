@@ -100,7 +100,7 @@ test.describe("Contesto di sede", () => {
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/anagrafica$/, { timeout: 15_000 });
         await menuRows(page).getByRole("link", { name: "Sedi", exact: true }).click();
         await expect(page).toHaveURL(/\/locations$/, { timeout: 15_000 });
-        await expect(nav(page).getByRole("link", { name: "Panoramica", exact: true })).toBeVisible();
+        await expect(nav(page).getByRole("link", { name: /^(Panoramica|Home)$/ })).toBeVisible();
     });
 
     test("le voci senza piano portano alle rotte della sede", async ({ page }) => {

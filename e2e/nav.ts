@@ -242,7 +242,9 @@ export async function sidebarShape(page: Page): Promise<SidebarRow[]> {
     const shape: SidebarRow[] = [];
     for (const row of rows) {
         if ("link" in row) {
-            shape.push(cleanLabel(row.link));
+            // Nella D la Panoramica si chiama «Home» (v28): le attese restano una.
+            const label = cleanLabel(row.link);
+            shape.push(label === "Home" ? "Panoramica" : label);
             continue;
         }
         const panel = await openSection(page, row.section);

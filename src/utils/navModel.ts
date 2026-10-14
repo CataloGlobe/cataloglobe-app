@@ -420,7 +420,7 @@ const SUPPORT: NavEntry = {
 // e vetrina, Calendario, Servizio, Clienti e numeri, Sedi. Con una sede sola
 // «Sedi» si chiama «Il locale» e porta alla sua Scheda.
 
-const PANORAMICA: NavGroup = { key: "overview", title: "Panoramica", seat: "multi", entries: [OVERVIEW] };
+const PANORAMICA: NavGroup = { key: "overview", title: ROUTE_LABELS.overview, seat: "multi", entries: [OVERVIEW] };
 const CREA: NavGroup = {
     key: "crea",
     title: "Menù e vetrina",

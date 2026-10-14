@@ -4,6 +4,8 @@
 // (MainLayout, via `businessRouteLabel`).
 // ============================================================
 
+import { LOOK_D } from "@styles/lookD";
+
 /** Chiavi dei top-level segments delle route business. */
 export type BusinessRouteKey =
     | "overview"
@@ -39,7 +41,8 @@ export const SEDE_SINGLE_SITE_ROUTES = new Set<BusinessRouteKey>([
  *  `businessRouteLabel` sotto, mai questa mappa direttamente, per rispettare
  *  la verticale tenant (es. "Menu" vs "Catalogo"). */
 export const ROUTE_LABELS: Record<BusinessRouteKey, string> = {
-    overview: "Panoramica",
+    // Direzione D (artifact v28): «Home».
+    overview: LOOK_D ? "Home" : "Panoramica",
     locations: "Sedi",
     orders: "Comande",
     reservations: "Prenotazioni",

@@ -11,13 +11,13 @@ test.describe("Panoramica", () => {
         // Titolo finale: «Panoramica · {azienda} · CataloGlobe» (MainLayout).
         // Prima che il tenant sia caricato è «Panoramica · CataloGlobe» per
         // ~500 ms: agganciare quello verificherebbe uno stato transitorio.
-        await expect(page).toHaveTitle(/^Panoramica · .+ · CataloGlobe$/);
+        await expect(page).toHaveTitle(/^(Panoramica|Home) · .+ · CataloGlobe$/);
     });
 
     test("sidebar con voce Panoramica attiva", async ({ page }) => {
         const nav = page.getByRole("navigation", { name: "Menu principale" });
         await expect(nav).toBeVisible();
-        const link = nav.getByRole("link", { name: "Panoramica" });
+        const link = nav.getByRole("link", { name: /^(Panoramica|Home)$/ });
         await expect(link).toBeVisible();
         await expect(link).toHaveAttribute("aria-current", "page");
         // Sedi è diretta, Prodotti in Menù e vetrina, Regole nel Calendario.
