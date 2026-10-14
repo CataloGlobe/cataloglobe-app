@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { Bell, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -57,6 +57,9 @@ import { canDoOnActivity } from "@/lib/permissions";
 import { useDetailParam } from "@/hooks/useDetailParam";
 import styles from "./Orders.module.scss";
 import { useInServizioSwitch } from "@/pages/Dashboard/Servizio/useInServizioSwitch";
+import { useTablesLiveRealtime } from "@/components/Tables/TablesLiveView/useTablesLiveRealtime";
+import { openRequests, openRequestsText } from "@/utils/tableRequests";
+import { alertTarget } from "@/utils/operationalAlertRoutes";
 
 /**
  * Comande è la board e basta (lotto B-a). Le vecchie tab hanno una casa
@@ -738,6 +741,17 @@ function OrdersBoard() {
         }
     }
 
+    // Conto e cameriere restano in cima finché la sala non li segna gestiti:
+    // l'avviso di OperationalAlerts dura pochi secondi.
+    const { items: liveTables } = useTablesLiveRealtime(tenantId, selectedActivityId);
+    const requests = useMemo(() => openRequests(liveTables), [liveTables]);
+    const requestsHref = useMemo(() => {
+        if (!businessId || !selectedActivityId || requests.length === 0) return null;
+        const base = alertTarget(businessId, selectedActivityId, "tables");
+        const tableIds = new Set(requests.map(r => r.tableId));
+        return tableIds.size === 1 ? `${base}&tavolo=${requests[0].tableId}` : base;
+    }, [businessId, selectedActivityId, requests]);
+
     return (
         <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
         {() => (
@@ -749,6 +763,16 @@ function OrdersBoard() {
                 >
                     Nessuna stampante collegata a questa sede: le comande non
                     vengono stampate in automatico.
+                </InlineBanner>
+            )}
+
+            {requestsHref && (
+                <InlineBanner
+                    variant="warning"
+                    icon={<Bell size={16} strokeWidth={2} aria-hidden />}
+                    action={<Link to={requestsHref}>Vai alla sala</Link>}
+                >
+                    {openRequestsText(requests)}
                 </InlineBanner>
             )}
 
