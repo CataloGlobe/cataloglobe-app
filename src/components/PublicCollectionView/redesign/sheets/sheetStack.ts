@@ -123,18 +123,18 @@ function dispatch(action: SheetAction): void {
         opener = active instanceof HTMLElement && active !== document.body ? active : null;
     }
     pendingOpener = null;
-    if (typeof document !== "undefined") {
-        if (next.pages.length === 0 || current.pages.length === 0) {
-            pageOpeners = [];
-            returnTo = null;
-        } else if (next.pages.length > current.pages.length) {
-            const active = document.activeElement;
-            pageOpeners[current.pages.length - 1] = active instanceof HTMLElement ? active : null;
-            returnTo = null;
-        } else if (next.pages.length < current.pages.length) {
-            returnTo = pageOpeners[next.pages.length - 1] ?? null;
-            pageOpeners = pageOpeners.slice(0, next.pages.length - 1);
-        }
+    // Solo «push» e «pop» spostano di una pagina; open, openAt e close rifanno la
+    // pila da capo, e i vecchi «chi ha spinto» non valgono più.
+    if (action.type === "push" && typeof document !== "undefined") {
+        const active = document.activeElement;
+        pageOpeners[current.pages.length - 1] = active instanceof HTMLElement ? active : null;
+        returnTo = null;
+    } else if (action.type === "pop") {
+        returnTo = pageOpeners[next.pages.length - 1] ?? null;
+        pageOpeners = pageOpeners.slice(0, next.pages.length - 1);
+    } else {
+        pageOpeners = [];
+        returnTo = null;
     }
     current = next;
     listeners.forEach(listener => listener());
