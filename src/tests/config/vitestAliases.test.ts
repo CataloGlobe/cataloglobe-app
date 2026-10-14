@@ -9,7 +9,10 @@ const ROOT = path.resolve(__dirname, "../../..");
 
 function aliases(file: string): Record<string, string> {
     const src = readFileSync(path.join(ROOT, file), "utf8");
-    const block = src.slice(src.indexOf("alias: {"), src.indexOf("}", src.indexOf("alias: {")));
+    // Fino alla chiusura del blocco (8 spazi), non alla prima «}»: in vite.config.ts
+    // il blocco si apre con un alias condizionale tra graffe (build pubblica).
+    const start = src.indexOf("alias: {");
+    const block = src.slice(start, src.indexOf("\n        }", start));
     return Object.fromEntries(
         [...block.matchAll(/"(@[\w]*)":\s*path\.resolve\(__dirname,\s*"([^"]+)"\)/g)].map(m => [m[1], m[2]])
     );
