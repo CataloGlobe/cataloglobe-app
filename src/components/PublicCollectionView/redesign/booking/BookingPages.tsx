@@ -61,6 +61,7 @@ export default function BookingPage({ page, booking }: { page: SheetPage; bookin
                     errors={errors}
                     onChange={booking.setField}
                     onBlur={booking.blurField}
+                    numbered={false}
                 />
             ) : null}
             {step === "recap" ? (
@@ -82,6 +83,7 @@ export default function BookingPage({ page, booking }: { page: SheetPage; bookin
                         onAllergiesConsentChange={booking.setAllergiesConsent}
                         onChange={booking.setField}
                         onBlur={booking.blurField}
+                        numbered={false}
                     />
                     {booking.unavailable ? (
                         <div className={styles.notice} role="alert">

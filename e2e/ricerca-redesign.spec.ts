@@ -36,6 +36,8 @@ test("la lente apre «Cerca», un risultato porta al piatto e resta fra le recen
     await input.fill("dolci 7");
     await expect(dialog.getByText("1 risultato")).toBeVisible();
     await expect(dialog.locator("mark")).toHaveText(["Dolci 7"]);
+    // Senza foto niente miniatura, nemmeno un riquadro vuoto (v38).
+    await expect(dialog.getByRole("button", { name: /Dolci 7/ }).locator("img, [class*='thumb']")).toHaveCount(0);
 
     await dialog.getByRole("button", { name: /Dolci 7/ }).click();
     await expect(dialog).toHaveCount(0);

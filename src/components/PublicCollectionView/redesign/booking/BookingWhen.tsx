@@ -18,6 +18,16 @@ const PERIOD_KEYS: Record<ReservationPeriodKey, string> = {
     sera: "reservation.period_evening"
 };
 
+/** Porta l'orario a vista nel contenitore che scorre (il corpo del foglio), a un terzo dall'alto; fermo se si vede già. */
+function revealSlot(target: HTMLElement) {
+    let box = target.parentElement;
+    while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
+    if (!box) return;
+    const top = target.getBoundingClientRect().top - box.getBoundingClientRect().top;
+    if (top >= 0 && top + target.offsetHeight <= box.clientHeight) return;
+    box.scrollTop += top - box.clientHeight / 3;
+}
+
 const dateOf = (iso: string) => {
     const [year, month, day] = iso.split("-").map(Number);
     return new Date(year, month - 1, day);
@@ -71,6 +81,21 @@ export default function BookingWhen({ values, errors, config, onChange }: Props)
             row.scrollLeft = left - (row.clientWidth - selected.offsetWidth) / 2;
         }
     }, [values.reservation_date]);
+
+    // Oggi, con orari già passati prima del primo libero, la lista va da sola al primo
+    // libero (D91), una volta per giorno e solo se l'ora non è ancora scelta.
+    const slotsRef = useRef<HTMLDivElement>(null);
+    const revealedFor = useRef<string | null>(null);
+    useEffect(() => {
+        const date = values.reservation_date;
+        if (!date || values.reservation_time || revealedFor.current === date) return;
+        const slots = periods.flatMap(period => period.slots);
+        const first = slots.findIndex(slot => slot.state === "available");
+        if (first <= 0 || !slots.slice(0, first).some(slot => slot.state === "past")) return;
+        revealedFor.current = date;
+        const target = slotsRef.current?.querySelector<HTMLElement>(`[data-time="${slots[first].time}"]`);
+        if (target) revealSlot(target);
+    }, [values.reservation_date, values.reservation_time, periods]);
 
     // L'orario scelto che non regge più il numero di persone si toglie, e si dice (mai in silenzio).
     useEffect(() => {
@@ -176,7 +201,7 @@ export default function BookingWhen({ values, errors, config, onChange }: Props)
                     {t("reservation.time")}
                     <em>{values.reservation_time ? values.reservation_time.slice(0, 5) : t("booking.pick_one")}</em>
                 </p>
-                <div aria-busy={checking}>
+                <div ref={slotsRef} aria-busy={checking}>
                     {!values.reservation_date ? (
                         <p className={styles.empty}>{t("reservation.choose_date_first")}</p>
                     ) : periods.length === 0 ? (
@@ -195,6 +220,7 @@ export default function BookingWhen({ values, errors, config, onChange }: Props)
                                                 key={slot.time}
                                                 type="button"
                                                 className={styles.slot}
+                                                data-time={slot.time}
                                                 data-full={full ? "" : undefined}
                                                 aria-pressed={slot.time === values.reservation_time}
                                                 disabled={slot.state !== "available"}
