@@ -14,6 +14,7 @@ import { TooltipProvider } from "@/context/Tooltip/TooltipProvider";
 import App from "./App";
 import MotionProvider from "@/components/motion/MotionProvider";
 import "@styles/global.scss";
+import "@styles/kinds.scss";
 import "./i18n";
 
 // Data router (createBrowserRouter) al posto di <BrowserRouter>: serve a
