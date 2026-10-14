@@ -30,6 +30,8 @@ export function badSel(step: StepId, why: string, t: Pick<Tunnel, "impOpen">): s
         case "dove":
             if (why === CHOOSE) return at("ask");
             if (why.startsWith("Scegli: ")) return at("insieme");
+            if (why.startsWith("Conferma le sedi")) return at("inhd");
+            if (why.startsWith("Conferma gli orari")) return at("inhq");
             return /sed[ei]/.test(why) ? `[data-sbox],${at("sedi")}` : at("ore");
         default:
             return "";

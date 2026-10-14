@@ -126,14 +126,21 @@ export type Edit = {
     rules: number;
 };
 
-/** Quello che arriva da «E adesso?»: il menù appena messo in onda. */
-export type FromMenu = {
+/** Quello che arriva da «E adesso?»: la cosa appena creata (D194). */
+export type From = {
+    /** Che cos'era: da una storia non si ereditano sedi e ore. */
+    kind: CreaKind;
     name: string;
-    catalogId: string;
+    /** Il menù appena creato, se era un menù. */
+    catalogId: string | null;
     /** La regola del menù: uno stile col suo stesso quando e dove ci va dentro. */
     ruleId: string | null;
     /** I piatti del menù, per la promo e il bundle. */
     productIds: string[];
+    /** Il suo primo piatto: il contenuto in evidenza e la storia partono da lì. */
+    dish: { id: string; name: string } | null;
+    /** In onda o tenuto pronto: tenuto pronto, la cosa nuova lo richiede. */
+    onda: "on" | "off" | null;
     when: CalWhen;
     where: CalWhere;
     /** Le ore per sede del menù, se le sedi non avevano le stesse ore (D145). */
@@ -199,7 +206,11 @@ export type Tunnel = {
     where: CalWhere;
     /** Le ore per sede, quando le sedi non hanno le stesse ore (D145, F1); null = le stesse. */
     per: Draft["per"];
-    from: FromMenu | null;
+    from: From | null;
+    /** Da «E adesso?»: le sedi ereditate si confermano («si») o si cambiano («cambio»). */
+    inhD?: "si" | "cambio" | null;
+    /** Lo stesso per gli orari. */
+    inhQ?: "si" | "cambio" | null;
     /** Aperto da «Crea un menù nuovo» del Calendario con la bozza messa da parte: quando e dove vengono da lì. */
     aside: boolean;
     edit: Edit | null;
@@ -213,8 +224,13 @@ export type Tunnel = {
 let seq = 0;
 export const key = () => "k" + ++seq;
 
-export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null = null): Tunnel {
-    const w = from ? from.where : where;
+export function newTunnel(kind: CreaKind, where: CalWhere, from: From | null = null): Tunnel {
+    // da una storia non si ereditano sedi e ore: solo il suo piatto
+    const inh = from && from.kind !== "storia" ? from : null;
+    const many = !!inh && !inh.where.all && inh.where.activityIds.length + inh.where.groupIds.length > 1;
+    // la storia sta in una sede o in tutte, e non ha ore
+    const w = !inh ? where : kind === "storia" && many ? { all: true, activityIds: [], groupIds: [] } : inh.where;
+    const timed = !!inh && kind !== "storia";
     return {
         kind,
         i: 0,
@@ -227,7 +243,8 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         base: "zero",
         baseStyleId: null,
         look: structuredClone(DEFAULT_STYLE_TOKENS),
-        evType: null,
+        // dal piatto della cosa appena creata: già scelto, col suo prezzo
+        evType: kind === "evid" && from?.dish ? "promo" : null,
         idea: null,
         title: "",
         sub: "",
@@ -239,24 +256,25 @@ export function newTunnel(kind: CreaKind, where: CalWhere, from: FromMenu | null
         ctaText: "Prenota",
         ctaLink: "",
         slot: "before",
-        dishes: [],
+        dishes: kind === "evid" && from?.dish ? [from.dish.id] : [],
         notes: {},
         bundle: "",
         showOrig: true,
         kicker: "",
         cover: null,
         coverUrl: null,
-        linked: "",
+        linked: kind === "storia" && from?.dish ? from.dish.id : "",
         blocks: [],
         pending: [],
-        qmode: from && (from.when.period || from.when.days || from.when.ranges) ? "momenti" : "sempre",
-        when: from ? cloneWhen(from.when) : {},
+        qmode: timed && (inh.when.period || inh.when.days || inh.when.ranges) ? "momenti" : "sempre",
+        when: timed ? cloneWhen(inh.when) : {},
         where: { all: w.all, activityIds: [...w.activityIds], groupIds: [...w.groupIds] },
-        per: clonePer(from?.per ?? null),
+        per: timed ? clonePer(inh.per) : null,
         from,
         aside: false,
         edit: null,
-        onda: null
+        // era in onda: lo è anche questa, salvo dire di no; tenuta pronta, si richiede
+        onda: inh?.onda === "on" ? "on" : null
     };
 }
 
@@ -370,6 +388,17 @@ export function whenProblem(w: CalWhen): string {
 export const CHOOSE = "Scegli una delle due per andare avanti";
 
 /** In onda per chi salva: chi non gestisce il Calendario tiene sempre pronto. */
+/** «E adesso?»: cosa hai appena fatto, in una frase (D194). */
+export function adessoDid(t: Tunnel, saved: { name: string; live: boolean }, c: { multi: boolean; sedi: readonly string[]; dish: string }): string {
+    const n = "«" + saved.name + "»", o = ONDA[t.kind];
+    if (!saved.live) return `${n} è ${o.pronto}: nessun cliente ${o.lo} vede finché non ${o.lo} metti in onda.`;
+    if (t.kind === "storia") return `${n} è in onda: si vede ${c.dish ? "in fondo alla scheda di «" + c.dish + "»" : "sotto il menù"}.`;
+    return `${n} è in onda${c.multi && c.sedi.length ? " a " + listIt([...c.sedi]) : ""}, ${durLabel(effWhen(t)).toLowerCase()}.`;
+}
+
+/** Da «E adesso?» sedi e orari arrivano già scelti, e si chiede di confermarli (D194). */
+export const inhAsk = (t: Pick<Tunnel, "from" | "edit" | "kind">) => !!t.from && !t.edit && t.kind !== "storia" && t.from.kind !== "storia";
+
 export const goesLive = (t: Tunnel, c: Ctx) => c.owner && t.onda === "on";
 
 /**
@@ -409,6 +438,7 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
         case "quando":
             if (!t.onda) return CHOOSE;
             if (t.onda === "off") return "";
+            if (inhAsk(t) && t.inhQ == null) return "Conferma gli orari o cambiali";
             for (const w of t.per ? Object.values(t.per) : [effWhen(t)]) {
                 const why = whenProblem(w);
                 if (why) return why;
@@ -420,7 +450,7 @@ export function blocker(t: Tunnel, step: StepId, c: Ctx): string {
             if (t.onda === "off" || !c.multi) return "";
             if (!t.where.all && !t.where.activityIds.length && !t.where.groupIds.length) return "Scegli almeno una sede";
             // le ore sono nel passo dopo, «Quando»
-            if (t.kind !== "storia") return "";
+            if (t.kind !== "storia") return inhAsk(t) && t.inhD == null ? "Conferma le sedi o cambiale" : "";
             if (!STORIA_WHEN && !t.where.all && (t.where.groupIds.length || t.where.activityIds.length > 1))
                 return "Una storia in più sedi " + DB_LATER;
             for (const w of t.per ? Object.values(t.per) : [effWhen(t)]) {

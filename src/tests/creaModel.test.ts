@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 // i moduli del tunnel arrivano fino al client: qui non serve, e senza `.env` non partirebbe
 vi.mock("@/services/supabase/client", () => ({ supabase: {} }));
 import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { CHOOSE, blocker, effWhen, firstBlock, goesLive, isDirty, keepReady, kindOfSlug, newTunnel, oreSummary, readFromAi, sentence, skipped, stepFrom, stepLabel, stepSummary, steps, tunnelTitle, whenProblem, withAside, type FromMenu, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
+import { CHOOSE, blocker, effWhen, firstBlock, goesLive, isDirty, keepReady, kindOfSlug, newTunnel, oreSummary, readFromAi, sentence, skipped, stepFrom, stepLabel, stepSummary, steps, tunnelTitle, whenProblem, withAside, type From, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
 import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, logoColors, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
@@ -215,14 +215,14 @@ describe("tunnel di creazione: la bozza tenuta da parte nel Calendario", () => {
     });
 
     it("lo stile aperto da «E adesso?» parte dal quando e dal dove del menù", () => {
-        const from: FromMenu = { name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto"], groupIds: [] }, per: null };
+        const from: From = { kind: "menu", dish: null, onda: "on", name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto"], groupIds: [] }, per: null };
         const t = newTunnel("stile", ALL, from);
         expect(t).toMatchObject({ qmode: "momenti", when: { days: [0, 1, 2, 3, 4] }, where: { activityIds: ["porto"] }, aside: false, per: null });
     });
 
     it("le ore diverse per sede del menù passano allo stile, copiate", () => {
         const per = { porto: { days: [0, 1, 2, 3, 4] }, lido: { days: [5, 6] } };
-        const from: FromMenu = { name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto", "lido"], groupIds: [] }, per };
+        const from: From = { kind: "menu", dish: null, onda: "on", name: "Pranzo", catalogId: "m", ruleId: "r", productIds: [], when: { days: [0, 1, 2, 3, 4] }, where: { all: false, activityIds: ["porto", "lido"], groupIds: [] }, per };
         const t = newTunnel("stile", ALL, from);
         expect(t.per).toEqual(per);
         expect(t.per).not.toBe(per);

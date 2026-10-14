@@ -36,6 +36,11 @@ const stuck = async (page: Page, why: string) => {
     await next(page);
     await expect(main(page).getByRole("alert").filter({ hasText: why })).toBeVisible();
 };
+/** Ogni creazione finisce con «E adesso?» (D194): «Ho finito» porta alla sua pagina. */
+const finito = async (page: Page) => {
+    await expect(main(page).getByRole("heading", { name: "E adesso?" })).toBeVisible({ timeout: 15_000 });
+    await button(page, /^Ho finito/).click();
+};
 /** «Dove» (D189): prima la domanda, «Sì, lo metto in onda». */
 const onAir = (page: Page) => button(page, /^Sì, (lo|la) metto in onda/).click();
 /** «In quali sedi?»: il riquadro delle sedi del passo «Dove», sempre aperto. */
@@ -360,6 +365,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await walkMenu(page);
         await toReady(page);
         await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         // il nome senza gli spazi ai lati (#240)
         expect(bodyOf(stub, "catalogs.POST")).toMatchObject({ name: "Pranzo veloce" });
@@ -474,16 +480,18 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByText(/dal lunedì al venerdì, dalle 12:00 alle 15:00/)).toBeVisible();
         await expect(main(page).getByText("Cosa cambia nel calendario")).toBeVisible();
         await button(page, "Metti in onda").click();
-        await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce è in onda" })).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce", exact: true })).toBeVisible({ timeout: 15_000 });
         expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "layout", name: expect.stringMatching(/^Pranzo veloce/) });
         const on = writesOf(stub, "schedules.PATCH").map(w => first(w.body)).find(b => "time_mode" in b);
         expect(on).toMatchObject({ enabled: true, days_of_week: [1, 2, 3, 4, 5], time_from: "12:00", time_to: "15:00" });
         expect(bodyOf(stub, "schedule_layout.POST")).toMatchObject({ catalog_id: ID.catalog, schedule_id: ID.rule });
         expect(bodyOf(stub, "rpc.update_schedule_targets")).toMatchObject({ p_targets: [{ target_type: "activity", target_id: SEDE.porto }] });
-        // «E adesso?»: tre strade e «Ho finito»
-        await expect(button(page, /^Dagli i tuoi colori/)).toBeVisible();
-        await expect(button(page, /^Metti qualcosa in evidenza/)).toBeVisible();
-        await expect(button(page, /^Racconta una storia/)).toBeVisible();
+        // «E adesso?»: cosa hai fatto, tre strade (dal suo primo piatto) e «Ho finito»
+        await expect(main(page).getByText(/^«Pranzo veloce» è in onda a Porto e2e, .+\. Vuoi creare subito qualcos'altro\?$/)).toBeVisible();
+        await expect(button(page, /^Dagli i tuoi colori/)).toContainText("Uno stile per questo menù. Nelle stesse sedi e ore.");
+        await expect(button(page, /^Metti in evidenza «/)).toBeVisible();
+        await expect(button(page, /^Racconta «/)).toBeVisible();
+        await expect(main(page).getByText("Quello che crei da qui ha già le sedi e le ore di «Pranzo veloce»: puoi cambiarle.")).toBeVisible();
         await button(page, /^Ho finito/).click();
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`));
     });
@@ -522,7 +530,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByRole("button", { name: /^Porto e2e/ })).toHaveCount(0);
     });
 
-    test("da «E adesso?»: lo stile ha il quando e il dove del menù, finito si torna lì", async ({ page }) => {
+    test("da «E adesso?»: lo stile eredita sedi e orari del menù e chiede di confermarli; finito, ha il suo «E adesso?»", async ({ page }) => {
         wireMenu(stub);
         wireRule(stub);
         stub.onWrite("styles.POST", ({ body }) => ({ id: ID.style, ...first(body) }));
@@ -538,21 +546,39 @@ test.describe("Tunnel di creazione — menù", () => {
         await next(page);
         await button(page, "Metti in onda").click();
         await button(page, /^Dagli i tuoi colori/).click({ timeout: 15_000 });
-        await expect(main(page).getByText("Fa parte di «Pranzo veloce»: finito, si torna a «E adesso?».")).toBeVisible();
         await next(page);
         await main(page).getByLabel("Nome dello stile").fill("Pranzo");
         await next(page);
         await button(page, "Blu").click();
         await next(page);
-        await onAir(page);
-        await expect(main(page).getByText("Già compilato dal menù «Pranzo veloce»: puoi cambiarlo.")).toBeVisible();
+        // il menù era in onda: lo è già anche lo stile, e le sedi sono le sue, da confermare
+        await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
+        const sedi = main(page).getByRole("group", { name: "Stesse sedi di «Pranzo veloce»" });
+        await expect(sedi).toContainText("Tutte le sedi");
+        await expect(sedi).toContainText("Le hai appena scelte per «Pranzo veloce».");
+        await expect(main(page).locator("[data-sbox]")).toHaveCount(0);
+        await stuck(page, "Conferma le sedi o cambiale");
+        await expect(sedi).toHaveClass(/bad/);
+        // «Cambio sedi» apre il riquadro delle sedi, già con quelle del menù
+        await sedi.getByRole("button", { name: "Cambio sedi" }).click();
+        await expect(main(page).getByText("Partono dalle sedi di «Pranzo veloce»: cambia quello che serve.")).toBeVisible();
         await expect(allSedi(page)).toHaveAttribute("aria-checked", "true");
         await next(page);
-        await expect(button(page, /^Solo in certi momenti/)).toHaveAttribute("aria-pressed", "true");
+        // gli orari: confermati restano quelli del menù
+        const ore = main(page).getByRole("group", { name: "Stessi orari di «Pranzo veloce»" });
+        await expect(ore).toContainText("Li hai appena scelti per «Pranzo veloce».");
+        await expect(button(page, /^Solo in certi momenti/)).toHaveCount(0);
+        await stuck(page, "Conferma gli orari o cambiali");
+        await ore.getByRole("button", { name: "Sì, gli stessi" }).click();
+        await expect(main(page).getByText("Stessi orari di «Pranzo veloce»", { exact: true })).toBeVisible();
         await next(page);
         await button(page, "Metti in onda").click();
-        await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce è in onda" })).toBeVisible({ timeout: 15_000 });
-        await expect(button(page, /^Dagli i tuoi colori/)).toContainText("Fatto: puoi aggiungerne un altro.");
+        // lo stile ha il suo «E adesso?»
+        await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo", exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(button(page, /^Un menù per queste ore/)).toContainText("Il menù che i clienti vedono con questo stile. Nelle stesse sedi e ore.");
+        await expect(button(page, /^Racconta il locale/)).toBeVisible();
+        await button(page, /^Ho finito/).click();
+        await expect(page).toHaveURL(/\/styles$/);
     });
 
     test("Esci con qualcosa scritto: «Resta» resta, «Esci senza salvare» torna indietro", async ({ page }) => {
@@ -605,6 +631,7 @@ test.describe("Tunnel di creazione — menù", () => {
         expect(stub.writes.filter(w => !w.key.startsWith("fn."))).toHaveLength(0);
         await toReady(page);
         await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "catalogs.POST")).toMatchObject({ name: "Carta" });
         expect(writesOf(stub, "catalog_categories.POST").map(w => first(w.body).name)).toEqual(["Pizze"]);
@@ -657,6 +684,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(button(page, "Porta fuori da Pizze")).toBeVisible();
         await toReady(page);
         await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         const cats = writesOf(stub, "catalog_categories.POST").map(w => first(w.body));
         expect(cats.map(c => [c.name, c.level, c.sort_order])).toEqual([["Pizze", 1, 0], ["Rosse", 2, 0], ["Dolci", 1, 1]]);
@@ -678,6 +706,7 @@ test.describe("Tunnel di creazione — menù", () => {
         // ora il piatto si salva: si riprende da lì
         stub.onWrite("products.POST", ({ body }) => ({ ...first(body) }));
         await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
         expect(writesOf(stub, "catalog_categories.POST")).toHaveLength(1);
@@ -694,6 +723,7 @@ test.describe("Tunnel di creazione — menù", () => {
             el.click();
             el.click();
         });
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/catalogs/${ID.catalog}$`), { timeout: 15_000 });
         expect(writesOf(stub, "catalogs.POST")).toHaveLength(1);
     });
@@ -778,6 +808,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await expect(second.getByRole("button", { name: "Un tuo colore" })).toBeVisible();
         await toReady(page);
         await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
         expect(bodyOf(stub, "styles.POST")).toMatchObject({ name: "Natale", is_system: false });
         const config = JSON.stringify(bodyOf(stub, "style_versions.POST").config);
@@ -818,6 +849,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await expect(main(page).getByRole("heading", { name: "Quando", exact: true })).toBeVisible();
         await next(page);
         await button(page, "Metti in onda").click();
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Pizza del giorno", status: "published", content_type: "promo" });
         expect(writesOf(stub, "featured_content_products.POST")).toHaveLength(1);
@@ -842,6 +874,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await expect(main(page).getByRole("radio", { name: "No, cambiano" })).toHaveCount(0);
         await next(page);
         await button(page, "Metti in onda").click();
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "stories.POST")).toMatchObject({ title: "Il forno a legna", eyebrow: "Il forno", status: "draft" });
         const done = bodyOf(stub, "stories.PATCH");
@@ -856,7 +889,7 @@ test.describe("Tunnel di creazione — chi non gestisce il Calendario", () => {
         await stub.revoke("scheduling.write");
         await open(page, "evidenza");
         await stub.revoked;
-        await expect(rail(page).getByRole("button")).toHaveText(["1Il contenuto", "2Controlla"]);
+        await expect(rail(page).getByRole("button")).toHaveText(["1Il contenuto", "2Controlla", "E adesso?"]);
         await main(page).getByLabel("Titolo", { exact: true }).fill("Chiusi per ferie");
         await next(page);
         await expect(button(page, "Metti in onda")).toHaveCount(0);
@@ -865,6 +898,7 @@ test.describe("Tunnel di creazione — chi non gestisce il Calendario", () => {
         // «Salva e tieni pronto» lascia una bozza e nessuna regola nel Calendario (#360.8: prima non si cliccava)
         stub.onWrite("featured_contents.POST", ({ body }) => ({ id: ID.featured, ...first(body) }));
         await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Chiusi per ferie", status: "draft" });
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
@@ -1058,6 +1092,7 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         await insieme(page, "Prende il posto degli altri");
         await next(page);
         await button(page, "Metti in onda").click();
+        await finito(page);
         await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
         expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "layout" });
         expect(bodyOf(stub, "schedule_layout.POST")).toMatchObject({ style_id: ID.style });
@@ -1069,6 +1104,7 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         await main(page).getByLabel("Titolo", { exact: true }).fill("Chiusi per ferie");
         await toReady(page);
         await saveReady(page);
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/featured/${ID.featured}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "featured_contents.POST")).toMatchObject({ title: "Chiusi per ferie", status: "draft" });
         expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
@@ -1088,6 +1124,7 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         await next(page);
         await expect(main(page).getByText(/^La storia «Il forno a legna» è pronta ma spenta: nessun cliente la vede finché non la metti in onda\.$/)).toBeVisible();
         await button(page, "Salva e tieni pronta").click();
+        await finito(page);
         await expect(page).toHaveURL(new RegExp(`/stories/${ID.story}$`), { timeout: 15_000 });
         expect(bodyOf(stub, "stories.PATCH")).toMatchObject({ status: "draft" });
     });

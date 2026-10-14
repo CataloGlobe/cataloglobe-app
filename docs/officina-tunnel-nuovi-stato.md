@@ -36,7 +36,7 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 4. Menù che stanno da soli (soloBox) [int.]. **Da fare**
 5. Controlla: «Cosa cambia nel calendario» (versione Claude), settimana a destra, pallino colore, frecce delle sedi, fumetto. **Da fare**
 6. «Avanti» porta a ciò che manca: bordo rosso, scossa, messaggio. **Fatto** (tutti e quattro i tunnel): «Avanti» resta acceso; se manca qualcosa segna l'elemento (`data-bad` nei passi, `creaBad.tsx`), mette il messaggio sotto (`role="alert"`), lo porta al centro e ci mette il fuoco. Da «Controlla» porta al passo che manca (e alla seconda parte del «Quando»). Spento resta solo per «Non hai cambiato niente» e per ciò che aspetta il database nuovo, col motivo accanto. Il motivo non è più scritto accanto al bottone prima del clic. Dove il passo lo dice già (ore e sedi del Calendario) il messaggio non si ripete. Prove: `creaBad.test.ts`, `crea.spec.ts` (aiuto `stuck`, «da Controlla… porta al passo e al campo»).
-7. «E adesso?» dopo ogni creazione: eredita sedi e ore e chiede di confermarle. **Da fare**
+7. «E adesso?» dopo ogni creazione: eredita sedi e ore e chiede di confermarle. **Fatto** (D194): ogni creazione (menù, stile, in evidenza, storia; in onda o tenuta pronta, mai in modifica) finisce con «E adesso?»: la frase di cosa hai fatto (`adessoDid`), le proposte per tipo coi testi della pagina (`Adesso`), «Ho finito» porta alla sua pagina. Ciò che crei da lì (`From`, `newTunnel`) eredita sedi e orari; se era in onda lo è già; nel «Dove» e nel «Quando» il riquadro «Stesse sedi di… / Stessi orari di…» (`InhBox.tsx`) chiede «Sì, le stesse» o «Cambio sedi» prima di andare avanti. In evidenza e storia partono dal primo piatto. La storia non ha ore e, da più sedi, va in tutte; da una storia non si ereditano sedi e ore. Non c'è più «si torna a «E adesso?» del menù» con «Fatto: puoi aggiungerne un altro»: come nella pagina, ogni cosa creata ha il suo. Limiti: «Racconta il locale» apre una storia normale (la sede come argomento è il punto 16); la frase della storia dice «sotto il menù» o «in fondo alla scheda di…» (la «pagina del locale» è il punto 16). Testo corretto da me: per le sedi «Le hai appena scelte per…» (la pagina dice «Li hai appena scelti» anche lì). Prove: `creaAdesso.test.ts`, `crea.spec.ts` («lo stile eredita sedi e orari…», aiuto `finito`).
 8. In modifica, la casella «Dove e Quando» separati. **Fatto**: due caselle, «Dove» (le sedi) e «Quando» (le ore), ognuna con «In onda · …» o «Non in onda»; in «Controlla» ognuna ha il suo «Prima / Adesso». Rimesso in onda dal «Dove», «Avanti» passa anche dal «Quando».
 
 ### Tunnel Stile
@@ -57,7 +57,7 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 
 ### Comune
 19. Colori per tipo. **Da fare**
-20. «E adesso?» sul binario dei passi. **Da fare**
+20. «E adesso?» sul binario dei passi. **Fatto** col punto 7: è l'ultima voce del binario in ogni creazione, mai in modifica.
 
 ### Calendario (per ultimo)
 21. Testi G1, G7, G2, G3, G8, G5, G4 (vedi la pagina, etichette viola). **Da fare**
@@ -69,6 +69,15 @@ Sul Mac, su `033e8898`: 5 prove fallite in `e2e/crea.spec.ts`, tutte D189.
 27. Prezzi e Disponibilità restano come oggi. **Niente da fare**
 
 Il punto «due strade» della pagina del tunnel è superato da D191 e non si porta.
+
+## Salvataggio: cosa è cambiato in questo ramo (per Lorenzo, fase b)
+
+Da tenere aggiornato: il passo finale di Lorenzo (RPC nuova, `DB.ready`, `NEW_MODEL`) parte da questo codice.
+
+- `creaEdit.ts`, `saveQuando`: i due `saveDraft` ricevono `parts(c, "rule:" + id)` (prima il «Riprova» con tre o più orari per sede poteva fare regole doppie). `parts` è esportata da `creaSave.ts`.
+- `creaSave.ts`, `draftFor`: `D.insieme` vale solo per il menù. «Lascia gli altri» dello stile (`Tunnel.insieme` su uno stile) non si salva: il tunnel si ferma prima con «si salva col database nuovo».
+- Punto 7: il salvataggio non cambia. Cambia chi lo chiama: uno stile creato da «E adesso?» di un menù va ancora nella regola del menù solo se sedi e orari sono rimasti quelli (`sameAsFrom`); `From.ruleId` e `From.catalogId` ci sono solo quando si parte da un menù.
+- Tutto il resto (`saveDraft`, `draftParts`, `menuSave`, Calendario) è com'era su `officina-stile-pulizia`.
 
 ## Controlli a ogni commit
 `npx tsc -b`, `npm run -s typecheck:e2e`, `npm run lint`, `npm test`, `npm run ds:budget:check`, `npm run public:budget:check`. Playwright solo sul Mac con `bash scripts/e2e.sh e2e/<spec>.spec.ts`.

@@ -2,7 +2,7 @@
 // salvataggio e «E adesso?».
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, CornerDownRight, Pencil, Smartphone, Sparkles, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Pencil, Smartphone, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
@@ -18,8 +18,8 @@ import { SettimanaAnteprima } from "@/pages/Dashboard/Programming/calendar/Setti
 import type { FontFamily, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type { V2Style } from "@/services/supabase/styles";
 import { axisFor, entriesFromRules, romeToday, type CalNames, type CalWhen } from "@/pages/Dashboard/Programming/calendar/calendarModel";
-import { DB_WAIT, NEW_MODEL, NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
-import { rebase, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, skipped, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type FromMenu, type StepId, type Tunnel } from "./creaModel";
+import { DB_WAIT, NEW_MODEL, sediOf, NO_IMPATTO, draftFromEntry, dropAside, scontriWait, waitsForDb, whenKey, type Draft, type Impatto } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { rebase, adessoDid, FONTS, KIND, ONDA, goesLive, MAX_IMPORT_FILES, readFromAi, qcardText, withAside, blocker, changed, clonePer, effWhen, firstBlock, isDirty, lit, newTunnel, skipped, stepFrom, stepLabel, steps, thingName, touched, tunnelTitle, type CreaKind, type From, type StepId, type Tunnel } from "./creaModel";
 import { badSel, useBad, type Bad } from "./creaBad";
 import { CAL_KIND, draftFor, saveTunnel, type Saved } from "./creaSave";
 import { saveEdit } from "./creaEdit";
@@ -30,6 +30,7 @@ import { StilePhone } from "./StilePhone";
 import { lookKey } from "./stileLook";
 import { type CreaData } from "./useCreaData";
 import { CreaPhone } from "./CreaPhone";
+import { allSecs } from "./menuTree";
 import { IMPORT_ACCEPT, MenuCategorie, type ReadResult } from "./MenuCategorie";
 import { EvidContenuto } from "./EvidContenuto";
 import { Adesso, Controlla, Dove, DoveQuando, Modifica, MenuParti, Quando, QuandoOre, Serve, StileNome, StoriaBlocchi, StoriaRacconto, type U } from "./CreaSteps";
@@ -80,7 +81,7 @@ export type TunnelProps = {
 };
 
 /** Il menù appena messo in onda, con «E adesso?» e quello che ci si è aggiunto. */
-type After = { t: Tunnel; saved: Saved; kids: CreaKind[] };
+type After = { t: Tunnel; saved: Saved };
 
 export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, origin, business, reload, navigate, showToast, b }: TunnelProps) {
     const L = data.L;
@@ -89,7 +90,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const allWhere = { all: !L.multi || kind === "storia", activityIds: [], groupIds: [] };
     const [t, setT] = useState<Tunnel>(() => (edit ? edit.t : aside ? withAside(newTunnel(kind, allWhere), aside) : fromSystem(newTunnel(kind, allWhere), data.styles.find(x => x.id === fromStyle))));
     const [after, setAfter] = useState<After | null>(null);
-    /** «E adesso?» aperto (dopo il menù), o un tunnel aperto da lì. */
+    /** «E adesso?» aperto (alla fine di ogni creazione, D194), o un tunnel aperto da lì. */
     const showAfter = !!after && t === after.t;
     const [saving, setSaving] = useState(false);
     const [leave, setLeave] = useState(false);
@@ -380,26 +381,11 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
             setLeave(false);
             // la bozza del Calendario si toglie solo quando va in onda
             if (t.aside && saved.live) dropAside(tenantId);
-            // il menù in onda apre «E adesso?»
-            if (t.kind === "menu" && saved.live) {
-                const done = { ...t, i: st.length - 1, seen: st.length - 1 };
-                setAfter({ t: done, saved, kids: [] });
-                setT(done);
-                showToast({ message: `${n} è in onda.`, type: "success" });
-                return true;
-            }
-            // un tunnel aperto da «E adesso?» torna lì
-            if (after && t.from) {
-                setAfter({ ...after, kids: [...after.kids, t.kind] });
-                setT(after.t);
-                showToast({ message: (saved.live ? `${n}: ${pub}.` : kept) + " Si torna a «E adesso?».", type: "success" });
-                return true;
-            }
-            showToast({
-                message: saved.live ? `${n}: ${pub}.` : kept,
-                type: "success"
-            });
-            setGoing(landing(t.kind, saved.id));
+            // ogni creazione finisce con «E adesso?» (D194), anche tenuta pronta
+            const done = { ...t, i: st.length - 1, seen: st.length - 1 };
+            setAfter({ t: done, saved });
+            setT(done);
+            showToast({ message: saved.live ? (t.kind === "menu" ? `${n} è in onda.` : `${n}: ${pub}.`) : kept, type: "success" });
             return true;
         } catch (error) {
             console.error("[Crea] salvataggio non riuscito:", error);
@@ -428,22 +414,40 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
         if (after && t.from) return setT(after.t);
         setGoing(origin.to);
     };
-    const finishAfter = () => after && setGoing(landing("menu", after.saved.id));
+    const finishAfter = () => after && setGoing(landing(after.t.kind, after.saved.id));
 
-    const chain = (k: "stile" | "evid" | "storia") => {
+    // il primo piatto della cosa appena creata: da lì partono il contenuto in evidenza e la storia
+    const afterDish = useMemo(() => {
+        if (!after) return null;
+        const m = after.t;
+        const named = (id: string | undefined) => (id ? { id, name: L.products.get(id)?.name ?? data.names.products.get(id) ?? "" } : null);
+        if (m.kind === "menu") {
+            const d = allSecs(m.sections).flatMap(x => x.sec.dishes)[0];
+            const id = after.saved.productIds?.[0];
+            return d && id ? { id, name: d.name } : null;
+        }
+        const d = m.kind === "evid" ? named(m.dishes[0]) : m.kind === "storia" ? named(m.linked) : null;
+        return d?.name ? d : null;
+    }, [after, L.products, data.names.products]);
+
+    const chain = (k: CreaKind) => {
         if (!after) return;
         const m = after.t;
-        const from: FromMenu = {
+        const from: From = {
+            kind: m.kind,
             name: after.saved.name,
-            catalogId: after.saved.id,
-            ruleId: after.saved.ruleId,
-            productIds: after.saved.productIds ?? [],
+            catalogId: m.kind === "menu" ? after.saved.id : null,
+            ruleId: m.kind === "menu" ? after.saved.ruleId : null,
+            productIds: m.kind === "menu" ? after.saved.productIds ?? [] : [],
+            dish: afterDish,
+            onda: after.saved.live ? "on" : "off",
             when: effWhen(m),
             where: m.where,
             per: m.per
         };
         progress.current = new Map();
-        setT(newTunnel(k, m.where, from));
+        setBad(null);
+        setT(newTunnel(k, { all: !L.multi || k === "storia", activityIds: [], groupIds: [] }, from));
         toTop();
     };
 
@@ -453,8 +457,11 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     if (showAfter && after) {
         body = (
             <Adesso
+                kind={after.t.kind}
+                did={adessoDid(after.t, after.saved, { multi: L.multi, sedi: sediOf(after.t.where, data.sedi, data.groups).map(id => L.sedi.get(id) ?? "sede"), dish: afterDish?.name ?? "" })}
                 name={after.saved.name}
-                kids={after.kids}
+                live={after.saved.live}
+                dish={afterDish?.name ?? ""}
                 onChain={chain}
                 onFinish={finishAfter}
             />
@@ -507,11 +514,11 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 break;
             case "quando":
                 // con più sedi il Dove è già stato scelto: qui solo le ore
-                body = L.multi && draft ? <QuandoOre t={t} u={u} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} />;
+                body = L.multi && draft ? <QuandoOre t={t} u={u} L={L} draft={momentiDraft ?? draft} updDraft={updDraft} sedi={data.sedi} groups={data.groups} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} onPart={n => (n === 2 ? next() : u(x => void (x.qPart = 1)))} /> : <Quando t={t} u={u} L={L} draft={momentiDraft} updDraft={updDraft} durs={durs} axis={axis} clash={clash} scontri={effect.scontri} />;
                 break;
             case "dove": {
                 const D = draft ?? draftFor(t, "featured", FAKE, null);
-                body = t.kind !== "storia" ? <Dove t={t} u={u} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} /> : <DoveQuando t={t} u={u} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} L={L} durs={durs} axis={axis} />;
+                body = t.kind !== "storia" ? <Dove t={t} u={u} L={L} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} /> : <DoveQuando t={t} u={u} draft={D} updDraft={updDraft} sedi={data.sedi} groups={data.groups} L={L} durs={durs} axis={axis} />;
                 break;
             }
             default:
@@ -566,9 +573,10 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
 
     /* ---------- la testa ---------- */
     const pubLabel = t.edit ? "Salva le modifiche" : goesLive(t, c) ? KIND[t.kind].pub : `Salva e tieni ${ONDA[t.kind].pronto}`;
-    const title = showAfter && after ? `${after.saved.name} è in onda` : tunnelTitle(t);
+    const title = showAfter && after ? after.saved.name : tunnelTitle(t);
     const sub = showAfter ? "Vuoi aggiungere qualcosa?" : t.edit ? "Scegli cosa cambiare: il resto resta com'è." : `${st.length} passi. A destra vedi già com'è.`;
-    const isMenuFlow = t.kind === "menu" && !t.edit;
+    // «E adesso?» chiude ogni creazione, mai una modifica (D194)
+    const creating = !t.edit;
     const rootStyle = { "--stick": `${hdr.h + 12 - hdr.pad}px`, "--ihdr": `${hdr.h - hdr.pad}px` } as CSSProperties;
 
     return (
@@ -618,7 +626,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                                 </li>
                             );
                         })}
-                        {isMenuFlow && (
+                        {creating && (
                             <li>
                                 <button type="button" disabled aria-current={showAfter ? "step" : "false"}>
                                     <span className={s.idot}>
@@ -644,12 +652,6 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                     )}
                 </div>
             </div>
-            {after && t.from && !showAfter && (
-                <div className={s.inh}>
-                    <CornerDownRight size={15} aria-hidden />
-                    <span>Fa parte di {q(after.saved.name)}: finito, si torna a «E adesso?».</span>
-                </div>
-            )}
             <div className={cx(s.igrid, week && s.wide, full && s.full)}>
                 <div className={s.iform} ref={formRef}>
                     {body}

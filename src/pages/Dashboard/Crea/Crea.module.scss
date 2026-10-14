@@ -1664,3 +1664,59 @@ select.in {
         outline-offset: 1px;
     }
 }
+
+/* Da «E adesso?»: sedi e orari ereditati, da confermare (InhBox) */
+.inhq {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    max-width: 560px;
+    padding: 12px 14px;
+    border: 1px solid var(--c-brand);
+    border-radius: var(--radius-surface);
+    background: var(--c-brand-soft);
+    .ih {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        flex: 1 1 260px;
+        min-width: 0;
+        > svg {
+            color: var(--c-brand);
+            flex: none;
+            margin-top: 2px;
+        }
+        b,
+        span {
+            display: block;
+        }
+        b {
+            @include cal.fs(body);
+        }
+        span {
+            @include cal.fs(note);
+        }
+        .ihw {
+            color: var(--text-muted);
+        }
+    }
+    .ib {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    &.ok {
+        padding: 10px 12px;
+        border-color: var(--border);
+        background: var(--surface);
+        > svg {
+            color: var(--c-success);
+            flex: none;
+        }
+        .ih {
+            display: block;
+            flex: 1 1 200px;
+        }
+    }
+}
