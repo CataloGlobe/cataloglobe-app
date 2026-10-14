@@ -10,6 +10,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { LOOK_D } from "@styles/lookD";
+import { useTightRow } from "@/hooks/useTightRow";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { listReviews, deleteReview } from "@/services/supabase/reviews";
@@ -169,6 +170,12 @@ export default function Reviews() {
   // attaccata in alto; torna intera solo di nuovo in cima. Il passaggio usa
   // le view transition, se ci sono e se il movimento non è ridotto.
   const [compact, setCompact] = useState(false);
+  const [filtersEl, setFiltersEl] = useState<HTMLDivElement | null>(null);
+  // Nella riga compatta i chip scorrono: se non ci stanno, resta solo lo scelto.
+  const tight = useTightRow(
+    LOOK_D ? ((filtersEl?.firstElementChild as HTMLElement | null) ?? null) : null,
+    compact,
+  );
   const [top, setTop] = useState<HTMLDivElement | null>(null);
   const compactRef = useRef(false);
   useEffect(() => {
@@ -432,6 +439,7 @@ export default function Reviews() {
           <div
             className={styles.head}
             data-compact={compact ? "" : undefined}
+            data-tight={tight ? "" : undefined}
           >
           {/* ── Periodo a sinistra, Cerca a destra (D154) ─── */}
           <div className={styles.bar}>
@@ -457,7 +465,7 @@ export default function Reviews() {
               </div>
             ) : (
               <Button
-                variant="ghost"
+                variant={LOOK_D ? "secondary" : "ghost"}
                 size="sm"
                 className={styles.searchButton}
                 leftIcon={<Search size={15} aria-hidden />}
@@ -572,6 +580,7 @@ export default function Reviews() {
                 <Button
                   variant="secondary"
                   size="sm"
+                  className={styles.bandBtn}
                   onClick={() => {
                     setListFilter("low");
                     setFilterStars(null);
@@ -584,7 +593,7 @@ export default function Reviews() {
 
           {/* ── Filtri e ordine ─────────────────────── */}
           {!loading && !loadError && counts.all > 0 && (
-            <div className={styles.filters}>
+            <div ref={setFiltersEl} className={styles.filters}>
               <ChipGroupSingle
                 ariaLabel="Quali recensioni"
                 layout={LOOK_D ? "auto" : undefined}
@@ -701,6 +710,7 @@ export default function Reviews() {
                         <Rating value={review.rating} showValue={false} />
                       )}
                       <span
+                        className={LOOK_D ? styles.meta : undefined}
                         title={
                           LOOK_D
                             ? `${formatRelativeTime(review.created_at)}, ore ${new Date(review.created_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`
@@ -709,7 +719,14 @@ export default function Reviews() {
                       >
                         {reviewMeta(review)}
                       </span>
-                      {isLow(review) ? (
+                      {LOOK_D ? (
+                        // Etichette piatte della v28 (`.tag.w`, `.tag.g`), senza pallino.
+                        isLow(review) ? (
+                          <span className={`${styles.tag} ${styles.tagW}`}>Solo a voi</span>
+                        ) : isInvited(review) ? (
+                          <span className={`${styles.tag} ${styles.tagG}`}>Invitata su Google</span>
+                        ) : null
+                      ) : isLow(review) ? (
                         <StatusBadge variant="warning" label="Solo a voi" />
                       ) : isInvited(review) ? (
                         <StatusBadge
