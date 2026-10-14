@@ -74,7 +74,7 @@ test("i tre passi e la conferma: giorno già scelto, ora no, riepilogo nel pulsa
     await expect(sheet.getByText("1 di 3 · Quando")).toBeVisible();
     await expect(sheet.getByRole("group", { name: /^Giorno/ }).getByRole("button", { pressed: true })).toContainText("14");
     await sheet.getByRole("button", { name: "Scegli l'orario" }).click();
-    await expect(sheet.getByText("Inserisci un orario valido.")).toBeVisible();
+    await expect(sheet.getByRole("alert").filter({ hasText: "Inserisci un orario valido." })).toBeVisible();
 
     // Persone: numero esatto con − e + (D37).
     const people = sheet.getByRole("group", { name: "Persone" });
@@ -139,7 +139,7 @@ test("orario pieno all'invio: si torna a Quando col messaggio sotto l'orario", a
     await sheet.getByRole("button", { name: "Invia richiesta" }).click();
 
     await expect(sheet.getByRole("heading", { name: "Prenota un tavolo" })).toBeVisible();
-    await expect(sheet.getByText("Non ci sono più posti per l'orario scelto. Prova un altro orario.")).toBeVisible();
+    await expect(sheet.getByRole("alert").filter({ hasText: "Non ci sono più posti per l'orario scelto. Prova un altro orario." })).toBeVisible();
 });
 
 test("dal ⋯ il primo passo entra a spinta, con «‹»", async ({ page }) => {

@@ -247,7 +247,7 @@ export default function BookingWhen({ values, errors, config, onChange }: Props)
                     {checking ? t("reservation.checking_availability") : ""}
                 </span>
                 {errors.reservation_time ? (
-                    <span id="err-reservation_time" className={styles.fieldError}>
+                    <span id="err-reservation_time" className={styles.fieldError} role="alert">
                         {errors.reservation_time}
                     </span>
                 ) : clearedNotice ? (
