@@ -621,6 +621,15 @@ test.describe("Impostazioni, Team e Abbonamento (§51.12, D170)", () => {
         await expect(accountButton(page)).toHaveAttribute("aria-current", "page", { timeout: 15_000 });
         expect(await accountPages(page)).toEqual(ACCOUNT);
         await expect(settingsTabs(page)).toHaveCount(0);
+        // Nella D (artifact v28) le pagine dell'azienda tornano tab di «Azienda» in testata, come link.
+        if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+            const parti = page.getByRole("navigation", { name: "Parti di Azienda" });
+            await expect(parti.getByRole("link")).toHaveText(["Azienda", "Team", "Abbonamento", "Lingue"]);
+            await expect(parti.getByRole("link", { name: "Azienda" })).toHaveAttribute("aria-current", "page");
+            await parti.getByRole("link", { name: "Lingue" }).click();
+            await expect(page).toHaveURL(new RegExp(`${root}/languages$`), { timeout: 15_000 });
+            await expect(parti.getByRole("link", { name: "Lingue" })).toHaveAttribute("aria-current", "page");
+        }
 
         await page.goto(`${root}/settings/team`);
         await expect(page).toHaveTitle(/^Team · /, { timeout: 15_000 });

@@ -428,7 +428,7 @@ export default function MainLayout() {
                             />
 
                             <main className={styles.main}>
-                                <PageTitleBar actions={titleBarActions} groups={nav.groups} />
+                                <PageTitleBar actions={titleBarActions} groups={nav.groups} account={nav.account} />
                                 {/* Il dettaglio dal vivo si apre nell'aside, accanto al
                                     contenuto (D131): la pagina si stringe, non si copre. */}
                                 <div className={styles.split}>

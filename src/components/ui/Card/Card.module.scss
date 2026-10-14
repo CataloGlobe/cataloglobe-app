@@ -244,9 +244,12 @@
   }
 }
 
+// La zona pericolo della v28 (`.a-dz`): niente fondo, bordo corallo tratteggiato.
 .danger {
   @include look-d {
-    box-shadow: var(--d-shadow), inset 0 0 0 1px color-mix(in srgb, var(--d-warm) 38%, transparent);
+    background: transparent;
+    box-shadow: none;
+    border: 1.5px dashed color-mix(in srgb, var(--d-warm) 45%, transparent);
 
     .title {
       color: var(--d-s-wait-ink);

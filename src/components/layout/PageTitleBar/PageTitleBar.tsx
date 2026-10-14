@@ -14,6 +14,25 @@ interface PageTitleBarProps {
     actions?: ReactNode;
     /** Le sezioni della sidebar: sulla pagina di una parte, le sorelle come tab. */
     groups?: AppSidebarNavGroup[];
+    /** Le voci del menù dell'account: nella D le pagine dell'azienda sono tab in testata. */
+    account?: AppSidebarNavGroup["items"];
+}
+
+/** Direzione D (artifact v28): Azienda, Team, Abbonamento e Lingue come tab di «Azienda». */
+const D_ACCOUNT_TABS: Record<string, string> = {
+    settings: "Azienda",
+    team: "Team",
+    billing: "Abbonamento",
+    languages: "Lingue"
+};
+
+/** La sezione «Azienda» della D, se la pagina aperta è una delle sue parti. */
+function accountSection(account: AppSidebarNavGroup["items"], pathname: string): AppSidebarNavGroup | null {
+    const items = account
+        .filter(item => item.id !== undefined && item.id in D_ACCOUNT_TABS)
+        .map(item => ({ ...item, label: D_ACCOUNT_TABS[item.id ?? ""] }));
+    if (items.length < 2 || !items.some(item => item.to === pathname)) return null;
+    return { key: "account", title: "Azienda", items };
 }
 
 /**
@@ -25,7 +44,7 @@ interface PageTitleBarProps {
  * (`PageHeaderSlot`); accanto al titolo solo un commutatore di vista della
  * pagina, se lo dichiara (`titleSide`).
  */
-export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
+export function PageTitleBar({ actions, groups = [], account = [] }: PageTitleBarProps) {
     const { pathname, search } = useLocation();
     const side = useReadPageHeader()?.titleSide;
 
@@ -47,6 +66,11 @@ export function PageTitleBar({ actions, groups = [] }: PageTitleBarProps) {
             section = { group, current };
             break;
         }
+    }
+    if (!section && LOOK_D) {
+        const group = accountSection(account, pathname);
+        const current = group?.items.find(item => item.to === pathname);
+        if (group && current) section = { group, current };
     }
 
     return (

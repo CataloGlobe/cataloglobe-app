@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 .page {
     display: flex;
     flex-direction: column;
@@ -65,4 +67,33 @@
     align-items: baseline;
     justify-content: space-between;
     gap: var(--space-12);
+}
+
+// Direzione D (artifact v28, `.a-two`): il piano e la gestione a sinistra,
+// il Credito AI a destra, quando c'è spazio.
+.page {
+  @include look-d {
+    @media (min-width: 1120px) {
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+      gap: var(--d-gap);
+      align-items: start;
+
+      > * {
+        grid-column: 1;
+      }
+
+      > :global(#utilizzo-ai) {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+      }
+    }
+
+    // In colonna l'ordine della v28: piano, gestione, poi il credito.
+    @media (max-width: 1119px) {
+      > :global(#utilizzo-ai) {
+        order: 1;
+      }
+    }
+  }
 }

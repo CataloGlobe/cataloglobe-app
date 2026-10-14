@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 // Riga di Lingue: è una `ListRow`, qui solo la bandiera e la riga del nome.
 
 .flag {
@@ -20,4 +22,25 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+// ── Direzione D (v28 `.lg`): sigla nel quadratino bianco, nome forte ──
+.sigla {
+  @include look-d {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--d-brand-deep);
+    @include d-type(initials);
+  }
+}
+
+.nameLine > :first-child {
+  @include look-d {
+    color: var(--d-text);
+    @include d-type(card-title);
+  }
 }

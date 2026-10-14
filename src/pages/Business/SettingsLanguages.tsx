@@ -33,6 +33,7 @@ import { PageGate } from "@/components/PageGate/PageGate";
 import { useNow } from "@/hooks/useNow";
 import { translateNow } from "@/services/supabase/translationJobs";
 import { minutesUntil } from "@/services/translation/waiting";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./SettingsLanguages.module.scss";
 
 /** Il tono della striscia di stato, dallo stato d'insieme delle traduzioni. */
@@ -125,11 +126,16 @@ export default function SettingsLanguages() {
     }, [loadData]);
 
     // Italiano sempre primo, resto in ordine già fornito dal service (sort_order).
+    // Nella D prima le accese, poi le spente (v28).
     const orderedLangs = useMemo(() => {
         const it = available.find(l => l.code === "it");
-        const others = available.filter(l => l.code !== "it");
+        let others = available.filter(l => l.code !== "it");
+        if (LOOK_D) {
+            const on = (code: string) => active.some(a => a.language_code === code && a.is_active);
+            others = [...others.filter(l => on(l.code)), ...others.filter(l => !on(l.code))];
+        }
         return it ? [it, ...others] : others;
-    }, [available]);
+    }, [available, active]);
 
     const isLangActive = (code: string): boolean =>
         active.some(a => a.language_code === code && a.is_active);
@@ -332,7 +338,7 @@ export default function SettingsLanguages() {
                                 })}. ${t("languages.progress.waiting_hint")}`}
                             </InlineBanner>
                         )}
-                        <Card flush>
+                        <Card flush className={styles.langCard} bodyClassName={styles.langGrid}>
                             {orderedLangs.map(lang => {
                                 const isBase = lang.code === "it";
                                 return (

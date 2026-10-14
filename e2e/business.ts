@@ -38,7 +38,10 @@ export async function openBusinessPage(page: Page, path: string, sidebarLabel: s
         await link.click();
     } else {
         await page.getByRole("button", { name: /^Account:/ }).click();
-        await page.getByRole("menuitem", { name: sidebarLabel }).click();
+        // Nella D «Impostazioni» nel menù si chiama «Azienda» (Alex, 2026-10-14).
+        const lookD = await page.evaluate(() => document.documentElement.dataset.look === "d");
+        const label = lookD && sidebarLabel === "Impostazioni" ? "Azienda" : sidebarLabel;
+        await page.getByRole("menuitem", { name: label, exact: label === "Azienda" }).click();
     }
     await page.waitForURL(new RegExp(`/business/[0-9a-f-]+/${path}$`));
 }

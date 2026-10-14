@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 .page {
   display: flex;
   flex-direction: column;
@@ -32,4 +35,109 @@
 // Il logo nella riga: la miniatura, non a tutta larghezza.
 .logoEditor {
   max-width: 240px;
+}
+
+// Direzione D (artifact v28, `.a-two`): Azienda e Dati di fatturazione
+// affiancate quando c'è spazio, la zona pericolo sotto a tutta larghezza.
+.page {
+  @include look-d {
+    @media (min-width: 1120px) {
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+      gap: var(--d-gap);
+      align-items: start;
+
+      > :nth-child(n + 3) {
+        grid-column: 1 / -1;
+      }
+    }
+  }
+}
+
+// ── Direzione D: la card Azienda come la v28 (`.a-row`) ──
+@include look-d {
+  // Nome: il campo sotto l'etichetta, stretto.
+  .company [data-setting-row]:has(#tenant-name) > :first-child {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+
+    > :first-child > :first-child {
+      color: var(--d-muted);
+      @include d-type(note);
+      font-weight: 600;
+    }
+
+    > :last-child {
+      justify-content: flex-start;
+
+      > * {
+        width: min(260px, 100%);
+      }
+    }
+  }
+
+  .askLink {
+    color: var(--d-brand-deep);
+    @include d-type(control);
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  // Logo: miniatura a sinistra, testo, matita e cestino a destra. Il
+  // controllo e l'editor si sciolgono nella griglia della riga.
+  .company [data-setting-row]:has(.logoEditor) > :first-child {
+    grid-template-columns: 54px minmax(0, 1fr) auto;
+    gap: 8px 14px;
+
+    > :first-child {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    > :last-child,
+    .logoEditor,
+    .logoEditor > * {
+      display: contents;
+    }
+
+    .logoEditor > :first-child > :first-child {
+      display: none;
+    }
+
+    .logoEditor > :first-child > :last-child {
+      display: flex;
+      grid-column: 3;
+      grid-row: 1;
+      gap: 6px;
+    }
+
+    .logoEditor > :last-child > :first-child {
+      grid-column: 1;
+      grid-row: 1;
+      width: 54px;
+      max-width: 54px;
+      overflow: hidden;
+      border-radius: 17px;
+    }
+  }
+
+  // Zona pericolo: titolo scuro, pulsante bianco col bordo rosso.
+  .dangerTitle {
+    color: var(--d-text);
+    font-weight: 700;
+  }
+
+  .dangerButton {
+    border: 1px solid color-mix(in srgb, var(--d-warm) 55%, transparent);
+    background: var(--d-surface);
+    color: var(--d-s-wait-ink);
+
+    &:hover:not(:disabled) {
+      background: var(--d-warm-soft);
+    }
+  }
 }

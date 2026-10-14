@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 // SettingRow: nome + descrizione in colonna da 300, controllo a destra,
 // padding 24, separatore 1 px fra le righe; sotto 768 si impila.
 .row {
@@ -54,6 +57,60 @@
   margin-left: calc(300px + var(--space-24));
 
   @media (max-width: 767px) {
+    margin-left: 0;
+  }
+}
+
+// Direzione D (artifact v28, `.a-row`): righe strette, filetto chiaro, il
+// controllo sotto quando la card è stretta (Azienda a due colonne).
+.row {
+  @include look-d {
+    container-type: inline-size;
+    padding: 13px var(--d-pad);
+
+    & + & {
+      border-top-color: color-mix(in srgb, var(--text-muted) 14%, transparent);
+    }
+  }
+}
+
+.main {
+  @include look-d {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 16px;
+    align-items: center;
+
+    @container (max-width: 560px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}
+
+.text {
+  // v28 `.a-row`: nome a 600 del testo corrente, spiegazione piccola.
+  @include look-d {
+    > :first-child {
+      @include d-type(body);
+      font-weight: 600;
+    }
+
+    > :nth-child(2) {
+      max-width: 54ch;
+      @include d-type(note);
+    }
+  }
+}
+
+.control {
+  @include look-d {
+    @container (max-width: 560px) {
+      justify-content: flex-start;
+    }
+  }
+}
+
+.dependent {
+  @include look-d {
     margin-left: 0;
   }
 }
