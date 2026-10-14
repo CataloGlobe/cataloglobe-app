@@ -102,8 +102,8 @@ test.describe("Storie — elenco", () => {
         expect(order).toEqual(["Il nostro forno e2e", "La brigata e2e", "Natale e2e"]);
         await expect(main(page).getByText("Dal 1987")).toBeVisible();
         await expect(main(page).getByText("Pane di segale e2e")).toBeVisible();
-        await expect(main(page).getByText("Bozza", { exact: true })).toBeVisible();
-        await expect(main(page).getByText("Online", { exact: true }).first()).toBeVisible();
+        await expect(main(page).getByText("Pronta, non in onda", { exact: true })).toBeVisible();
+        await expect(main(page).getByText("In onda", { exact: true }).first()).toBeVisible();
         await expect(page.getByRole("button", { name: "Crea storia" }).first()).toBeVisible();
     });
 
@@ -350,21 +350,24 @@ test.describe("Storie — permessi (P1)", () => {
 });
 
 test.describe("Storie — dove appaiono (§50.13)", () => {
-    test("elenco: la colonna «Dove appare»", async ({ page }) => {
+    test("elenco: ogni riga dice di cosa parla e se è in onda (punto 18)", async ({ page }) => {
         await openList(page);
         const table = main(page).getByRole("table", { name: "Storie" });
-        await expect(table.getByRole("columnheader", { name: "Dove appare" })).toBeVisible();
-        await expect(table.getByRole("row", { name: /Il nostro forno e2e/ })).toContainText("Tutte le sedi");
-        await expect(table.getByRole("row", { name: /La brigata e2e/ })).toContainText("Solo Centro e2e");
-        // Una bozza non è «di tutte le sedi ma spenta»: non la vede nessuno.
-        await expect(table.getByRole("row", { name: /Natale e2e/ })).toContainText("Da nessuna parte");
+        await expect(table.getByRole("columnheader", { name: "Di cosa parla" })).toBeVisible();
+        await expect(table.getByRole("columnheader", { name: "Dove appare" })).toHaveCount(0);
+        const forno = table.getByRole("row", { name: /Il nostro forno e2e/ });
+        await expect(forno).toContainText("Il locale · tutte le sedi");
+        await expect(forno).toContainText("In onda");
+        // La storia di un prodotto parla di lui, anche se ha una sede.
+        await expect(table.getByRole("row", { name: /La brigata e2e/ })).toContainText("Pane di segale e2e");
+        await expect(table.getByRole("row", { name: /Natale e2e/ })).toContainText("Pronta, non in onda");
     });
 
     test("elenco: chip coi conteggi e ricerca; filtrando non si riordina", async ({ page }) => {
         await openList(page);
         const chips = main(page).getByRole("radiogroup", { name: "Filtra le storie" });
         await expect(chips.getByRole("radio", { name: /Tutte\s*3/ })).toBeChecked();
-        await chips.getByRole("radio", { name: /Bozze\s*1/ }).click();
+        await chips.getByRole("radio", { name: /Pronte, non in onda\s*1/ }).click();
         await expect(storyTitle(page, "Natale e2e")).toBeVisible();
         await expect(storyTitle(page, "Il nostro forno e2e")).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Riordina/ })).toHaveCount(0);
