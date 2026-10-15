@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { formatPublicPrice } from "../price";
 import { closeSheet } from "../sheets/sheetStack";
 import { CancelOrder, OrderSteps } from "./OrderPage";
@@ -9,8 +9,8 @@ import type { SessionOrdersState } from "./useSessionOrders";
 import styles from "./OrderPage.module.scss";
 
 /**
- * «Ordine N · Tavolo» dopo «Invia alla cucina» (mockup v38, `poOk`): spunta,
- * il titolo con lo stato di adesso, piatti e totale, le righe, lo stato dal vivo
+ * «Ordine N · Tavolo» dopo «Invia alla cucina» (mockup v38, `poOk`): spunta
+ * (X grigia se annullato), il titolo con lo stato di adesso, piatti e totale, le righe, lo stato dal vivo
  * con «Annulla ordine» finché la cucina non l'ha preso. «‹» torna a «Il tuo ordine»,
  * «Aggiungi altro» chiude il foglio.
  */
@@ -20,14 +20,17 @@ export default function OrderSentPage({ receipt, sessionOrders }: { receipt: Sen
     // Finché la rilettura non lo porta, l'ordine è appena «Inviato».
     const step = order ? orderStep(order.status) : 0;
     const count = receipt.lines.reduce((sum, line) => sum + line.qty, 0);
-    // Titolo e riga sotto la barra seguono lo stato; annullato tiene il titolo dell'invio.
-    const title = [t("order_sheet.sent_ok"), t("order_sheet.title_kitchen"), t("order_sheet.title_ready"), t("order_sheet.enjoy")][Math.max(step, 0)];
+    // Titolo e riga sotto la barra seguono lo stato; annullato ha titolo e segno suoi.
+    const cancelled = step < 0;
+    const title = cancelled
+        ? t("order_sheet.cancelled_title")
+        : [t("order_sheet.sent_ok"), t("order_sheet.title_kitchen"), t("order_sheet.title_ready"), t("order_sheet.enjoy")][step];
     const hint = [null, t("order_sheet.in_kitchen"), t("order_sheet.hint_ready"), t("order_sheet.hint_served")][Math.max(step, 0)];
     return (
         <div className={styles.root}>
             <div className={styles.ok} role="status">
-                <span className={styles.okCheck} aria-hidden="true">
-                    <Check size={28} strokeWidth={2.6} />
+                <span className={styles.okCheck} data-cancelled={cancelled || undefined} aria-hidden="true">
+                    {cancelled ? <X size={28} strokeWidth={2.6} /> : <Check size={28} strokeWidth={2.6} />}
                 </span>
                 <h3 className={styles.okTitle}>{title}</h3>
                 <p className={styles.okMeta}>{t("order_sheet.sent_summary", { count, total: formatPublicPrice(receipt.total) })}</p>
@@ -41,7 +44,7 @@ export default function OrderSentPage({ receipt, sessionOrders }: { receipt: Sen
                 ))}
             </ul>
             <div className={styles.tracker}>
-                {step < 0 ? (
+                {cancelled ? (
                     <p className={styles.trackerHint}>{t("order_sheet.cancelled_note")}</p>
                 ) : (
                     <>

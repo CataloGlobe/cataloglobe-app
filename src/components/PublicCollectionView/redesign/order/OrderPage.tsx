@@ -453,10 +453,17 @@ export function OrderFooter({
                         void sendState.send();
                         return;
                     }
-                    // Come il pulsante della scheda: porta a ciò che manca, non è un errore.
-                    const target = document.getElementById(removeId(firstUnavailable));
-                    target?.scrollIntoView({ block: "center", behavior: "smooth" });
-                    target?.focus({ preventScroll: true });
+                    // Toglie davvero i piatti non più disponibili, dall'ultimo così gli indici restano giusti.
+                    const gone = ordering.selection.flatMap((line, index) =>
+                        isLineUnavailable(findProduct, line, sendState.refused) ? [index] : []
+                    );
+                    for (const index of gone.reverse()) ordering.remove(index);
+                    // Tolto tutto, il piede se ne va: il fuoco passa al titolo del foglio.
+                    requestAnimationFrame(() => {
+                        if (!document.activeElement || document.activeElement === document.body) {
+                            document.getElementById(TITLE_ID)?.focus();
+                        }
+                    });
                 }}
             >
                 {label}
