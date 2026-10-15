@@ -1471,26 +1471,34 @@ export default function CalendarioView({
     const agenda = (() => {
         if (!agendaOn || !sedi.length) return null;
         const sedeId = focus?.id ?? (!multi ? sedi[0].id : null);
-        const pezzi = sedeId
-            ? programma(entries, seatOf(sedeId), selDay, axis).pezzi
-            : (maggioranza(scopeSedi.map(x => [x.id, programma(entries, seatOf(x.id), selDay, axis)] as const))?.base.pezzi ?? []);
-        const items: AgendaItem[] = pezzi.map(x => {
+        const pezziOf = (day: DayNum) =>
+            sedeId
+                ? programma(entries, seatOf(sedeId), day, axis).pezzi
+                : (maggioranza(scopeSedi.map(x => [x.id, programma(entries, seatOf(x.id), day, axis)] as const))?.base.pezzi ?? []);
+        // Dopo mezzanotte la fascia della sera prima (Cena 19–02 alle 01:00) è ancora in onda:
+        // nell'agenda di oggi c'è anche lei, in cima, come dice la frase (`inOndaOra`).
+        const tail = selDay === today ? pezziOf(selDay - 1).filter(x => x.from <= nowMin + 1440 && nowMin + 1440 < x.to) : [];
+        const row = (x: (typeof tail)[number], day: DayNum, now: boolean): AgendaItem => {
             const onPick = () => {
                 if (!sedeId) return;
-                const ln = fLines(dayCtx(entries, x.k, seatOf(sedeId), selDay), axis).find(l => l.thing === x.first);
+                const ln = fLines(dayCtx(entries, x.k, seatOf(sedeId), day), axis).find(l => l.thing === x.first);
                 const g = ln?.segs.find(sg => sg.from <= x.from && x.from < sg.to);
-                if (g) openPick({ kind: x.k, thing: x.first, date: selDay, sede: sedeId, from: g.from });
+                if (g) openPick({ kind: x.k, thing: x.first, date: day, sede: sedeId, from: g.from });
             };
             return {
-                key: `${x.k}|${x.label}|${x.from}`,
+                key: `${day}|${x.k}|${x.label}|${x.from}`,
                 k: x.k,
                 label: x.k === "menu" ? x.label.split(" + ").map(shortName).join(" + ") : x.label,
                 hours: `${hhmm(x.from)}–${hhmm(x.to)}`,
                 color: x.k === "featured" ? KIND_COLOR.featured : colorOf(x.k, x.first),
-                now: selDay === today && x.from <= nowMin && nowMin < x.to,
+                now,
                 onPick: sedeId ? onPick : undefined
             };
-        });
+        };
+        const items: AgendaItem[] = [
+            ...tail.map(x => row(x, selDay - 1, true)),
+            ...pezziOf(selDay).map(x => row(x, selDay, selDay === today && x.from <= nowMin && nowMin < x.to))
+        ];
         const where = !multi ? "" : focus ? ` · ${focus.name}` : " · Tutte le sedi";
         return (
             <CalendarioAgenda
