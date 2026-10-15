@@ -697,6 +697,7 @@
         "order_note_aria": "Hinweise für die Küche, für die ganze Bestellung",
         "order_title": "Bestellung {{number}}",
         "sent_ok": "An die Küche gesendet",
+        "cancelled_title": "Bestellung storniert",
         "sent_summary_one": "{{count}} Gericht · {{total}}",
         "sent_summary_other": "{{count}} Gerichte · {{total}}",
         "add_more": "Mehr hinzufügen",

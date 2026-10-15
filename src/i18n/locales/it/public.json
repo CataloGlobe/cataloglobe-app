@@ -696,6 +696,7 @@
         "order_note_aria": "Note per la cucina, per tutto l'ordine",
         "order_title": "Ordine {{number}}",
         "sent_ok": "Inviato alla cucina",
+        "cancelled_title": "Ordine annullato",
         "sent_summary_one": "{{count}} piatto · {{total}}",
         "sent_summary_other": "{{count}} piatti · {{total}}",
         "add_more": "Aggiungi altro",

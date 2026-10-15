@@ -395,11 +395,37 @@
   font-variant-numeric: tabular-nums;
 }
 
+// Conferma sul posto (mockup v38, `po-cf`): la domanda su una riga sua, sotto i due pulsanti.
 .confirm {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--pub-text) 6%, transparent);
+  font-size: 14px;
+  font-weight: 600;
+
+  > span {
+    flex-basis: 100%;
+    text-align: center;
+  }
+
+  > button {
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--pub-text) 10%, transparent);
+    color: var(--pub-text);
+    font-weight: 700;
+  }
+
+  > .danger {
+    background: #b3261e;
+    color: #fff;
+  }
 }
 
 .danger {
@@ -580,6 +606,11 @@
   border-radius: 50%;
   background: #2e9d5b;
   color: #fff;
+
+  &[data-cancelled] {
+    background: color-mix(in srgb, var(--pub-text) 12%, transparent);
+    color: color-mix(in srgb, var(--pub-text) 70%, transparent);
+  }
 }
 
 .okTitle {

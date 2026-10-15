@@ -697,6 +697,7 @@
         "order_note_aria": "Notas para la cocina, para todo el pedido",
         "order_title": "Pedido {{number}}",
         "sent_ok": "Enviado a la cocina",
+        "cancelled_title": "Pedido cancelado",
         "sent_summary_one": "{{count}} plato · {{total}}",
         "sent_summary_other": "{{count}} platos · {{total}}",
         "add_more": "Añadir más",
