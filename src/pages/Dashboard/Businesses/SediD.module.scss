@@ -179,6 +179,21 @@
         color: var(--d-muted);
         @include d-type(note);
     }
+    // finché i menù in onda caricano, al posto di «Niente da guardare»
+    .sk {
+        width: 112px;
+        height: 12px;
+        border-radius: 6px;
+        background: var(--d-soft);
+        @media (prefers-reduced-motion: no-preference) {
+            animation: skPulse 1.2s ease-in-out infinite alternate;
+        }
+    }
+    @keyframes skPulse {
+        to {
+            opacity: 0.45;
+        }
+    }
 
     // i gruppi di sedi restano la tabella di oggi, dentro una card
     .groups {
