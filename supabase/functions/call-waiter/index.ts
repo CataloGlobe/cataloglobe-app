@@ -15,7 +15,7 @@
 //
 // Risposta 200: { waiter_called_at: string; rate_limited: boolean }
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { verifyCustomerJwt } from "../_shared/customerJwt.ts";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 

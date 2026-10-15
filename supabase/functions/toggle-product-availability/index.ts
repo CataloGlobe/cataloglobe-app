@@ -29,7 +29,7 @@
 //   8. UPSERT product_availability_overrides ON CONFLICT (activity_id, product_id).
 //   9. Reply 200 with { override_id }.
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { hasActivityPermission } from "../_shared/membershipCheck.ts";
 

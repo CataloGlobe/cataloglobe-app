@@ -23,7 +23,7 @@
 // Una mail per destinatario, mai BCC: le righe sono già una per utente.
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { sendEmailWithResult } from "../_shared/sendEmail.ts";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";

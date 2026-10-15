@@ -29,7 +29,7 @@
 // Modellata su process-translation-jobs.
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { buildComanda } from "../_shared/buildComanda.ts";
 import { renderComandaEscPos, renderAnnulloEscPos } from "../_shared/escpos.ts";
 import {

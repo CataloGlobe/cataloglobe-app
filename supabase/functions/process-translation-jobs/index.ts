@@ -24,7 +24,7 @@
 // Ref: docs/translations-architecture-v3.md sez. 6.3.
 // =============================================================================
 
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { getProviderForLanguage } from "../_shared/translation/router.ts";
 import { logAiUsage } from "../_shared/aiUsageLog.ts";
 import {

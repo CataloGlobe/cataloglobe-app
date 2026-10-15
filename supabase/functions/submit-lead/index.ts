@@ -19,7 +19,7 @@
 // RESEND_API_KEY (già presente, usato da `sendEmail`).
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { buildLeadNotificationEmail } from "../_shared/leadEmail.ts";
 import { leadConsentText } from "../_shared/leadConsent.ts";
 import { LEAD_LIMITS, cleanLeadMeta, validateLead } from "../_shared/leadValidation.ts";

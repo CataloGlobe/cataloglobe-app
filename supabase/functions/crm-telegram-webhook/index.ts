@@ -45,7 +45,7 @@
 // che il collegamento con Claude non va), APP_URL (facoltativo).
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { telegramCall } from "../_shared/telegramApi.ts";

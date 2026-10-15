@@ -1,6 +1,6 @@
 // @ts-nocheck
 import type Stripe from "https://esm.sh/stripe@17?target=deno";
-import type { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { mapStripeStatus } from "./subscriptionStatusSync.ts";
 import { planSeatRealign } from "./seatRealign.ts";
 import { priceTotalCents, retrievePriceTotalCents } from "./priceTotal.ts";
