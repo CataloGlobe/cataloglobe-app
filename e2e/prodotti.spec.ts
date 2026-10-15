@@ -900,6 +900,8 @@ test.describe("Prodotti — dettaglio", () => {
 test.describe("Prodotti — larghezze", () => {
     for (const width of [1280, 768, 375]) {
         test(`${width}: elenco e dettaglio senza scroll di lato`, async ({ page }) => {
+            // Sette caricamenti interi della pagina: su un Mac carico sfiora i 30 s anche su staging.
+            test.slow();
             await openList(page);
             await page.setViewportSize({ width, height: 900 });
             await page.reload();
