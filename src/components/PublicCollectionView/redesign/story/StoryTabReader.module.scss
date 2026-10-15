@@ -1,0 +1,197 @@
+/* Lettore della pagina Storia (mockup v38, `.sy-rd`): entra da destra sopra la
+   pagina e sopra la barra, sotto i fogli. I blocchi del racconto leggono
+   `--pub-text*`: qui diventano i colori del fondo pagina. */
+
+.root {
+  --story-accent: color-mix(in srgb, var(--pub-accent) 82%, var(--pub-bg-text));
+  --story-text: color-mix(in srgb, var(--pub-bg-text) 80%, var(--pub-bg));
+  --pub-text: var(--story-text);
+  --pub-text-secondary: var(--pub-bg-text);
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  background: var(--pub-bg);
+  color: var(--pub-bg-text);
+  box-shadow: -14px 0 30px -20px rgba(0, 0, 0, 0.45);
+  animation: readerIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  &[data-leaving] {
+    transform: translateX(100%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+  }
+}
+
+@keyframes readerIn {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+html :where(.root) :is(p, h1, h2, h3, h4, h5, h6) {
+  color: inherit;
+}
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 0;
+}
+
+.back {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: 12px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(20, 20, 20, 0.48);
+  color: #fff;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+}
+
+.cover {
+  height: 250px;
+  background: color-mix(in srgb, var(--pub-bg-text) 8%, transparent);
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.noCover {
+  height: calc(64px + env(safe-area-inset-top, 0px));
+}
+
+.body {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 22px 20px 140px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--story-accent);
+}
+
+.title {
+  margin: 6px 0 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 33px;
+  letter-spacing: -0.015em;
+}
+
+.meta {
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--pub-bg-text-muted);
+}
+
+.muted {
+  margin: 20px 0 0;
+  color: var(--pub-bg-text-muted);
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+/* «Da provare con questa storia»: la scheda del piatto nel menu */
+.dish {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 28px;
+  padding: 12px 14px 12px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pub-bg-text) 6%, transparent);
+  color: var(--pub-bg-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  > svg {
+    flex: none;
+    color: var(--pub-bg-text-muted);
+  }
+}
+
+.dishThumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--pub-bg-text) 10%, transparent);
+  color: var(--pub-bg-text-muted);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.dishText {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--pub-bg-text-muted);
+
+  b {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    margin-top: 2px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 20px;
+    color: var(--pub-bg-text);
+  }
+}

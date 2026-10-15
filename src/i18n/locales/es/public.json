@@ -447,7 +447,19 @@
         "video_play": "Ver el vídeo",
         "video_play_aria": "Reproducir el vídeo de la historia",
         "discover_label": "Descubre la historia",
-        "image_alt_fallback": "Imagen de la historia"
+        "image_alt_fallback": "Imagen de la historia",
+        "count_one": "{{count}} historia",
+        "count_other": "{{count}} historias",
+        "read_more": "Seguir leyendo",
+        "read_less": "Mostrar menos",
+        "reading_time_one": "{{count}} min de lectura",
+        "reading_time_other": "{{count}} min de lectura",
+        "try_with": "Para probar con esta historia",
+        "error_title": "No podemos cargar las historias",
+        "error_body": "Comprueba la conexión y vuelve a intentarlo: el menú sigue disponible.",
+        "loading_aria": "Cargando las historias",
+        "back_aria": "Volver a la Historia",
+        "cap_aria": "El local"
     },
     "reviews": {
         "rating_labels": {

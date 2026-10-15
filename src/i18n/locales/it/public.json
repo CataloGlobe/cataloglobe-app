@@ -446,7 +446,19 @@
         "video_play": "Guarda il video",
         "video_play_aria": "Riproduci il video della storia",
         "discover_label": "Scopri la storia",
-        "image_alt_fallback": "Immagine della storia"
+        "image_alt_fallback": "Immagine della storia",
+        "count_one": "{{count}} storia",
+        "count_other": "{{count}} storie",
+        "read_more": "Continua a leggere",
+        "read_less": "Mostra meno",
+        "reading_time_one": "{{count}} min di lettura",
+        "reading_time_other": "{{count}} min di lettura",
+        "try_with": "Da provare con questa storia",
+        "error_title": "Non riusciamo a caricare le storie",
+        "error_body": "Controlla la connessione e riprova: il menu resta disponibile.",
+        "loading_aria": "Caricamento delle storie",
+        "back_aria": "Torna alla Storia",
+        "cap_aria": "Il locale"
     },
     "reviews": {
         "rating_labels": {
