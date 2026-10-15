@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { asBasePlan, asRole } from "./asRole";
-import { currentVoce, sidebarLink, sediGriglia } from "./nav";
+import { currentVoce, sidebarLink, sidebarLinkToRead, sediGriglia } from "./nav";
 import { stubReservations, type ReservationsStub } from "./reservationsStub";
 
 const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
@@ -307,8 +307,8 @@ test.describe("Servizio: piano e ruolo", () => {
         await expectModo(page, "Sala", 15_000);
         // Elenco e Mappa sono «In servizio»: il lucchetto è sulla parte.
         await expect(modo(page, "Elenco")).toHaveCount(0);
-        await expect((await sidebarLink(page, /^In servizio/)).locator(LUCCHETTO)).toHaveCount(1);
-        await expect((await sidebarLink(page, /^Servizio/)).locator(LUCCHETTO)).toHaveCount(0);
+        await expect((await sidebarLinkToRead(page, /^In servizio/)).locator(LUCCHETTO)).toHaveCount(1);
+        await expect((await sidebarLinkToRead(page, /^(Servizio|Sale e tavoli)/)).locator(LUCCHETTO)).toHaveCount(0);
     });
 
     test("col piano base ?modo=mappa non apre la Mappa", async ({ page }) => {
@@ -564,7 +564,7 @@ test.describe("Storico", () => {
         // Owner: si atterra sulla Scheda (§51.6), non sullo Storico chiuso.
         await expect(page).toHaveURL(/\/anagrafica$/, { timeout: 15_000 });
         // Il lucchetto entra nel nome accessibile della voce: «Storico …».
-        await expect((await sidebarLink(page, /^Storico/)).locator(LUCCHETTO)).toHaveCount(1);
+        await expect((await sidebarLinkToRead(page, /^Storico/)).locator(LUCCHETTO)).toHaveCount(1);
     });
 });
 

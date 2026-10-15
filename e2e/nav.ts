@@ -284,6 +284,18 @@ export async function sidebarVoci(page: Page): Promise<string[]> {
 }
 
 /**
+ * La voce anche dentro una sezione chiusa: nella D le liste chiuse restano
+ * nella pagina, nascoste. Per leggerla (es. il lucchetto), non per cliccarla.
+ */
+export async function sidebarLinkToRead(page: Page, name: RegExp): Promise<Locator> {
+    if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+        await settledMenu(page);
+        return menuRows(page).getByRole("link", { name, includeHidden: true });
+    }
+    return sidebarLink(page, name);
+}
+
+/**
  * La voce della pagina in cui sei: diretta nel menu o, se sta in una sezione,
  * nel suo pannello (la riga della sezione ha `aria-current="true"`).
  */
@@ -291,7 +303,9 @@ export async function currentVoce(page: Page): Promise<Locator> {
     await settledMenu(page);
     await expect(menuRows(page).locator("[aria-current]")).toHaveCount(1, { timeout: 15_000 });
     const direct = menuRows(page).locator('a[aria-current="page"]');
-    if ((await direct.count()) > 0) return direct;
+    // Nella D la sezione della pagina si apre da sola dopo l'atterraggio: la
+    // riga perde `aria-current` e la voce lo prende. Si aspetta un attimo.
+    if (await direct.first().waitFor({ state: "attached", timeout: 2_000 }).then(() => true, () => false)) return direct;
     const title = ((await menuRows(page).locator("button[aria-current]").textContent()) ?? "").trim();
     return (await openSection(page, title)).locator('a[aria-current="page"]');
 }

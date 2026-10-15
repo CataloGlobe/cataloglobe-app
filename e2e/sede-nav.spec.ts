@@ -26,6 +26,11 @@ import { asSingleSede, currentVoce, menuRows, openInServizio, sedeSwitcher, side
 
 // Le parti che dentro una sede portano alle sue rotte (artifact v4).
 const SEDE_VOCI = ["Calendario", "Regole", "In servizio", "Cosa vedono i clienti", "Sala", "Storico", "Andamento", "Recensioni"] as const;
+/** Nella D la Sala è «Sale e tavoli», nella sezione Sede (PR 11a). */
+async function sedeVoci(page: Page): Promise<string[]> {
+    const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
+    return SEDE_VOCI.map(v => (d && v === "Sala" ? "Sale e tavoli" : v));
+}
 
 function nav(page: Page) {
     return page.getByRole("navigation", { name: "Menu principale" });
@@ -40,7 +45,8 @@ async function locationPaths(page: Page): Promise<string[]> {
     const hrefs = await cards.locator("a").evaluateAll(links =>
         links.map(l => (l as HTMLAnchorElement).getAttribute("href") ?? "").filter(h => h.includes("/locations/"))
     );
-    return [...new Set(hrefs.map(h => h.replace(/[?#].*$/, "")))];
+    // Nella D la card porta alla Scheda (`/locations/:id/anagrafica`): si tiene solo la sede.
+    return [...new Set(hrefs.map(h => h.replace(/[?#].*$/, "").replace(/(\/locations\/[0-9a-f-]+).*$/, "$1")))];
 }
 
 /** Apre la prima sede della griglia e ritorna il suo nome. */
@@ -50,7 +56,9 @@ async function openFirstLocation(page: Page): Promise<string> {
     const firstCard = page.getByRole("main").getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     const link = firstCard.getByRole("link").first();
-    const name = (await link.innerText()).split("\n")[0].trim();
+    // Nella D la copertina dice lo stato: il nome sta nell'etichetta «Apri la scheda di …».
+    const label = await link.getAttribute("aria-label");
+    const name = label?.startsWith("Apri la scheda di ") ? label.slice("Apri la scheda di ".length) : (await link.innerText()).split("\n")[0].trim();
     await link.click();
     await page.waitForURL(/\/locations\/[0-9a-f-]+/);
     return name;
@@ -63,13 +71,14 @@ test.describe("Contesto di sede", () => {
         await page.goto(`${paths[0]}/anagrafica`);
         // Le voci stanno nelle sezioni: si leggono aprendole.
         await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(fuori);
-        expect(fuori).toEqual(expect.arrayContaining([...SEDE_VOCI]));
+        expect(fuori).toEqual(expect.arrayContaining(await sedeVoci(page)));
     });
 
     test("tutte le voci sono navigabili", async ({ page }) => {
         await openFirstLocation(page);
         // `sidebarVoci` legge solo i link: una voce spenta non ci sarebbe.
-        await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(expect.arrayContaining([...SEDE_VOCI]));
+        const voci = await sedeVoci(page);
+        await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(expect.arrayContaining(voci));
         await expect(nav(page).locator('[aria-disabled="true"]')).toHaveCount(0);
     });
 
