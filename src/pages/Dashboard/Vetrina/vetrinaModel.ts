@@ -164,8 +164,12 @@ export function sortVetrina<T extends { name: string; created_at: string }>(
  * La frase in cima a Storie (`pStr`): «*2 storie* in onda, una in bozza.
  * Stanno sotto il menù, negli approfondimenti.»
  */
-export function storieLead(onAir: number, drafts: number): LeadPart[] {
+export function storieLead(onAir: number, drafts: number, stopped = 0): LeadPart[] {
     const count = onAir === 0 ? "Nessuna storia" : onAir === 1 ? "Una storia" : `${onAir} storie`;
-    const draftText = drafts === 0 ? "" : `, ${drafts === 1 ? "una" : drafts} in bozza`;
-    return [{ strong: count }, { text: ` in onda${draftText}. Stanno sotto il menù, negli approfondimenti.` }];
+    // Bozze e ferme (pubblicate ma non viste) insieme fanno il filtro «Bozze e ferme».
+    const rest = [
+        ...(drafts ? [`${drafts === 1 ? "una" : drafts} in bozza`] : []),
+        ...(stopped ? [stopped === 1 ? "una ferma" : `${stopped} ferme`] : [])
+    ];
+    return [{ strong: count }, { text: ` in onda${rest.map(x => `, ${x}`).join("")}. Stanno sotto il menù, negli approfondimenti.` }];
 }
