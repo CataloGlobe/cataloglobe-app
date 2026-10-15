@@ -2625,3 +2625,45 @@ select.in {
         }
     }
 }
+
+// L'interno dei passi nella D (copia `.tu-sh`, `.tu-sent`, `.tu-call`, `.tu-sum`):
+// il titolo del passo senza il filo colorato, la frase e i riquadri tondi a 14,
+// le righe di «Controlla» con l'etichetta a 140 px
+@include look-d {
+    .root .sh h3 {
+        padding-left: 0;
+        border-left: 0;
+    }
+    .root .isent {
+        border-left: 0;
+        border-radius: 14px;
+        background: var(--d-soft);
+    }
+    .callout {
+        padding: 12px 14px;
+        border-radius: 14px;
+        &.info {
+            background: var(--d-soft);
+        }
+    }
+    .isum {
+        max-width: 620px;
+        border-color: var(--d-line);
+        border-radius: 14px;
+        // al telefono resta la riga a due piani (sopra, ≤640)
+        @media (min-width: 641px) {
+            > div {
+                grid-template-columns: 140px minmax(0, 1fr) auto;
+                gap: 12px;
+                align-items: center;
+                padding: 9px 8px 9px 14px;
+            }
+        }
+        > div + div {
+            border-top-color: var(--d-line);
+        }
+        dt {
+            font-weight: 600;
+        }
+    }
+}
