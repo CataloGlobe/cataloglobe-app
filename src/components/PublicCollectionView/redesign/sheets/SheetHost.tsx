@@ -559,7 +559,8 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
 
     // ── Trascinamento per chiudere (solo mobile, maniglia e testata) ─────────
     const onDragStart = (event: ReactPointerEvent<HTMLElement>) => {
-        if (!env.current.isMobile || (event.target as HTMLElement).closest("button, input, textarea, select, a")) return;
+        // Foglio già in uscita: riprenderlo annullerebbe la corsa e resterebbe a schermo.
+        if (!isOpen || !env.current.isMobile || (event.target as HTMLElement).closest("button, input, textarea, select, a")) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         cancelAnimations();
         drag.current = {
