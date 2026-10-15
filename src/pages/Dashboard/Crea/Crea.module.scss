@@ -2601,9 +2601,10 @@ select.in {
         // Indietro e Avanti in una barra ferma in basso
         .dock {
             position: sticky;
-            bottom: 12px;
+            bottom: calc(12px + env(safe-area-inset-bottom));
             z-index: 6;
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             gap: 8px;
             margin-top: 12px;
@@ -2613,8 +2614,12 @@ select.in {
             background: color-mix(in srgb, var(--d-surface) 88%, transparent);
             backdrop-filter: blur(12px);
             box-shadow: var(--d-shadow-bar);
+            // perché «Avanti» è spento: sopra i pulsanti, su tutta la riga
             .why {
-                display: none;
+                flex-basis: 100%;
+                padding: 0 6px 2px;
+                color: var(--d-muted);
+                @include d-type(small);
             }
             > :global(button) {
                 min-height: 44px;
