@@ -631,7 +631,15 @@
             "closed_call": "Llama al local para anular.",
             "closed_contact": "Contacta directamente con el local para anular.",
             "not_cancellable_title": "Reserva no anulable",
-            "not_cancellable_text": "Esta reserva no se puede anular desde aquí."
+            "not_cancellable_text": "Esta reserva no se puede anular desde aquí.",
+            "allergies_title": "Alergias",
+            "allergies_text": "Has indicado alergias para esta reserva. Si ya no quieres que el local las vea, puedes quitarlas.",
+            "allergies_button": "Quitar mis alergias",
+            "allergies_confirm_text": "Tus alergias se borrarán y el local ya no las verá. No se pueden recuperar.",
+            "allergies_confirm_button": "Sí, quitar las alergias",
+            "allergies_removing": "Quitando…",
+            "allergies_keep_button": "No, mantenerlas",
+            "allergies_removed": "Alergias quitadas. El local ya no las ve."
         },
         "confirm": {
             "doc_title": "{{brand}} · Confirmar la asistencia",

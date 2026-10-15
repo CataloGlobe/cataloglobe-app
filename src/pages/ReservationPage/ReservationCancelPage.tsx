@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
@@ -10,6 +10,7 @@ import { fetchPublicCatalog } from "@/services/publicCatalog/fetchPublicCatalog"
 import {
     cancelReservationByCustomer,
     readReservationCancellation,
+    removeReservationAllergies,
     type ReservationCancellationSummary
 } from "@/services/supabase/reservations";
 import type { ResolvedStyle } from "@/types/resolvedCollections";
@@ -31,6 +32,10 @@ import styles from "./ReservationCancelPage.module.scss";
 // Il `can_cancel` che arriva dalla lettura serve solo a decidere cosa
 // disegnare: la decisione vera la prende l'edge, che ricalcola il limite
 // temporale dai dati della riga ad ogni chiamata.
+//
+// Se la prenotazione ha allergie, sotto c'è il tasto per toglierle: è il
+// ritiro del consenso (art. 7(3) GDPR), possibile in ogni stato e a ogni ora.
+// Il testo delle allergie non arriva mai qui, solo il fatto che ci sono.
 
 /** Recuperato dal catalogo pubblico: serve solo a vestire la pagina. */
 type Branding = {
@@ -71,6 +76,113 @@ function useNoReferrer(): void {
             document.head.removeChild(meta);
         };
     }, []);
+}
+
+type AllergiesState = "idle" | "confirming" | "removing" | "removed";
+
+/**
+ * Riquadro «Togli le mie allergie». Chiede conferma prima di cancellare,
+ * perché non si torna indietro.
+ */
+function AllergiesWithdrawal({ token, onInvalidLink }: { token: string; onInvalidLink: () => void }) {
+    const { t } = useTranslation("public");
+    const [state, setState] = useState<AllergiesState>("idle");
+    const [error, setError] = useState<string | null>(null);
+    const titleRef = useRef<HTMLHeadingElement>(null);
+    const isFirstRender = useRef(true);
+
+    // A ogni passo il bottone toccato sparisce: il focus torna sul titolo del
+    // riquadro, così tastiera e lettore di schermo non ripartono da capo.
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+        titleRef.current?.focus();
+    }, [state]);
+
+    const handleRemove = useCallback(async () => {
+        setState("removing");
+        setError(null);
+        try {
+            await removeReservationAllergies(token);
+            setState("removed");
+        } catch (err) {
+            const code = errorCodeOf(err);
+            if (code === "INVALID_LINK") {
+                onInvalidLink();
+                return;
+            }
+            setState("confirming");
+            setError(
+                code === "RATE_LIMITED"
+                    ? t("reservation.cancel.rate_limited_text")
+                    : t("reservation.cancel.error_text")
+            );
+        }
+    }, [onInvalidLink, t, token]);
+
+    const title = (
+        <h2 ref={titleRef} tabIndex={-1} className={styles.allergiesTitle}>
+            {t("reservation.cancel.allergies_title")}
+        </h2>
+    );
+
+    if (state === "removed") {
+        return (
+            <section className={styles.allergies} aria-live="polite">
+                {title}
+                <p className={styles.allergiesText}>{t("reservation.cancel.allergies_removed")}</p>
+            </section>
+        );
+    }
+
+    return (
+        <section className={styles.allergies} aria-live="polite">
+            {title}
+            <p className={styles.allergiesText}>
+                {t(
+                    state === "idle"
+                        ? "reservation.cancel.allergies_text"
+                        : "reservation.cancel.allergies_confirm_text"
+                )}
+            </p>
+            {error && (
+                <p className={styles.error} role="alert">
+                    {error}
+                </p>
+            )}
+            {state === "idle" ? (
+                <button type="button" className={styles.dangerCta} onClick={() => setState("confirming")}>
+                    {t("reservation.cancel.allergies_button")}
+                </button>
+            ) : (
+                <>
+                    <button
+                        type="button"
+                        className={styles.dangerCta}
+                        onClick={handleRemove}
+                        disabled={state === "removing"}
+                    >
+                        {state === "removing"
+                            ? t("reservation.cancel.allergies_removing")
+                            : t("reservation.cancel.allergies_confirm_button")}
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.secondaryCta}
+                        onClick={() => {
+                            setState("idle");
+                            setError(null);
+                        }}
+                        disabled={state === "removing"}
+                    >
+                        {t("reservation.cancel.allergies_keep_button")}
+                    </button>
+                </>
+            )}
+        </section>
+    );
 }
 
 function errorCodeOf(err: unknown): string {
@@ -191,6 +303,8 @@ export default function ReservationCancelPage() {
             setIsCancelling(false);
         }
     }, [isCancelling, t, token]);
+
+    const handleInvalidLink = useCallback(() => setView({ kind: "invalid" }), []);
 
     const brandName = branding?.brandName ?? summaryOf(view)?.venue_name ?? null;
     usePageHead({
@@ -327,7 +441,15 @@ export default function ReservationCancelPage() {
         );
     }
 
-    const body = <div className={pageStyles.stateWrapper}>{content}</div>;
+    const current = summaryOf(view);
+    const body = (
+        <div className={pageStyles.stateWrapper}>
+            {content}
+            {current?.has_allergies && (
+                <AllergiesWithdrawal token={token} onInvalidLink={handleInvalidLink} />
+            )}
+        </div>
+    );
 
     if (!branding) {
         return <div className={pageStyles.neutralPage}>{body}</div>;

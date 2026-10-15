@@ -41,9 +41,9 @@ describe("nessun oracolo sull'esistenza di una prenotazione", () => {
 });
 
 describe("la lettura non scrive nulla", () => {
-    it("esiste una sola scrittura sulla tabella reservations", () => {
+    it("esistono solo due scritture su reservations: annullamento e ritiro delle allergie", () => {
         const updates = SOURCE.match(/\.update\(/g) ?? [];
-        expect(updates).toHaveLength(1);
+        expect(updates).toHaveLength(2);
     });
 
     it("nessun upsert, delete o insert: le notifiche passano dal motore", () => {
@@ -56,13 +56,19 @@ describe("la lettura non scrive nulla", () => {
         expect(SOURCE).toContain('eventType: "reservation.cancelled_by_customer"');
     });
 
-    it("l'unica scrittura su reservations sta dopo il ramo cancel e dopo il ritorno della read", () => {
+    it("ogni scrittura su reservations sta dopo il ritorno della read, nel suo ramo", () => {
         const readReturn = SOURCE.indexOf('if (action === "read")');
+        const allergiesBranch = SOURCE.indexOf('// ── action === "remove_allergies"');
         const cancelBranch = SOURCE.indexOf('// ── action === "cancel"');
-        const update = SOURCE.indexOf(".update(");
+        const updates = [...SOURCE.matchAll(/\.update\(/g)].map(m => m.index ?? -1);
         expect(readReturn).toBeGreaterThan(-1);
-        expect(cancelBranch).toBeGreaterThan(readReturn);
-        expect(update).toBeGreaterThan(cancelBranch);
+        expect(allergiesBranch).toBeGreaterThan(readReturn);
+        expect(cancelBranch).toBeGreaterThan(allergiesBranch);
+        // Prima scrittura: ritiro delle allergie, prima del ramo cancel.
+        expect(updates[0]).toBeGreaterThan(allergiesBranch);
+        expect(updates[0]).toBeLessThan(cancelBranch);
+        // Seconda: l'annullamento.
+        expect(updates[1]).toBeGreaterThan(cancelBranch);
     });
 
     it("l'avviso alla sede è invocato una volta sola, dopo il ritorno della read", () => {
@@ -108,8 +114,10 @@ describe("il cutoff è ricalcolato server-side", () => {
         expect([...new Set(bodyReads)].sort()).toEqual(["action", "token"]);
     });
 
-    it("il gate sulla finestra precede l'UPDATE", () => {
-        expect(SOURCE.indexOf("if (!window.allowed)")).toBeLessThan(SOURCE.indexOf(".update("));
+    it("il gate sulla finestra precede l'UPDATE dell'annullamento", () => {
+        expect(SOURCE.indexOf("if (!window.allowed)")).toBeLessThan(
+            SOURCE.indexOf(".update({ status: ACTION_TO_STATUS.cancel_by_customer")
+        );
     });
 });
 
@@ -119,7 +127,9 @@ describe("compare-and-set e stato", () => {
         // Lo stato scritto viene dalla macchina a stati, non da una stringa
         // ricopiata qui (nel corpo delle risposte "cancelled" compare come
         // valore letterale, ed è corretto: è un dato, non una transizione).
-        expect(SOURCE).toContain(".update({ status: ACTION_TO_STATUS.cancel_by_customer })");
+        expect(SOURCE).toContain(
+            ".update({ status: ACTION_TO_STATUS.cancel_by_customer, allergies: null })"
+        );
     });
 
     it("una prenotazione già annullata è un successo idempotente, non un errore", () => {
@@ -194,5 +204,58 @@ describe("configurazione dell'endpoint", () => {
     it("non mette l'IP in chiaro nella chiave del bucket", () => {
         expect(SOURCE).toContain("hashIp(");
         expect(SOURCE).not.toMatch(/ip:\$\{clientIp\}/);
+    });
+});
+
+// Art. 7(3) GDPR: ritirare il consenso deve essere facile quanto darlo. Il
+// cliente lo ritira dallo stesso link della mail, senza scrivere al locale.
+describe("ritiro del consenso alle allergie", () => {
+    it("accetta l'azione remove_allergies oltre a read e cancel", () => {
+        expect(SOURCE).toContain('body.action === "remove_allergies"');
+    });
+
+    it("il riepilogo dice solo se ci sono allergie, mai il testo", () => {
+        const summaryBlock = SOURCE.slice(
+            SOURCE.indexOf("const summary = {"),
+            SOURCE.indexOf('if (action === "read")')
+        );
+        expect(summaryBlock).toContain("has_allergies:");
+        expect(summaryBlock).not.toMatch(/\ballergies: reservation\.allergies\b/);
+        expect(summaryBlock).not.toMatch(/allergies_consent/);
+    });
+
+    it("il ritiro azzera solo il campo allergie, sulla riga del token", () => {
+        const branch = SOURCE.slice(
+            SOURCE.indexOf('// ── action === "remove_allergies"'),
+            SOURCE.indexOf('// ── action === "cancel"')
+        );
+        expect(branch).toContain(".update({ allergies: null })");
+        expect(branch).toContain('.eq("id", reservationId)');
+    });
+
+    it("il ritiro non dipende dallo stato né dalla finestra di annullamento", () => {
+        const branch = SOURCE.slice(
+            SOURCE.indexOf('// ── action === "remove_allergies"'),
+            SOURCE.indexOf('// ── action === "cancel"')
+        );
+        expect(branch).not.toContain("window.allowed");
+        expect(branch).not.toContain("isCancellable");
+        // Nessun controllo sullo stato prima della scrittura: il consenso si
+        // ritira anche su una prenotazione annullata o già passata.
+        const beforeUpdate = branch.slice(0, branch.indexOf(".update("));
+        expect(beforeUpdate).not.toMatch(/\bstatus\b/);
+    });
+
+    it("senza allergie è un successo idempotente, non un errore", () => {
+        const branch = SOURCE.slice(
+            SOURCE.indexOf('// ── action === "remove_allergies"'),
+            SOURCE.indexOf('// ── action === "cancel"')
+        );
+        expect(branch).toContain("already_removed: true");
+        expect(branch.indexOf("already_removed: true")).toBeLessThan(branch.indexOf(".update("));
+    });
+
+    it("il ritiro ha un limite di frequenza stretto come l'annullamento", () => {
+        expect(SOURCE).toMatch(/action === "read"\s*\?\s*RATE_LIMIT_READ_PER_TOKEN/);
     });
 });

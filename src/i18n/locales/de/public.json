@@ -631,7 +631,15 @@
             "closed_call": "Rufen Sie den Standort an, um zu stornieren.",
             "closed_contact": "Kontaktieren Sie den Standort direkt, um zu stornieren.",
             "not_cancellable_title": "Reservierung nicht stornierbar",
-            "not_cancellable_text": "Diese Reservierung kann hier nicht storniert werden."
+            "not_cancellable_text": "Diese Reservierung kann hier nicht storniert werden.",
+            "allergies_title": "Allergien",
+            "allergies_text": "Du hast für diese Reservierung Allergien angegeben. Wenn das Lokal sie nicht mehr sehen soll, kannst du sie entfernen.",
+            "allergies_button": "Meine Allergien entfernen",
+            "allergies_confirm_text": "Deine Allergien werden gelöscht und das Lokal sieht sie nicht mehr. Das kann nicht rückgängig gemacht werden.",
+            "allergies_confirm_button": "Ja, Allergien entfernen",
+            "allergies_removing": "Wird entfernt…",
+            "allergies_keep_button": "Nein, behalten",
+            "allergies_removed": "Allergien entfernt. Das Lokal sieht sie nicht mehr."
         },
         "confirm": {
             "doc_title": "{{brand}} · Reservierung bestätigen",
