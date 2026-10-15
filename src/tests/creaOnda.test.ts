@@ -34,7 +34,7 @@ describe("«In onda?»: il «No»", () => {
     it("il menù di base non si tiene pronto: il «No» è spento e dice perché (D238)", () => {
         const t = asEdit({ ...newTunnel("menu", ALL), name: "Alla carta" }, "m1", { id: "r1", count: 1, live: true, base: true });
         const html = ask(t);
-        expect(html).toContain("È il menù di base");
+        expect(html).toContain("Serve un altro menù di base");
         expect(html).toContain("Prima metti in onda un altro menù sempre e in tutte le sedi.");
         expect(html).toMatch(/<button[^>]*disabled[^>]*>(?:(?!<\/button>).)*lo tengo pronto/s);
     });

@@ -399,7 +399,7 @@ export function OndaAsk({ t, u, small }: { t: Tunnel; u: U; small?: boolean }) {
                     title={spegni ? "No, lo spengo" : keepReady(t.kind)}
                     text={spegni ? "Resta salvato, ma nessun cliente lo vede: nelle sue ore torna lo stile di prima." : t.edit?.base ? LAST_BASE_TIP : `${t.kind === "storia" ? "La salvi completa" : "Lo salvi completo"}, ma nessun cliente ${o.lo} vede.`}
                     disabled={offLater(t) || !!t.edit?.base}
-                    later={offLater(t) ? "Arriva col database nuovo" : t.edit?.base ? "È il menù di base" : undefined}
+                    later={offLater(t) ? "Arriva col database nuovo" : t.edit?.base ? "Serve un altro menù di base" : undefined}
                     onClick={() => u(x => void (x.onda = "off"))}
                 />
             </div>
