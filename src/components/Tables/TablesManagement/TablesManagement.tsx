@@ -35,6 +35,8 @@ import TableDeleteDrawer from "@/components/Tables/TableDeleteDrawer/TableDelete
 import TableRegenerateTokenDrawer from "@/components/Tables/TableRegenerateTokenDrawer/TableRegenerateTokenDrawer";
 import TableQrPreviewDrawer from "@/components/Tables/TableQrPreviewDrawer/TableQrPreviewDrawer";
 
+import { LOOK_D } from "@/styles/lookD";
+import { TablesD } from "./TablesD";
 import styles from "./TablesManagement.module.scss";
 
 export interface TablesManagementProps {
@@ -49,13 +51,16 @@ export interface TablesManagementProps {
      *  (capienza min/max, gruppo di accostamento, priorita', prenotabile
      *  online): a chi non prenota non servono e non vengono mostrati. */
     reservationsEnabled: boolean;
+    /** Il nome della sede, per la frase della D. */
+    activityName?: string;
 }
 
 export function TablesManagement({
     tenantId,
     activityId,
     orderingEnabled,
-    reservationsEnabled
+    reservationsEnabled,
+    activityName
 }: TablesManagementProps) {
     const { showToast } = useToast();
     const { permissions } = usePermissions();
@@ -518,6 +523,29 @@ export function TablesManagement({
 
     return (
         <section className={styles.container}>
+            {LOOK_D ? (
+                <TablesD
+                    items={items}
+                    loading={isLoading}
+                    activityName={activityName}
+                    orderingEnabled={orderingEnabled}
+                    reservationsEnabled={reservationsEnabled}
+                    canManage={canManage}
+                    disabled={!activityId || !canEdit}
+                    query={searchQuery}
+                    onQuery={setSearchQuery}
+                    generatingAll={isGeneratingQrAll}
+                    generatingId={generatingQrTableId}
+                    onZones={() => setIsZoneDrawerOpen(true)}
+                    onQrAll={() => void handleGenerateQrAll()}
+                    onCreate={openCreate}
+                    onEdit={openEdit}
+                    onQrPreview={openQrPreview}
+                    onQrSingle={t => void handleGenerateQrSingle(t)}
+                    onRegen={openRegen}
+                    onDelete={openDelete}
+                />
+            ) : (
             <div className={styles.content}>
                 {/* Toolbar di sezione: cluster DX (search + altro + CTA). */}
                 <div className={styles.toolbar}>
@@ -607,6 +635,7 @@ export function TablesManagement({
                     />
                 )}
             </div>
+            )}
 
             {/* Drawer Create/Edit */}
             <SystemDrawer

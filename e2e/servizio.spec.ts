@@ -4,6 +4,10 @@ import { asBasePlan, asRole } from "./asRole";
 import { currentVoce, sidebarLink, sediGriglia } from "./nav";
 import { stubReservations, type ReservationsStub } from "./reservationsStub";
 
+const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
+/** I tavoli della Sala: la tabella, o nella D le card per zona (PR 11c). */
+const tavoli = (page: Page) => page.getByRole("main").getByRole("table", { name: "Tavoli" }).or(page.getByRole("main").getByRole("group", { name: "Tavoli" }));
+
 /**
  * Servizio (lotto B-a, §18.2, §50.21): una pagina di sede con due modi,
  * Mappa e Gestisci la sala. La Mappa è la vista dei tavoli che stava in
@@ -261,11 +265,18 @@ test.describe("Servizio", () => {
         // La riga «Oggi» è della sala del momento, non della configurazione.
         await expect(main(page).getByText(/in sala adesso/i)).toHaveCount(0);
 
-        await expect(main(page).getByRole("table", { name: "Tavoli" })).toBeVisible({ timeout: 15_000 });
+        await expect(tavoli(page)).toBeVisible({ timeout: 15_000 });
         await expect(main(page).getByText(TAVOLO, { exact: true }).first()).toBeVisible();
-        await expect(main(page).getByRole("button", { name: "Aggiungi tavolo" })).toBeVisible();
-        await main(page).getByRole("button", { name: "Altre azioni" }).click();
-        await expect(page.getByRole("menuitem", { name: "Zone e accostamenti" })).toBeVisible();
+        if (await lookD(page)) {
+            // Nella D (PR 11c): «Nuovo tavolo» e «Zone e accostamenti» stanno nella riga.
+            await expect(main(page).getByRole("button", { name: "Nuovo tavolo" })).toBeVisible();
+            await main(page).getByRole("button", { name: "Zone e accostamenti" }).click();
+            await expect(page.getByRole("dialog")).toBeVisible();
+        } else {
+            await expect(main(page).getByRole("button", { name: "Aggiungi tavolo" })).toBeVisible();
+            await main(page).getByRole("button", { name: "Altre azioni" }).click();
+            await expect(page.getByRole("menuitem", { name: "Zone e accostamenti" })).toBeVisible();
+        }
         await page.keyboard.press("Escape");
         // Capienza e durata stanno nella tab Prenotazioni (D3).
         await expect(main(page).getByText("Capienza della sala")).toHaveCount(0);
@@ -320,8 +331,8 @@ test.describe("Servizio: piano e ruolo", () => {
         await page.keyboard.press("Escape");
 
         await page.goto(`${base}/sala`);
-        await expect(main(page).getByRole("table", { name: "Tavoli" })).toBeVisible({ timeout: 15_000 });
-        await expect(main(page).getByRole("button", { name: "Aggiungi tavolo" })).toHaveCount(0);
+        await expect(tavoli(page)).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("button", { name: /^(Aggiungi|Nuovo) tavolo$/ })).toHaveCount(0);
     });
 
     // Col piano Pro si atterra sull'Elenco: i casi stanno in «Elenco (lotto B-b)».

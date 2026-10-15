@@ -1,0 +1,138 @@
+/* Sale e tavoli nella D (Visual Redesign 2, PR 11c; copia `.sl-*`):
+   una card per zona, una riga per tavolo. Si usa solo con la D accesa. */
+
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
+@include look-d {
+    .page {
+        container: sala / inline-size;
+    }
+
+    .crea {
+        display: flex;
+        flex: none;
+        gap: 8px;
+    }
+
+    .zones {
+        display: grid;
+        gap: var(--d-gap);
+        min-width: 0;
+    }
+
+    .zone {
+        display: grid;
+        padding: 14px 16px 8px;
+        border: 1px solid var(--d-line);
+        border-radius: var(--d-r-card);
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow);
+    }
+
+    .hd {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 4px;
+        h3 {
+            flex: 1;
+            margin: 0;
+            @include d-type(card-title);
+            color: var(--d-text);
+        }
+        span {
+            @include d-type(small);
+            color: var(--d-muted);
+        }
+    }
+
+    .row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 12px;
+        align-items: center;
+        padding: 6px 0;
+        border-top: 1px solid var(--d-line);
+        animation: rowIn 0.32s var(--d-ease-move) both;
+        animation-delay: calc(min(var(--i, 0), 12) * 18ms);
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+        }
+    }
+
+    .hit {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+        padding: 4px 0;
+        border: 0;
+        background: none;
+        text-align: left;
+        color: var(--d-text);
+        cursor: pointer;
+        b {
+            @include d-type(body);
+            font-weight: 600;
+        }
+        small {
+            @include d-type(small);
+            color: var(--d-muted);
+        }
+        &:disabled {
+            cursor: default;
+        }
+        &:hover:not(:disabled) b {
+            color: var(--d-brand-deep);
+        }
+    }
+
+    .tags {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+
+    .tag {
+        padding: 2px 9px;
+        border-radius: var(--d-r-pill);
+        background: var(--d-soft);
+        @include d-type(micro);
+        color: var(--d-muted);
+    }
+
+    .acts {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    @container sala (max-width: 560px) {
+        .row {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+        .tags {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            justify-content: flex-start;
+            &:empty {
+                display: none;
+            }
+        }
+    }
+
+    // Al telefono le due azioni della riga si stringono: resta il più.
+    @container sala (max-width: 480px) {
+        .crea :global(button:first-child:not(:last-child)) {
+            display: none;
+        }
+    }
+
+    @keyframes rowIn {
+        from {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+    }
+}

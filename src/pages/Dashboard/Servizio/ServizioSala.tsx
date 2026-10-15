@@ -32,6 +32,7 @@ export function ServizioSala({ tenantId, activity }: ServizioSalaProps) {
             activityId={activity.id}
             orderingEnabled={activity.ordering_enabled}
             reservationsEnabled={activity.enable_reservations}
+            activityName={activity.name}
         />
     );
 }
