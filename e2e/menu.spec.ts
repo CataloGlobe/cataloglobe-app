@@ -620,15 +620,28 @@ test.describe("Menù — dettaglio", () => {
         await selectCategory(page, "Antipasti");
         await renameCategory(page, "Stuzzichini");
 
+        // Nella D (copia v59) spostare e creare una sotto-categoria vanno in bozza:
+        // con la bozza aperta resta spento solo eliminare (e «Aggiungi categoria»).
+        const d = await lookD(page);
         await expect(main(page).getByRole("button", { name: "Aggiungi categoria" })).toBeDisabled();
-        await expect(main(page).getByText("Con modifiche da salvare si rinomina e si riordina soltanto.")).toBeVisible();
+        await expect(
+            main(page).getByText(
+                d
+                    ? "Con modifiche da salvare non si elimina e non si crea al primo livello."
+                    : "Con modifiche da salvare si rinomina e si riordina soltanto."
+            )
+        ).toBeVisible();
         await main(page).getByRole("button", { name: /^Azioni della/ }).click();
-        for (const item of [/^Sposta in/, /^Crea sotto-categoria/, /^Elimina/]) {
+        const locked = d ? [/^Elimina/] : [/^Sposta in/, /^Crea sotto-categoria/, /^Elimina/];
+        for (const item of locked) {
             const entry = page.getByRole("menuitem", { name: item });
             await expect(entry).toHaveAttribute("aria-disabled", "true");
             await expect(entry).toContainText("Salva o annulla le modifiche prima.");
         }
-        await expect(page.getByRole("menuitem", { name: "Rinomina" })).not.toHaveAttribute("aria-disabled", "true");
+        const open = d ? ["Rinomina", /^Sposta in/, /^Crea sotto-categoria/] : ["Rinomina"];
+        for (const item of open) {
+            await expect(page.getByRole("menuitem", { name: item })).not.toHaveAttribute("aria-disabled", "true");
+        }
         await page.keyboard.press("Escape");
         expect(stub.writes.filter(w => w.key.startsWith("catalog_categories."))).toHaveLength(0);
     });
@@ -654,10 +667,35 @@ test.describe("Menù — dettaglio", () => {
         await categoryMenu(page, /^Sposta in/);
         await dialog(page).getByRole("combobox", { name: "Dentro" }).selectOption({ label: "Nessuna (categoria principale)" });
         await dialog(page).getByRole("button", { name: "Sposta" }).click();
+        // Nella D lo spostamento va in bozza e si scrive con «Salva».
+        if (await lookD(page)) {
+            await expect(dialog(page)).toHaveCount(0);
+            expect(write(stub, "catalog_categories.PATCH")).toBeFalsy();
+            await saveDraft(page);
+        }
         await expect.poll(() => write(stub, "catalog_categories.PATCH")).toBeTruthy();
         const call = write(stub, "catalog_categories.PATCH")!;
         expect(call.params.get("id")).toBe(`eq.${CAT.rossi}`);
         expect(call.body).toEqual(expect.objectContaining({ parent_category_id: null, level: 1 }));
+    });
+
+    test("D: una sotto-categoria nuova resta in bozza, e con «Salva» si crea col genitore", async ({ page }) => {
+        await openCarta(page);
+        test.skip(!(await lookD(page)), "Bozza della struttura solo nella D (copia v59).");
+        stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: "e2e0c000-0000-4000-a000-000000000998", created_at: new Date().toISOString(), ...(body as object[])[0] }));
+        stub.onWrite("catalog_categories.PATCH", ({ params, body }) => ({ id: params.get("id")!.slice(3), catalog_id: MENU.carta, level: 1, parent_category_id: null, sort_order: 0, created_at: new Date().toISOString(), ...(body as object) }));
+        await selectCategory(page, "Antipasti");
+        await renameCategory(page, "Stuzzichini");
+        await categoryMenu(page, /^Crea sotto-categoria/);
+        await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Fritti");
+        await dialog(page).getByRole("button", { name: /^(Salva|Crea|Aggiungi)$/ }).click();
+        await expect(node(page, "Fritti")).toBeVisible();
+        expect(write(stub, "catalog_categories.POST")).toBeFalsy();
+        await saveDraft(page);
+        await expect.poll(() => write(stub, "catalog_categories.POST")).toBeTruthy();
+        expect(write(stub, "catalog_categories.POST")!.body).toEqual([
+            expect.objectContaining({ catalog_id: MENU.carta, name: "Fritti", level: 2, parent_category_id: CAT.antipasti })
+        ]);
     });
 
     test("Traduzioni: il nome italiano si salva subito, e «Annulla» della bozza non lo riporta indietro", async ({ page }) => {
