@@ -261,7 +261,8 @@ export default function Stories() {
     const onAirD = (item: StoryWithProduct): OnAir => {
         if (onAirOf(item).state !== "on") return OFF_AIR;
         const seat = item.activity_id && activities.length > 1 ? activities.find(a => a.id === item.activity_id)?.name : undefined;
-        return { state: "now", when: null, where: seat ?? null };
+        // copia v70: una storia di tutte le sedi lo dice («· tutte le sedi»)
+        return { state: "now", when: null, where: seat ?? (!item.activity_id && activities.length > 1 ? "tutte le sedi" : null) };
     };
     const matchesD = (item: StoryWithProduct, which: StoryFilterD) =>
         which === "on" ? onAirD(item).state !== "off" : which === "off" ? onAirD(item).state === "off" : matchesFilter(item, which);

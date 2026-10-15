@@ -70,6 +70,7 @@ import { ProductDeleteDialog } from "./ProductDeleteDialog";
 import ProductGroupsTab from "@/components/Products/ProductGroupsTab/ProductGroupsTab";
 import { ProductsAttributesTab } from "./ProductsAttributesTab";
 import { Ingredients } from "./Ingredients/Ingredients";
+import type { LeadPart } from "../Vetrina/vetrinaModel";
 
 type ProductTableRow = {
     id: string; // Add id for DataTable selection
@@ -93,6 +94,26 @@ const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
 
 /** Valori del filtro "mancanze" in header. */
 type IssueFilter = "all" | "missing-price" | "out-of-catalog";
+
+
+// La frase di Gruppi e Ingredienti nella D (copia v70).
+const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
+function groupsLead(c: { groups: number; subgroups: number } | null): LeadPart[] | null {
+    if (!c) return null;
+    if (!c.groups) return [{ text: "Ancora nessun gruppo. Nel menù i prodotti si mettono in ordine per gruppo." }];
+    return [
+        { strong: plural(c.groups, "gruppo", "gruppi") },
+        { text: `${c.subgroups ? `, ${plural(c.subgroups, "sottogruppo", "sottogruppi")}` : ""}. Nel menù i prodotti si mettono in ordine per gruppo.` }
+    ];
+}
+function ingredientsLead(c: { total: number; unused: number } | null): LeadPart[] | null {
+    if (!c) return null;
+    if (!c.total) return [{ text: "Ancora nessun ingrediente. Nella scheda del piatto si scelgono da qui." }];
+    return [
+        { strong: plural(c.total, "ingrediente", "ingredienti") },
+        { text: `${c.unused ? `, ${c.unused === 1 ? "uno non usato" : `${c.unused} non usati`}` : ""}. Nella scheda del piatto si scelgono da qui.` }
+    ];
+}
 
 export default function Products() {
     const currentTenantId = useTenantId();
@@ -494,10 +515,14 @@ export default function Products() {
     // Nella D i comandi dei prodotti stanno nella pagina, sotto la frase;
     // Gruppi e Ingredienti restano come oggi.
     const dProducts = LOOK_D && activeTab === "products";
+    // Gruppi e Ingredienti nella D (copia v70): frase in cima, ricerca e «Aggiungi» nella pagina.
+    const dOther = LOOK_D && (activeTab === "groups" || activeTab === "ingredients");
+    const [groupCounts, setGroupCounts] = useState<{ groups: number; subgroups: number } | null>(null);
+    const [ingredientCounts, setIngredientCounts] = useState<{ total: number; unused: number } | null>(null);
     usePageHeader({
         leading,
-        actions: dProducts ? undefined : headerActions,
-        compact: dProducts ? undefined : headerCompact
+        actions: dProducts || dOther ? undefined : headerActions,
+        compact: dProducts || dOther ? undefined : headerCompact
     });
 
     // ── D (Visual Redesign 2, `pPrd`): gruppi, menù per nome, frase, ordine ──
@@ -993,6 +1018,30 @@ export default function Products() {
                     />
                 </>
             )}
+            {dOther && (
+                <div className={vs.page}>
+                    <VetrinaHead<"all">
+                        family="price"
+                        lead={activeTab === "groups" ? groupsLead(groupCounts) : ingredientsLead(ingredientCounts)}
+                        filter="all"
+                        onFilter={() => undefined}
+                        filterOptions={[]}
+                        filterAll="all"
+                        query={collectionSearch.value}
+                        onQuery={collectionSearch.onChange}
+                        placeholder={collectionSearch.placeholder}
+                        crea={
+                            ctaAction && (
+                                <Button variant="primary" size="sm" disabled={ctaAction.disabled} onClick={ctaAction.onClick}>
+                                    {ctaAction.label}
+                                </Button>
+                            )
+                        }
+                        compact={compact}
+                        setTop={setTop}
+                    />
+                </div>
+            )}
             {activeTab === "groups" && (
                 <ProductGroupsTab
                     tenantId={currentTenantId ?? undefined}
@@ -1001,6 +1050,7 @@ export default function Products() {
                     searchQuery={groupsSearchQuery}
                     onSearchQueryChange={setGroupsSearchQuery}
                     canWrite={canWriteProduct}
+                    onCounts={LOOK_D ? setGroupCounts : undefined}
                 />
             )}
             {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (
@@ -1018,6 +1068,7 @@ export default function Products() {
                     searchQuery={ingredientsSearchQuery}
                     onSearchQueryChange={setIngredientsSearchQuery}
                     canWrite={canWriteProduct}
+                    onCounts={LOOK_D ? setIngredientCounts : undefined}
                 />
             )}
         </section>

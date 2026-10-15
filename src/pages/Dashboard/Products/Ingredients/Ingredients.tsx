@@ -27,9 +27,11 @@ type IngredientsProps = {
     onSearchQueryChange: (value: string) => void;
     /** `products.write`: senza, niente selezione, «⋯» né CTA. */
     canWrite: boolean;
+    /** Nella D: i conti per la frase in cima (quanti, quanti non usati). */
+    onCounts?: (c: { total: number; unused: number }) => void;
 };
 
-export function Ingredients({ createTrigger, searchQuery, canWrite }: IngredientsProps) {
+export function Ingredients({ createTrigger, searchQuery, canWrite, onCounts }: IngredientsProps) {
     const tenantId = useTenantId();
     const { showToast } = useToast();
     const { canEdit, ensureActive } = useEnsureActive();
@@ -39,6 +41,10 @@ export function Ingredients({ createTrigger, searchQuery, canWrite }: Ingredient
     // Quanti prodotti usano ogni ingrediente (§26.2: «quanto è usato» batte
     // «quando è nato»). Una query sola, già nel service.
     const [usage, setUsage] = useState<Map<string, number>>(new Map());
+    useEffect(() => {
+        if (isLoading) return;
+        onCounts?.({ total: ingredients.length, unused: ingredients.filter(i => !usage.get(i.id)).length });
+    }, [isLoading, ingredients, usage, onCounts]);
     const { productLabel, productLabelPlural } = useVerticalConfig();
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);

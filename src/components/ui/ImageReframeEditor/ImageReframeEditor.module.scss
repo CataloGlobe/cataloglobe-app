@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 .editor {
     display: flex;
     flex-direction: column;
@@ -361,3 +363,35 @@
     border: none;
     padding: 0;
 }
+
+// Grafica D (copia v74, «Inquadra immagine»): riquadro a 14, linee e comandi della D.
+@include look-d {
+    .frame {
+        border-radius: 14px;
+        border-color: var(--d-line);
+        background: var(--d-soft);
+    }
+
+    .actionBtn {
+        border-color: var(--d-line);
+        border-radius: 10px;
+        background: var(--d-surface);
+        color: var(--d-text);
+
+        &:hover {
+            background: color-mix(in srgb, var(--d-brand) 6%, var(--d-surface));
+            border-color: color-mix(in srgb, var(--d-brand) 45%, var(--d-line));
+        }
+    }
+
+    .fillPanel {
+        border-color: var(--d-line);
+        border-radius: 12px;
+        background: var(--d-surface);
+    }
+
+    .zoom {
+        accent-color: var(--d-brand);
+    }
+}
+

@@ -64,6 +64,8 @@ interface ProductGroupsTabProps {
     onSearchQueryChange: (value: string) => void;
     /** `products.write`: senza, niente selezione né «⋯». */
     canWrite: boolean;
+    /** Nella D: i conti per la frase in cima (gruppi principali e sottogruppi). */
+    onCounts?: (c: { groups: number; subgroups: number }) => void;
 }
 
 export default function ProductGroupsTab({
@@ -71,7 +73,8 @@ export default function ProductGroupsTab({
     isCreateOpen,
     onCloseCreate,
     searchQuery,
-    canWrite
+    canWrite,
+    onCounts
 }: ProductGroupsTabProps) {
     const { showToast } = useToast();
     const { ensureActive } = useEnsureActive();
@@ -106,6 +109,12 @@ export default function ProductGroupsTab({
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    useEffect(() => {
+        if (isLoading) return;
+        const subgroups = allGroups.filter(g => g.parent_group_id).length;
+        onCounts?.({ groups: allGroups.length - subgroups, subgroups });
+    }, [isLoading, allGroups, onCounts]);
 
     useEffect(() => {
         if (isCreateOpen) {
