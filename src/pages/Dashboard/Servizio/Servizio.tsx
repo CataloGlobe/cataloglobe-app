@@ -172,6 +172,7 @@ export default function Servizio() {
         const billingCapable = isOwnerOrAdmin(permissions);
         return (
             <EmptyState
+                gate
                 icon={<Lock size={40} strokeWidth={1.5} />}
                 title="Servizio è una funzione del piano Pro"
                 description={
@@ -193,6 +194,7 @@ export default function Servizio() {
     if (!mode) {
         return (
             <EmptyState
+                gate
                 icon={<Lock size={40} strokeWidth={1.5} />}
                 title="Non hai accesso a questa sezione"
                 description="Contatta il proprietario o un amministratore per ottenere l'accesso."

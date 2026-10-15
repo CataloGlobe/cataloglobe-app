@@ -32,6 +32,12 @@ interface EmptyStateProps {
     compact?: boolean;
     /** Solo `filtered`: rende il bottone secondario «Azzera filtri». */
     onClearFilters?: () => void;
+    /**
+     * Pagina chiusa (piano o permesso): nella grafica D è una scheda con
+     * l'icona inclinata su fondo viola (v66 `.a-empty.ab-gate`). Fuori dalla D
+     * non cambia niente.
+     */
+    gate?: boolean;
 }
 
 const warned = new Set<string>();
@@ -49,7 +55,8 @@ export function EmptyState({
     children,
     variant: variantProp,
     compact,
-    onClearFilters
+    onClearFilters,
+    gate
 }: EmptyStateProps) {
     if (compact) warnOnce("compact", "prop `compact` deprecata: usa variant=\"inline\"");
 
@@ -82,7 +89,7 @@ export function EmptyState({
 
     const isInline = variant === "inline";
     return (
-        <div className={`${styles.wrapper} ${isInline ? styles.inline : styles.page}`} role="status">
+        <div className={`${styles.wrapper} ${isInline ? styles.inline : styles.page} ${gate ? styles.gate : ""}`} role="status">
             {icon && <div className={styles.icon}>{icon}</div>}
             <div className={styles.text}>
                 <Text as="h3" variant={isInline ? "body-sm" : "title-sm"} weight={isInline ? 500 : 600} className={styles.title}>

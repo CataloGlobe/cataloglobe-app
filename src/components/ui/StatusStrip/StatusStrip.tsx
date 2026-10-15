@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 import styles from "./StatusStrip.module.scss";
@@ -22,6 +22,8 @@ export interface StatusStripFigure {
     /** Già formattata dal chiamante. */
     value: ReactNode;
     label: string;
+    /** Solo nella variante `plan`: la parola sopra la cifra («Importo»). */
+    kicker?: string;
 }
 
 export interface StatusStripProps {
@@ -35,11 +37,40 @@ export interface StatusStripProps {
     figures?: StatusStripFigure[];
     /** Una sola azione (Button sm). Il tono `neutral` di norma non ne ha. */
     action?: ReactNode;
+    /**
+     * `plan`: la striscia piena del piano nella grafica D (Abbonamento, v65):
+     * fondo indaco, titolo grande col distintivo accanto, azione a destra,
+     * cifre in riquadri con la parola sopra. Fuori dalla D resta la normale.
+     */
+    variant?: "plan";
     className?: string;
 }
 
-export function StatusStrip({ tone, badge, title, description, figures, action, className }: StatusStripProps) {
+export function StatusStrip({ tone, badge, title, description, figures, action, variant, className }: StatusStripProps) {
     const shown = figures?.slice(0, 3) ?? [];
+    if (variant === "plan") {
+        return (
+            <section className={[styles.plan, styles[`plan-${tone}`], className ?? ""].join(" ").trim()} role="status" aria-label={title}>
+                <div className={styles.planTop}>
+                    <h2 className={styles.planTitle}>{title}</h2>
+                    <StatusBadge variant={tone} label={badge} className={styles.planBadge} />
+                    {action && <div className={styles.planAction}>{action}</div>}
+                </div>
+                {description && <p className={styles.planDescription}>{description}</p>}
+                {shown.length > 0 && (
+                    <dl className={styles.planFigures}>
+                        {shown.map((f, i) => (
+                            <div key={f.label} className={styles.planFigure} style={{ "--i": i } as CSSProperties}>
+                                {f.kicker && <dt className={styles.planKicker}>{f.kicker}</dt>}
+                                <dd className={styles.planValue}>{f.value}</dd>
+                                <dd className={styles.planLabel}>{f.label}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                )}
+            </section>
+        );
+    }
     return (
         <section className={[styles.strip, styles[tone], className ?? ""].join(" ").trim()} role="status" aria-label={title}>
             <div className={styles.main}>

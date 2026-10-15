@@ -1,4 +1,5 @@
 @use "@/styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 // Pannello della tab chiusa dal piano: icona, testo, azioni in colonna.
 .panel {
@@ -36,6 +37,48 @@
 
     > * {
       flex: 1 1 100%;
+    }
+  }
+}
+
+// Grafica D (v66 `.ab-lk`): icona a sinistra in un quadrato viola, testo e
+// pulsanti piccoli nella colonna accanto.
+.panel {
+  @include look-d {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px 14px;
+    align-items: start;
+    max-width: none;
+
+    .actions,
+    > p {
+      grid-column: 2;
+      margin: 0;
+    }
+  }
+}
+
+.icon {
+  @include look-d {
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--d-brand) 13%, var(--d-surface));
+    color: var(--d-brand-deep);
+  }
+}
+
+.text {
+  @include look-d {
+    gap: 4px;
+
+    h2 {
+      @include d-type(tile-title);
+    }
+
+    p {
+      color: var(--d-muted);
+      max-width: 62ch;
+      @include d-type(read);
     }
   }
 }

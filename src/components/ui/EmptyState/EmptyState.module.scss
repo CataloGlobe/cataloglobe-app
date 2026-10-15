@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 // EmptyState — scheda «EmptyState»: icona 32 muta · titolo title-sm · una
 // riga body-sm muta (max 360) · slot children · azione. `page` padding 48
 // verticale, `inline` 24 con icona 20, `filtered` 16 su una riga. Solo token.
@@ -81,4 +84,52 @@
 
 .filteredAction {
   flex-shrink: 0;
+}
+
+// Pagina chiusa nella D (v66 `.card.a-empty.ab-gate`): scheda bianca, icona
+// in un quadrato tondo viola inclinato, titolo 19 del carattere dei titoli.
+.gate {
+  @include look-d {
+    align-self: center;
+    width: min(100%, 560px);
+    margin: 24px auto;
+    gap: 8px;
+    padding: 42px 20px;
+    border-radius: var(--d-r-card);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+    text-align: center;
+    justify-items: center;
+
+    .icon {
+      width: 58px;
+      height: 58px;
+      margin-bottom: 4px;
+      border-radius: 19px;
+      display: grid;
+      place-items: center;
+      background: color-mix(in srgb, var(--d-brand) 13%, var(--d-surface));
+      color: var(--d-brand-deep);
+      transform: rotate(-4deg);
+
+      svg {
+        width: 26px;
+        height: 26px;
+        stroke-width: 1.8;
+      }
+    }
+
+    .title {
+      @include d-type(gate-title);
+    }
+
+    .description {
+      color: var(--d-muted);
+      max-width: 46ch;
+    }
+
+    .action {
+      margin-top: 8px;
+    }
+  }
 }
