@@ -197,6 +197,12 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/process-print-jobs/index.ts"
 
+[functions.send-notification-emails]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/send-notification-emails/index.ts"
+
 [functions.resolve-table]
 enabled = true
 verify_jwt = false
