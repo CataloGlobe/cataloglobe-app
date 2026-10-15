@@ -110,9 +110,13 @@ test.describe("Sedi", () => {
     });
 
     test("ricerca senza risultati", async ({ page }) => {
-        await page.getByRole("textbox", { name: /Cerca (una )?sede/ }).fill("nessuna-sede-con-questo-nome");
         const main = page.getByRole("main");
-        await expect(main.getByText("Nessun risultato")).toBeVisible();
+        // Nella D la pagina finisce di caricarsi dopo la prima scrittura e può
+        // svuotare la ricerca: si riscrive finché il vuoto non si vede.
+        await expect(async () => {
+            await page.getByRole("textbox", { name: /Cerca (una )?sede/ }).fill("nessuna-sede-con-questo-nome");
+            await expect(main.getByText("Nessun risultato")).toBeVisible({ timeout: 2_000 });
+        }).toPass({ timeout: 15_000 });
         await expect(main.locator('article, [role="listitem"]')).toHaveCount(0);
     });
 
