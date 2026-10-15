@@ -48,7 +48,7 @@ export function Lead({ parts, family }: { parts: LeadPart[]; family: Family }) {
         <p className={s.lead}>
             {parts.map((part, i) =>
                 "name" in part ? (
-                    <FamilyName key={i} family={family}>
+                    <FamilyName key={i} family={part.family ?? family}>
                         {part.name}
                     </FamilyName>
                 ) : "down" in part ? (
