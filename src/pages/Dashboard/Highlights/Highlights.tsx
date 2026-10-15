@@ -261,6 +261,8 @@ export default function Highlights() {
     }, [appearanceById, ruleAppearance.activities]);
     // Senza indice (carica o non si legge) nessuno stato: né «Non in onda» né «Metti in onda».
     const airKnown = ruleAppearance.index != null;
+    // Senza la sua pill un filtro In onda / Non in onda già scelto non filtra: si torna a «Tutti».
+    const airFilter: OnAirFilter = airKnown ? onAirFilter : "all";
     const onAirOfItem = useCallback((item: FeaturedContentWithProducts) => onAirById.get(item.id) ?? OFF_AIR, [onAirById]);
     const lead = useMemo(() => {
         if (!LOOK_D || !ruleAppearance.index) return null;
@@ -276,7 +278,7 @@ export default function Highlights() {
         off: contents.filter(item => onAirOfItem(item).state === "off").length
     };
     const dContents = sortVetrina(
-        filteredContents.filter(item => matchesOnAir(onAirFilter, onAirOfItem(item))).map(item => ({ ...item, name: item.internal_name })),
+        filteredContents.filter(item => matchesOnAir(airFilter, onAirOfItem(item))).map(item => ({ ...item, name: item.internal_name })),
         sort,
         onAirOfItem
     );
@@ -467,7 +469,7 @@ export default function Highlights() {
                             <VetrinaHead
                                 family="featured"
                                 lead={lead}
-                                filter={onAirFilter}
+                                filter={airFilter}
                                 onFilter={setOnAirFilter}
                                 filterOptions={onAirOptions(onAirCounts, airKnown)}
                                 filterAll="all"
