@@ -1,6 +1,8 @@
 // «Il contenuto» di un contenuto in evidenza (D187): le parti hanno la forma
 // di quelle dello stile (StileAspetto); qui solo le idee e le righe «aggiungi».
 @use "@styles/calendario-type" as cal;
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 .body {
     display: flex;
@@ -255,4 +257,56 @@
     flex-flow: row wrap;
     justify-content: center;
     gap: 6px;
+}
+
+// Nella D (copia `.tu-ep`, `.tu-ig`, `.tu-idea`; v49): le idee in gruppi con il
+// titolo piccolo e le carte in griglia, senza icona; le parti piatte come nello stile.
+@include look-d {
+    .body {
+        padding: 10px 0 6px;
+    }
+
+    .icon {
+        color: var(--d-brand);
+    }
+
+    .jobs {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .job {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 8px;
+
+        > small {
+            grid-column: 1 / -1;
+            margin-bottom: -2px;
+            letter-spacing: 0;
+            text-transform: none;
+            @include d-type(small);
+            font-weight: 700;
+            color: var(--d-muted);
+        }
+    }
+
+    .idea {
+        padding: 11px 13px;
+        border: 0;
+        border-radius: 14px;
+        background: var(--d-surface);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--d-muted) 24%, transparent);
+        transition:
+            box-shadow var(--d-dur) var(--d-ease-move),
+            transform var(--d-dur) var(--d-ease-move);
+
+        > svg {
+            display: none;
+        }
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: inset 0 0 0 1.5px var(--d-brand);
+        }
+    }
 }

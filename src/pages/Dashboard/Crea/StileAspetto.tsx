@@ -1,7 +1,7 @@
 // «L'aspetto» nel tunnel dello stile (D186): le sei parti della pagina del cliente,
 // dall'alto in basso, con tutte le scelte dell'editor. Le forme sono quelle
 // dell'artifact «Lo stile nel tunnel», quarta versione.
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { History, TriangleAlert, Undo2 } from "lucide-react";
 import { listStyleVersions } from "@/services/supabase/styles";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
@@ -14,6 +14,7 @@ import { Choice, Group, Palette, type Opts } from "./StileUi";
 import { Sh } from "./CreaUi";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import type { U } from "./CreaSteps";
+import { LOOK_D } from "@/styles/lookD";
 import s from "./StileAspetto.module.scss";
 
 type Look = StyleTokenModel;
@@ -173,6 +174,9 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = n
                                 key={k.name}
                                 type="button"
                                 className={s.look}
+                                // nella D la tessera ha lo sfondo della pagina e si accende quella in uso (copia `.tu-abt`)
+                                style={{ "--b": k.bg, "--p": k.primary, "--tx": lum(k.bg) < 0.35 ? "var(--d-surface)" : "var(--d-text)" } as CSSProperties}
+                                aria-pressed={LOOK_D ? sameHex(primary, k.primary) && sameHex(bg, k.bg) && l.typography.fontFamily === k.font : undefined}
                                 onClick={() =>
                                     set(x => {
                                         x.colors.primary = k.primary;
@@ -200,7 +204,7 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = n
                 TOP.filter(([k]) => l.header[k]).map(x => x[2]).join(", ") || "solo il nome del locale",
                 "La prima cosa che il cliente vede aprendo il menù. Il nome del locale c'è sempre.",
                 <Group label="Oltre al nome del locale, mostra" wide>
-                    <div className={s.chips}>
+                    <div className={`${s.chips} ${s.tops}`}>
                         {TOP.map(([k, text]) => (
                             <button key={k} type="button" className={s.tgl} role="switch" aria-checked={l.header[k]} onClick={() => set(x => void (x.header[k] = !x.header[k]))}>
                                 <span className={s.trk} />
