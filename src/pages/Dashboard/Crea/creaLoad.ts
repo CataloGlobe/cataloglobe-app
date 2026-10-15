@@ -12,6 +12,7 @@ import { DB, NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFl
 import { readEvid } from "./evidData";
 import { tokensOf } from "./creaStyle";
 import type { CreaData } from "./useCreaData";
+import { lastBaseMenu } from "@/pages/Dashboard/Programming/calendar/baseRule";
 
 const ALL = { all: true, activityIds: [], groupIds: [] };
 
@@ -149,5 +150,5 @@ export async function loadTunnel(kind: CreaKind, id: string, tenantId: string, d
         if (kind === "menu" || kind === "stile") t.insieme = false;
         if (kind === "evid") t.slot = one.rule.featured_contents.find(c => c.featured_content_id === id)?.slot === "after_catalog" ? "after" : "before";
     }
-    return { t: asEdit(t, id, { id: one?.ruleId ?? null, count: es.length, live }), style };
+    return { t: asEdit(t, id, { id: one?.ruleId ?? null, count: es.length, live, base: !!one && lastBaseMenu(data.rules, one.ruleId) }), style };
 }
