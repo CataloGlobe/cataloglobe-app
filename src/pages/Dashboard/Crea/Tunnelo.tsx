@@ -371,8 +371,9 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     }, []);
     const asideRef = useRef<HTMLElement>(null);
     const boxRef = useRef<HTMLDivElement>(null);
-    // usePhoneFit toglie già i due margini della colonna: resta la testa, 12px sopra e 16 sotto
-    const fit = usePhoneFit(asideRef, boxRef, true, Math.max(0, hdr.h + 28 - 2 * hdr.pad));
+    // usePhoneFit toglie già i due margini della colonna: resta la testa, 12px sopra e 16 sotto;
+    // nella D la griglia sta più staccata dalla testa (`--d-gap`): 12px in più
+    const fit = usePhoneFit(asideRef, boxRef, true, Math.max(0, hdr.h + (LOOK_D ? 40 : 28) - 2 * hdr.pad));
 
     /* ---------- le azioni ---------- */
     const toTop = () => document.querySelector("main [class*='content']")?.scrollTo({ top: 0 });
