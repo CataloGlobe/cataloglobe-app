@@ -363,6 +363,12 @@ export default function CatalogEngine() {
         [categories, categoryProducts]
     );
 
+    // Una categoria nuova della bozza (D) non ha ancora traduzioni: si resta sui prodotti.
+    const selectedIsDraft = Boolean(selectedCategoryId?.startsWith(LOCAL_CAT_PREFIX));
+    useEffect(() => {
+        if (selectedIsDraft) setRightPaneTab("products");
+    }, [selectedIsDraft]);
+
     const selectedCategory = useMemo(() => {
         if (!selectedCategoryId) return null;
         return categoriesById.get(selectedCategoryId) ?? null;
@@ -1394,6 +1400,8 @@ export default function CatalogEngine() {
 
         // le categorie nuove della bozza (D): id provvisorio -> id vero, man mano che si creano
         const idMap = new Map<string, string>();
+        // le categorie già spostate nel database prima di un eventuale errore
+        const movedIds = new Set<string>();
         const realId = (id: string | null) => (id ? (idMap.get(id) ?? id) : null);
         try {
             const originalCatMap = new Map(originalCategories.map(c => [c.id, c]));
@@ -1419,6 +1427,7 @@ export default function CatalogEngine() {
                         sort_order: c.sort_order,
                         ...(orig.name !== c.name ? { name: c.name } : {})
                     });
+                    movedIds.add(c.id);
                 }
             }
 
@@ -1484,12 +1493,19 @@ export default function CatalogEngine() {
             console.error(error);
             // Le categorie già create restano: nella bozza prendono l'id vero, così
             // «Salva» di nuovo non le crea due volte.
-            if (idMap.size > 0) {
+            // Anche gli spostamenti già scritti diventano il nuovo «salvato», così
+            // «Annulla» non rimostra una posizione che nel database non c'è più.
+            if (idMap.size > 0 || movedIds.size > 0) {
+                const written = new Map(
+                    categories
+                        .filter(c => idMap.has(c.id) || movedIds.has(c.id))
+                        .map(c => [realId(c.id)!, { ...c, id: realId(c.id)!, parent_category_id: realId(c.parent_category_id) }])
+                );
                 setCategories(prev => prev.map(c => ({ ...c, id: realId(c.id)!, parent_category_id: realId(c.parent_category_id) })));
                 setCategoryProducts(prev => prev.map(l => ({ ...l, category_id: realId(l.category_id)! })));
                 setOriginalCategories(prev => [
-                    ...prev,
-                    ...categories.filter(c => idMap.has(c.id)).map(c => ({ ...c, id: idMap.get(c.id)!, parent_category_id: realId(c.parent_category_id) }))
+                    ...prev.map(c => (written.get(c.id) ?? c)),
+                    ...[...written.values()].filter(c => !movedIds.has(c.id))
                 ]);
                 if (selectedCategoryId && idMap.has(selectedCategoryId)) setSelectedCategoryInUrl(idMap.get(selectedCategoryId)!, true);
             }
