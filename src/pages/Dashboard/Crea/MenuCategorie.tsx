@@ -518,8 +518,8 @@ export function MenuCategorie({ t, u, pick, onRead }: Props) {
             </span>
         </span>
     );
-    const ib = (label: string, icon: ReactNode, onClick: () => void, disabled = false) => (
-        <button type="button" className={s.ib} aria-label={label} title={label} disabled={disabled} onClick={onClick}>
+    const ib = (label: string, icon: ReactNode, onClick: () => void, disabled = false, move = false) => (
+        <button type="button" className={move ? `${s.ib} ${s.move}` : s.ib} aria-label={label} title={label} disabled={disabled} onClick={onClick}>
             {icon}
         </button>
     );
@@ -625,8 +625,8 @@ export function MenuCategorie({ t, u, pick, onRead }: Props) {
                         ) : (
                             <span className={s.p}>{prices.length ? "da " + priceText(Math.min(...prices)) : priceText(d.price)}</span>
                         )}
-                        {ib(`Sposta su ${d.name}`, <ArrowUp size={14} aria-hidden />, () => edit(R => shift(findDish(R, d.key)!, -1), d.key), k === 0)}
-                        {ib(`Sposta giù ${d.name}`, <ArrowDown size={14} aria-hidden />, () => edit(R => shift(findDish(R, d.key)!, 1), d.key), k === sec.dishes.length - 1)}
+                        {ib(`Sposta su ${d.name}`, <ArrowUp size={14} aria-hidden />, () => edit(R => shift(findDish(R, d.key)!, -1), d.key), k === 0, true)}
+                        {ib(`Sposta giù ${d.name}`, <ArrowDown size={14} aria-hidden />, () => edit(R => shift(findDish(R, d.key)!, 1), d.key), k === sec.dishes.length - 1, true)}
                         {ib(`Togli ${d.name}`, <X size={14} aria-hidden />, () =>
                             gone(["d" + d.key], R => {
                                 const r = findDish(R, d.key);
@@ -728,8 +728,8 @@ export function MenuCategorie({ t, u, pick, onRead }: Props) {
                             Sottocategoria
                         </button>
                     )}
-                    {ib(`Sposta su ${sec.name}`, <ArrowUp size={14} aria-hidden />, () => edit(R => shift(findSec(R, sec.key)!, -1), sec.key), k === 0)}
-                    {ib(`Sposta giù ${sec.name}`, <ArrowDown size={14} aria-hidden />, () => edit(R => shift(findSec(R, sec.key)!, 1), sec.key), k === list.length - 1)}
+                    {ib(`Sposta su ${sec.name}`, <ArrowUp size={14} aria-hidden />, () => edit(R => shift(findSec(R, sec.key)!, -1), sec.key), k === 0, true)}
+                    {ib(`Sposta giù ${sec.name}`, <ArrowDown size={14} aria-hidden />, () => edit(R => shift(findSec(R, sec.key)!, 1), sec.key), k === list.length - 1, true)}
                     {ib(`Togli la categoria ${sec.name}`, <X size={14} aria-hidden />, () =>
                         gone(["t" + sec.key, "s" + sec.key], R => {
                             const r = findSec(R, sec.key);

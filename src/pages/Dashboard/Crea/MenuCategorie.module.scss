@@ -923,3 +923,12 @@
         box-shadow: 0 -8px 16px -12px color-mix(in srgb, var(--d-text) 35%, transparent);
     }
 }
+
+// al telefono, nella D, si riordina trascinando: le frecce su e giù spariscono (v55)
+@include look-d {
+    @media (max-width: 640px) {
+        .move {
+            display: none;
+        }
+    }
+}
