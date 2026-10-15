@@ -183,7 +183,7 @@ export default function ActivityPubblicazioneRoute() {
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        disabled={fgColor === QR_DEFAULT_FG && bgColor === QR_DEFAULT_BG}
+                                        disabled={same(fgColor, QR_DEFAULT_FG) && same(bgColor, QR_DEFAULT_BG)}
                                         onClick={() => {
                                             draft.set("qr_fg_color", QR_DEFAULT_FG);
                                             draft.set("qr_bg_color", QR_DEFAULT_BG);

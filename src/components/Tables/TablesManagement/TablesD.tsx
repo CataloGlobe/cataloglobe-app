@@ -97,6 +97,10 @@ export function TablesD(p: Props) {
         </>
     );
 
+    // si conta e si elimina solo ciò che si vede: la ricerca o un'eliminazione non lasciano scelte nascoste
+    const visible = new Set(zones.cards.flatMap(z => z.list.map(t => t.id)));
+    const sel = p.selected.filter(id => visible.has(id));
+
     let order = 0;
     return (
         <div className={`${vs.page} ${s.page}`}>
@@ -121,15 +125,15 @@ export function TablesD(p: Props) {
                 compact={compact}
                 setTop={setTop}
             />
-            {p.canManage && p.selected.length > 0 && (
+            {p.canManage && sel.length > 0 && (
                 <div className={s.sel} role="region" aria-label="Tavoli selezionati">
-                    <b>{p.selected.length === 1 ? "1 tavolo selezionato" : `${p.selected.length} tavoli selezionati`}</b>
+                    <b>{sel.length === 1 ? "1 tavolo selezionato" : `${sel.length} tavoli selezionati`}</b>
                     <i className={s.fl} />
                     <Button variant="ghost" size="sm" onClick={() => p.onSelected([])}>
                         Annulla
                     </Button>
-                    <Button variant="danger" size="sm" onClick={() => p.onBulkDelete(p.selected)} disabled={p.disabled}>
-                        {p.selected.length === 1 ? "Elimina 1 tavolo" : `Elimina ${p.selected.length} tavoli`}
+                    <Button variant="danger" size="sm" onClick={() => p.onBulkDelete(sel)} disabled={p.disabled}>
+                        {sel.length === 1 ? "Elimina 1 tavolo" : `Elimina ${sel.length} tavoli`}
                     </Button>
                 </div>
             )}

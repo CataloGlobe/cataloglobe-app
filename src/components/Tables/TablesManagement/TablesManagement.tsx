@@ -135,6 +135,8 @@ export function TablesManagement({
     // Il bulk chiede conferma: i tavoli si ricreano, i QR stampati no.
     const [pendingBulkIds, setPendingBulkIds] = useState<string[]>([]);
     const [regenTerminate, setRegenTerminate] = useState(true);
+    // il nome resta nel titolo anche mentre la finestra si chiude
+    const [regenLabel, setRegenLabel] = useState("");
 
     const handleBulkDelete = useCallback(
         async (ids: string[]) => {
@@ -261,6 +263,7 @@ export function TablesManagement({
 
     function openRegen(item: V2Table) {
         setRegenTerminate(true);
+        setRegenLabel(item.label);
         setItemToRegen(item);
         setIsRegenOpen(true);
     }
@@ -734,7 +737,7 @@ export function TablesManagement({
                         await handleRegenerate(regenTerminate);
                         return false;
                     }}
-                    title={`Fare un QR nuovo per «${itemToRegen?.label ?? ""}»?`}
+                    title={`Fare un QR nuovo per «${regenLabel}»?`}
                     message="Il QR stampato smette di funzionare: va ristampato."
                     confirmLabel="Fai il QR nuovo"
                     confirmVariant="primary"
