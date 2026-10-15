@@ -29,7 +29,12 @@ export function exitDuration(remainingPx: number, velocityPxMs: number): number 
     return Math.round(Math.min(EXIT_DURATION_MS, Math.max(EXIT_MIN_DURATION_MS, ms)));
 }
 
-/** Traslazione orizzontale (in %) della pista di pagine per la pagina attiva. */
-export function trackOffsetPercent(activeIndex: number): number {
-    return -100 * Math.max(0, activeIndex);
+/**
+ * Traslazione orizzontale della pista per la pagina attiva, in % della pista.
+ * La pista è larga quanto tutte le sue pagine (`pageCount` × il foglio): con le
+ * pagine fuori dal suo riquadro, Safari dopo un cambio d'altezza del foglio non
+ * le colpiva più al tocco (riprodotto in WebKit sulla conferma «Sì, annulla»).
+ */
+export function trackOffsetPercent(activeIndex: number, pageCount: number): number {
+    return (-100 * Math.max(0, activeIndex)) / Math.max(1, pageCount);
 }
