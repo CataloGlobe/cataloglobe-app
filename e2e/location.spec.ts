@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { sediGriglia, sidebarLink } from "./nav";
 import { stubRest, type Row } from "./restStub";
 
 /**
@@ -31,10 +32,7 @@ const rail = (page: Page) => page.getByRole("navigation", { name: "Parti della s
 
 async function openFirstLocation(page: Page): Promise<void> {
     await openBusinessPage(page, "locations", "Sedi");
-    // Nella D Tutte le sedi ha solo le card (Visual Redesign 2, PR 11a).
-    if (!(await page.evaluate(() => document.documentElement.dataset.look === "d"))) {
-        await page.getByRole("radio", { name: "Vista griglia" }).click();
-    }
+    await sediGriglia(page);
     const main = page.getByRole("main");
     const firstCard = main.getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
@@ -51,8 +49,9 @@ test.describe("Scheda della sede", () => {
     test("si apre dalla griglia: il cruscotto con le tessere e il telefono", async ({ page }) => {
         await openFirstLocation(page);
         const d = await lookD(page);
-        // Si torna all'elenco da «Sedi» nella sidebar (artifact v4: via «← Tutte le sedi»).
-        await expect(page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Sedi", exact: true })).toBeVisible();
+        // Si torna all'elenco da «Sedi» nella sidebar (artifact v4: via «← Tutte le sedi»);
+        // nella D «Tutte le sedi», nella sezione Sede.
+        await expect(await sidebarLink(page, "Sedi")).toBeVisible();
         // Niente più tab nella testata: il nome della sede col suo stato.
         await expect(page.getByRole("tab")).toHaveCount(0);
         // Nella D lo stato lo dice la frase in cima (Visual Redesign 2, PR 11b).

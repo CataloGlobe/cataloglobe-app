@@ -598,7 +598,7 @@ test.describe("Programmazione — ruolo di sede con più sedi", () => {
 
 // «Sede» nella barra del Calendario: il bottone dice cosa si guarda (D150 E)
 // «Sede» e «Confronta con» in alto a destra, come nelle altre pagine (D152).
-const sedeBtn = (page: Page) => page.getByRole("button", { name: /^Sede(?!i)/ });
+const sedeBtn = (page: Page) => page.getByRole("button", { name: /^Sede(?!i)./ });
 const confrontaBtn = (page: Page) => page.getByRole("button", { name: /^Confronta con/ });
 async function guarda(page: Page, name: string) {
     await sedeBtn(page).click();

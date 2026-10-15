@@ -16,7 +16,8 @@ export function nav(page: Page): Locator {
  * Non c'è dove non si sceglie (Menù e vetrina, Sedi, una sede sola).
  */
 export function sedeSwitcher(page: Page): Locator {
-    return page.getByRole("button", { name: /^Sede(?!i)/ });
+    // Dopo «Sede» c'è il nome: la riga «Sede» della sidebar D (PR 11a) no.
+    return page.getByRole("button", { name: /^Sede(?!i)./ });
 }
 
 /** «Confronta con», accanto a «Sede» dove il confronto vale (Calendario, Clienti e numeri). */
@@ -143,7 +144,9 @@ export async function sidebarLink(page: Page, name: string | RegExp): Promise<Lo
     if (section && (await sectionRow(page, section).first().waitFor({ timeout: 10_000 }).then(() => true, () => false))) {
         if ((await direct.count()) > 0) return direct;
         const link = (await openSection(page, section)).getByRole("link", { name, exact });
-        if ((await link.count()) > 0) return link;
+        // Il clic sulla sezione può cambiare pagina (la sua ultima parte, nella D
+        // la Scheda): la sidebar si ridisegna, si aspetta la voce.
+        if (await link.first().waitFor({ timeout: 5_000 }).then(() => true, () => false)) return link;
     }
     for (const title of await sectionTitles(page)) {
         const link = (await openSection(page, title)).getByRole("link", { name, exact });
@@ -165,10 +168,16 @@ export async function openInServizio(page: Page, name: "Elenco" | "Mappa" | "Pre
 /** Una riga della sidebar come si legge: una voce diretta o `[sezione, voci del pannello]`. */
 export type SidebarRow = string | [string, string[]];
 
+/** Tutte le sedi in griglia. Nella D c'è solo la griglia (Visual Redesign 2, PR 11a). */
+export async function sediGriglia(page: Page): Promise<void> {
+    if (await page.evaluate(() => document.documentElement.dataset.look === "d")) return;
+    await sediGriglia(page);
+}
+
 /** Gli indirizzi delle sedi (owner, più sedi), nell'ordine della griglia. */
 export async function locationPaths(page: Page): Promise<string[]> {
     await openBusinessPage(page, "locations", "Sedi");
-    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    await sediGriglia(page);
     // Solo i link delle card: anche il percorso in cima alla pagina è un elenco.
     const cards = page.getByRole("main").locator('[role="listitem"] a[href*="/locations/"], li a[href*="/locations/"]');
     await expect(cards.first()).toBeVisible({ timeout: 15_000 });

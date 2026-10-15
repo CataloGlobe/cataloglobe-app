@@ -34,7 +34,16 @@ export async function openBusinessPage(page: Page, path: string, sidebarLabel: s
     // Le voci stanno dirette nel menu o nel pannello della loro sezione;
     // Impostazioni, Team, Abbonamento, Lingue e Assistenza nel menù
     // dell'account in fondo alla sidebar (Officina).
-    const homeD = sidebarLabel === "Panoramica" && (await page.evaluate(() => document.documentElement.dataset.look === "d"));
+    const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
+    // Nella D «Tutte le sedi» sta nella sezione Sede, il cui clic entra nella
+    // Scheda di una sede (PR 11a): all'elenco si va dall'indirizzo. La voce
+    // della sidebar la provano i test della navigazione.
+    if (d && path === "locations") {
+        await page.goto(page.url().replace(/\/overview$/, "/locations"));
+        await page.waitForURL(/\/business\/[0-9a-f-]+\/locations$/);
+        return;
+    }
+    const homeD = sidebarLabel === "Panoramica" && d;
     const link = await sidebarLink(page, homeD ? "Home" : sidebarLabel);
     if ((await link.count()) > 0) {
         await link.click();
