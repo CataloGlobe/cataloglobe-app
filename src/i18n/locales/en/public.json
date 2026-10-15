@@ -631,7 +631,15 @@
             "closed_call": "Call the venue to cancel.",
             "closed_contact": "Contact the venue directly to cancel.",
             "not_cancellable_title": "Booking cannot be cancelled",
-            "not_cancellable_text": "This booking cannot be cancelled from here."
+            "not_cancellable_text": "This booking cannot be cancelled from here.",
+            "allergies_title": "Allergies",
+            "allergies_text": "You listed allergies for this booking. If you no longer want the venue to see them, you can remove them.",
+            "allergies_button": "Remove my allergies",
+            "allergies_confirm_text": "Your allergies will be deleted and the venue will no longer see them. This cannot be undone.",
+            "allergies_confirm_button": "Yes, remove allergies",
+            "allergies_removing": "Removing…",
+            "allergies_keep_button": "No, keep them",
+            "allergies_removed": "Allergies removed. The venue can no longer see them."
         },
         "confirm": {
             "doc_title": "{{brand}} · Confirm your booking",
