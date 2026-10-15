@@ -159,6 +159,7 @@ export function CreateOrderDrawer({
     useEffect(() => {
         if (!open) {
             // Reset completo on close
+            setConfirmingExit(false);
             setSelectedTable(
                 initialTableId
                     ? { id: initialTableId, label: initialTableLabel ?? "Tavolo" }

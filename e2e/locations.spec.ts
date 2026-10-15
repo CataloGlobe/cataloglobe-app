@@ -2,6 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { GARBAGNATE_ID, stubReservations } from "./reservationsStub";
 
+// D244: con la grafica D accesa le richieste si chiamano «da confermare».
+const D_ON = process.env.VITE_BACKOFFICE_D !== "false";
+const DA = D_ON ? "confermare" : "gestire";
+
 /**
  * Sedi (`/business/:businessId/locations`), viste da un amministratore su
  * un'azienda con più sedi e sedi pagate ancora libere. Copre le feature che
@@ -58,20 +62,20 @@ test.describe("Sedi", () => {
         await page.getByRole("radio", { name: "Vista griglia" }).click();
         const main = page.getByRole("main");
         const garbagnate = main.getByRole("listitem").filter({ hasText: /Garbagnate/ }).first();
-        await expect(garbagnate.getByRole("link", { name: /^3 da (gestire|confermare)$/ })).toBeVisible({ timeout: 15_000 });
+        await expect(garbagnate.getByRole("link", { name: `3 da ${DA}` })).toBeVisible({ timeout: 15_000 });
         const varedo = main.getByRole("listitem").filter({ hasText: /Varedo/ }).first();
-        await expect(varedo.getByRole("link", { name: /^1 da (gestire|confermare)$/ })).toBeVisible();
+        await expect(varedo.getByRole("link", { name: `1 da ${DA}` })).toBeVisible();
         // Zero non si dice: una sede senza richieste non ha il segnale.
-        expect(await main.getByRole("link", { name: /da (gestire|confermare)$/ }).count()).toBe(2);
+        expect(await main.getByRole("link", { name: new RegExp(`da ${DA}$`) }).count()).toBe(2);
 
         // Anche nella lista, accanto al nome.
         await page.getByRole("radio", { name: "Vista lista" }).click();
-        await expect(main.getByRole("link", { name: /^3 da (gestire|confermare)$/ })).toBeVisible();
+        await expect(main.getByRole("link", { name: `3 da ${DA}` })).toBeVisible();
         await page.getByRole("radio", { name: "Vista griglia" }).click();
 
-        await garbagnate.getByRole("link", { name: /^3 da (gestire|confermare)$/ }).click();
+        await garbagnate.getByRole("link", { name: `3 da ${DA}` }).click();
         await expect(page).toHaveURL(new RegExp(`/locations/${GARBAGNATE_ID}/prenotazioni`));
-        await expect(page.getByRole("main").getByText(/^Da (gestire|confermare)$/).first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("main").getByText(D_ON ? "Da confermare" : "Da gestire", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
     });
 
     test("se il conteggio delle modifiche a mano fallisce la card lo dice, e il menù resta", async ({ page }) => {
