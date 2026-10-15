@@ -146,10 +146,13 @@ export function Band({ w, axis, upd }: { w: CalWhen; axis: Axis; upd: (fn: (d: D
             document.body.classList.remove(s.ibdrag);
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
+            window.removeEventListener("pointercancel", up);
             upd(dd => dd.when.ranges && normRanges(dd.when.ranges));
         };
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", up);
+        // il sistema può togliere il dito (scroll, gesto): la fascia non resta presa
+        window.addEventListener("pointercancel", up);
     };
     return (
         <div className={`${s.iband} ${drag ? s.drag : ""}`} aria-hidden="true">
