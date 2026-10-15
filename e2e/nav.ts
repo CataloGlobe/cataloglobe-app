@@ -84,8 +84,15 @@ const SECTION_OF: Record<string, string> = {
     Storico: "Servizio",
     Andamento: "Clienti e numeri",
     Recensioni: "Clienti e numeri",
-    Clienti: "Clienti e numeri"
+    Clienti: "Clienti e numeri",
+    // nella D (PR 11a) l'ultima sezione è «Sede»
+    Scheda: "Sede",
+    "Sale e tavoli": "Sede",
+    "Tutte le sedi": "Sede"
 };
+
+/** Nella D «Sedi» è «Tutte le sedi» e la Sala è «Sale e tavoli», nella sezione Sede (PR 11a). */
+const D_NAME: Record<string, string> = { Sedi: "Tutte le sedi", Sala: "Sale e tavoli" };
 
 /**
  * Apre una sezione col clic (sotto la riga o nel pannello) e ne ritorna le
@@ -122,6 +129,9 @@ async function sectionTitles(page: Page): Promise<string[]> {
  * sua sezione (che resta aperto). Se non c'è, un locator senza risultati.
  */
 export async function sidebarLink(page: Page, name: string | RegExp): Promise<Locator> {
+    if (typeof name === "string" && D_NAME[name] && (await page.evaluate(() => document.documentElement.dataset.look === "d"))) {
+        name = D_NAME[name];
+    }
     const exact = typeof name === "string";
     await settledMenu(page);
     const direct = menuRows(page).getByRole("link", { name, exact });

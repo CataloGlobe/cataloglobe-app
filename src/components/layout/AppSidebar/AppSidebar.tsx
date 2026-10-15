@@ -46,6 +46,8 @@ export interface AppSidebarNavItem {
     to: string;
     /** La query della parte: accesa solo se l'indirizzo la porta (vedi `isItemActive`). */
     search?: string;
+    /** Con questa query la parte non si accende (vedi `isItemActive`). */
+    exceptSearch?: string;
     /** Lo stato della parte, a destra («3 · 1 non in onda»). */
     state?: string;
     /** Il pallino dello stato: c'è da vedere (arancio) o è in corso (verde). */

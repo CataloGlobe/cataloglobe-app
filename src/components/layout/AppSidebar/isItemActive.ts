@@ -28,6 +28,7 @@ export function isItemActive(item: AppSidebarNavItem, pathname: string, search =
         pathname === path ||
         (!item.end && pathname.startsWith(`${path}/`));
     if (!onPath) return false;
+    if (item.exceptSearch && hasQuery(search, item.exceptSearch)) return false;
     return !item.search || hasQuery(search, item.search);
 }
 

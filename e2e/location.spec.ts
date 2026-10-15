@@ -30,7 +30,10 @@ const rail = (page: Page) => page.getByRole("navigation", { name: "Parti della s
 
 async function openFirstLocation(page: Page): Promise<void> {
     await openBusinessPage(page, "locations", "Sedi");
-    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    // Nella D Tutte le sedi ha solo le card (Visual Redesign 2, PR 11a).
+    if (!(await page.evaluate(() => document.documentElement.dataset.look === "d"))) {
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+    }
     const main = page.getByRole("main");
     const firstCard = main.getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });

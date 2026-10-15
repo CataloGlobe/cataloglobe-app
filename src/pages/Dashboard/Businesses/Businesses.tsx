@@ -24,7 +24,7 @@ import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSec
 
 import { useAddActivityGate } from "@/hooks/useAddActivityGate";
 
-import { LayoutGrid, List as ListIcon } from "lucide-react";
+import { LayoutGrid, List as ListIcon, Plus } from "lucide-react";
 import styles from "./Businesses.module.scss";
 import { AddActivityDrawer } from "@/components/Businesses/AddActivityDrawer/AddActivityDrawer";
 import { subscribeActivitiesCache } from "@/hooks/activitiesCache";
@@ -32,6 +32,9 @@ import { Button } from "@/components/ui";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DeleteActivityDialog } from "@/components/Businesses/DeleteActivityDialog/DeleteActivityDialog";
+import { LOOK_D } from "@/styles/lookD";
+import { SediD } from "./SediD";
+import vs from "../Vetrina/Vetrina.module.scss";
 
 // ==========================================
 // COMPONENT
@@ -305,10 +308,11 @@ export default function Businesses() {
     ctaAction,
   ]);
 
+  // Nella D la testata è nella pagina (frase, filtri, Cerca, Aggiungi).
   usePageHeader({
-    leading,
-    actions: headerActions,
-    compact: headerCompact,
+    leading: LOOK_D ? undefined : leading,
+    actions: LOOK_D ? undefined : headerActions,
+    compact: LOOK_D ? undefined : headerCompact,
   });
 
   // ======================================
@@ -407,7 +411,53 @@ export default function Businesses() {
           aria-labelledby="businesses-title"
           data-view-mode={activeTab === "groups" ? "list" : viewMode}
         >
-          {activeTab === "activities" ? (
+          {LOOK_D ? (
+            <>
+              <AddActivityDrawer
+                open={isCreateOpen}
+                onClose={closeCreateDrawer}
+                usedSeats={businesses.length}
+                onCreated={refreshBusinesses}
+              />
+              <SediD
+                businesses={businesses}
+                loading={showInitialSkeleton}
+                activeCatalogsMap={activeCatalogsMap}
+                catalogsStatus={catalogsStatus}
+                pendingReservationsMap={pendingReservationsMap}
+                tab={activeTab}
+                onTab={t => {
+                  setSearchTerm("");
+                  handleTabChange(t);
+                }}
+                query={searchTerm}
+                onQuery={setSearchTerm}
+                crea={
+                  ctaAction && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leftIcon={<Plus size={16} aria-hidden />}
+                      disabled={ctaAction.disabled}
+                      onClick={ctaAction.onClick}
+                      className={vs.creaBtn}
+                      aria-label={ctaAction.label}
+                    >
+                      <span className={vs.creaWord}>{ctaAction.label}</span>
+                    </Button>
+                  )
+                }
+                groups={
+                  <ActivityGroupsSection
+                    searchQuery={searchTerm}
+                    canWrite={canManageGroups}
+                    createRequest={groupCreateRequest}
+                  />
+                }
+                onDelete={canDelete ? handleDelete : undefined}
+              />
+            </>
+          ) : activeTab === "activities" ? (
             <>
               <AddActivityDrawer
                 open={isCreateOpen}
