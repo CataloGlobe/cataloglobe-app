@@ -5,8 +5,8 @@ import { STYLE, stubStili } from "./stiliStub";
 /**
  * Bottom bar nel telefono del tunnel dello stile, passo «L'aspetto» (StylePreview mobile): stessa logica
  * della pagina pubblica, sullo scroll del device frame invece che della
- * finestra. Le regole sono provate in `bottom-bar.spec.ts` e in
- * `bottomBarVisibility.test.ts`; qui il cablaggio sullo `scrollContainerEl`.
+ * finestra. Le regole sono provate in `bottomBarVisibility.test.ts`; qui il
+ * cablaggio sullo `scrollContainerEl`.
  * Stili finti da `stiliStub.ts`, login e azienda veri.
  */
 

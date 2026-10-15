@@ -8,13 +8,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * × = «no grazie»; ignorata vola nella barra come «Com'è andata?», poi «Vota»,
  * che riapre la modale; una stella fa crescere la modale nel modulo (mockup v38),
  * con le scelte rapide in testa al commento (D71). Pagina servita da stub, orologio finto.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/voto-invito-redesign.spec.ts`.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 test.beforeEach(async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-14T12:30:00+02:00") });

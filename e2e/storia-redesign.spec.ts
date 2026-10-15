@@ -5,13 +5,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * Pagina Storia del redesign (spec §15, mockup v38): cappello del locale col testo
  * che si apre, «Approfondimenti» a schede grandi (fino a tre storie) o a lista (da
  * quattro), lettore che entra da destra, errore con «Riprova». Stub senza login.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/storia-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 const CAPPELLO = {
     cover: null,

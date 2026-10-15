@@ -6,13 +6,9 @@ import { SLUG, featured, stubPublicPage } from "./publicPageStub";
  * nascosto col nome del piatto, Invio e spazio), la scheda prende il fuoco, Esc
  * chiude e il fuoco torna alla riga. I fogli lasciano la pagina sotto `inert`.
  * Dentro il foglio, «‹» rimette il fuoco su ciò che aveva aperto la pagina.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/tastiera-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 test("una riga del menu si apre da tastiera e il fuoco torna alla riga", async ({ page }) => {
     await stubPublicPage(page, { ordering: false, details: true });
