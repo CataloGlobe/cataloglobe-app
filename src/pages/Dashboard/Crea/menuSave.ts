@@ -187,7 +187,26 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
     // le categorie tolte se ne vanno subito, dal livello più profondo, coi loro piatti: un piatto
     // spostato da lì a un'altra del ramo troverebbe ancora il suo vecchio posto (review #388.1)
     const gone = [...was].filter(([id]) => !kept.has(id)).sort((a, b) => b[1].level - a[1].level);
+    // anche quelle nate al tentativo prima e tolte prima del «Riprova», come in writeSections (review #472, punto 1)
+    const newKeys = new Set(now.filter(x => !x.id).map(x => "sez-cat:" + x.key));
+    const goneNew = [...m].filter(([k]) => k.startsWith("sez-cat:") && !newKeys.has(k)).map(([k, w]) => [k, w as CatW] as const);
+    for (const [k, w] of goneNew.sort((a, b) => b[1].level - a[1].level)) {
+        await deleteCategory(w.id, tenantId);
+        m.delete(k);
+    }
     for (const [id] of gone) await deleteCategory(id, tenantId);
+    // i piatti nuovi del tentativo prima: con la loro categoria se ne sono già andati, tolti lasciano il posto
+    const goneIds = new Set([...goneNew.map(([, w]) => w.id), ...gone.map(([id]) => id)]);
+    const dishKeys = new Set(now.flatMap(sec => sec.dishes.filter(d => !stays(d, sec)).map(d => "sez-link:" + d.key)));
+    for (const [k, v] of [...m]) {
+        if (!k.startsWith("sez-link:")) continue;
+        const w = v as LinkW;
+        if (goneIds.has(w.catId)) m.delete(k);
+        else if (!dishKeys.has(k)) {
+            if (w.id) await removeProductFromCategory(tenantId, w.id);
+            m.delete(k);
+        }
+    }
     // i piatti tolti o spostati lasciano il posto
     for (const [linkId, catId] of wasIn) if (!here.has(linkId) && kept.has(catId)) await removeProductFromCategory(tenantId, linkId);
     for (const sec of now) {
@@ -201,8 +220,8 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
             const productId = await productOf(d, tenantId, m);
             // una variante sta nel menù col suo prodotto e sé stessa accanto
             const key = `sez-link:${d.key}`, catId = idOf.get(sec)!, w = m.get(key) as LinkW | undefined;
-            if (w && w.catId !== catId) {
-                // spostato in un'altra categoria prima del «Riprova»: lascia il posto del primo tentativo
+            if (w && (w.catId !== catId || w.productId !== productId)) {
+                // spostato in un'altra categoria, o un altro prodotto, prima del «Riprova»: lascia il posto del primo tentativo (review #472, punto 2)
                 if (w.id) await removeProductFromCategory(tenantId, w.id);
                 m.delete(key);
             }

@@ -245,4 +245,34 @@ describe("salvare «Categorie e piatti» in modifica", () => {
             ["addProductToCategory", "T", "m1", "c4", "p-e", 10, null]
         ]);
     });
+
+    // review #472, punto 1: le categorie e i piatti nati al primo tentativo, tolti prima del «Riprova», se ne vanno
+    it("«Riprova» dopo aver tolto la categoria nuova e il piatto nuovo: si cancellano, dalla più profonda", async () => {
+        const m = new Map<string, unknown>([
+            ["sez-cat:Contorni", { id: "n1", name: "Contorni", sort: 30, parent: null, level: 1 }],
+            ["sez-cat:Verdure", { id: "n2", name: "Verdure", sort: 0, parent: "n1", level: 2 }],
+            ["sez-link:e", { id: "le", catId: "n2", productId: "p-e", sort: 0 }],
+            ["sez-link:f", { id: "lf", catId: "c4", productId: "p-f", sort: 10 }]
+        ]);
+        await saveSezioni(menu(), menu(), "m1", "T", m);
+        // il piatto della categoria tolta se ne va con lei
+        expect(calls).toEqual([
+            ["deleteCategory", "n2", "T"],
+            ["deleteCategory", "n1", "T"],
+            ["removeProductFromCategory", "T", "lf"]
+        ]);
+        expect([...m.keys()]).toEqual([]);
+    });
+
+    // review #472, punto 2: come writeSections, il collegamento si riconosce anche dal prodotto
+    it("«Riprova» dopo aver cambiato il prodotto del piatto nuovo: il collegamento di prima lascia il posto", async () => {
+        const m = new Map<string, unknown>([["sez-link:e", { id: "le", catId: "c4", productId: "p-vecchio", sort: 10 }]]);
+        const now = menu();
+        now[2].dishes.push(D("e"));
+        await saveSezioni(now, menu(), "m1", "T", m);
+        expect(calls).toEqual([
+            ["removeProductFromCategory", "T", "le"],
+            ["addProductToCategory", "T", "m1", "c4", "p-e", 10, null]
+        ]);
+    });
 });
