@@ -704,10 +704,55 @@
     white-space: nowrap;
   }
 
+  // «1 visita» sempre sotto i pallini, come «12 visite» (copia v57 punto 6)
   .year {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
+    gap: 2px 10px;
+  }
+  .yearCount {
+    flex-basis: 100%;
+  }
+
+  // Scheda cliente (copia v74, C13): numeri e azioni nella D
+  .contactLine a {
+    color: var(--d-text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .linkButton {
+    @include d-type(note);
+    font-weight: 600;
+    color: var(--d-brand-deep);
+  }
+  .summary {
+    @include d-type(note);
+    color: var(--d-muted);
+  }
+  .kicker {
+    @include d-type(note);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--d-muted);
+  }
+  .visits {
+    th {
+      @include d-type(th);
+      color: var(--d-muted);
+    }
+    td {
+      @include d-type(row);
+    }
+    th,
+    td {
+      border-color: var(--d-line);
+    }
+  }
+  .visitNote {
+    @include d-type(hint);
+    color: var(--d-muted);
   }
 
   .last {

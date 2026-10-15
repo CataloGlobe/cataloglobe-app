@@ -820,3 +820,16 @@ test.describe("Calendario e Regole: azienda e sede (T9b, D143)", () => {
         await expect(sedeFilter(page)).toHaveCount(0);
     });
 });
+
+test.describe("Campanella nella D (copia v64)", () => {
+    test("«Suono» scritto accanto all'interruttore, e cliccandolo si commuta", async ({ page }) => {
+        await openBusinessPage(page, "overview", "Panoramica");
+        test.skip(!(await page.evaluate(() => document.documentElement.dataset.look === "d")), "solo nella D");
+        await page.getByRole("button", { name: /^Notifiche/ }).click();
+        const sound = page.getByRole("switch", { name: /suono notifiche/ });
+        await expect(page.getByText("Suono", { exact: true })).toBeVisible();
+        const before = await sound.getAttribute("aria-checked");
+        await page.getByText("Suono", { exact: true }).click();
+        await expect(sound).not.toHaveAttribute("aria-checked", before!);
+    });
+});

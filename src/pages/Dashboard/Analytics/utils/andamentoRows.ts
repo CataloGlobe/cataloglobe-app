@@ -1,3 +1,4 @@
+import { LOOK_D } from "@/styles/lookD";
 import { formatPrice } from "@/utils/formatCurrency";
 import type { AndamentoData, SedeNumbers } from "./andamentoData";
 import { calculateDelta, isBelowSample, type PeriodKey } from "./periodComparison";
@@ -197,7 +198,8 @@ export function buildRows(data: AndamentoData, ctx: RowsContext): AndamentoRow[]
         ],
         delta: null,
         extras: [
-            low > 0 ? `${int(low)} ${low === 1 ? "bassa" : "basse"} da leggere` : "nessuna bassa",
+            // D (copia v62): le basse si contano nel periodo
+            low > 0 ? `${int(low)} ${low === 1 ? "bassa" : "basse"} ${LOOK_D ? "nel periodo" : "da leggere"}` : "nessuna bassa",
             `${int(data.reviews?.google_redirects ?? 0)} passate su Google`
         ],
         short: { value: reviews > 0 ? formatRating(data.reviews?.avg_rating ?? 0) : "—", label: plural(reviews, "recensione", "recensioni") },

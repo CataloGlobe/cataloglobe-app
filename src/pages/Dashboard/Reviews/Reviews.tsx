@@ -370,7 +370,8 @@ export default function Reviews() {
     { value: "all" as const, label: "Tutte", count: counts.all },
     {
       value: "low" as const,
-      label: "Da leggere: le basse",
+      // D (copia v62): le basse si contano nel periodo, il numero non scende leggendole
+      label: LOOK_D ? (compact && searchOpen ? "Le basse" : "Le basse, da 1 a 3 ★") : "Da leggere: le basse",
       count: counts.low,
       tone: "warning" as const,
     },
@@ -523,8 +524,8 @@ export default function Reviews() {
               <div className={styles.band}>
                 <b>
                   {counts.low === 1
-                    ? "1 recensione bassa da leggere."
-                    : `${counts.low} recensioni basse da leggere.`}
+                    ? "1 recensione bassa nel periodo."
+                    : `${counts.low} recensioni basse nel periodo.`}
                 </b>
                 <span>Restano a voi: non vanno su Google.</span>
                 <Button

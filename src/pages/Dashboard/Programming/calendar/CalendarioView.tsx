@@ -136,6 +136,11 @@ export type CalendarioViewProps = {
      * briciola «Regole › Aggiungi»: uscendo si torna alle Regole con questa.
      */
     addFromRules?: () => void;
+    /**
+     * Nella D, «Fai ora» delle basi in Home arriva qui con «Aggiungi» già aperto
+     * (copia v63): si apre una volta, poi il parametro si toglie e uscendo si resta nel Calendario.
+     */
+    addOnArrive?: () => void;
     /** Solo l'anteprima della settimana con questa bozza dentro (i tunnel di creazione): niente calendario intorno. */
     anteprima?: {
         draft: Draft;
@@ -269,6 +274,7 @@ export default function CalendarioView({
     onEnable,
     section,
     addFromRules,
+    addOnArrive,
     anteprima
 }: CalendarioViewProps) {
     const [nowDate, setNowDate] = useState(() => new Date());
@@ -1020,6 +1026,13 @@ export default function CalendarioView({
         setDraft(null);
         setNote(null);
     }, [fromRules]);
+    useEffect(() => {
+        if (!addOnArrive) return;
+        setSec({ back: false });
+        setDraft(null);
+        setNote(null);
+        addOnArrive();
+    }, [addOnArrive]);
     // «Tieni da parte» sopravvive all'uscita verso Menù, Stili, In evidenza
     useEffect(() => setKept(tenantId ? readAside(tenantId) : null), [tenantId]);
     const keep = (d: Draft | null) => {
