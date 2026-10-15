@@ -3,6 +3,7 @@ import { computePriority, levelFromPriority } from "@utils/priorityUtils";
 import type { PriorityLevel } from "@utils/priorityUtils";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import { daysOfWeekForDb } from "@utils/scheduleDays";
+import { LOOK_D } from "@styles/lookD";
 
 // Un UPDATE/DELETE rifiutato dall'RLS non dà errore: PostgREST risponde 200
 // con zero righe. Come deleteReview si chiede indietro l'id e zero righe è un
@@ -833,7 +834,9 @@ export async function listLayoutRuleOptions(tenantId: string): Promise<{
             supabase
                 .from("styles")
                 .select(
-                    "id, name, tenant_id, is_system, current_version:style_versions!current_version_id(version, config)"
+                    LOOK_D
+                        ? "id, name, tenant_id, is_system, current_version:style_versions!current_version_id(version, config)"
+                        : "id, name, tenant_id, is_system, current_version:style_versions!current_version_id(version)"
                 )
                 .eq("tenant_id", tenantId)
                 .eq("is_active", true)

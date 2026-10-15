@@ -1039,13 +1039,14 @@ export default function CalendarioView({
                 setDDay(dayOfWeek(pd.from));
             }
             setNote({ text: (draft.mode === "edit" ? "Salvato: " : "Aggiunto al calendario: ") + draftLabel(draft, L) + "." });
-            closeSec(true);
+            // dalle Regole si torna lì solo con un salvataggio pulito e senza un passo dopo
+            closeSec(true, !then);
             if (then) section.onGoNew(then);
         } catch (err) {
             if (err instanceof PartialSaveError) {
                 // la voce è in due regole: si chiude e si guarda il calendario riletto, senza «Riprova»
                 setNote({ text: "Salvato solo in parte: " + draftLabel(draft, L) + " ora è in due regole. Controlla il calendario e togli quella che non serve.", error: true });
-                closeSec(true);
+                closeSec(true, false);
             } else setNote({ text: "Non siamo riusciti a salvare. Riprova.", error: true });
         } finally {
             savingSec.current = false;
@@ -1058,7 +1059,7 @@ export default function CalendarioView({
         try {
             await section.onDrop(draft);
             setNote({ text: "Tolto dal calendario: " + draftLabel(draft, L) + "." });
-            closeSec(true);
+            closeSec(true, false);
         } catch {
             setNote({ text: "Non siamo riusciti a toglierlo. Riprova.", error: true });
         } finally {

@@ -292,7 +292,7 @@ export default function Programming() {
         () => ({
             catalogs: new Map(catalogs.map(c => [c.id, c.name])),
             styles: new Map(stylesOptions.map(c => [c.id, c.name])),
-            styleColors: new Map(stylesOptions.flatMap(c => (c.current_version?.config ? [[c.name, parseTokens(c.current_version.config).colors.primary] as const] : []))),
+            styleColors: !LOOK_D ? undefined : new Map(stylesOptions.flatMap(c => (c.current_version?.config ? [[c.name, parseTokens(c.current_version.config).colors.primary] as const] : []))),
             featured: new Map(featuredOptions.map(c => [c.id, c.name])),
             products: new Map(productOptions.map(c => [c.id, c.name]))
         }),
@@ -951,7 +951,7 @@ export default function Programming() {
             prev.delete("vista");
             prev.delete("aggiungi");
             return prev;
-        });
+        }, { replace: true });
     }, [setSearchParams]);
     const D_TYPE_ORDER: RuleTypeFilter[] = ["all", "layout", "featured", "price", "visibility"];
     const ruleHead = LOOK_D && viewMode === "list" && (

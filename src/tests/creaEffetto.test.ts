@@ -1,4 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// la D cambia due frasi dello stile che lascia gli altri: si provano i due rami
+const look = vi.hoisted(() => ({ d: true }));
+vi.mock("@/styles/lookD", () => ({
+    get LOOK_D() {
+        return look.d;
+    }
+}));
 import type { SedeEff } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { effChips, effLab, effSum } from "@/pages/Dashboard/Crea/creaEffetto";
 
@@ -58,8 +66,13 @@ describe("le sedi di un gruppo", () => {
     it("con la risposta sede per sede: dove oggi vince l'altro dice cosa porta la scelta (D196)", () => {
         const c = sede("c", { mins: 0, days: 0, by: ["Catalogo"] });
         expect(effLab(c, "menu", () => "ins")).toEqual({ lab: "Non si vede: lì resta «Catalogo», al posto degli altri", ico: "off" });
+        look.d = true;
         expect(effLab(c, "stile", () => "ins")).toEqual({ lab: "Lascia «Catalogo»: lì resta il suo stile", ico: "insieme" });
         expect(effLab(sede("d", { by: ["Catalogo"] }), "stile", () => "ins").lab).toBe("Lascia «Catalogo»");
+        look.d = false;
+        expect(effLab(c, "stile", () => "ins")).toEqual({ lab: "Lascia «Catalogo»: lì resta il suo stile", ico: "off" });
+        expect(effLab(sede("d", { by: ["Catalogo"] }), "stile", () => "ins").lab).toBe("In parte resta «Catalogo»");
+        look.d = true;
         expect(effLab(c, "menu", () => "pos")).toEqual({ lab: "Prende il posto di «Catalogo»: si salva col database nuovo", ico: "posto" });
         const mix = sede("a", { cov: ["Pranzo"], by: ["Catalogo"] });
         expect(effLab(mix, "menu", (_, con) => (con === "Pranzo" ? "ins" : "pos")).lab).toBe("Insieme a «Pranzo»: il cliente sceglie · prende il posto di «Catalogo»: si salva col database nuovo");
