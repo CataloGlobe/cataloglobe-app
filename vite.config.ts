@@ -24,6 +24,10 @@ const isPublicBuild = (mode: string, isSsrBuild?: boolean) =>
 
 export default defineConfig(({ mode, isSsrBuild }) => ({
     plugins: [react()],
+    // …e niente D nel JS: `LOOK_D` cambia anche componenti condivisi con la
+    // pagina pubblica (pesi di Button, Badge e Card). Spenta qui qualunque cosa
+    // dica l'ambiente (review di Lorenzo sulla #516).
+    ...(isPublicBuild(mode, isSsrBuild) ? { define: { "import.meta.env.VITE_BACKOFFICE_D": JSON.stringify("false") } } : {}),
     // Asset client SSR serviti da dist/public → URL pubblici /public/assets/*.
     ...(mode === "public-client" ? { base: "/public/" } : {}),
     server: {

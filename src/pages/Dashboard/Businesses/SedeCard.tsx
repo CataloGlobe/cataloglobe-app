@@ -23,10 +23,12 @@ type CardProps = {
     businessId: string;
     pending: number;
     ready: boolean;
+    /** I menù in onda non si sono letti: non si dice né «Niente da guardare» né «Nessun menù». */
+    failed: boolean;
     onDelete?: (id: string) => void;
 };
 
-export function SedeCard({ b, cat, sospesa, noMenu, nonDisp, index, order, businessId, pending, ready, onDelete }: CardProps) {
+export function SedeCard({ b, cat, sospesa, noMenu, nonDisp, index, order, businessId, pending, ready, failed, onDelete }: CardProps) {
     const navigate = useNavigate();
     const { showToast } = useToast();
     const sede = `/business/${businessId}/locations/${b.id}`;
@@ -74,8 +76,12 @@ export function SedeCard({ b, cat, sospesa, noMenu, nonDisp, index, order, busin
                             {x.label}
                         </Link>
                     ))
-                ) : (
+                ) : failed ? (
+                    <span className={s.ok}>Menù non verificabile</span>
+                ) : ready ? (
                     <span className={s.ok}>Niente da guardare</span>
+                ) : (
+                    <span className={s.sk} aria-hidden />
                 )}
                 <i className={s.fl} />
                 <TableRowActions
@@ -86,8 +92,10 @@ export function SedeCard({ b, cat, sospesa, noMenu, nonDisp, index, order, busin
                             label: "Copia il link",
                             icon: LinkIcon,
                             onClick: () => {
-                                void navigator.clipboard.writeText(publicUrl);
-                                showToast({ message: `Link di ${b.name} copiato.`, type: "success" });
+                                navigator.clipboard.writeText(publicUrl).then(
+                                    () => showToast({ message: `Link di ${b.name} copiato.`, type: "success" }),
+                                    () => showToast({ message: "Non è stato possibile copiare il link.", type: "error" })
+                                );
                             }
                         },
                         { label: "Apri la pagina pubblica", icon: ExternalLink, onClick: () => window.open(publicUrl, "_blank", "noopener,noreferrer") },

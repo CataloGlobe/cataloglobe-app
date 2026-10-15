@@ -1,5 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
+import { Store } from "lucide-react";
+import { Button } from "@/components/ui/Button/Button";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import type { ActiveCatalogMeta, BusinessWithCapabilities } from "@/types/Businesses";
 import type { CatalogFetchStatus } from "@/utils/activeCatalogStatus";
@@ -29,6 +32,8 @@ type Props = {
     /** I gruppi di sedi: la sezione di oggi. */
     groups: ReactNode;
     onDelete?: (id: string) => void;
+    /** «Aggiungi la prima sede» quando non ce n'è nessuna; senza, solo il testo. */
+    onAdd?: () => void;
 };
 
 const names = (list: string[]) => (list.length < 2 ? list.join("") : `${list.slice(0, -1).join(", ")} e ${list.at(-1)}`);
@@ -44,6 +49,7 @@ export function SediD(p: Props) {
     const { compact, setTop } = useCompactHead();
     const [filter, setFilter] = useState<SediFilter>("tutti");
     const ready = p.catalogsStatus === "ready";
+    const failed = p.catalogsStatus === "error";
 
     const info = useMemo(
         () =>
@@ -121,10 +127,23 @@ export function SediD(p: Props) {
             />
             {groupsTab ? (
                 <section className={s.groups}>{p.groups}</section>
-            ) : p.loading ? null : shown.length ? (
+            ) : p.loading ? null : info.length === 0 ? (
+                <EmptyState
+                    icon={<Store />}
+                    title="Aggiungi la prima sede"
+                    description="Le sedi sono i locali che i clienti raggiungono con il QR: ognuna ha il suo indirizzo e il suo link pubblico."
+                    action={
+                        p.onAdd ? (
+                            <Button variant="primary" onClick={p.onAdd}>
+                                Aggiungi la prima sede
+                            </Button>
+                        ) : undefined
+                    }
+                />
+            ) : shown.length ? (
                 <div className={s.grid} role="list" aria-label="Sedi">
                     {shown.map((x, i) => (
-                        <SedeCard key={x.b.id} {...x} index={info.indexOf(x)} order={i} businessId={businessId ?? ""} pending={p.pendingReservationsMap[x.b.id] ?? 0} ready={ready} onDelete={p.onDelete} />
+                        <SedeCard key={x.b.id} {...x} index={info.indexOf(x)} order={i} businessId={businessId ?? ""} pending={p.pendingReservationsMap[x.b.id] ?? 0} ready={ready} failed={failed} onDelete={p.onDelete} />
                     ))}
                 </div>
             ) : (

@@ -259,6 +259,8 @@ export default function Highlights() {
         for (const [id, appearance] of appearanceById) map.set(id, onAirOf(appearance, ruleAppearance.activities));
         return map;
     }, [appearanceById, ruleAppearance.activities]);
+    // Senza indice (carica o non si legge) nessuno stato: né «Non in onda» né «Metti in onda».
+    const airKnown = ruleAppearance.index != null;
     const onAirOfItem = useCallback((item: FeaturedContentWithProducts) => onAirById.get(item.id) ?? OFF_AIR, [onAirById]);
     const lead = useMemo(() => {
         if (!LOOK_D || !ruleAppearance.index) return null;
@@ -373,7 +375,8 @@ export default function Highlights() {
         }
         // D: le card col titolo sulla tinta (al telefono sempre Fogli).
         if (LOOK_D && (viewMode === "grid" || isPhone)) {
-            if (loading) return <CardGrid loading skeletonShape={{ media: true, mediaHeight: 142 }} minColumnWidth={232} />;
+            if (loading || (ruleAppearance.loading && !ruleAppearance.failed))
+                return <CardGrid loading skeletonShape={{ media: true, mediaHeight: 142 }} minColumnWidth={232} />;
             return (
                 <div className={vs.grid}>
                     <ul className={vs.cards} aria-label="Contenuti in evidenza">
@@ -390,8 +393,8 @@ export default function Highlights() {
                                         nameInPreview
                                         label={item.internal_name}
                                         meta={n > 0 ? `${type} · ${n === 1 ? "1 prodotto" : `${n} prodotti`}` : type}
-                                        onAir={onAirOfItem(item)}
-                                        onMetti={canWrite && canEdit ? () => navigate(`/business/${tenantId}/crea/evidenza/${item.id}?da=evidenza&metti=1`) : undefined}
+                                        onAir={airKnown ? onAirOfItem(item) : undefined}
+                                        onMetti={airKnown && canWrite && canEdit ? () => navigate(`/business/${tenantId}/crea/evidenza/${item.id}?da=evidenza&metti=1`) : undefined}
                                         actions={rowActions(item)}
                                     />
                                 </li>
@@ -466,7 +469,7 @@ export default function Highlights() {
                                 lead={lead}
                                 filter={onAirFilter}
                                 onFilter={setOnAirFilter}
-                                filterOptions={onAirOptions(onAirCounts)}
+                                filterOptions={onAirOptions(onAirCounts, airKnown)}
                                 filterAll="all"
                                 sort={sort}
                                 onSort={setSort}
