@@ -125,12 +125,14 @@ export function matchesOnAir(filter: OnAirFilter, onAir: OnAir): boolean {
 }
 
 /** Le pill Tutti, In onda, Non in onda coi loro numeri. */
-export function onAirOptions(counts: Record<OnAirFilter, number>) {
-    return [
+export function onAirOptions(counts: Record<OnAirFilter, number>, known = true) {
+    const options = [
         { value: "all" as const, label: "Tutti", count: counts.all },
         { value: "on" as const, label: "In onda", count: counts.on },
         { value: "off" as const, label: "Non in onda", count: counts.off }
     ];
+    // Finché lo stato delle regole non si legge, solo «Tutti»: niente conti a zero.
+    return known ? options : options.slice(0, 1);
 }
 
 /** «Ordina» di Menù, Stili, In evidenza e Storie (D209 chiusa). */

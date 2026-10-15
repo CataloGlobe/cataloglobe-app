@@ -93,7 +93,8 @@ type CardProps = {
     meta: ReactNode;
     /** Il nome per i lettori di schermo e per «Metti in onda». */
     label: string;
-    onAir: OnAir;
+    /** Senza (lo stato delle regole carica o non si legge): né riga «In onda» né pulsante. */
+    onAir?: OnAir;
     onMetti?: () => void;
     /** Il ⋮ con Modifica, Duplica, Elimina… */
     actions?: ReactNode;
@@ -107,7 +108,7 @@ type CardProps = {
 export function VetrinaCard({ family, to, preview, name, nameInPreview, meta, label, onAir, onMetti, actions }: CardProps) {
     const Icon = FAMILY_ICON[family];
     return (
-        <article className={s.card} data-off={onAir.state === "off" ? "" : undefined}>
+        <article className={s.card} data-off={onAir?.state === "off" ? "" : undefined}>
             <Link to={to} className={s.hit}>
                 <span className={s.pv} data-family={family}>
                     <span className={s.pvIc} aria-hidden>
@@ -121,7 +122,7 @@ export function VetrinaCard({ family, to, preview, name, nameInPreview, meta, la
                 <small className={s.meta}>{meta}</small>
             </Link>
             <div className={s.ft}>
-                <OnAirLine onAir={onAir} onMetti={onMetti} name={label} />
+                {onAir ? <OnAirLine onAir={onAir} onMetti={onMetti} name={label} /> : <span />}
                 {actions}
             </div>
         </article>
