@@ -22,6 +22,7 @@ type Props = {
     cancelLabel?: string;
     /** Etichetta di `onSaveAndExit`. Default «Salva ed esci»; la modifica nel tunnel: «Salva le modifiche ed esci». */
     saveLabel?: string;
+    discardLabel?: string;
     /** Il pannello largo (460), per etichette lunghe. */
     wide?: boolean;
 };
@@ -42,6 +43,7 @@ export function UnsavedChangesDialog({
     message = "Hai modifiche non salvate. Cosa vuoi fare?",
     cancelLabel = "Annulla",
     saveLabel = "Salva ed esci",
+    discardLabel = "Esci senza salvare",
     wide = false,
 }: Props) {
     const [saving, setSaving] = useState(false);
@@ -71,7 +73,7 @@ export function UnsavedChangesDialog({
                     </Button>
                     <div className={styles.footerRight}>
                         <Button variant="secondary" size="sm" onClick={onDiscard} disabled={saving}>
-                            Esci senza salvare
+                            {discardLabel}
                         </Button>
                         {onSaveAndExit && (
                             <Button variant="primary" size="sm" onClick={handleSaveAndExit} loading={saving}>

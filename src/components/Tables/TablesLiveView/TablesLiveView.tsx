@@ -23,6 +23,7 @@ import type { V2TableWithState } from "@/types/orders";
 import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
 import { useDetailParam } from "@/hooks/useDetailParam";
 import TableCloseDrawer from "@/pages/Dashboard/Tables/TableCloseDrawer";
+import CreateOrderDrawer from "@/pages/Dashboard/Orders/CreateOrderDrawer/CreateOrderDrawer";
 
 import { deriveTableStatus } from "@/utils/tableState";
 
@@ -153,6 +154,7 @@ export function TablesLiveView({
     );
     const [isCloseOpen, setIsCloseOpen] = useState(false);
     const [processingClose, setProcessingClose] = useState(false);
+    const [orderFor, setOrderFor] = useState<{ id: string; label: string } | null>(null);
 
     const handleTableClick = useCallback((tableId: string) => openDetail(tableId), [openDetail]);
 
@@ -528,7 +530,22 @@ export function TablesLiveView({
                 onMaintenanceChanged={() => void refetch()}
                 onBillCleared={() => void refetch()}
                 onStornoCreated={() => void refetch()}
+                onCreateOrder={
+                    LOOK_D ? (id, label) => setOrderFor({ id, label }) : undefined
+                }
             />
+
+            {LOOK_D && (
+                <CreateOrderDrawer
+                    open={orderFor !== null}
+                    tenantId={tenantId}
+                    activityId={activityId}
+                    initialTableId={orderFor?.id}
+                    initialTableLabel={orderFor?.label}
+                    onClose={() => setOrderFor(null)}
+                    onSubmitted={() => void refetch()}
+                />
+            )}
 
             <TableCloseDrawer
                 open={isCloseOpen}

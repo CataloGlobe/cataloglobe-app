@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 .wrapper {
     display: flex;
     flex-direction: column;
@@ -125,4 +128,44 @@
 .emptyHint {
     padding: 14px;
     text-align: center;
+}
+
+// Grafica D (copia, cp 4494-4587): categorie a pillola, attiva in brand;
+// prodotto in riquadro, aperto con bordo e anello del brand.
+@include look-d {
+    .pill,
+    .pillActive,
+    .pillDisabled {
+        @include d-type(control);
+        border-color: var(--d-line);
+        background: var(--d-surface);
+        color: var(--d-text);
+    }
+
+    .pillActive,
+    .pillActive:hover {
+        background: var(--d-brand);
+        border-color: var(--d-brand);
+        color: var(--d-surface);
+    }
+
+    .productRow {
+        border-color: var(--d-line);
+        border-radius: 12px;
+        transition: border-color 120ms ease, box-shadow 120ms ease;
+    }
+
+    .productRow:has(.productHeader[aria-expanded="true"]) {
+        border-color: color-mix(in srgb, var(--d-brand) 55%, transparent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--d-brand) 12%, transparent);
+    }
+
+    .productHeader[aria-expanded="true"] {
+        background: transparent;
+    }
+
+    .expansion {
+        border-top-color: var(--d-line);
+        background: color-mix(in srgb, var(--d-brand) 3%, var(--d-surface));
+    }
 }

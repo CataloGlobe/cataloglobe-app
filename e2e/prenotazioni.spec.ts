@@ -90,7 +90,7 @@ test.describe("Prenotazioni", () => {
         // T14 PN2: niente riquadro «Oggi»; la sua frase è l'intestazione della
         // card delle richieste: 4 prenotazioni accettate, ~15 coperti.
         await expect(main(page).getByRole("status", { name: /arrivo|prenotazione oggi/ })).toHaveCount(0);
-        await expect(main(page).getByText("Richieste da gestire", { exact: true })).toBeVisible();
+        await expect(main(page).getByText(/^(Richieste da gestire|Da confermare)$/).first()).toBeVisible();
         await expect(main(page).getByText(/^Oggi 4 prenotazioni · ~15 coperti/)).toBeVisible();
     });
 
@@ -99,7 +99,7 @@ test.describe("Prenotazioni", () => {
         await expect(page.getByRole("tab", { name: "Servizio", exact: true })).toHaveCount(0, { timeout: 5_000 });
         await expect(main(page).getByText(/in sala adesso/i)).toHaveCount(0);
         // L'Agenda resta, con la coda in cima e la creazione.
-        await expect(main(page).getByText("Richieste da gestire", { exact: true })).toBeVisible();
+        await expect(main(page).getByText(/^(Richieste da gestire|Da confermare)$/).first()).toBeVisible();
         await expect(page.getByRole("button", { name: "Aggiungi prenotazione" }).first()).toBeVisible();
     });
 

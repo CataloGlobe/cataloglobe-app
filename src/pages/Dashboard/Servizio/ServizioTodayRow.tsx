@@ -8,6 +8,7 @@ import { countPendingReservationsByActivity, listReservations } from "@/services
 import type { V2Reservation } from "@/types/reservation";
 import { summarizeToday, todayHeadline } from "@/pages/Dashboard/Reservations/todaySummary";
 import styles from "./Servizio.module.scss";
+import { LOOK_D } from "@/styles/lookD";
 
 /** Ogni quanto la riga si rilegge da sé: è un riepilogo, non il banco. */
 const REFRESH_MS = 60_000;
@@ -71,7 +72,7 @@ export default function ServizioTodayRow({ tenantId, activityId, requestsHref }:
             </Text>
             {pending > 0 && (
                 <Link to={requestsHref} className={styles.todayRequests}>
-                    {pending} {pending === 1 ? "richiesta da gestire" : "richieste da gestire"}
+                    {pending} {LOOK_D ? (pending === 1 ? "prenotazione da confermare" : "prenotazioni da confermare") : pending === 1 ? "richiesta da gestire" : "richieste da gestire"}
                     <ArrowRight size={14} strokeWidth={2} aria-hidden />
                 </Link>
             )}

@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 /* Stessa grammatica di ActivityMultiSelect (lista di checkbox in un riquadro),
    con i gruppi per zona. L'occupazione è testo ambrato a destra: si legge,
    non impedisce di spuntare. */
@@ -112,4 +113,22 @@
   font-size: 13px;
   color: var(--color-text-muted, #6b7280);
   text-align: center;
+}
+
+// Grafica D: righe arrotondate a 10, la scelta con il bordo del brand.
+@include look-d {
+  .list {
+    border-color: var(--d-line);
+    border-radius: 12px;
+  }
+
+  .option {
+    border: 1px solid transparent;
+    border-radius: 10px;
+  }
+
+  .checked {
+    border-color: color-mix(in srgb, var(--d-brand) 55%, transparent);
+    background: color-mix(in srgb, var(--d-brand) 6%, var(--d-surface));
+  }
 }

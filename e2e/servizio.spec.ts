@@ -434,7 +434,7 @@ test.describe("Elenco (lotto B-b)", () => {
         const m = main(page);
         await expect(m.getByRole("status", { name: "Oggi" })).toBeVisible({ timeout: 15_000 });
         await expect(m.getByRole("button", { name: "Senza prenotazione" })).toHaveCount(0);
-        const richieste = m.getByRole("link", { name: /richiest[ae] da gestire/ });
+        const richieste = m.getByRole("link", { name: /richiest[ae] da gestire|prenotazion[ei] da confermare/ });
         if ((await richieste.count()) > 0) await expect(richieste).toHaveAttribute("href", /\/prenotazioni$/);
     });
 

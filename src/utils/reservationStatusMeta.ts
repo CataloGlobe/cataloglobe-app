@@ -9,6 +9,7 @@
 
 import type { StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 import type { ReservationStatus } from "@/types/reservation";
+import { LOOK_D } from "@/styles/lookD";
 
 export interface ReservationStatusMeta {
     variant: StatusBadgeVariant;
@@ -17,7 +18,8 @@ export interface ReservationStatusMeta {
 
 export function statusMeta(status: ReservationStatus): ReservationStatusMeta {
     switch (status) {
-        case "pending":   return { variant: "warning", label: "Da gestire" };
+        // nella D «Da confermare», come nella copia (D244)
+        case "pending":   return { variant: "warning", label: LOOK_D ? "Da confermare" : "Da gestire" };
         case "confirmed": return { variant: "success", label: "Confermata" };
         case "seated":    return { variant: "success", label: "Al tavolo" };
         // "Servita", non "Completata": la seconda è la traduzione del nome

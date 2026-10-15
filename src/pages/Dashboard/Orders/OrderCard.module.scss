@@ -240,3 +240,22 @@
         }
     }
 }
+
+// La stampa non riuscita nella D: una striscia rossa tenue, raggio 12 (copia, v68 `.v68-ko`)
+@include look-d {
+    .printKo {
+        gap: 6px 10px;
+        padding: 9px 11px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--d-ban-err);
+        color: var(--d-ban-err-ink);
+        @include d-type(control);
+
+        a {
+            color: inherit;
+            font-weight: 700;
+        }
+    }
+}
+

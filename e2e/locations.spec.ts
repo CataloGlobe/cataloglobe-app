@@ -58,20 +58,20 @@ test.describe("Sedi", () => {
         await page.getByRole("radio", { name: "Vista griglia" }).click();
         const main = page.getByRole("main");
         const garbagnate = main.getByRole("listitem").filter({ hasText: /Garbagnate/ }).first();
-        await expect(garbagnate.getByRole("link", { name: "3 da gestire" })).toBeVisible({ timeout: 15_000 });
+        await expect(garbagnate.getByRole("link", { name: /^3 da (gestire|confermare)$/ })).toBeVisible({ timeout: 15_000 });
         const varedo = main.getByRole("listitem").filter({ hasText: /Varedo/ }).first();
-        await expect(varedo.getByRole("link", { name: "1 da gestire" })).toBeVisible();
+        await expect(varedo.getByRole("link", { name: /^1 da (gestire|confermare)$/ })).toBeVisible();
         // Zero non si dice: una sede senza richieste non ha il segnale.
-        expect(await main.getByRole("link", { name: /da gestire$/ }).count()).toBe(2);
+        expect(await main.getByRole("link", { name: /da (gestire|confermare)$/ }).count()).toBe(2);
 
         // Anche nella lista, accanto al nome.
         await page.getByRole("radio", { name: "Vista lista" }).click();
-        await expect(main.getByRole("link", { name: "3 da gestire" })).toBeVisible();
+        await expect(main.getByRole("link", { name: /^3 da (gestire|confermare)$/ })).toBeVisible();
         await page.getByRole("radio", { name: "Vista griglia" }).click();
 
-        await garbagnate.getByRole("link", { name: "3 da gestire" }).click();
+        await garbagnate.getByRole("link", { name: /^3 da (gestire|confermare)$/ }).click();
         await expect(page).toHaveURL(new RegExp(`/locations/${GARBAGNATE_ID}/prenotazioni`));
-        await expect(page.getByRole("main").getByText("Da gestire", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("main").getByText(/^Da (gestire|confermare)$/).first()).toBeVisible({ timeout: 15_000 });
     });
 
     test("se il conteggio delle modifiche a mano fallisce la card lo dice, e il menù resta", async ({ page }) => {
