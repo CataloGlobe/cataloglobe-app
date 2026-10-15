@@ -2537,3 +2537,70 @@ select.in {
         border-radius: 16px;
     }
 }
+
+/* tablet e telefono nella D (Visual Redesign 2, PR 15; v55, copia `.tph`, `.tu-dock`) */
+@include look-d {
+    .ipeek {
+        flex: none;
+        margin-left: auto;
+    }
+    .ipeek + .iexit {
+        margin-left: 0;
+    }
+    .dock {
+        display: none;
+    }
+    // senza la colonna a destra: telefono o settimana solo con «Anteprima», sopra il passo
+    @media (max-width: 1100px) {
+        .igrid > .rside,
+        .igrid > .week {
+            display: none !important;
+        }
+        .igrid.peek > .rside {
+            display: flex !important;
+            position: static;
+            order: -1;
+        }
+        .igrid.peek > .week {
+            display: block !important;
+            order: -1;
+        }
+    }
+    @media (max-width: 640px) {
+        .iexitT {
+            display: none;
+        }
+        .istrow .iacts {
+            display: none;
+        }
+        .isteps {
+            margin: 0 -12px;
+            padding: 0 12px;
+        }
+        // Indietro e Avanti in una barra ferma in basso
+        .dock {
+            position: sticky;
+            bottom: 12px;
+            z-index: 6;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 8px;
+            border: 1px solid var(--d-line);
+            border-radius: 20px;
+            background: color-mix(in srgb, var(--d-surface) 88%, transparent);
+            backdrop-filter: blur(12px);
+            box-shadow: var(--d-shadow-bar);
+            .why {
+                display: none;
+            }
+            > :global(button) {
+                min-height: 44px;
+            }
+            > :global(button:last-child) {
+                flex: 1;
+            }
+        }
+    }
+}
