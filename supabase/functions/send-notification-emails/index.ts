@@ -12,6 +12,8 @@
 //   2. per ogni email: modello da `_shared/notificationEmails.ts`, invio con
 //      `sendEmailWithResult`;
 //        - inviata → 'sent';
+//        - non più attuale (attività ripristinata nel frattempo) → 'failed'
+//          con last_error 'obsolete';
 //        - modello sconosciuto o dati insufficienti → 'failed' subito;
 //        - invio fallito → 'pending' con run_after spostato
 //          (nextRetryDelayMinutes), oppure 'failed' al cap;
@@ -24,6 +26,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmailWithResult } from "../_shared/sendEmail.ts";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
+import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import {
     buildNotificationEmail,
     nextRetryDelayMinutes,
@@ -66,7 +69,7 @@ Deno.serve(async (req: Request) => {
         auth: { persistSession: false }
     });
 
-    const counters = { claimed: 0, sent: 0, retried: 0, failed: 0, orphans_reset: 0 };
+    const counters = { claimed: 0, sent: 0, retried: 0, failed: 0, obsolete: 0, orphans_reset: 0 };
 
     // 2. Claim
     const { data: claimedRaw, error: claimErr } = await supabase.rpc(
@@ -82,6 +85,7 @@ Deno.serve(async (req: Request) => {
     if (claimed.length === 0) return jsonResponse(counters, 200);
 
     const unresolved = new Set(claimed.map(e => e.id));
+    const ctx = { siteUrl: getPublicSiteUrl() };
 
     async function finish(id: string, patch: Record<string, unknown>): Promise<void> {
         const { error } = await supabase
@@ -96,9 +100,34 @@ Deno.serve(async (req: Request) => {
         unresolved.delete(id);
     }
 
+    // Email che nel frattempo non hanno più senso: l'attività in eliminazione
+    // è stata ripristinata (o eliminata di nuovo, con altre date) prima
+    // dell'invio o di un nuovo tentativo. Errore di lettura → si manda.
+    async function isObsolete(row: ClaimedEmail): Promise<boolean> {
+        if (row.template !== "tenant_deletion_owner") return false;
+        const tenantId = row.tenant_id ?? (row.data?.tenant_id as string | undefined);
+        if (!tenantId) return false;
+        const { data: tenant, error } = await supabase
+            .from("tenants")
+            .select("deleted_at")
+            .eq("id", tenantId)
+            .maybeSingle();
+        if (error) return false;
+        if (!tenant || !tenant.deleted_at) return true;
+        const queued = row.data?.deleted_at;
+        if (typeof queued !== "string") return false;
+        return new Date(queued).getTime() !== new Date(tenant.deleted_at).getTime();
+    }
+
     try {
         for (const row of claimed) {
-            const email = buildNotificationEmail(row.template, row.data ?? {});
+            if (await isObsolete(row)) {
+                await finish(row.id, { status: "failed", last_error: "obsolete" });
+                counters.obsolete++;
+                continue;
+            }
+
+            const email = buildNotificationEmail(row.template, row.data ?? {}, ctx);
             if (!email) {
                 console.error(`${LOG} template not buildable`, {
                     id: row.id,

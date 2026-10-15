@@ -27,3 +27,22 @@ describe("resolveTargetPath — prenotazioni", () => {
         );
     });
 });
+
+describe("resolveTargetPath — attività in eliminazione", () => {
+    it("eliminazione e promemoria aprono il Workspace, dove c'è Ripristina", () => {
+        for (const event_type of ["tenant.deletion_scheduled", "tenant.deletion_reminder"]) {
+            expect(resolveTargetPath(notification({ event_type, tenant_id: null, data: { tenant_id: "t1" } }), null)).toBe(
+                "/workspace"
+            );
+        }
+    });
+
+    it("ripristinata apre l'attività, o il Workspace se manca", () => {
+        expect(
+            resolveTargetPath(notification({ event_type: "tenant.restored", tenant_id: null, data: { tenant_id: "t7" } }), null)
+        ).toBe("/business/t7");
+        expect(resolveTargetPath(notification({ event_type: "tenant.restored", tenant_id: null, data: {} }), null)).toBe(
+            "/workspace"
+        );
+    });
+});

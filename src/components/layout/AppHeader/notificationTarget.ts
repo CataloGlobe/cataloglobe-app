@@ -34,5 +34,20 @@ export function resolveTargetPath(notification: Notification, fallbackTenantId: 
         // è comunque il posto giusto. Meglio di un click che non fa nulla.
         if (tenantId) return `/business/${tenantId}/support`;
     }
+    // Attività in eliminazione: righe a livello account (tenant_id null),
+    // l'attività è sparita dal back office. «Ripristina» sta nel Workspace.
+    if (
+        notification.event_type === "tenant.deletion_scheduled" ||
+        notification.event_type === "tenant.deletion_reminder"
+    ) {
+        return "/workspace";
+    }
+    // Ripristinata: si torna dentro l'attività (tenant in data.tenant_id).
+    if (notification.event_type === "tenant.restored") {
+        const tenantId = notification.data?.tenant_id;
+        return typeof tenantId === "string" && tenantId.length > 0
+            ? `/business/${tenantId}`
+            : "/workspace";
+    }
     return null;
 }
