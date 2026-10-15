@@ -26,6 +26,8 @@ export type CreaData = {
     systemStyleId: string | null;
     /** In quali menù sta ogni prodotto (gli id dei menù): la storia di un prodotto si vede lì. */
     menusOf: Map<string, string[]>;
+    /** `menusOf` è arrivata: prima, vuota non vuol dire «in nessun menù». */
+    menusReady: boolean;
     /** L'ordine salvato dei contenuti in evidenza, sede per sede (col database nuovo; altrimenti vuoto). */
     positions: Record<string, Record<string, number>>;
     L: DraftLookups;
@@ -41,14 +43,15 @@ type CreaRaw = {
     idsByGroup: Record<string, string[]>;
     pick: Awaited<ReturnType<typeof listBaseProductsForPickerWithCategory>>;
     styles: V2Style[];
-    pairs: Awaited<ReturnType<typeof listCatalogProductPairs>>;
+    /** `null` finché non sono arrivate (si leggono dopo, a parte). */
+    pairs: Awaited<ReturnType<typeof listCatalogProductPairs>> | null;
     positions: Record<string, Record<string, number>>;
 };
 
 /**
  * Quello che serve per aprire il tunnel. In quali menù sta ogni piatto arriva dopo,
  * a parte (`listCatalogProductPairs` legge a pagine tutte le coppie: con aziende
- * grandi rallentava l'apertura, review #473 punto 6); intanto `pairs` è vuoto.
+ * grandi rallentava l'apertura, review #473 punto 6); intanto `pairs` è `null`.
  */
 export async function readCrea(tenantId: string): Promise<CreaRaw> {
     const [rules, opts, pick, styles, positions] = await Promise.all([
@@ -75,7 +78,7 @@ export async function readCrea(tenantId: string): Promise<CreaRaw> {
         featured: opts.featuredContents,
         idsByGroup,
         pick,
-        pairs: [],
+        pairs: null,
         positions,
         styles: styles.filter(st => st.is_active !== false)
     };
@@ -95,7 +98,10 @@ export function useCreaData(tenantId: string | null | undefined) {
         const n = ++loads.current;
         setFailed(false);
         try {
-            setRaw(await readCrea(tenantId));
+            const fresh = await readCrea(tenantId);
+            if (n !== loads.current) return;
+            // ricaricando, le coppie di prima restano finché non arrivano le nuove
+            setRaw(r => ({ ...fresh, pairs: r?.pairs ?? null }));
             listCatalogProductPairs(tenantId)
                 .then(pairs => void (n === loads.current && setRaw(r => (r ? { ...r, pairs } : r))))
                 .catch((error: unknown) => console.error("[Crea] menù dei piatti non letti:", error));
@@ -141,13 +147,14 @@ export function useCreaData(tenantId: string | null | undefined) {
                 r.layout?.style_id
         );
         const menusOf = new Map<string, string[]>();
-        for (const x of raw.pairs) {
+        for (const x of raw.pairs ?? []) {
             const l = menusOf.get(x.product_id);
             if (!l) menusOf.set(x.product_id, [x.catalog_id]);
             else if (!l.includes(x.catalog_id)) l.push(x.catalog_id);
         }
         return {
             menusOf,
+            menusReady: raw.pairs !== null,
             positions: raw.positions,
             rules: raw.rules,
             names,
