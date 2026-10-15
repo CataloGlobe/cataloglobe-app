@@ -411,7 +411,10 @@ export default function CalendarioView({
     const hours = useHourStep(axis);
 
     const selDay = week + dDay;
+    // il giorno toccato nel mini mese: in Settimana resta segnato finché si cambia settimana (v40, v43)
+    const [mmPick, setMmPick] = useState<DayNum | null>(null);
     const step = (dir: number) => {
+        setMmPick(null);
         if (view === "day") {
             const d = selDay + dir;
             setWeek(d - dayOfWeek(d));
@@ -473,12 +476,14 @@ export default function CalendarioView({
         };
     });
     const goToday = () => {
+        setMmPick(null);
         setWeek(monday);
         setDDay(dayOfWeek(today));
         setMonOff(0);
         jump(today);
     };
     const goDay = (d: DayNum) => {
+        setMmPick(d);
         setWeek(d - dayOfWeek(d));
         setDDay(dayOfWeek(d));
         setMonOff(0);
@@ -527,7 +532,7 @@ export default function CalendarioView({
             // l'ora di adesso: dopo mezzanotte sta in coda alla serata di ieri
             const nowX = isToday && nowMin >= ax.from ? X(nowMin) : date === today - 1 && nowMin + 1440 < ax.to ? X(nowMin + 1440) : null;
             return (
-                <div key={sede.id + ":" + i} className={`${s.fday} ${isToday ? s.today : ""}`} data-day={date}>
+                <div key={sede.id + ":" + i} className={`${s.fday} ${isToday ? s.today : ""} ${LOOK_D && view === "week" && date === mmPick && !isToday ? s.picked : ""}`} data-day={date}>
                     <div className={s.fdl}>{label(i, date)}</div>
                     <div className={s.flabs}>
                         {lanes.map(l => {
@@ -908,7 +913,7 @@ export default function CalendarioView({
                 {weeks.map(w => (
                     <div key={w} className={`${s.mmw} ${view === "week" && w === week ? s.sel : ""}`}>
                         {[0, 1, 2, 3, 4, 5, 6].map(i => {
-                            const d = w + i, dp = dayParts(d), sp = specials(d), isSel = view === "day" && d === selDay;
+                            const d = w + i, dp = dayParts(d), sp = specials(d), isSel = view === "day" ? d === selDay : LOOK_D && d === mmPick;
                             const cls = [s.mmd, dp.month !== fp.month ? s.out : "", d === today ? s.isToday : "", isSel ? s.sel : "", sp.length ? s.dot : ""].join(" ");
                             const said = sp.length ? `Date speciali: ${sp.map(q).join(", ")}` : "";
                             return (
@@ -1336,9 +1341,9 @@ export default function CalendarioView({
             <div className={s.iph}>
                 <b>Anteprima · {KIND_LABEL[draft.kind]}</b>
                 <span className={s.iwk}>
-                    <IconButton size="sm" icon={<ChevronLeft size={14} />} aria-label="Settimana precedente" onClick={() => setWeek(w => w - 7)} />
+                    <IconButton size="sm" icon={<ChevronLeft size={14} />} aria-label="Settimana precedente" onClick={() => { setWeek(w => w - 7); setMmPick(null); }} />
                     <span>{weekLong(week)}</span>
-                    <IconButton size="sm" icon={<ChevronRight size={14} />} aria-label="Settimana successiva" onClick={() => setWeek(w => w + 7)} />
+                    <IconButton size="sm" icon={<ChevronRight size={14} />} aria-label="Settimana successiva" onClick={() => { setWeek(w => w + 7); setMmPick(null); }} />
                 </span>
             </div>
             {away && pd && (

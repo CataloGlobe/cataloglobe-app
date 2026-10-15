@@ -2343,8 +2343,71 @@ button.dqsedi {
     .fday.today {
         --rb: color-mix(in srgb, var(--d-brand) 6%, var(--d-surface));
     }
-    .fday.flash {
-        --rb: color-mix(in srgb, var(--d-brand) 18%, var(--d-surface));
+    // il giorno scelto nel mini mese: bordo del colore del suo cerchio, che
+    // arriva stringendosi; su oggi appare e svanisce (v43, al posto del lampo)
+    .fday {
+        position: relative;
+        &::after {
+            content: "";
+            position: absolute;
+            inset: 4px;
+            z-index: 4;
+            border: 2px solid var(--d-brand-deep);
+            border-radius: 14px;
+            opacity: 0;
+            pointer-events: none;
+        }
+    }
+    .fday.picked::after {
+        opacity: 1;
+    }
+    .fday.flash::after {
+        animation: dayRing 520ms var(--d-ease) both;
+    }
+    .fday.today.flash::after {
+        animation: dayRingOut 1.4s var(--d-ease) both;
+    }
+    .fday.picked .fdl b:not(.gsn) {
+        padding: 1px 9px;
+        border-radius: var(--d-r-pill);
+        box-shadow: inset 0 0 0 2px var(--d-brand-deep);
+        color: var(--d-brand-deep);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .fday.flash::after,
+        .fday.today.flash::after {
+            animation: none;
+        }
+    }
+    @keyframes dayRing {
+        from {
+            opacity: 0;
+            transform: scale(1.015);
+            box-shadow: 0 0 0 6px color-mix(in srgb, var(--d-brand) 22%, transparent);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+            box-shadow: 0 0 0 0 transparent;
+        }
+    }
+    @keyframes dayRingOut {
+        0% {
+            opacity: 0;
+            transform: scale(1.015);
+            box-shadow: 0 0 0 6px color-mix(in srgb, var(--d-brand) 22%, transparent);
+        }
+        35% {
+            opacity: 1;
+            transform: none;
+            box-shadow: 0 0 0 0 transparent;
+        }
+        70% {
+            opacity: 1;
+        }
+        100% {
+            opacity: 0;
+        }
     }
     .fhead > div:nth-child(1),
     .fhead > div:nth-child(2) {
