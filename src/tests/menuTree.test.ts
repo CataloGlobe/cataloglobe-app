@@ -264,6 +264,20 @@ describe("salvare «Categorie e piatti» in modifica", () => {
         expect([...m.keys()]).toEqual([]);
     });
 
+    it("«Riprova» dopo aver rimesso fuori una categoria vecchia spostata dentro quella nuova: torna fuori prima che la nuova si cancelli", async () => {
+        const m = new Map<string, unknown>();
+        const first = menu();
+        const dolci = first.pop()!;
+        first.push(S("Contorni", [], [dolci]));
+        await saveSezioni(first, menu(), "m1", "T", m);
+        calls.length = 0;
+        await saveSezioni(menu(), menu(), "m1", "T", m);
+        expect(calls).toEqual([
+            ["updateCategory", "c4", "T", { parent_category_id: null, level: 1 }],
+            ["deleteCategory", "n1", "T"]
+        ]);
+    });
+
     // review #472, punto 2: come writeSections, il collegamento si riconosce anche dal prodotto
     it("«Riprova» dopo aver cambiato il prodotto del piatto nuovo: il collegamento di prima lascia il posto", async () => {
         const m = new Map<string, unknown>([["sez-link:e", { id: "le", catId: "c4", productId: "p-vecchio", sort: 10 }]]);

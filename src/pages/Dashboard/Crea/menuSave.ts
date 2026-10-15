@@ -168,12 +168,18 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
                 idOf.set(sec, (m.get(key) as CatW).id);
             } else {
                 idOf.set(sec, sec.id);
-                const o = was.get(sec.id);
+                // al «Riprova» conta quello già scritto: spostata dentro una categoria nuova e poi rimessa
+                // a posto, torna fuori prima che la nuova si cancelli e se la porti via (review del punto 1)
+                const o = was.get(sec.id), key = `sez-old:${sec.id}`;
+                const w = (m.get(key) as Omit<CatW, "id"> | undefined) ?? (o && { name: o.sec.name.trim(), sort: o.sec.sort!, parent: o.parent, level: o.level });
                 const upd: Parameters<typeof updateCategory>[2] = {};
-                if (o?.sec.name.trim() !== name) upd.name = name;
-                if (o?.sec.sort !== sort[i]) upd.sort_order = sort[i];
-                if (o?.parent !== parent || o?.level !== level) Object.assign(upd, { parent_category_id: parent, level });
-                if (Object.keys(upd).length) await updateCategory(sec.id, tenantId, upd);
+                if (w?.name !== name) upd.name = name;
+                if (w?.sort !== sort[i]) upd.sort_order = sort[i];
+                if (w?.parent !== parent || w?.level !== level) Object.assign(upd, { parent_category_id: parent, level });
+                if (Object.keys(upd).length) {
+                    await updateCategory(sec.id, tenantId, upd);
+                    m.set(key, { name, sort: sort[i], parent, level });
+                }
             }
             if (level < MAX_LEVEL) await cats(sec.subs, idOf.get(sec)!, (level + 1) as 2 | 3);
         }
