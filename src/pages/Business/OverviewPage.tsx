@@ -938,10 +938,10 @@ export default function OverviewPage() {
                                     <span className={styles.createIcon} aria-hidden="true">
                                         {option.icon}
                                     </span>
-                                    <Text as="span" variant="body-sm" weight={600} className={styles.createTitle}>
+                                    <Text as="span" variant="body-sm" weight={600} className={LOOK_D ? styles.createTitle : undefined}>
                                         {option.title}
                                     </Text>
-                                    <Text as="span" variant="caption" colorVariant="muted" className={styles.createText}>
+                                    <Text as="span" variant="caption" colorVariant="muted" className={LOOK_D ? styles.createText : undefined}>
                                         {option.text}
                                     </Text>
                                     {/* Direzione D (v28): l'invito in fondo alla tessera. */}

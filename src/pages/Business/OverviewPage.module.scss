@@ -400,3 +400,15 @@
     }
   }
 }
+
+// Movimento ridotto: le tessere di «Crea» non si alzano e non scivolano
+// (consiglio di Lorenzo, review della pila D; come già fa Servizio).
+@media (prefers-reduced-motion: reduce) {
+  .createTile,
+  .createGo svg {
+    @include look-d {
+      transition: none;
+      transform: none !important;
+    }
+  }
+}

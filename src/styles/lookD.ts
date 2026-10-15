@@ -2,11 +2,12 @@
  * Interruttore della grafica nuova del back office, direzione D (VITE_BACKOFFICE_D).
  *
  * Deciso da Alex il 2026-10-14: acceso su staging, spento in produzione finché
- * non sono entrate tutte e cinque le PR della grafica; poi si toglie lo stile
- * vecchio. Letto in un posto solo: `main.tsx` mette `data-look="d"` sulla
+ * non sono entrate tutte le PR della grafica. Dal Visual Redesign 2, PR 12, è
+ * acceso di suo: si spegne solo con `VITE_BACKOFFICE_D=false`. Lo stile
+ * vecchio si toglie con una PR a parte. Letto in un posto solo: `main.tsx` mette `data-look="d"` sulla
  * radice e gli stili della D stanno dentro `@include look-d` (`_mixins.scss`).
  */
-export const LOOK_D = import.meta.env.VITE_BACKOFFICE_D === "true";
+export const LOOK_D = import.meta.env.VITE_BACKOFFICE_D !== "false";
 
 /** Le due curve della D, per framer-motion (in CSS: `--d-ease`, `--d-ease-move`). */
 export const D_EASE = [0.23, 1, 0.32, 1] as const;
