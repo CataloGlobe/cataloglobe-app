@@ -240,10 +240,19 @@ describe("ritiro del consenso alle allergie", () => {
         );
         expect(branch).not.toContain("window.allowed");
         expect(branch).not.toContain("isCancellable");
+        // Nessun controllo sullo stato prima della scrittura: il consenso si
+        // ritira anche su una prenotazione annullata o già passata.
+        const beforeUpdate = branch.slice(0, branch.indexOf(".update("));
+        expect(beforeUpdate).not.toMatch(/\bstatus\b/);
     });
 
     it("senza allergie è un successo idempotente, non un errore", () => {
-        expect(SOURCE).toContain("already_removed: true");
+        const branch = SOURCE.slice(
+            SOURCE.indexOf('// ── action === "remove_allergies"'),
+            SOURCE.indexOf('// ── action === "cancel"')
+        );
+        expect(branch).toContain("already_removed: true");
+        expect(branch.indexOf("already_removed: true")).toBeLessThan(branch.indexOf(".update("));
     });
 
     it("il ritiro ha un limite di frequenza stretto come l'annullamento", () => {

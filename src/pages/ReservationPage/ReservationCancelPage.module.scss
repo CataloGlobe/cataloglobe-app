@@ -147,6 +147,7 @@
 
 .allergiesTitle {
     margin: 0;
+    outline: none; /* riceve il focus solo da codice, tra un passo e l'altro */
     font-size: 16px;
     font-weight: 600;
     color: var(--pub-text);

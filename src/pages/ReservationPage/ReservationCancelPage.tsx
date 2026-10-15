@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
@@ -84,10 +84,22 @@ type AllergiesState = "idle" | "confirming" | "removing" | "removed";
  * Riquadro «Togli le mie allergie». Chiede conferma prima di cancellare,
  * perché non si torna indietro.
  */
-function AllergiesWithdrawal({ token }: { token: string }) {
+function AllergiesWithdrawal({ token, onInvalidLink }: { token: string; onInvalidLink: () => void }) {
     const { t } = useTranslation("public");
     const [state, setState] = useState<AllergiesState>("idle");
     const [error, setError] = useState<string | null>(null);
+    const titleRef = useRef<HTMLHeadingElement>(null);
+    const isFirstRender = useRef(true);
+
+    // A ogni passo il bottone toccato sparisce: il focus torna sul titolo del
+    // riquadro, così tastiera e lettore di schermo non ripartono da capo.
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+        titleRef.current?.focus();
+    }, [state]);
 
     const handleRemove = useCallback(async () => {
         setState("removing");
@@ -96,18 +108,30 @@ function AllergiesWithdrawal({ token }: { token: string }) {
             await removeReservationAllergies(token);
             setState("removed");
         } catch (err) {
+            const code = errorCodeOf(err);
+            if (code === "INVALID_LINK") {
+                onInvalidLink();
+                return;
+            }
             setState("confirming");
             setError(
-                errorCodeOf(err) === "RATE_LIMITED"
+                code === "RATE_LIMITED"
                     ? t("reservation.cancel.rate_limited_text")
                     : t("reservation.cancel.error_text")
             );
         }
-    }, [t, token]);
+    }, [onInvalidLink, t, token]);
+
+    const title = (
+        <h2 ref={titleRef} tabIndex={-1} className={styles.allergiesTitle}>
+            {t("reservation.cancel.allergies_title")}
+        </h2>
+    );
 
     if (state === "removed") {
         return (
             <section className={styles.allergies} aria-live="polite">
+                {title}
                 <p className={styles.allergiesText}>{t("reservation.cancel.allergies_removed")}</p>
             </section>
         );
@@ -115,7 +139,7 @@ function AllergiesWithdrawal({ token }: { token: string }) {
 
     return (
         <section className={styles.allergies} aria-live="polite">
-            <h2 className={styles.allergiesTitle}>{t("reservation.cancel.allergies_title")}</h2>
+            {title}
             <p className={styles.allergiesText}>
                 {t(
                     state === "idle"
@@ -280,6 +304,8 @@ export default function ReservationCancelPage() {
         }
     }, [isCancelling, t, token]);
 
+    const handleInvalidLink = useCallback(() => setView({ kind: "invalid" }), []);
+
     const brandName = branding?.brandName ?? summaryOf(view)?.venue_name ?? null;
     usePageHead({
         title: brandName ? t("reservation.cancel.doc_title", { brand: brandName }) : t("reservation.cancel.title")
@@ -419,7 +445,9 @@ export default function ReservationCancelPage() {
     const body = (
         <div className={pageStyles.stateWrapper}>
             {content}
-            {current?.has_allergies && <AllergiesWithdrawal token={token} />}
+            {current?.has_allergies && (
+                <AllergiesWithdrawal token={token} onInvalidLink={handleInvalidLink} />
+            )}
         </div>
     );
 
