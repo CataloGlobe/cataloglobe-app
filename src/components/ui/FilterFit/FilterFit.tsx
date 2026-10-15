@@ -68,10 +68,18 @@ export function FilterFit<T extends string>({ children, active, onClear, aside, 
         setZip(tooWide);
     }, []);
 
+    // Quando cambia il contenuto la soglia vecchia non vale più: una riga
+    // accorciata (un filtro tolto, numeri più corti, `short`) si deve poter
+    // riaprire anche senza che la pagina si allarghi.
+    const refit = useCallback(() => {
+        needRef.current = 0;
+        fit();
+    }, [fit]);
+
     // Prima del disegno solo quando cambia ciò che decide la riga; i numeri
     // nelle pill e il resto del contenuto li segue il MutationObserver qui sotto.
     const sortValue = sort?.value;
-    useLayoutEffect(fit, [fit, active, short, sortValue]);
+    useLayoutEffect(refit, [refit, active, short, sortValue]);
 
     useEffect(() => {
         const row = rowRef.current;
@@ -85,14 +93,14 @@ export function FilterFit<T extends string>({ children, active, onClear, aside, 
         ro.observe(row);
         if (row.parentElement) ro.observe(row.parentElement);
         // testi e figli, non gli attributi: `data-zip` lo scrive `fit` stesso
-        const mo = new MutationObserver(fit);
+        const mo = new MutationObserver(refit);
         mo.observe(row, { childList: true, subtree: true, characterData: true });
         return () => {
             cancelAnimationFrame(raf);
             ro.disconnect();
             mo.disconnect();
         };
-    }, [fit]);
+    }, [fit, refit]);
 
     return (
         <div ref={rowRef} className={`${s.row} ${className ?? ""}`} data-zip={zip ? "" : undefined}>

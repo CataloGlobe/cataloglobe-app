@@ -302,7 +302,11 @@ export default function Catalogs() {
                     message: `«${copy.name}» creato. Nessuno lo vede finché non lo metti in onda.`,
                     type: "success",
                     actionLabel: "Annulla",
-                    onAction: () => void deleteCatalog(copy.id, currentTenantId!).then(loadData, () => {})
+                    // se intanto la copia è andata in onda o è usata, non si toglie: lo si dice
+                    onAction: () =>
+                        void deleteCatalog(copy.id, currentTenantId!).then(loadData, () =>
+                            showToast({ message: `Non sono riuscito a togliere «${copy.name}»: forse è già in onda o usato. Toglilo dall'elenco.`, type: "error" })
+                        )
                 });
             } else {
                 showToast({ message: `${verticalConfig.catalogLabel} duplicato.`, type: "success" });
@@ -598,7 +602,8 @@ export default function Catalogs() {
 
         // D: le card con il foglio di carta (al telefono sempre Fogli).
         if (LOOK_D && (viewMode === "grid" || isPhone)) {
-            if (isLoading) return <CardGrid loading skeletonCount={3} skeletonShape={{ media: true, badge: true, height: CARD_HEIGHT }} />;
+            // si aspetta anche chi è in onda: senza, ogni card direbbe per un attimo «Metti in onda»
+            if (isLoading || (appearance.loading && !appearance.failed)) return <CardGrid loading skeletonCount={3} skeletonShape={{ media: true, badge: true, height: CARD_HEIGHT }} />;
             return (
                 <div className={vs.grid}>
                     <ul className={vs.cards} aria-label={verticalConfig.catalogLabelPlural}>

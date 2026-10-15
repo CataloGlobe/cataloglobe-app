@@ -240,7 +240,11 @@ export default function Styles() {
                         message: `«${copy.name}» creato. Nessuno lo vede finché non lo metti in onda.`,
                         type: "success",
                         actionLabel: "Annulla",
-                        onAction: () => void deleteStyle(copy.id, currentTenantId).then(loadData, () => {})
+                        // se intanto la copia è andata in onda o è usata, non si toglie: lo si dice
+                        onAction: () =>
+                            void deleteStyle(copy.id, currentTenantId).then(loadData, () =>
+                                showToast({ message: `Non sono riuscito a togliere «${copy.name}»: forse è già in onda o usato. Toglilo dall'elenco.`, type: "error" })
+                            )
                     });
                 } else {
                     showToast({ message: "Stile duplicato con successo.", type: "success" });
@@ -368,7 +372,8 @@ export default function Styles() {
 
         // D: le card con il telefono nei colori dello stile (al telefono sempre Fogli).
         if (LOOK_D && (viewMode === "grid" || isPhone)) {
-            if (isLoading) return <CardGrid loading skeletonShape={{ media: true, mediaHeight: 140 }} minColumnWidth={232} />;
+            // si aspetta anche chi è in onda: senza, ogni card direbbe per un attimo «Metti in onda»
+            if (isLoading || (canRead && appearance.loading && !appearance.failed)) return <CardGrid loading skeletonShape={{ media: true, mediaHeight: 140 }} minColumnWidth={232} />;
             return (
                 <div className={vs.grid}>
                     <ul className={vs.cards} aria-label="Stili">
