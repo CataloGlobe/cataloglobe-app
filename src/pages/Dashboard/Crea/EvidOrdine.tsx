@@ -10,6 +10,7 @@ import { thingName, type Tunnel } from "./creaModel";
 import { ME, ordFirst, ordMove, posTxt, type Others } from "./evidOrd";
 import type { U } from "./CreaSteps";
 import { Opt, Sh } from "./CreaUi";
+import { Destra } from "./Destra";
 import s from "./Crea.module.scss";
 import e from "./Evid.module.scss";
 
@@ -87,7 +88,13 @@ export function EvidOrdine({ t, u, L, others, alone }: { t: Tunnel; u: U; L: Dra
             {(!t.ordSame || !many) && (
                 <div className={cs.ifl}>
                     <h4>{many ? "L'ordine di ogni sede" : "L'ordine"}</h4>
-                    <p className={cs.muted}>{t.ordOpen ? `L'ordine di ${sname(t.ordOpen)}: cambia solo lì. A destra il telefono di quella sede.` : "Apri la sede da cambiare."}</p>
+                    <p className={cs.muted}>{t.ordOpen ? (
+                        <>
+                            L'ordine di {sname(t.ordOpen)}: cambia solo lì. <Destra wide="A destra" narrow="In «Anteprima»" /> il telefono di quella sede.
+                        </>
+                    ) : (
+                        "Apri la sede da cambiare."
+                    )}</p>
                     <div className={cs.dqrows}>
                         {ids.map(id => {
                             const open = t.ordOpen === id;

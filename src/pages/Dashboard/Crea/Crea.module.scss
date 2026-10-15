@@ -2604,3 +2604,18 @@ select.in {
         }
     }
 }
+
+/* «a destra» o «in «Anteprima»» (`Destra.tsx`): fuori dalla D solo la prima. */
+.dxN {
+    display: none;
+}
+@include look-d {
+    @media (max-width: 1100px) {
+        .dxW {
+            display: none;
+        }
+        .dxN {
+            display: inline;
+        }
+    }
+}

@@ -8,6 +8,7 @@ import { DB_WAIT, listIt, type Impatto, type Scontro } from "@/pages/Dashboard/P
 import { thingName, type Tunnel } from "./creaModel";
 import { hAltri, hCopreText, hDiff, hDiverse, hEsito, hSet, hSolo, hVal, nTutteSedi, type HAltro, type HVal } from "./creaSedePer";
 import { SedeGiorni } from "./SedeGiorni";
+import { Destra } from "./Destra";
 import s from "./Crea.module.scss";
 
 const q = (x: string) => "«" + x + "»";
@@ -93,7 +94,11 @@ export function SedePer({ t, u, scontri, sedi, onSede, eff }: { t: Tunnel; u: U;
     const stile = t.kind === "stile", w = (n: number) => (stile ? (n === 1 ? "stile" : "stili") : "menù");
     const altri = hAltri(scontri);
     const withX = sedi.filter(x => altri.has(x.id)), noX = sedi.filter(x => !altri.has(x.id));
-    const hint = <p className={s.hint}>{sedi.length > 1 ? "Aprendo una sede, la settimana a destra passa a lei." : ""}</p>;
+    const hint = <p className={s.hint}>{sedi.length > 1 && (
+            <>
+                Aprendo una sede, la settimana <Destra wide="a destra" narrow="in «Anteprima»" /> passa a lei.
+            </>
+        )}</p>;
     if (t.insieme == null) return <p className={s.hint}>Scegli una risposta: sotto compaiono {sedi.length > 1 ? "le sedi dove si incrocia" : `gli altri ${w(2)} con cui si incrocia`}.</p>;
     // con incroci in una sede sola non c'è niente da tenere uguale: si sceglie lì
     if (withX.length < 2) {
