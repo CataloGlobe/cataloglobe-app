@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
@@ -16,7 +16,14 @@ import type { ActivitySlugAlias } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenant } from "@/context/useTenant";
 import { buildPublicUrl } from "@/utils/publicUrl";
+import { Switch } from "@/components/ui/Switch/Switch";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./ActivityPubblicazioneRoute.module.scss";
+
+// Nella D (copia v74, «Il QR»): i colori si scelgono nella scheda, senza pannello.
+const QR_FG = ["#1d1840", "#6a5cf5", "#0e9488", "#b91c1c", QR_DEFAULT_FG];
+const QR_BG = [QR_DEFAULT_BG, "#fbf7ef", "#e8f4f1", "#f1efff"];
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /**
  * Link e QR (Officina 3): come si raggiunge questo locale. In fondo al
@@ -143,10 +150,53 @@ export default function ActivityPubblicazioneRoute() {
                             Se cambi indirizzo, il QR già stampato continua a funzionare, finché non rimuovi il vecchio
                             indirizzo dagli indirizzi precedenti.
                         </Text>
+                        {LOOK_D && (
+                            <div className={styles.qrPick}>
+                                {(
+                                    [
+                                        ["Colore del QR", QR_FG, fgColor, "qr_fg_color"],
+                                        ["Sfondo", QR_BG, bgColor, "qr_bg_color"]
+                                    ] as const
+                                ).map(([label, list, cur, key]) => (
+                                    <div key={key} className={styles.qrSw} role="group" aria-label={label}>
+                                        <span>{label}</span>
+                                        {(list.some(c => same(c, cur)) ? list : [...list, cur]).map(c => (
+                                            <button
+                                                key={c}
+                                                type="button"
+                                                className={styles.qrSwc}
+                                                style={{ "--c": c } as CSSProperties}
+                                                aria-label={c}
+                                                aria-pressed={same(c, cur)}
+                                                disabled={!canManage}
+                                                onClick={() => draft.set(key, c)}
+                                            />
+                                        ))}
+                                    </div>
+                                ))}
+                                {logoUrl && <Switch size="sm" label="Logo al centro" checked={showLogo} onChange={setShowLogo} />}
+                            </div>
+                        )}
                         <div className={styles.rowActions}>
-                            <Button variant="secondary" size="sm" onClick={() => setIsQrDrawerOpen(true)}>
-                                Personalizza
-                            </Button>
+                            {LOOK_D ? (
+                                canManage && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={fgColor === QR_DEFAULT_FG && bgColor === QR_DEFAULT_BG}
+                                        onClick={() => {
+                                            draft.set("qr_fg_color", QR_DEFAULT_FG);
+                                            draft.set("qr_bg_color", QR_DEFAULT_BG);
+                                        }}
+                                    >
+                                        Ripristina i colori
+                                    </Button>
+                                )
+                            ) : (
+                                <Button variant="secondary" size="sm" onClick={() => setIsQrDrawerOpen(true)}>
+                                    Personalizza
+                                </Button>
+                            )}
                             <Menu
                                 trigger={
                                     <Button

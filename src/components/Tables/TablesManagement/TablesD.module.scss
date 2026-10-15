@@ -107,9 +107,74 @@
         gap: 2px;
     }
 
+    // Le caselle (copia v73): una colonna in più davanti al tavolo.
+    .rowCk {
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+    }
+
+    .ck {
+        display: inline-flex;
+        width: 24px;
+        input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--d-brand);
+            cursor: pointer;
+        }
+    }
+
+    // Capienza non dichiarata: il triangolo accanto al nome.
+    .tri {
+        display: inline-flex;
+        margin-left: 6px;
+        vertical-align: -3px;
+        color: var(--d-s-wait-ink);
+    }
+
+    // «N tavoli selezionati» sopra la lista.
+    .sel {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+        padding: 10px 14px;
+        border: 1px solid var(--d-line);
+        border-radius: var(--d-r-card);
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow);
+        b {
+            @include d-type(body-s);
+            font-weight: 700;
+        }
+    }
+
+    .fl {
+        flex: 1;
+    }
+
+    .regenCk {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        @include d-type(body-s);
+        color: var(--d-text);
+        input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--d-brand);
+        }
+    }
+
     @container sala (max-width: 560px) {
         .row {
             grid-template-columns: minmax(0, 1fr) auto;
+        }
+        .rowCk {
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            .tags {
+                grid-column: 2 / -1;
+            }
         }
         .tags {
             grid-column: 1 / -1;

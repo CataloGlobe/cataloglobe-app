@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Eye, EyeOff, QrCode, TriangleAlert } from "lucide-react";
+import { Eye, EyeOff, Pencil, QrCode, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { PART_ICON, PART_TITLE, type SchedaPart } from "./schedaCopy";
@@ -16,6 +16,7 @@ import {
     type SchedaFacts
 } from "./schedaModel";
 import { SchedaWeek } from "./SchedaWeek";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./Scheda.module.scss";
 import { SchedaTileFoot } from "./SchedaTileFoot";
 
@@ -279,6 +280,22 @@ export function SchedaTile({ part, facts, actions, wide = false, highlighted = f
                     {PART_TITLE[part]}
                 </button>
                 {actions.changed(part) && <span className={styles.chg}>Da salvare</span>}
+                {LOOK_D && (
+                    // copia v63: la matita «Modifica» in ogni tessera (senza permesso «Apri»)
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={styles.tileEd}
+                        leftIcon={actions.canManage ? <Pencil size={15} strokeWidth={1.9} aria-hidden /> : undefined}
+                        aria-label={`${actions.canManage ? "Modifica" : "Apri"} ${PART_TITLE[part]}`}
+                        onClick={e => {
+                            e.stopPropagation();
+                            actions.open(part);
+                        }}
+                    >
+                        {actions.canManage ? "Modifica" : "Apri"}
+                    </Button>
+                )}
             </div>
             <div className={cx(styles.ans, muted && styles.ansMuted)}>{ans}</div>
             {det && <div className={styles.det}>{det}</div>}

@@ -37,6 +37,7 @@ import TableQrPreviewDrawer from "@/components/Tables/TableQrPreviewDrawer/Table
 
 import { LOOK_D } from "@/styles/lookD";
 import { TablesD } from "./TablesD";
+import dStyles from "./TablesD.module.scss";
 import styles from "./TablesManagement.module.scss";
 
 export interface TablesManagementProps {
@@ -133,6 +134,7 @@ export function TablesManagement({
 
     // Il bulk chiede conferma: i tavoli si ricreano, i QR stampati no.
     const [pendingBulkIds, setPendingBulkIds] = useState<string[]>([]);
+    const [regenTerminate, setRegenTerminate] = useState(true);
 
     const handleBulkDelete = useCallback(
         async (ids: string[]) => {
@@ -258,6 +260,7 @@ export function TablesManagement({
     }
 
     function openRegen(item: V2Table) {
+        setRegenTerminate(true);
         setItemToRegen(item);
         setIsRegenOpen(true);
     }
@@ -306,7 +309,10 @@ export function TablesManagement({
         try {
             await regenerateTableQrToken(itemToRegen.id, tenantId, terminateSessions);
             showToast({
-                message: "Token rigenerato. Stampa il nuovo QR.",
+                message: LOOK_D
+                    ? `QR nuovo per «${itemToRegen.label}».` +
+                      (terminateSessions ? " Chi era collegato deve inquadrarlo di nuovo." : " Chi è seduto resta collegato.")
+                    : "Token rigenerato. Stampa il nuovo QR.",
                 type: "success"
             });
             setIsRegenOpen(false);
@@ -544,6 +550,10 @@ export function TablesManagement({
                     onQrSingle={t => void handleGenerateQrSingle(t)}
                     onRegen={openRegen}
                     onDelete={openDelete}
+                    isExcluded={t => reservationsEnabled && isExcludedFromEngine(t)}
+                    selected={selectedTableIds}
+                    onSelected={setSelectedTableIds}
+                    onBulkDelete={ids => setPendingBulkIds(ids)}
                 />
             ) : (
             <div className={styles.content}>
@@ -712,15 +722,39 @@ export function TablesManagement({
                 onConfirm={handleDelete}
             />
 
-            <TableRegenerateTokenDrawer
-                open={isRegenOpen}
-                table={itemToRegen}
-                onClose={() => {
-                    setIsRegenOpen(false);
-                    setItemToRegen(null);
-                }}
-                onConfirm={handleRegenerate}
-            />
+            {LOOK_D ? (
+                // copia v73: «Fai un QR nuovo» in una finestra, con la casella per chi è seduto
+                <ConfirmDialog
+                    isOpen={isRegenOpen}
+                    onClose={() => {
+                        setIsRegenOpen(false);
+                        setItemToRegen(null);
+                    }}
+                    onConfirm={async () => {
+                        await handleRegenerate(regenTerminate);
+                        return false;
+                    }}
+                    title={`Fare un QR nuovo per «${itemToRegen?.label ?? ""}»?`}
+                    message="Il QR stampato smette di funzionare: va ristampato."
+                    confirmLabel="Fai il QR nuovo"
+                    confirmVariant="primary"
+                >
+                    <label className={dStyles.regenCk}>
+                        <input type="checkbox" checked={regenTerminate} onChange={e => setRegenTerminate(e.target.checked)} />
+                        Chiudi anche chi è seduto adesso a questo tavolo
+                    </label>
+                </ConfirmDialog>
+            ) : (
+                <TableRegenerateTokenDrawer
+                    open={isRegenOpen}
+                    table={itemToRegen}
+                    onClose={() => {
+                        setIsRegenOpen(false);
+                        setItemToRegen(null);
+                    }}
+                    onConfirm={handleRegenerate}
+                />
+            )}
 
             <TableQrPreviewDrawer
                 open={qrPreviewTableId !== null}

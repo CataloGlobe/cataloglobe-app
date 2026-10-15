@@ -7,6 +7,7 @@ import type { Notification } from "@/services/supabase/notifications";
 import { useNotificationChime } from "@/hooks/useNotificationChime";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import { resolveTargetPath } from "./notificationTarget";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./AppHeader.module.scss";
 
 type HeaderNotificationsProps = (
@@ -123,6 +124,12 @@ export function HeaderNotifications(props: HeaderNotificationsProps) {
                     <Bell size={14} aria-hidden="true" />
                     <span>Notifiche</span>
                 </div>
+                {/* copia v69: «Segna tutte come lette» in testata */}
+                {LOOK_D && hasUnreadInScope && scopedNotifications.length > 0 && (
+                    <button type="button" onClick={handleMarkAllInScope} className={styles.notifMarkAllD}>
+                        Segna tutte come lette
+                    </button>
+                )}
                 <label className={styles.notifSoundSwitch}>
                     {soundEnabled ? (
                         <Volume2
@@ -201,7 +208,7 @@ export function HeaderNotifications(props: HeaderNotificationsProps) {
                             </li>
                         ))}
                     </ul>
-                    {hasUnreadInScope && (
+                    {!LOOK_D && hasUnreadInScope && (
                         <button
                             type="button"
                             onClick={handleMarkAllInScope}

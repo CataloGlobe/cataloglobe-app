@@ -1,4 +1,4 @@
-import { DoorClosed, Moon, RotateCcw, TriangleAlert } from "lucide-react";
+import { DoorClosed, Moon, Pencil, RotateCcw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import {
     canCloseEarly,
@@ -7,8 +7,10 @@ import {
     nowSentence,
     problems,
     type Problem,
-    type SchedaFacts
+    type SchedaFacts,
+    spansText
 } from "./schedaModel";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./Scheda.module.scss";
 
 export interface NowActions {
@@ -27,7 +29,8 @@ export interface NowActions {
  * momento, i due tasti di «Solo per oggi» e sotto i problemi scritti come
  * conseguenze, ognuno col suo bottone.
  */
-export function SchedaNow({ facts, actions }: { facts: SchedaFacts; actions: NowActions }) {
+/** Nella D (copia v63): `onEdit` mette la matita in testata, verso gli orari. */
+export function SchedaNow({ facts, actions, onEdit, canEdit = true }: { facts: SchedaFacts; actions: NowActions; onEdit?: () => void; canEdit?: boolean }) {
     const { a, closure } = facts;
     const segments = nowSentence({
         activity: a,
@@ -91,7 +94,23 @@ export function SchedaNow({ facts, actions }: { facts: SchedaFacts; actions: Now
 
     return (
         <div className={styles.now}>
-            <span className={styles.nowLab}>Adesso · {nowLabel(facts.now)}</span>
+            {LOOK_D && onEdit && a.status === "active" ? (
+                <div className={styles.nowHd}>
+                    <span className={styles.nowLab}>Adesso · {nowLabel(facts.now)}</span>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={styles.tileEd}
+                        leftIcon={canEdit ? <Pencil size={15} strokeWidth={1.9} aria-hidden /> : undefined}
+                        aria-label={canEdit ? "Modifica gli orari" : "Apri gli orari"}
+                        onClick={onEdit}
+                    >
+                        {canEdit ? "Modifica" : "Apri"}
+                    </Button>
+                </div>
+            ) : (
+                <span className={styles.nowLab}>Adesso · {nowLabel(facts.now)}</span>
+            )}
             <div className={styles.nowRow}>
                 <p className={styles.say} aria-live="polite">
                     {segments.map((s, i) =>
@@ -106,6 +125,13 @@ export function SchedaNow({ facts, actions }: { facts: SchedaFacts; actions: Now
                 </p>
                 {today}
             </div>
+            {LOOK_D && a.status === "active" && facts.hasHours && facts.spans.length > 0 && (
+                // copia v63: le fasce di oggi sotto la frase, «solo oggi» se cambiate per oggi
+                <p className={styles.og}>
+                    Oggi {spansText(facts.spans)}
+                    {todayOnly && <em>solo oggi</em>}
+                </p>
+            )}
             {list.map(p => (
                 <div key={`${p.part}-${p.text}`} className={styles.prob}>
                     <TriangleAlert size={16} strokeWidth={1.75} aria-hidden />

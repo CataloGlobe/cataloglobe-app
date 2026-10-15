@@ -1,4 +1,6 @@
 @use "@styles/variables" as *;
+@use "@styles/mixins" as m;
+@use "@styles/d-type" as d;
 
 /* `ModalLayout` è sempre su superficie chiara, nessun override tema scuro:
    qui solo colori statici stabili fra i due temi (vedi RuleTypeHelpModal). */
@@ -233,5 +235,79 @@
     .footerRight {
         flex: 1;
         justify-content: space-between;
+    }
+}
+
+/* ---------- Grafica D (copia v58, `.pg-*`) ---------- */
+@include m.look-d {
+    .hdIcon {
+        display: inline-flex;
+        color: var(--d-brand);
+    }
+
+    .closeButton {
+        color: var(--d-muted);
+        border-radius: 50%;
+
+        &:hover {
+            background: var(--d-soft);
+            color: var(--d-text);
+        }
+    }
+
+    .seg {
+        height: 5px;
+        border-radius: 3px;
+        background: var(--d-line);
+
+        &[data-state="done"] {
+            background: color-mix(in srgb, var(--d-brand) 55%, transparent);
+            opacity: 1;
+        }
+
+        &[data-state="current"] {
+            background: var(--d-brand);
+            opacity: 1;
+        }
+    }
+
+    .stepMeta {
+        @include d.d-type(note);
+        color: var(--d-muted);
+    }
+
+    .stepTitle {
+        @include d.d-type(pane-title);
+        color: var(--d-text);
+    }
+
+    .imageFigure img {
+        border-color: var(--d-line);
+        border-radius: 12px;
+    }
+
+    .callout {
+        border-radius: 12px;
+    }
+
+    .calloutAmber {
+        background: var(--d-ban-warn);
+        border-color: var(--d-ban-warn-line);
+        color: var(--d-ban-warn-ink);
+    }
+
+    .calloutBlue {
+        background: color-mix(in srgb, var(--d-brand) 8%, var(--d-surface));
+        border-color: color-mix(in srgb, var(--d-brand) 22%, transparent);
+        color: var(--d-brand-deep);
+    }
+
+    .allStep {
+        border-top-color: var(--d-line);
+    }
+
+    .allStepNumber {
+        @include d.d-type(label);
+        color: var(--d-brand-deep);
     }
 }
