@@ -95,6 +95,8 @@ describe("Storie: la frase in cima", () => {
     it("conta le storie in onda e le bozze", () => {
         expect(text(storieLead(2, 1))).toBe("2 storie in onda, una in bozza. Stanno sotto il menù, negli approfondimenti.");
         expect(text(storieLead(1, 3))).toBe("Una storia in onda, 3 in bozza. Stanno sotto il menù, negli approfondimenti.");
+        expect(text(storieLead(1, 1, 2))).toBe("Una storia in onda, una in bozza, 2 ferme. Stanno sotto il menù, negli approfondimenti.");
+        expect(text(storieLead(0, 0, 1))).toBe("Nessuna storia in onda, una ferma. Stanno sotto il menù, negli approfondimenti.");
     });
 
     it("senza bozze e senza storie in onda", () => {

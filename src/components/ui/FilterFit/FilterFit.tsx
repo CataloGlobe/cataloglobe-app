@@ -44,6 +44,8 @@ const W = 320;
  */
 export function FilterFit<T extends string>({ children, active, onClear, aside, panelExtra, sort, short, className }: FilterFitProps<T>) {
     const rowRef = useRef<HTMLDivElement>(null);
+    const pillsRef = useRef<HTMLDivElement>(null);
+    const asideRef = useRef<HTMLDivElement>(null);
     const [zip, setZip] = useState(false);
     const zipRef = useRef(false);
     // La larghezza che serviva alla riga intera l'ultima volta che non ci stava.
@@ -92,9 +94,11 @@ export function FilterFit<T extends string>({ children, active, onClear, aside, 
         const ro = new ResizeObserver(later);
         ro.observe(row);
         if (row.parentElement) ro.observe(row.parentElement);
-        // testi e figli, non gli attributi: `data-zip` lo scrive `fit` stesso
+        // testi e figli delle pill e di `aside`, non della riga intera: il
+        // pulsante coi cursori e «Ordina» a icona li cambia `fit` stesso, e
+        // guardarli lo farebbe ripartire senza fine (la riga si apre e si chiude)
         const mo = new MutationObserver(refit);
-        mo.observe(row, { childList: true, subtree: true, characterData: true });
+        for (const el of [pillsRef.current, asideRef.current]) if (el) mo.observe(el, { childList: true, subtree: true, characterData: true });
         return () => {
             cancelAnimationFrame(raf);
             ro.disconnect();
@@ -104,11 +108,11 @@ export function FilterFit<T extends string>({ children, active, onClear, aside, 
 
     return (
         <div ref={rowRef} className={`${s.row} ${className ?? ""}`} data-zip={zip ? "" : undefined}>
-            <div className={s.pills} aria-hidden={zip || undefined} inert={zip || undefined}>
+            <div ref={pillsRef} className={s.pills} aria-hidden={zip || undefined} inert={zip || undefined}>
                 {children}
             </div>
             {aside && (
-                <div className={s.aside} aria-hidden={zip || undefined} inert={zip || undefined}>
+                <div ref={asideRef} className={s.aside} aria-hidden={zip || undefined} inert={zip || undefined}>
                     {aside}
                 </div>
             )}
