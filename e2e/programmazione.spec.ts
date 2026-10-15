@@ -266,11 +266,14 @@ test.describe("Programmazione — elenco", () => {
         await expect(rowOf(rule(page, "carta"))).toContainText(`A Centro e2e vince «${RULE_NAME.pranzo}»`);
         await expect(rowOf(rule(page, "bozza"))).toContainText("Bozza");
         await expect(rowOf(rule(page, "pranzo"))).toContainText(/11:00.15:00/);
-        // Il verbo del mockup, per tipo (P3-bis).
-        await expect(rowOf(rule(page, "pranzo"))).toContainText("mostra Pranzo e2e · Lun–Ven · 11:00–15:00");
-        await expect(rowOf(rule(page, "spritz"))).toContainText("cambia 3 prezzi");
-        await expect(rowOf(rule(page, "stagionali"))).toContainText("nasconde 1 · non disponibile 1");
-        await expect(rowOf(rule(page, "natale"))).toContainText("mostra 1 contenuto");
+        // Il verbo del mockup, per tipo (P3-bis). Nella D comincia con la maiuscola
+        // e il quando ha la sua colonna.
+        const d = await lookD(page);
+        await expect(rowOf(rule(page, "pranzo"))).toContainText(d ? "Mostra Pranzo e2e" : "mostra Pranzo e2e · Lun–Ven · 11:00–15:00");
+        if (d) await expect(rowOf(rule(page, "pranzo"))).toContainText("Lun–Ven · 11:00–15:00");
+        await expect(rowOf(rule(page, "spritz"))).toContainText(d ? "Cambia 3 prezzi" : "cambia 3 prezzi");
+        await expect(rowOf(rule(page, "stagionali"))).toContainText(d ? "Nasconde 1 · non disponibile 1" : "nasconde 1 · non disponibile 1");
+        await expect(rowOf(rule(page, "natale"))).toContainText(d ? "Mostra 1 contenuto" : "mostra 1 contenuto");
     });
 
     test("a 375 la riga di «Tutte» non ripete il tipo: lo dice il verbo", async ({ page }) => {
@@ -326,8 +329,11 @@ test.describe("Programmazione — elenco", () => {
         await openList(page);
         const toggle = page.getByRole("switch", { name: new RegExp(RULE_NAME.bozza) });
         await expect(toggle).toBeDisabled();
-        await page.getByLabel("Completa la regola per attivarla.").first().hover();
-        await expect(page.getByRole("tooltip").getByText("Completa la regola per attivarla.")).toBeVisible();
+        // lo scroll fino alla riga può chiudere il fumetto appena aperto: si ripassa sopra
+        await expect(async () => {
+            await page.getByLabel("Completa la regola per attivarla.").first().hover();
+            await expect(page.getByRole("tooltip").getByText("Completa la regola per attivarla.")).toBeVisible({ timeout: 1500 });
+        }).toPass({ timeout: 10_000 });
         expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
     });
 
@@ -588,6 +594,7 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000780";
         stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
         await openSeatList(page, SEDE.centro, "price");
+        if (await lookD(page)) return addOpensTunnel(page);
         await page.getByRole("button", { name: /^Aggiungi/ }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
         const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
@@ -619,6 +626,7 @@ test.describe("Programmazione — ruolo di sede con più sedi", () => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000781";
         stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
         await openList(page, "layout");
+        if (await lookD(page)) return addOpensTunnel(page);
         await page.getByRole("button", { name: /^Aggiungi/ }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
         const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
@@ -728,7 +736,10 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
 
     test("Calendario e Regole sono parti; il Calendario prende tutta la pagina e resta nell'indirizzo", async ({ page }) => {
         await openList(page, "layout");
-        const tipi = main(page).getByRole("tablist", { name: "Tipo di regola" });
+        // nella D il tipo si sceglie coi chip della pagina (copia, «Regole»)
+        const tipi = (await lookD(page))
+            ? main(page).getByRole("radiogroup", { name: "Quali mostrare" })
+            : main(page).getByRole("tablist", { name: "Tipo di regola" });
         await expect(tipi).toBeVisible();
         await openCalendar(page);
         await expect(partiCalendario(page).getByRole("link", { name: "Calendario", exact: true })).toHaveAttribute("aria-current", "page");
@@ -1777,9 +1788,24 @@ for (const width of [1024, 1280]) {
         await stubProgrammazione(page);
         await openList(page);
         await page.setViewportSize({ width, height: 900 });
+        const create = main(page).getByRole("button", { name: "Aggiungi", exact: true });
+        // nella D il tipo sta nella barra con «Aggiungi»: chip, o «Mostra solo» quando non c'è posto
+        if (await lookD(page)) {
+            const chips = main(page).getByRole("radiogroup", { name: "Quali mostrare" });
+            const zipped = main(page).getByRole("button", { name: /^Mostra solo/ });
+            const filter = chips.or(zipped).first();
+            await expect(filter).toBeVisible();
+            await expect(create).toBeVisible();
+            const sameRow = async () => {
+                // chip e «Mostra solo» si scambiano mentre la barra si misura
+                const f = await filter.boundingBox({ timeout: 1000 }).catch(() => null), c = await create.boundingBox();
+                return f !== null && c !== null && f.y < c.y + c.height && c.y < f.y + f.height;
+            };
+            await expect.poll(sameRow).toBe(true);
+            return;
+        }
         const tabs = main(page).getByRole("tablist", { name: "Tipo di regola" });
         await expect(tabs.getByRole("tab", { name: /^Tutte 12$/ })).toBeVisible();
-        const create = main(page).getByRole("button", { name: "Aggiungi", exact: true });
         await expect(create).toBeVisible();
         // si aspetta che la testata si sistemi: la riga delle azioni si misura dopo il primo disegno
         const below = async () => {

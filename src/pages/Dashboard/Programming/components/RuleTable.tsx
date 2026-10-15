@@ -121,6 +121,8 @@ export function RuleTable({
             {
                 id: "rule",
                 header: "Regola",
+                // nella D c'è anche «Quando»: il nome tiene il doppio, se no a 1024 resta una lettera
+                width: LOOK_D ? "minmax(0, 2fr)" : undefined,
                 cell: (_, rule) => {
                     const insight = insights.get(rule.id);
                     const name = nameOf(rule);
@@ -161,7 +163,12 @@ export function RuleTable({
                             </span>
                             <span>
                                 {(LOOK_D
-                                    ? [dCosa(rule, catalogLabel.toLowerCase(), productLabel.toLowerCase(), productLabelPlural.toLowerCase()) ?? action, isPhone ? summary : null, isPhone ? target.label : null]
+                                    ? [
+                                          // il verbo di staging dice anche quale menù («Mostra Pranzo»); la frase della copia se manca
+                                          action ? action.charAt(0).toUpperCase() + action.slice(1) : dCosa(rule, catalogLabel.toLowerCase(), productLabel.toLowerCase(), productLabelPlural.toLowerCase()),
+                                          isPhone ? summary : null,
+                                          isPhone ? target.label : null
+                                      ]
                                     : [
                                     // Sotto 768 il tipo lo dice già il verbo («mostra Carta»,
                                     // «cambia 3 prezzi»): resta solo se il verbo manca (bozza).
