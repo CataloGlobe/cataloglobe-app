@@ -150,7 +150,7 @@ export function borderRadiusToPx(br: BorderRadius): number {
 /**
  * Superficie (card/modali) derivata dallo sfondo pagina: bianca per sfondi chiari e
  * mid-tone, neutro sollevato (+12% bianco) solo per sfondi davvero scuri (luminanza < 0.15).
- * Fonte unica, riusata dal mapper e da usePaletteWarnings (avviso accent-vs-superficie).
+ * Fonte unica della superficie, usata dal mapper.
  */
 export function deriveSurface(pageBackground: string): string {
     const DARK_BG_THRESHOLD = 0.15;
