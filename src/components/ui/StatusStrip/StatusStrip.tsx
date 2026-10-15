@@ -52,7 +52,7 @@ export function StatusStrip({ tone, badge, title, description, figures, action, 
         return (
             <section className={[styles.plan, styles[`plan-${tone}`], className ?? ""].join(" ").trim()} role="status" aria-label={title}>
                 <div className={styles.planTop}>
-                    <h2 className={styles.planTitle}>{title}</h2>
+                    <div className={styles.planTitle}>{title}</div>
                     <StatusBadge variant={tone} label={badge} className={styles.planBadge} />
                     {action && <div className={styles.planAction}>{action}</div>}
                 </div>
@@ -61,9 +61,9 @@ export function StatusStrip({ tone, badge, title, description, figures, action, 
                     <dl className={styles.planFigures}>
                         {shown.map((f, i) => (
                             <div key={f.label} className={styles.planFigure} style={{ "--i": i } as CSSProperties}>
-                                {f.kicker && <dt className={styles.planKicker}>{f.kicker}</dt>}
+                                <dt className={styles.planKicker}>{f.kicker ?? f.label}</dt>
                                 <dd className={styles.planValue}>{f.value}</dd>
-                                <dd className={styles.planLabel}>{f.label}</dd>
+                                {f.kicker && <dd className={styles.planLabel}>{f.label}</dd>}
                             </div>
                         ))}
                     </dl>

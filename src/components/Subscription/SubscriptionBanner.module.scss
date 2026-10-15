@@ -116,8 +116,8 @@
         border-radius: 14px;
         @include d-type(body-m);
 
-        :global(button:not(.link)),
-        :global(a) {
+        button:not(.link),
+        a {
             background: var(--d-surface) !important;
             color: inherit !important;
             border-color: currentColor !important;
