@@ -768,6 +768,17 @@
         display: none;
     }
 
+    // al telefono il nome resta solo sul passo di adesso
+    @media (max-width: 639px) {
+        .stepCluster:not(:has(.stepDotActive)) .stepLabel {
+            display: none;
+        }
+
+        .stepCluster:not(:has(.stepDotActive)) {
+            padding-right: 6px;
+        }
+    }
+
     .planGrid {
         gap: 12px;
     }

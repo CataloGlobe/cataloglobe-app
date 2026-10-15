@@ -30,7 +30,9 @@
         gap: 12px;
 
         > :last-child {
+            min-width: 0;
             text-align: right;
+            overflow-wrap: anywhere;
         }
     }
 }

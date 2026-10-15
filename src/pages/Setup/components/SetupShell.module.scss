@@ -450,6 +450,7 @@ $sidebar-width: 296px;
     .contentHeader {
         width: 100%;
         max-width: 760px;
+        margin-inline: auto;
         padding-inline: clamp(18px, 4vw, 56px);
     }
 
