@@ -171,7 +171,7 @@ export type SidebarRow = string | [string, string[]];
 /** Tutte le sedi in griglia. Nella D c'è solo la griglia (Visual Redesign 2, PR 11a). */
 export async function sediGriglia(page: Page): Promise<void> {
     if (await page.evaluate(() => document.documentElement.dataset.look === "d")) return;
-    await sediGriglia(page);
+    await page.getByRole("radio", { name: "Vista griglia" }).click();
 }
 
 /** Gli indirizzi delle sedi (owner, più sedi), nell'ordine della griglia. */
