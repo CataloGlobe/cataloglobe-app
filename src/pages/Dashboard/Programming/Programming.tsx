@@ -1201,7 +1201,12 @@ export default function Programming() {
             ) : (
                 <CalendarioView
                     addFromRules={LOOK_D && searchParams.get("aggiungi") === "regole" ? backToRules : undefined}
-                    addOnArrive={LOOK_D && searchParams.get("aggiungi") === "calendario" ? addArrived : undefined}
+                    // solo a dati caricati e con il permesso, come il pulsante «Aggiungi»
+                    addOnArrive={
+                        LOOK_D && searchParams.get("aggiungi") === "calendario" && !isLoading && canCreate && canEdit
+                            ? addArrived
+                            : undefined
+                    }
                     rules={seatRules}
                     names={calNames}
                     sedi={calSedi}
