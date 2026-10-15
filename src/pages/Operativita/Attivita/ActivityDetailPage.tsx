@@ -10,6 +10,7 @@ import { HeaderSaveAction, DiscardChangesConfirmDialog } from "@/components/ui/H
 import { buildSaveActionCompactConfig } from "@/components/ui/HeaderSaveAction/headerSaveActionCompact";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { usePageHeader } from "@/context/usePageHeader";
+import { LOOK_D } from "@/styles/lookD";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { getActivityById } from "@/services/supabase/activities";
 import { listActivityHours } from "@/services/supabase/activityHours";
@@ -187,6 +188,8 @@ const ActivityDetailPage: React.FC = () => {
                 </div>
             );
         }
+        // Nella D nome e stato li dice la frase in cima alla Scheda (PR 11b).
+        if (LOOK_D && section === "anagrafica") return null;
         return (
             <div className={schedaStyles.headTitle}>
                 <h2>{activity.name}</h2>
@@ -195,7 +198,7 @@ const ActivityDetailPage: React.FC = () => {
                 )}
             </div>
         );
-    }, [activity, part, closePart, statusLabel]);
+    }, [activity, part, closePart, statusLabel, section]);
 
     // Il salvataggio del draft sta nella barra della pagina, a destra (MD1):
     // niente barra fluttuante. Solo per chi può modificare la sede.

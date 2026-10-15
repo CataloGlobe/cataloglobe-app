@@ -2,6 +2,8 @@
 // Misure e colori uno a uno dal prototipo; i colori dai token del tema.
 
 @use "@styles/scheda-type" as type;
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 .root {
   --q-sunk: var(--hover-bg);
@@ -563,3 +565,156 @@
 .rowEnd { justify-content: flex-end; }
 .contents { display: contents; }
 .pHSpaced { margin-top: 4px; }
+
+// ── Nella D (Visual Redesign 2, PR 11b; copia `pSch1`, `.sc-*`) ────────────
+// La frase in cima, card bianche col bordo tenue, la copertina con
+// l'indirizzo sotto, «Adesso» e «La vostra pagina» affiancate, i titoli dei
+// gruppi in maiuscoletto; a destra i comandi e il telefono in una card.
+@include look-d {
+  .root {
+    max-width: none;
+    display: grid;
+    gap: var(--d-gap);
+    padding-bottom: 24px;
+    color: var(--d-text);
+  }
+  .dash { grid-template-columns: minmax(0, 2fr) minmax(270px, 1fr); gap: var(--d-gap); }
+  .col { gap: var(--d-gap); }
+
+  // La frase resta ferma in cima (v33). Il contenuto ha 18 px sopra
+  // (cornice D): la riga si attacca al bordo, come la testata di Menù e vetrina.
+  .topD {
+    position: sticky;
+    top: -18px;
+    z-index: 7;
+    display: grid;
+    gap: 10px;
+    margin: -18px calc(-1 * clamp(14px, 2.4vw, 28px)) 0;
+    padding: 18px clamp(14px, 2.4vw, 28px) 10px;
+    background: var(--d-bg);
+  }
+  // Senza il telefono a fianco, Copia il link e Apri la pagina stanno qui.
+  .barActs { display: none; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+
+  .heroD,
+  .pageD,
+  .now,
+  .tile,
+  .side,
+  .fcard {
+    background: var(--d-surface);
+    border: 1px solid var(--d-line);
+    border-radius: var(--d-r-card);
+    box-shadow: var(--d-shadow);
+  }
+
+  // La copertina con nome e presentazione, sotto l'indirizzo e il comando.
+  .heroD { display: grid; padding: 8px; }
+  .heroD .identity {
+    min-height: 190px;
+    border-radius: calc(var(--d-r-card) - 6px);
+    h3 { @include d-type(answer); color: var(--d-surface); }
+    p { @include d-type(body-s); }
+    i { font-style: italic; opacity: 0.9; }
+  }
+  .heroD .overlay { padding: 44px 18px 14px; background: linear-gradient(transparent, color-mix(in srgb, var(--d-text) 66%, transparent)); }
+  .heroD .coverNone { background: linear-gradient(160deg, var(--d-soft), var(--d-soft2)); }
+  .heroFt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 10px 6px 2px;
+    color: var(--d-muted);
+    @include d-type(note);
+  }
+  .fl { flex: 1; }
+
+  .rowD { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--d-gap); align-items: stretch; }
+
+  // Adesso: la frase grande, i comandi di oggi, i problemi in righe.
+  .now {
+    padding: 18px 20px;
+    .nowLab { @include d-type(card-name); letter-spacing: 0; text-transform: none; color: var(--d-text); }
+    .say { @include d-type(body); min-width: 0; }
+    .on { color: var(--d-brand); }
+    .off { color: var(--d-s-wait-ink); }
+  }
+  .prob {
+    background: none;
+    border-top: 1px solid var(--d-line);
+    border-radius: 0;
+    padding: 8px 0;
+    @include d-type(body-s);
+    > svg { color: var(--d-warm); }
+  }
+
+  // La vostra pagina: il QR, l'indirizzo, Copia e Apri.
+  .pageD { padding: 18px 20px; display: grid; gap: 12px; align-content: start; }
+  .hdD { display: flex; align-items: center; gap: 8px; h3 { flex: 1; @include d-type(card-name); } }
+  .qrD { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: center; }
+  .qrD .qr { width: 96px; height: 96px; border-radius: 14px; border-color: var(--d-line); }
+  .urlD { @include d-type(body-s); font-weight: 700; overflow-wrap: anywhere; }
+  .hint { color: var(--d-muted); }
+
+  // I gruppi: il titolo in maiuscoletto, le tessere in card.
+  .groupD { display: grid; gap: 12px; }
+  .groupT { margin: 6px 0 -2px 4px; @include d-type(micro); letter-spacing: 0.06em; text-transform: uppercase; color: var(--d-muted); }
+  .tiles { gap: var(--d-gap); }
+  .tiles3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tile {
+    padding: 18px 20px;
+    transition: border-color 0.2s ease, transform 0.2s var(--d-ease-move);
+    &:hover { border-color: color-mix(in srgb, var(--d-brand) 35%, var(--d-line)); box-shadow: var(--d-shadow); }
+    .ans { @include d-type(card-name); }
+    .tf { border-top-color: var(--d-line); }
+    .go { color: var(--d-brand); }
+  }
+  .tileHl { border-color: var(--d-brand); }
+
+  // A destra: Copia il link e Apri la pagina, sotto il telefono in una card.
+  .sideD { position: sticky; top: calc(var(--sch-top, 0px) - 18px + 12px); display: grid; gap: 12px; align-content: start; }
+  .sideActs { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+  .side { position: static; padding: 16px; }
+  .card { height: auto; min-height: 84px; background: var(--d-soft); border: 0; border-radius: 12px; }
+  .card .cardK { color: var(--d-brand); @include d-type(micro); }
+  .card .cardText { -webkit-line-clamp: 2; }
+
+  @container scheda (max-width: 1050px) {
+    .dash { grid-template-columns: minmax(0, 1fr); }
+    .sideD { display: none; }
+    .barActs { display: flex; }
+  }
+  @container scheda (max-width: 760px) {
+    .rowD, .tiles3 { grid-template-columns: minmax(0, 1fr); }
+  }
+  @container scheda (max-width: 560px) {
+    .heroD .identity { min-height: 160px; }
+  }
+
+  // Le parti a fuoco: l'elenco delle parti e il telefono in card.
+  .focus { grid-template-columns: 200px minmax(0, 1fr) calc(300px * var(--phone-s, 1)); gap: var(--d-gap); }
+  .rail {
+    padding: 10px;
+    background: var(--d-surface);
+    border: 1px solid var(--d-line);
+    border-radius: var(--d-r-card);
+    box-shadow: var(--d-shadow);
+    button[aria-current="true"] { background: var(--d-soft); color: var(--d-brand-deep); }
+  }
+  .fcard { padding: 22px 24px; }
+  @media (min-width: 1024px) {
+    .focusRoot { padding-bottom: 0; }
+    .focus { height: var(--focus-h, auto); align-items: stretch; }
+    .rail,
+    .fcard,
+    .fside { position: static; max-height: 100%; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  }
+  .fside {
+    padding: 16px;
+    background: var(--d-surface);
+    border: 1px solid var(--d-line);
+    border-radius: var(--d-r-card);
+    box-shadow: var(--d-shadow);
+  }
+}
