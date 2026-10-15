@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { schedaLead } from "@/pages/Operativita/Attivita/scheda/schedaLead";
 import type { SchedaFacts } from "@/pages/Operativita/Attivita/scheda/schedaModel";
 
-const facts = (over: Partial<SchedaFacts> & { a?: Partial<SchedaFacts["a"]> } = {}): SchedaFacts =>
+const facts = (over: Omit<Partial<SchedaFacts>, "a"> & { a?: Partial<SchedaFacts["a"]> } = {}): SchedaFacts =>
     ({
         now: { minutes: 18 * 60 + 42, weekday: 2, iso: "2026-10-15" },
         hasHours: true,
