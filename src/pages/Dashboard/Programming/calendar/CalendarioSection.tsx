@@ -16,6 +16,7 @@ import {
     Utensils
 } from "lucide-react";
 import { LOOK_D } from "@/styles/lookD";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Button } from "@/components/ui/Button/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import {
@@ -220,6 +221,8 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         </div>
     );
 
+    // al telefono i comandi stanno solo nella barra in basso: una volta sola nella pagina
+    const phone = useMediaQuery("(max-width: 640px)") && LOOK_D;
     if (!D)
         return (
             <div className={s.isec}>
@@ -348,7 +351,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                             );
                         })}
                     </ol>
-                    <span className={`${s.hfa} ${s.iacts2}`}>{acts}</span>
+                    {!phone && <span className={`${s.hfa} ${s.iacts2}`}>{acts}</span>}
                 </div>
             </div>
             <div className={s.igrid}>
@@ -364,7 +367,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                 </div>
                 {p.preview}
             </div>
-            {LOOK_D && <div className={s.dock}>{acts}</div>}
+            {phone && <div className={s.dock}>{acts}</div>}
             {leave && dialog(leave)}
         </div>
     );

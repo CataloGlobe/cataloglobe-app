@@ -109,6 +109,8 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const [leave, setLeave] = useState(false);
     // tablet e telefono nella D (v55): niente colonna a destra, «Anteprima» la apre sopra il passo
     const narrow = useMediaQuery("(max-width: 1100px)") && LOOK_D;
+    // al telefono i comandi stanno solo nella barra in basso: una volta sola nella pagina
+    const phone = useMediaQuery("(max-width: 640px)") && LOOK_D;
     const [prev, setPrev] = useState(false);
     const railRef = useRef<HTMLOListElement>(null);
     const [going, setGoing] = useState<string | null>(null);
@@ -793,7 +795,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                             </li>
                         )}
                     </ol>
-                    {!showAfter && <span className={s.iacts}>{acts}</span>}
+                    {!showAfter && !phone && <span className={s.iacts}>{acts}</span>}
                 </div>
             </div>
             <div className={cx(s.igrid, week && s.wide, full && s.full, narrow && prev && s.peek)}>
@@ -803,7 +805,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 {!full && right}
             </div>
             {/* al telefono nella D Indietro e Avanti stanno in una barra ferma in basso (copia `.tu-dock`) */}
-            {LOOK_D && !showAfter && <div className={s.dock}>{acts}</div>}
+            {phone && !showAfter && <div className={s.dock}>{acts}</div>}
             {/* in «Controlla» le righe di cosa cambia: la settimana c'è, non si vede */}
             {!week && step === "controlla" && owner && calKind && <div hidden>{preview}</div>}
             <UnsavedChangesDialog
