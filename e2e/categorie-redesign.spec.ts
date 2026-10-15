@@ -5,13 +5,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * Foglio «Categorie» nel redesign della pagina pubblica (spec §4): Menu toccato
  * di nuovo nella capsula apre l'elenco a riquadri nel foglio unico; il tocco su
  * una categoria chiude il foglio e porta alla sezione. Stub senza login.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/categorie-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 test.beforeEach(async ({ page }) => {
     // La capsula Menu · Storia c'è solo con la Storia.

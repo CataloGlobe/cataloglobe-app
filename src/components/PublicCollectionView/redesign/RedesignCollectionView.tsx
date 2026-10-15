@@ -41,15 +41,14 @@ import { findInMenus, otherNowCatalogs } from "./menus/menuProducts";
 import type { PublicMenu } from "@/types/resolvedCollections";
 
 /**
- * Radice del redesign della pagina pubblica, scelta da `PublicCatalogReady`
- * solo con `PUBLIC_REDESIGN_ENABLED`. Per ora è uno scheletro: rende la pagina
- * di oggi. Le PR successive sostituiscono i pezzi uno alla volta (isola, barra,
- * fogli...) senza toccare `CollectionView.tsx`, che si spegne alla fine.
+ * Radice della pagina pubblica, montata sempre da `PublicCatalogReady` (dalla
+ * PR 13). Monta `CollectionView` e le passa gli slot del redesign (isola, barra,
+ * fogli, In evidenza, fondo); la pagina vecchia si toglie con la PR di pulizia.
  *
  * Nei file di questa cartella non importare `.scss` finché serve: un modulo con
- * effetti di bordo non si elimina col flag spento e pesa nel bundle di tutti.
+ * effetti di bordo entra nel bundle iniziale e pesa al primo caricamento.
  */
-// /*#__PURE__*/: senza, `lazy()` è un effetto di bordo e il chunk entra nel bundle anche col flag spento.
+// /*#__PURE__*/: senza, `lazy()` è un effetto di bordo e non si elimina dove non serve.
 const ProvaTecnica = /*#__PURE__*/ lazy(() => import("./prova/ProvaTecnica"));
 
 // Il foglio del locale arriva dopo il primo disegno: chunk a parte, scaldato

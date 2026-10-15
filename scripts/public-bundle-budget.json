@@ -1,10 +1,5 @@
 {
-    "initialJs": 349000,
-    "initialCss": 22500,
-    "lazyJs": 124800,
-    "redesign": {
-        "initialJs": 372000,
-        "initialCss": 27800,
-        "lazyJs": 171500
-    }
+    "initialJs": 372000,
+    "initialCss": 27800,
+    "lazyJs": 171500
 }

@@ -8,13 +8,9 @@ import { ACTIVITY_ID, SLUG, stubPublicPage } from "./publicPageStub";
  * Inviato. Un piatto che il menu non ha più resta marcato e non parte.
  * Stub senza login: `submit-order`, `cancel-order` e `get-orders-for-session`
  * finti, con gli ordini tenuti nel test.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/ordine-foglio-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 type Order = { id: string; status: string; items: { name: string; qty: number }[]; total: number };
 

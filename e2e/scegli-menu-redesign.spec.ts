@@ -6,13 +6,9 @@ import type { StyleConfig } from "./publicPageStub";
  * «Scegli il menu» nel redesign (PR 9, spec §12, mockup v38): con più menu adesso
  * una pagina prima del menu; il menu scelto sta in `?menu=` e si cambia senza
  * ricaricare. Elenco dei menu dallo stub (`menus`), come lo manderà il giudice.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/scegli-menu-redesign.spec.ts`.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 async function openPage(
     page: Page,

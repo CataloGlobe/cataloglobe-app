@@ -7,13 +7,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * quantità e nota, pulsante in fondo che porta a ciò che manca, poi
  * «Aggiunto · nome» con «Annulla». Anche il + della lista dà lo stesso avviso.
  * Stub senza login; il tavolo è la sessione finta di `publicPageStub`.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/ordine-scheda-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 async function openPage(page: Page): Promise<void> {
     await stubPublicPage(page, { ordering: true, details: true });

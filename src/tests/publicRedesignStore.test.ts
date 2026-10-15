@@ -30,18 +30,3 @@ describe("store della sezione attiva", () => {
         expect(listener).toHaveBeenCalledTimes(2);
     });
 });
-
-describe("interruttore VITE_PUBLIC_REDESIGN", () => {
-    it("è spento se assente o diverso da \"true\"", async () => {
-        vi.stubEnv("VITE_PUBLIC_REDESIGN", "");
-        expect((await import("@/components/PublicCollectionView/redesign/flag")).PUBLIC_REDESIGN_ENABLED).toBe(false);
-        vi.resetModules();
-        vi.stubEnv("VITE_PUBLIC_REDESIGN", "1");
-        expect((await import("@/components/PublicCollectionView/redesign/flag")).PUBLIC_REDESIGN_ENABLED).toBe(false);
-    });
-
-    it("è acceso solo con \"true\"", async () => {
-        vi.stubEnv("VITE_PUBLIC_REDESIGN", "true");
-        expect((await import("@/components/PublicCollectionView/redesign/flag")).PUBLIC_REDESIGN_ENABLED).toBe(true);
-    });
-});

@@ -5,14 +5,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * Fondo della pagina pubblica nel redesign (PR 8a, spec §10): voto, Oggi,
  * Informazioni utili (Allergeni e Caratteristiche nel foglio unico), Contatti,
  * firma e link legali; su desktop tre colonne. Pagina servita da stub, senza login.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/fondo-redesign.spec.ts`. Con un server sulla 5174 senza il flag la spec
- * si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 test.beforeEach(async ({ page }) => {
     // Mercoledì a mezzogiorno e mezzo: con gli orari dello stub la sede è aperta.
