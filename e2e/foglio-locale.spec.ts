@@ -15,8 +15,6 @@ test.beforeEach(async ({ page }) => {
     await stubPublicPage(page, { ordering: false, venueInfo: true });
     await page.goto(`/${SLUG}`);
     await page.getByText("Antipasti 1", { exact: true }).waitFor();
-    const island = page.getByRole("button", { name: "Altre opzioni" });
-    test.skip((await island.count()) === 0, "pagina senza redesign (server riusato senza il flag)");
 });
 
 test("⋯ spinge Info e orari e poi gli Orari, Esc torna indietro e il fuoco torna al ⋯", async ({ page }) => {

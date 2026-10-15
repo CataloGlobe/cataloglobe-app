@@ -7,8 +7,6 @@ import {
 
 afterEach(() => {
     setActiveSectionId(null);
-    vi.unstubAllEnvs();
-    vi.resetModules();
 });
 
 describe("store della sezione attiva", () => {
