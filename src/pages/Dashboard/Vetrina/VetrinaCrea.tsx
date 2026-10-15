@@ -23,7 +23,7 @@ export function VetrinaCrea({ da, disabled }: { da: string; disabled?: boolean }
     if (!permissions) return null;
 
     const items = [
-        { key: "menu", show: canDoOnTenant(permissions, "catalogs.write"), icon: UtensilsCrossed, fam: "menu", title: `Un ${catalogLabel.toLowerCase()}`, text: "Sezioni e piatti da mostrare", to: `${b}/crea/menu?da=${da}` },
+        { key: "menu", show: canDoOnTenant(permissions, "catalogs.write"), icon: UtensilsCrossed, fam: "menu", title: `Un ${catalogLabel.toLowerCase()}`, text: "Categorie e piatti da mostrare", to: `${b}/crea/menu?da=${da}` },
         { key: "stile", show: canDoOnTenant(permissions, "styles.write"), icon: Palette, fam: "style", title: "Uno stile", text: "Colori e caratteri della pagina", to: `${b}/crea/stile?da=${da}` },
         { key: "evid", show: canDoOnAnyActivity(permissions, "featured.write"), icon: Megaphone, fam: "featured", title: "In evidenza", text: "Evento, piatto del giorno, promozione", to: `${b}/crea/evidenza?da=${da}` },
         { key: "storia", show: canDoOnAnyActivity(permissions, "stories.write"), icon: ScrollText, fam: "story", title: "Una storia", text: "Il locale raccontato con testo e foto", to: `${b}/crea/storia?da=${da}` }

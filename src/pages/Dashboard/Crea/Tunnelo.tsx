@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Megaphone, Palette, Pencil, ScrollText, Smartphone, Sparkles, Store, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { LOOK_D } from "@/styles/lookD";
 import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -684,31 +685,44 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const KindIcon = KIND_ICON[t.kind];
     const rootStyle = { "--stick": `${hdr.h + 12 - hdr.pad}px`, "--ihdr": `${hdr.h - hdr.pad}px` } as CSSProperties;
 
+    const crumb = (
+        <nav className={s.icrumb} aria-label="Percorso">
+            <Button variant="ghost" size="sm" onClick={exit}>
+                {origin.label}
+            </Button>
+            <ChevronRight size={14} aria-hidden />
+            <b>{t.edit ? KIND[t.kind].edit : KIND[t.kind].t}</b>
+        </nav>
+    );
+
     return (
         <div className={s.root} style={rootStyle} data-kind={t.kind}>
             <div className={s.ihdr} ref={hdrRef}>
-                <div className={s.itop}>
-                    <nav className={s.icrumb} aria-label="Percorso">
-                        <Button variant="ghost" size="sm" onClick={exit}>
-                            {origin.label}
-                        </Button>
-                        <ChevronRight size={14} aria-hidden />
-                        <b>{t.edit ? KIND[t.kind].edit : KIND[t.kind].t}</b>
-                    </nav>
-                    <span className={s.itopa}>
-                        <Button variant="ghost" size="sm" leftIcon={<X size={14} />} onClick={exit}>
-                            Esci
-                        </Button>
-                    </span>
-                </div>
+                {/* nella D titolo ed «Esci» stanno sulla stessa riga (copia `.tu-top`), il percorso sopra il titolo */}
+                {!LOOK_D && (
+                    <div className={s.itop}>
+                        {crumb}
+                        <span className={s.itopa}>
+                            <Button variant="ghost" size="sm" leftIcon={<X size={14} />} onClick={exit}>
+                                Esci
+                            </Button>
+                        </span>
+                    </div>
+                )}
                 <div className={s.ihead}>
                     <span className={s.kchip} aria-hidden>
                         <KindIcon size={18} />
                     </span>
                     <div>
+                        {LOOK_D && crumb}
                         <h2>{title}</h2>
                         <p className={cx(s.small, s.muted)}>{sub}</p>
                     </div>
+                    {LOOK_D && (
+                        <Button variant="ghost" size="sm" leftIcon={<X size={14} />} onClick={exit} className={s.iexit}>
+                            Esci
+                        </Button>
+                    )}
                 </div>
                 <div className={s.istrow}>
                     <ol className={cx(s.isteps, t.edit && s.editing)}>
@@ -751,11 +765,11 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                         <span className={s.iacts}>
                             {why && <span className={s.why}>{why}</span>}
                             {i > 0 && (
-                                <Button variant="secondary" size="sm" leftIcon={<ArrowLeft size={14} />} onClick={back}>
+                                <Button variant="secondary" size={LOOK_D ? "md" : "sm"} leftIcon={LOOK_D ? undefined : <ArrowLeft size={14} />} onClick={back}>
                                     Indietro
                                 </Button>
                             )}
-                            <Button variant="primary" size="sm" rightIcon={last ? undefined : <ArrowRight size={14} />} onClick={next} disabled={!!why || saving} loading={saving && last}>
+                            <Button variant="primary" size={LOOK_D ? "md" : "sm"} rightIcon={last ? undefined : <ArrowRight size={14} />} onClick={next} disabled={!!why || saving} loading={saving && last}>
                                 {last ? pubLabel : "Avanti"}
                             </Button>
                         </span>

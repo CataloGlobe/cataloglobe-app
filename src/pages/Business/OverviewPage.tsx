@@ -393,7 +393,7 @@ export default function OverviewPage() {
             show: canDoOnTenant(permissions, "catalogs.write"),
             icon: <UtensilsCrossed />,
             title: `Un ${catalogLower}`,
-            text: "Sezioni e piatti da mostrare ai clienti",
+            text: LOOK_D ? "Categorie e piatti da mostrare ai clienti" : "Sezioni e piatti da mostrare ai clienti",
             to: `${b}/crea/menu?da=panoramica`
         },
         {
