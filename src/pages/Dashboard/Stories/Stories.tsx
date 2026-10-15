@@ -282,7 +282,8 @@ export default function Stories() {
     );
     const leadD = storieLead(
         stories.filter(item => onAirD(item).state !== "off").length,
-        stories.filter(item => item.status !== "published").length
+        stories.filter(item => item.status !== "published").length,
+        stories.filter(item => item.status === "published" && onAirD(item).state === "off").length
     );
     const clearD = () => {
         setFilterD("all");
