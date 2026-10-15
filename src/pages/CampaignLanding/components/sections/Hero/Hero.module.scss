@@ -36,19 +36,18 @@
 
 // Tovaglietta: doodle di menù e tavola, fermo (si muovono già telefono e
 // bagliore). Sotto il testo la maschera lo spegne quasi del tutto.
-// Due riquadri che si ripetono senza giunture, con i disegni già lilla:
-// telefono 420 px (disegni da ~40 px), computer 680 px (~50 px), a 2x.
+// Un'immagine intera per formato, già lilla, stesa su tutto l'hero:
+// telefono 2:3 (1366 px), computer 3:2 (2560 px). In / e in /b.
 .pattern {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: url("@pages/CampaignLanding/assets/hero/hero-doodle-mobile.webp") 0 0 / 420px 420px repeat;
-    opacity: 0.15;
+    background: url("@pages/CampaignLanding/assets/hero/hero-doodle-mobile.webp") center / cover no-repeat;
+    opacity: 0.09;
     mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.8) 45%, #000 65%);
 
     @include desktop {
         background-image: url("@pages/CampaignLanding/assets/hero/hero-doodle-desktop.webp");
-        background-size: 680px 680px;
         mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.7) 36%, #000 58%);
     }
 }
