@@ -21,13 +21,23 @@ import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { listStyles, duplicateStyle, V2Style } from "@/services/supabase/styles";
+import { listStyles, duplicateStyle, deleteStyle, V2Style } from "@/services/supabase/styles";
 import { StyleSwatch } from "@/components/ui/StyleSwatch/StyleSwatch";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { useRuleAppearance } from "@/hooks/useRuleAppearance";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { appearanceOf } from "@/utils/ruleAppearance";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
+import { stylePalette } from "@/components/ui/StyleSwatch/stylePalette";
+import { LOOK_D } from "@/styles/lookD";
+import { VetrinaHead, type VetrinaView } from "../Vetrina/VetrinaHead";
+import { VetrinaCrea } from "../Vetrina/VetrinaCrea";
+import { StylePhone, VetrinaCard, VetrinaNone } from "../Vetrina/VetrinaCard";
+import { useCompactHead } from "../Vetrina/useCompactHead";
+import { leadOf, matchesOnAir, onAirOf, onAirOptions, sortVetrina, type OnAir, type OnAirFilter, type VetrinaSort } from "../Vetrina/vetrinaModel";
+import vs from "../Vetrina/Vetrina.module.scss";
+
+const OFF_AIR: OnAir = { state: "off", when: null, where: null };
 
 const VIEW_MODE_KEY = "cataloglobe-styles-view-mode";
 
@@ -87,6 +97,11 @@ export default function Styles() {
         }
     }, []);
 
+    // D (Visual Redesign 2): filtri «In onda», ordine e testata che si stringe.
+    const [onAirFilter, setOnAirFilter] = useState<OnAirFilter>("all");
+    const [sort, setSort] = useState<VetrinaSort>("onda");
+    const { compact, setTop } = useCompactHead();
+
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [styleToDelete, setStyleToDelete] = useState<V2Style | null>(null);
 
@@ -129,6 +144,40 @@ export default function Styles() {
     }, [allStyles, isLiveNow, searchQuery]);
     const hasSearch = searchQuery.trim().length > 0;
 
+    // D: la riga «In onda» di ogni stile e la frase in cima.
+    const onAirById = useMemo(() => {
+        const map = new Map<string, OnAir>();
+        if (!appearance.index) return map;
+        for (const style of allStyles) {
+            map.set(style.id, onAirOf(appearanceOf(appearance.index, { kind: "style", id: style.id }), appearance.activities));
+        }
+        return map;
+    }, [appearance.index, appearance.activities, allStyles]);
+    const onAirOfStyle = useCallback((style: V2Style) => onAirById.get(style.id) ?? OFF_AIR, [onAirById]);
+    const lead = useMemo(() => {
+        if (!LOOK_D || !appearance.index) return null;
+        const index = appearance.index;
+        return leadOf(
+            allStyles.map(st => ({ name: st.name, appearance: appearanceOf(index, { kind: "style", id: st.id }) })),
+            appearance.activities,
+            { none: "nessuno stile", lead: "Adesso la pagina si veste con" }
+        );
+    }, [appearance.index, appearance.activities, allStyles]);
+    const onAirCounts = {
+        all: allStyles.length,
+        on: allStyles.filter(st => onAirOfStyle(st).state !== "off").length,
+        off: allStyles.filter(st => onAirOfStyle(st).state === "off").length
+    };
+    const dStyles = sortVetrina(
+        filteredStyles.filter(st => matchesOnAir(onAirFilter, onAirOfStyle(st))),
+        sort,
+        onAirOfStyle
+    );
+    const clearD = () => {
+        setSearchQuery("");
+        setOnAirFilter("all");
+    };
+
     // «Crea stile» apre il tunnel di creazione (D124); finito, si atterra sull'editor.
     const handleCreateClick = useCallback(() => {
         if (!ensureActive()) return;
@@ -169,8 +218,9 @@ export default function Styles() {
 
     usePageHeader({
         title: "Stili",
-        actions: headerActions,
-        compact: headerCompact
+        // Nella D i comandi stanno nella pagina, sotto la frase.
+        actions: LOOK_D ? undefined : headerActions,
+        compact: LOOK_D ? undefined : headerCompact
     });
 
     // L'editor è il tunnel, per creare e per modificare (D186).
@@ -183,8 +233,22 @@ export default function Styles() {
         async (style: V2Style) => {
             if (!ensureActive() || !currentTenantId) return;
             try {
-                await duplicateStyle(style.id, `Copia di ${style.name}`, currentTenantId);
-                showToast({ message: "Stile duplicato con successo.", type: "success" });
+                const copy = await duplicateStyle(style.id, `Copia di ${style.name}`, currentTenantId);
+                if (LOOK_D) {
+                    // D: la copia si può togliere subito, dal toast.
+                    showToast({
+                        message: `«${copy.name}» creato. Nessuno lo vede finché non lo metti in onda.`,
+                        type: "success",
+                        actionLabel: "Annulla",
+                        // se intanto la copia è andata in onda o è usata, non si toglie: lo si dice
+                        onAction: () =>
+                            void deleteStyle(copy.id, currentTenantId).then(loadData, () =>
+                                showToast({ message: `Non sono riuscito a togliere «${copy.name}»: forse è già in onda o usato. Toglilo dall'elenco.`, type: "error" })
+                            )
+                    });
+                } else {
+                    showToast({ message: "Stile duplicato con successo.", type: "success" });
+                }
                 loadData();
             } catch (error) {
                 console.error("Errore duplicazione stile:", error);
@@ -196,9 +260,14 @@ export default function Styles() {
 
     const handleDeleteClick = useCallback((style: V2Style) => {
         if (!ensureActive()) return;
+        // D: quello in onda non si elimina; prima si toglie dal Calendario.
+        if (LOOK_D && onAirOfStyle(style).state !== "off") {
+            showToast({ message: `«${style.name}» è in onda: prima toglilo dal Calendario, poi si può eliminare.`, type: "info" });
+            return;
+        }
         setStyleToDelete(style);
         setIsDeleteOpen(true);
-    }, [ensureActive]);
+    }, [ensureActive, onAirOfStyle, showToast]);
 
     // Niente selezione multipla: eliminare uno stile in uso chiede il suo
     // sostitutivo, e quella scelta non si fa una volta per N stili (§34.2).
@@ -297,10 +366,46 @@ export default function Styles() {
             );
         }
 
+        if (LOOK_D && !isLoading && allStyles.length > 0 && dStyles.length === 0) {
+            return <VetrinaNone onClear={clearD} />;
+        }
+
+        // D: le card con il telefono nei colori dello stile (al telefono sempre Fogli).
+        if (LOOK_D && (viewMode === "grid" || isPhone)) {
+            // si aspetta anche chi è in onda: senza, ogni card direbbe per un attimo «Metti in onda»
+            if (isLoading || (canRead && appearance.loading && !appearance.failed)) return <CardGrid loading skeletonShape={{ media: true, mediaHeight: 140 }} minColumnWidth={232} />;
+            return (
+                <div className={vs.grid}>
+                    <ul className={vs.cards} aria-label="Stili">
+                        {dStyles.map(style => (
+                            <li key={style.id}>
+                                <VetrinaCard
+                                    family="style"
+                                    to={styleUrl(style)}
+                                    preview={<StylePhone palette={stylePalette(style)} />}
+                                    name={
+                                        <>
+                                            <span>{style.name}</span>
+                                            {style.is_system && <i className={vs.sys}>Di sistema</i>}
+                                        </>
+                                    }
+                                    label={style.name}
+                                    meta={`Versione ${style.current_version?.version || "0"}`}
+                                    onAir={onAirOfStyle(style)}
+                                    onMetti={canWrite && canEdit ? () => navigate(`/business/${currentTenantId}/crea/stile/${style.id}?da=stili&metti=1`) : undefined}
+                                    actions={renderRowActions(style)}
+                                />
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            );
+        }
+
         if (viewMode === "list") {
             return (
                 <DataTable<V2Style>
-                    data={filteredStyles}
+                    data={LOOK_D ? dStyles : filteredStyles}
                     columns={columns}
                     isLoading={isLoading}
                     ariaLabel="Stili"
@@ -341,7 +446,29 @@ export default function Styles() {
     return (
         <PageGate readPermission="styles.read">
             {() => (
-                <section className={styles.listPage}>
+                <section className={LOOK_D ? `${styles.listPage} ${vs.page}` : styles.listPage}>
+                    {LOOK_D && allStyles.length > 0 && (
+                        <VetrinaHead
+                            family="style"
+                            lead={lead}
+                            filter={onAirFilter}
+                            onFilter={setOnAirFilter}
+                            filterOptions={onAirOptions(onAirCounts)}
+                            filterAll="all"
+                            sort={sort}
+                            onSort={setSort}
+                            query={searchQuery}
+                            onQuery={setSearchQuery}
+                            placeholder="Cerca stili"
+                            view={{
+                                value: viewMode === "list" ? "elenco" : "fogli",
+                                onChange: (v: VetrinaView) => handleViewModeChange(v === "elenco" ? "list" : "grid")
+                            }}
+                            crea={<VetrinaCrea da="stili" disabled={!canEdit} />}
+                            compact={compact}
+                            setTop={setTop}
+                        />
+                    )}
                     <div className={styles.listContent} data-view-mode={viewMode}>
                         {renderContent()}
                     </div>

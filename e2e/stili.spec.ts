@@ -25,9 +25,28 @@ function write(stub: StiliStub, key: string): WriteCall | undefined {
     return stub.writes.find(w => w.key === key);
 }
 
-/** Il nome dello stile, in griglia o in lista. */
+/** Con VITE_BACKOFFICE_D acceso (`data-look="d"`) la pagina è Menù e vetrina della D. */
+function lookD(page: Page): Promise<boolean> {
+    return page.evaluate(() => document.documentElement.dataset.look === "d");
+}
+
+/**
+ * Il nome dello stile, in griglia o in lista. Nella D il nome può stare anche
+ * nella frase in cima («Adesso la pagina si veste con …»): quello della card
+ * o della riga è l'ultimo.
+ */
 function styleName(page: Page, name: string): Locator {
-    return main(page).getByText(name, { exact: true }).first();
+    return main(page).getByText(name, { exact: true }).last();
+}
+
+/** «Crea stile»; nella D «Crea» apre «Cosa vuoi creare?» e la voce è «Uno stile». */
+async function createStyle(page: Page): Promise<void> {
+    if (await lookD(page)) {
+        await main(page).getByRole("button", { name: "Crea", exact: true }).click();
+        await page.getByRole("menuitem", { name: /Uno stile/ }).click();
+        return;
+    }
+    await page.getByRole("button", { name: "Crea stile" }).first().click();
 }
 
 /** Il «⋯» della card o della riga che contiene `anchor`. */
@@ -113,6 +132,13 @@ test.describe("Stili — elenco", () => {
         await expect(styleName(page, "Stile base e2e")).toBeVisible();
         await expect(styleName(page, "Sera e2e")).toBeVisible();
         await expect(styleName(page, "Notte e2e")).toBeVisible();
+        if (await lookD(page)) {
+            // Nella D la riga sotto la card dice se è in onda; «In onda prima» apre con Estate.
+            await expect(itemOf(page, "Estate e2e")).toContainText("In onda adesso");
+            await expect(main(page).locator("article").first()).toContainText("Estate e2e");
+            await expect(main(page).getByRole("button", { name: "Crea", exact: true })).toBeVisible();
+            return;
+        }
         await expect(main(page).getByText("Usato in 1 regola").first()).toBeVisible();
         await expect(main(page).getByText("In nessuna regola").first()).toBeVisible();
         await expect(page.getByRole("button", { name: "Crea stile" }).first()).toBeVisible();
@@ -131,8 +157,9 @@ test.describe("Stili — elenco", () => {
 
     test("griglia/lista si ricorda la scelta", async ({ page }) => {
         await openList(page, "list");
-        await expect(page.getByRole("radio", { name: "Vista lista" })).toHaveAttribute("aria-checked", "true");
-        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        const d = await lookD(page);
+        await expect(page.getByRole("radio", { name: d ? "Elenco" : "Vista lista", exact: true })).toHaveAttribute("aria-checked", "true");
+        await page.getByRole("radio", { name: d ? "Fogli" : "Vista griglia", exact: true }).click();
         expect(await page.evaluate(() => localStorage.getItem("cataloglobe-styles-view-mode"))).toBe("grid");
     });
 
@@ -140,13 +167,15 @@ test.describe("Stili — elenco", () => {
         await openList(page);
         await search(page, "sera");
         await expect(styleName(page, "Sera e2e")).toBeVisible();
-        await expect(styleName(page, "Estate e2e")).toHaveCount(0);
+        // Nella D Estate resta nella frase in cima: conta la sua card.
+        const estate = (await lookD(page)) ? main(page).locator("article").filter({ hasText: "Estate e2e" }) : styleName(page, "Estate e2e");
+        await expect(estate).toHaveCount(0);
     });
 
     // D124: si crea nel tunnel; i salvataggi li prova `crea.spec.ts`.
     test("«Crea stile» apre il tunnel di creazione", async ({ page }) => {
         await openList(page);
-        await page.getByRole("button", { name: "Crea stile" }).first().click();
+        await createStyle(page);
         await expect(page).toHaveURL(/\/crea\/stile\?da=stili$/);
         await expect(page).toHaveTitle(/Nuovo stile/);
     });
@@ -184,6 +213,12 @@ test.describe("Stili — elenco", () => {
         await openList(page);
         await actionsOf(styleName(page, "Estate e2e")).click();
         await page.getByRole("menuitem", { name: "Elimina" }).click();
+        if (await lookD(page)) {
+            // Nella D uno stile in onda non apre la conferma: l'avviso dice di toglierlo dal Calendario.
+            await expect(page.getByText(/«Estate e2e» è in onda: prima toglilo dal Calendario/)).toBeVisible();
+            expect(write(stub, "styles.DELETE")).toBeUndefined();
+            return;
+        }
         const confirm = dialog(page);
         await expect(confirm).toContainText("Pranzo e2e");
         await expect(confirm.getByRole("button", { name: /^(Conferma eliminazione|Elimina)/i })).toBeDisabled();
@@ -230,8 +265,8 @@ test.describe("Stili — elenco ricomposto (P2)", () => {
     test("la card è un link allo stile; di sistema lo dice a parole", async ({ page }) => {
         await openList(page, "grid");
         await expect(main(page).getByRole("link", { name: "Estate e2e" })).toHaveAttribute("href", new RegExp(`/crea/stile/${STYLE.estate}\\?da=stili$`));
-        // ST3: testo davanti all'uso, non più una pillola.
-        await expect(main(page).getByText(/^Di sistema · /)).toBeVisible();
+        // ST3: testo davanti all'uso, non più una pillola; nella D un'etichetta accanto al nome.
+        await expect((await lookD(page)) ? main(page).getByText("Di sistema", { exact: true }) : main(page).getByText(/^Di sistema · /)).toBeVisible();
     });
 
     test("chi non scrive: il «⋯» apre lo stile da guardare, spento", async ({ page }) => {
@@ -286,6 +321,7 @@ function itemOf(page: Page, name: string): Locator {
 test.describe("Stili — dove vestono (§50.13)", () => {
     test("griglia: la pillola solo per «Attivo adesso», l'uso nella riga di testo (ST3)", async ({ page }) => {
         await openList(page);
+        test.skip(await lookD(page), "nella D la riga dice «In onda adesso»: la prova «griglia: stili, prima gli attivi adesso…»");
         await expect(itemOf(page, "Estate e2e")).toContainText("Attivo adesso");
         for (const name of ["Stile base e2e", "Autunno e2e", "Sera e2e"]) {
             await expect(itemOf(page, name)).not.toContainText(/Attivo adesso|Programmato|Nessuna regola attiva|Non utilizzato/);

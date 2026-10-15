@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { LOOK_D } from "@/styles/lookD";
 import { usePageHeader } from "@/context/usePageHeader";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
@@ -355,6 +356,18 @@ export default function Products() {
         setParentForVariant(null);
         setIsCreateEditOpen(true);
     }, [ensureActive]);
+
+    // «Un prodotto» da «Crea» di Menù e vetrina (D): `?nuovo=1` apre subito il drawer.
+    const [searchParams, setSearchParams] = useSearchParams();
+    useEffect(() => {
+        if (!LOOK_D || searchParams.get("nuovo") !== "1" || !canWriteProduct) return;
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.delete("nuovo");
+            return next;
+        }, { replace: true });
+        handleCreateBase();
+    }, [searchParams, setSearchParams, canWriteProduct, handleCreateBase]);
 
     const handleTabChange = useCallback((val: ProductsTab) => {
         setActiveTab(val);

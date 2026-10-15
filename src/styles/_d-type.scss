@@ -64,7 +64,22 @@ $d-type: (
   ticket: (family: display, size: 17px, weight: 700, tracking: -0.01em),
   tile-num: (family: num, size: 13px, weight: 700),
   time: (family: num, size: 15px, weight: 700),
-  now: (family: display, size: clamp(14px, 1.3cqi, 19px), weight: 600, tracking: -0.015em)
+  now: (family: display, size: clamp(14px, 1.3cqi, 19px), weight: 600, tracking: -0.015em),
+  // Menù e vetrina (Visual Redesign 2): il nome della card (`.mv-n`), le voci
+  // di «Cosa vuoi creare?» (`.mv-crea .pop b`), il foglio del menù in
+  // miniatura (`.mv-paper .h`, `.c`), la «Aa» dello stile (`.mv-ph .a`),
+  // titolo e tipo sull'anteprima di in evidenza (`.mv-ev b`, `small`).
+  pick-title: (size: 13.5px, weight: 700),
+  paper-title: (family: display, size: 11px, weight: 700),
+  paper-cat: (size: 7.5px, weight: 700, tracking: 0.08em, upper: true),
+  paper-title-s: (family: display, size: 7.5px, weight: 700),
+  paper-cat-s: (size: 5.5px, weight: 700, tracking: 0.08em, upper: true),
+  style-aa: (family: display, size: 18px, weight: 700),
+  style-aa-s: (family: display, size: 11px, weight: 700),
+  tile-title: (family: display, size: 17px, weight: 700, tracking: -0.01em),
+  tile-kind: (size: 11.5px, weight: 700),
+  az-sub: (size: 11.5px, weight: 500),
+  az-logo: (family: display, size: 11px, weight: 700)
 );
 
 @mixin d-type($role) {
