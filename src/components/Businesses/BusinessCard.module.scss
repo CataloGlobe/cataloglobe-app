@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 // T17 WS1-WS2, WS6: la card di un'attività nel Workspace. Tre misure (hero,
 // pair, compact); senza foto la copertina è una sfumatura nella tinta
 // dell'attività (`--tenant-hue`, dal nome).
@@ -351,5 +354,55 @@
   .pair .logo {
     width: 48px;
     height: 48px;
+  }
+}
+
+/* ── D (Visual Redesign PR 3, v71; copia `.coc`) ─────────────────────────── */
+
+@include look-d {
+  .card {
+    border-color: var(--d-line);
+    border-radius: var(--d-r-card);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+  }
+
+  .menu {
+    border-radius: var(--d-r-pill);
+  }
+
+  .name {
+    @include d-type(card-name);
+  }
+
+  // la card piccola è una tessera tinta, come le aziende della copia
+  .compact {
+    gap: 12px;
+    padding-right: 12px;
+    border-color: transparent;
+    border-radius: 24px;
+    background: var(--ws-tint, var(--d-tint-1));
+    box-shadow: none;
+    transition: transform 0.32s var(--d-ease-move);
+
+    &:hover {
+      border-color: transparent;
+      transform: translateY(-2px);
+    }
+
+    .logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 15px;
+    }
+  }
+
+  .compactMain {
+    padding: 16px;
+    border-radius: 24px;
+  }
+
+  .chevron {
+    color: var(--d-muted);
   }
 }
