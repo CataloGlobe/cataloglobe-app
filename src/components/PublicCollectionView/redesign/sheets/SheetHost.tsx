@@ -385,13 +385,13 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
             duration
         );
         const fading = play(backdrop, [{ opacity: backdropOpacity(backdrop) }, { opacity: 0 }], duration);
-        // Chiusura da ×, Esc o velo: la pagina sotto si sblocca nello stesso frame
-        // (vedi startAfterHeavyFrame). Dopo un trascinamento no: il foglio deve
-        // seguire il dito senza fermarsi.
-        const stopWaiting =
-            exiting && offset === 0 && velocity === 0
-                ? startAfterHeavyFrame([exiting, fading].filter((a): a is Animation => !!a))
-                : undefined;
+        // La pagina sotto si sblocca nello stesso frame (vedi startAfterHeavyFrame):
+        // vale anche dopo un trascinamento. Partendo subito, su iPhone il foglio
+        // lasciato dal dito spariva senza la corsa; fermo al primo fotogramma resta
+        // dove il dito l'ha lasciato per quei due frame e poi scende.
+        const stopWaiting = exiting
+            ? startAfterHeavyFrame([exiting, fading].filter((a): a is Animation => !!a))
+            : undefined;
         if (!exiting) {
             finish();
         } else {

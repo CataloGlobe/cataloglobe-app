@@ -2,6 +2,14 @@ import { useCallback, useLayoutEffect, useRef } from "react";
 import { popSheetOpen, pushSheetOpen } from "./openSheets";
 
 /**
+ * Con il body `fixed` il documento si accorcia all'altezza della finestra con le
+ * barre visibili: Chrome su iPhone, se le sue barre erano nascoste, lascia sotto
+ * il foglio una striscia bianca (il documento finisce lì e i `fixed` non vanno
+ * oltre). Il documento resta alto quanto la finestra senza barre.
+ */
+const LOCKED_HTML_MIN_HEIGHT = "100lvh";
+
+/**
  * Body scroll lock delle superfici modali della pagina pubblica.
  *
  * Meccanica neutra rispetto all'ancoraggio (bottom sheet, pannello top, dialog):
@@ -21,7 +29,7 @@ export function useSheetBodyLock(isOpen: boolean): {
     // Salviamo i valori originali qui invece che nella closure del useLayoutEffect,
     // così triggerClose può rilasciare il lock direttamente senza aspettare React.
     const savedScrollYRef = useRef(0);
-    const prevBodyStyleRef = useRef({ overflow: "", position: "", top: "", width: "" });
+    const prevBodyStyleRef = useRef({ overflow: "", position: "", top: "", width: "", htmlMinHeight: "" });
     // true = lock non attivo (iniziale o già rilasciato); false = lock attivo
     const bodyLockReleasedRef = useRef(true);
 
@@ -34,6 +42,7 @@ export function useSheetBodyLock(isOpen: boolean): {
         document.body.style.position = prev.position;
         document.body.style.top = prev.top;
         document.body.style.width = prev.width;
+        document.documentElement.style.minHeight = prev.htmlMinHeight;
         window.scrollTo(0, savedScrollYRef.current);
     }, []);
 
@@ -48,6 +57,7 @@ export function useSheetBodyLock(isOpen: boolean): {
             position: document.body.style.position,
             top: document.body.style.top,
             width: document.body.style.width,
+            htmlMinHeight: document.documentElement.style.minHeight,
         };
         bodyLockReleasedRef.current = false;
         // Stesso ordine atomico del useLayoutEffect open: top+width PRIMA di
@@ -56,6 +66,7 @@ export function useSheetBodyLock(isOpen: boolean): {
         document.body.style.top = `-${savedScrollYRef.current}px`;
         document.body.style.width = "100%";
         document.body.style.overflow = "hidden";
+        document.documentElement.style.minHeight = LOCKED_HTML_MIN_HEIGHT;
         document.body.style.position = "fixed";
     }, []);
 
@@ -78,6 +89,7 @@ export function useSheetBodyLock(isOpen: boolean): {
             position: document.body.style.position,
             top: document.body.style.top,
             width: document.body.style.width,
+            htmlMinHeight: document.documentElement.style.minHeight,
         };
         bodyLockReleasedRef.current = false;
 
@@ -91,6 +103,7 @@ export function useSheetBodyLock(isOpen: boolean): {
         document.body.style.top = `-${savedScrollYRef.current}px`;
         document.body.style.width = "100%";
         document.body.style.overflow = "hidden";
+        document.documentElement.style.minHeight = LOCKED_HTML_MIN_HEIGHT;
         document.body.style.position = "fixed";
 
         return () => {
