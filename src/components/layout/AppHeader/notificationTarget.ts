@@ -49,5 +49,15 @@ export function resolveTargetPath(notification: Notification, fallbackTenantId: 
             ? `/business/${tenantId}`
             : "/workspace";
     }
+    // Invito ricevuto: riga a livello account, si accetta dal Workspace.
+    if (notification.event_type === "team.invite_received") return "/workspace";
+    // Invito accettato o scaduto: la pagina Team dell'azienda.
+    if (
+        notification.event_type === "team.invite_accepted" ||
+        notification.event_type === "team.invite_expired"
+    ) {
+        const tenantId = notification.tenant_id ?? fallbackTenantId;
+        return tenantId ? `/business/${tenantId}/settings/team` : null;
+    }
     return null;
 }
