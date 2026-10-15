@@ -510,8 +510,11 @@ export default function Products() {
     const [groupFilter, setGroupFilter] = useState("");
     const [sortD, setSortD] = useState<ProdottiSort>("gruppo");
     const { compact, setTop } = useCompactHead();
+    // Si rilegge entrando nella scheda Prodotti (i gruppi si cambiano nella loro scheda)
+    // e dopo un cambio fatto da qui, non a ogni ricarica dei prodotti.
+    const onProductsTab = activeTab === "products";
     useEffect(() => {
-        if (!LOOK_D || !currentTenantId) return;
+        if (!LOOK_D || !currentTenantId || !onProductsTab) return;
         let alive = true;
         // La frase, il gruppo e i nomi dei menù: senza, ogni riga direbbe «Senza gruppo» e «In nessun menù».
         Promise.all([getProductGroups(currentTenantId), listProductGroupLinks(currentTenantId), listCatalogs(currentTenantId)])
@@ -529,7 +532,12 @@ export default function Products() {
         return () => {
             alive = false;
         };
-    }, [currentTenantId, allProducts, dTry]);
+    }, [currentTenantId, onProductsTab, dTry]);
+    // creare, duplicare o eliminare cambia anche gruppi e menù dei prodotti
+    const reloadAfterChange = useCallback(() => {
+        void loadData();
+        if (LOOK_D) setDTry(n => n + 1);
+    }, [loadData]);
 
 
     const handleCreateVariant = (baseProduct: V2Product) => {
@@ -553,7 +561,7 @@ export default function Products() {
         try {
             await duplicateProduct(product.id, currentTenantId!);
             showToast({ message: "Prodotto duplicato con successo.", type: "success" });
-            loadData();
+            reloadAfterChange();
         } catch {
             showToast({ message: "Errore durante la duplicazione del prodotto.", type: "error" });
         }
@@ -568,7 +576,7 @@ export default function Products() {
     const productPluralLower = verticalConfig.productLabelPlural.toLowerCase();
     const bulk = useBulkDelete({
         deleteOne: id => deleteProduct(id, currentTenantId!),
-        onDone: loadData,
+        onDone: reloadAfterChange,
         nouns: { one: productLower, many: productPluralLower, deletedOne: "eliminato", deletedMany: "eliminati" }
     });
 
@@ -968,7 +976,7 @@ export default function Products() {
                         onClose={() => setIsCreateEditOpen(false)}
                         mode={createEditMode}
                         parentProduct={parentForVariant}
-                        onSuccess={loadData}
+                        onSuccess={reloadAfterChange}
                         tenantId={currentTenantId ?? undefined}
                     />
 
@@ -981,7 +989,7 @@ export default function Products() {
                         open={isDeleteOpen}
                         onClose={() => setIsDeleteOpen(false)}
                         productData={productToDelete}
-                        onSuccess={loadData}
+                        onSuccess={reloadAfterChange}
                     />
                 </>
             )}

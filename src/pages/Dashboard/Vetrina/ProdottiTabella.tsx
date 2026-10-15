@@ -32,39 +32,40 @@ type Props = {
  * gruppo, prezzo e i menù in cui compare. Tutta la riga apre il prodotto
  * (v32) e al computer l'intestazione resta ferma sotto la riga dei comandi
  * (v34). Stretta, ogni prodotto diventa una scheda: il nome intero, il prezzo
- * a destra, sotto il gruppo e i menù.
+ * a destra, sotto il gruppo e i menù. Lì `display: grid` toglie a Safari la
+ * lettura come tabella: i ruoli scritti la tengono per VoiceOver.
  */
 export function ProdottiTabella({ rows, ariaLabel, productLabel, catalogLabelPlural, noneLabel }: Props) {
     const navigate = useNavigate();
     return (
         <section className={s.tabWrap}>
-            <table className={s.tab} aria-label={ariaLabel}>
-                <thead>
-                    <tr>
-                        <th scope="col">{productLabel}</th>
-                        <th scope="col">Gruppo</th>
-                        <th scope="col" className={s.pz}>
+            <table className={s.tab} aria-label={ariaLabel} role="table">
+                <thead role="rowgroup">
+                    <tr role="row">
+                        <th scope="col" role="columnheader">{productLabel}</th>
+                        <th scope="col" role="columnheader">Gruppo</th>
+                        <th scope="col" role="columnheader" className={s.pz}>
                             Prezzo
                         </th>
-                        <th scope="col">{`Nei ${catalogLabelPlural.toLowerCase()}`}</th>
-                        <th scope="col">
+                        <th scope="col" role="columnheader">{`Nei ${catalogLabelPlural.toLowerCase()}`}</th>
+                        <th scope="col" role="columnheader">
                             <span className={s.sr}>Azioni</span>
                         </th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                     {rows.map(row => (
-                        <tr key={row.id} onClick={() => navigate(row.to)}>
-                            <td className={s.pn}>
+                        <tr key={row.id} role="row" onClick={() => navigate(row.to)}>
+                            <td role="cell" className={s.pn}>
                                 <Link to={row.to} onClick={e => e.stopPropagation()}>
                                     {row.name}
                                 </Link>
                             </td>
-                            <td className={s.gr}>{row.group ?? "Senza gruppo"}</td>
-                            <td className={s.pz}>
+                            <td role="cell" className={s.gr}>{row.group ?? "Senza gruppo"}</td>
+                            <td role="cell" className={s.pz}>
                                 {row.priceText ?? <StatusBadge variant="danger" label="Senza prezzo" />}
                             </td>
-                            <td className={s.tags}>
+                            <td role="cell" className={s.tags}>
                                 {row.menus.length > 0 ? (
                                     row.menus.map(m => (
                                         <span key={m} className={s.tag}>
@@ -75,7 +76,7 @@ export function ProdottiTabella({ rows, ariaLabel, productLabel, catalogLabelPlu
                                     <span className={s.mu}>{noneLabel}</span>
                                 )}
                             </td>
-                            <td className={s.more} onClick={e => e.stopPropagation()}>
+                            <td role="cell" className={s.more} onClick={e => e.stopPropagation()}>
                                 {row.actions}
                             </td>
                         </tr>
