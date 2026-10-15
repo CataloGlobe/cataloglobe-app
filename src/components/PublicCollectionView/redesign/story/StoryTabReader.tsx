@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, UtensilsCrossed } from "lucide-react";
 import type { PublicStoryDetail, StoryBlock } from "@/services/supabase/stories";
@@ -43,6 +43,8 @@ export default function StoryTabReader({ slug, storyId, activityName, onClose, o
     const [leaving, setLeaving] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
     const backRef = useRef<HTMLButtonElement>(null);
+    const leaveTimer = useRef<number | null>(null);
+    const titleId = useId();
     // Chi ha aperto il lettore, letto al primo disegno: lì torna il fuoco alla chiusura.
     const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
 
@@ -67,6 +69,10 @@ export default function StoryTabReader({ slug, storyId, activityName, onClose, o
     // Entra da destra (animazione CSS al montaggio); il fuoco va su «‹».
     useEffect(() => {
         backRef.current?.focus({ preventScroll: true });
+        // Smontato a metà uscita (per esempio un'altra storia aperta dal piatto): niente chiusura in ritardo.
+        return () => {
+            if (leaveTimer.current != null) window.clearTimeout(leaveTimer.current);
+        };
     }, []);
 
     const close = () => {
@@ -83,12 +89,31 @@ export default function StoryTabReader({ slug, storyId, activityName, onClose, o
             return;
         }
         setLeaving(true);
-        window.setTimeout(done, SLIDE_MS);
+        leaveTimer.current = window.setTimeout(done, SLIDE_MS);
     };
 
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
-            if (event.key === "Escape") close();
+            if (event.key === "Escape") {
+                close();
+                return;
+            }
+            // Finestra modale: Tab gira dentro il lettore, non esce sulla pagina o sulla barra dietro.
+            if (event.key !== "Tab" || !rootRef.current) return;
+            const focusable = Array.from(
+                rootRef.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), video[controls], [tabindex]:not([tabindex='-1'])")
+            );
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            const inside = rootRef.current.contains(document.activeElement);
+            if (event.shiftKey && (document.activeElement === first || !inside)) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+                event.preventDefault();
+                first.focus();
+            }
         };
         document.addEventListener("keydown", onKey);
         return () => document.removeEventListener("keydown", onKey);
@@ -107,7 +132,8 @@ export default function StoryTabReader({ slug, storyId, activityName, onClose, o
             className={styles.root}
             role="dialog"
             aria-modal="true"
-            aria-label={title}
+            aria-labelledby={title ? titleId : undefined}
+            aria-label={title ? undefined : t("hub.storia")}
             data-leaving={leaving || undefined}
         >
             <div className={styles.top}>
@@ -124,7 +150,9 @@ export default function StoryTabReader({ slug, storyId, activityName, onClose, o
             )}
             <article className={styles.body}>
                 {eyebrow ? <div className={styles.eyebrow}>{eyebrow}</div> : null}
-                <h2 className={styles.title}>{title}</h2>
+                <h2 id={titleId} className={styles.title}>
+                    {title}
+                </h2>
                 {detail ? (
                     <div className={styles.meta}>
                         {t("story.reading_time", { count: readingMinutes(detail.body_blocks) })} · {activityName}

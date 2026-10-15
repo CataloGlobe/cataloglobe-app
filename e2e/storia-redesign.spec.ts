@@ -75,6 +75,9 @@ test("cappello col testo che si apre, una storia a scheda grande, lettore e piat
     await expect(reader.getByRole("button", { name: "Torna alla Storia" })).toBeFocused();
     await expect(reader.getByText(/1 min di lettura · /)).toBeVisible();
     await expect(reader.getByText("Il grano", { exact: true })).toBeVisible();
+    // Finestra modale: Shift+Tab da «‹» resta nel lettore, non va sulla pagina dietro.
+    await page.keyboard.press("Shift+Tab");
+    expect(await reader.evaluate(el => el.contains(document.activeElement))).toBe(true);
     await page.keyboard.press("Escape");
     await expect(reader).toHaveCount(0);
     await expect(story).toBeFocused();

@@ -187,7 +187,9 @@ function StoryContent({
 }) {
     const { t } = useTranslation("public");
     const { cappello, stories } = data;
-    const hasCappello = !!cappello && !!(cappello.cover || cappello.title || cappello.intro || cappello.website);
+    // Con la copertina del locale la foto del cappello va nell'isola: da sola non basta a fare il cappello.
+    const hasCappello =
+        !!cappello && !!((!hasVenueCover && cappello.cover) || cappello.title || cappello.intro || cappello.website);
 
     if (!hasCappello && stories.length === 0) {
         return <p className={styles.empty}>{t("story.empty")}</p>;

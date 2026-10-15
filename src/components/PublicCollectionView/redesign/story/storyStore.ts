@@ -10,6 +10,7 @@ import type { PublicStoryCard, PublicStoryDetail, PublicStoryListResult, StoryBl
 const lists = new Map<string, PublicStoryListResult>();
 const listsInFlight = new Map<string, Promise<PublicStoryListResult>>();
 const details = new Map<string, PublicStoryDetail>();
+const detailsInFlight = new Map<string, Promise<PublicStoryDetail>>();
 
 export function cachedStories(slug: string): PublicStoryListResult | null {
     return lists.get(slug) ?? null;
@@ -53,10 +54,18 @@ export function loadStory(slug: string, storyId: string): Promise<PublicStoryDet
     const key = `${slug}/${storyId}`;
     const cached = details.get(key);
     if (cached) return Promise.resolve(cached);
-    return fetchPublicStory(slug, storyId).then(detail => {
+    const inFlight = detailsInFlight.get(key);
+    if (inFlight) return inFlight;
+    const request = fetchPublicStory(slug, storyId).then(detail => {
         details.set(key, detail);
         return detail;
     });
+    detailsInFlight.set(key, request);
+    const done = () => {
+        if (detailsInFlight.get(key) === request) detailsInFlight.delete(key);
+    };
+    request.then(done, done);
+    return request;
 }
 
 /** Schede grandi fino a tre storie, lista da quattro (v38, «Automatica»). */
