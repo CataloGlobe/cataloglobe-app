@@ -447,7 +447,19 @@
         "video_play": "Video ansehen",
         "video_play_aria": "Story-Video abspielen",
         "discover_label": "Geschichte entdecken",
-        "image_alt_fallback": "Bild der Geschichte"
+        "image_alt_fallback": "Bild der Geschichte",
+        "count_one": "{{count}} Geschichte",
+        "count_other": "{{count}} Geschichten",
+        "read_more": "Weiterlesen",
+        "read_less": "Weniger anzeigen",
+        "reading_time_one": "{{count}} Min. Lesezeit",
+        "reading_time_other": "{{count}} Min. Lesezeit",
+        "try_with": "Dazu probieren",
+        "error_title": "Die Geschichten können nicht geladen werden",
+        "error_body": "Prüfe die Verbindung und versuche es erneut: Die Speisekarte bleibt verfügbar.",
+        "loading_aria": "Geschichten werden geladen",
+        "back_aria": "Zurück zur Geschichte",
+        "cap_aria": "Über das Lokal"
     },
     "reviews": {
         "rating_labels": {

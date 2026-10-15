@@ -447,7 +447,19 @@
         "video_play": "Watch the video",
         "video_play_aria": "Play the story video",
         "discover_label": "Discover the story",
-        "image_alt_fallback": "Story image"
+        "image_alt_fallback": "Story image",
+        "count_one": "{{count}} story",
+        "count_other": "{{count}} stories",
+        "read_more": "Keep reading",
+        "read_less": "Show less",
+        "reading_time_one": "{{count}} min read",
+        "reading_time_other": "{{count}} min read",
+        "try_with": "Try it with this story",
+        "error_title": "We can't load the stories",
+        "error_body": "Check your connection and try again: the menu is still available.",
+        "loading_aria": "Loading the stories",
+        "back_aria": "Back to Story",
+        "cap_aria": "About the venue"
     },
     "reviews": {
         "rating_labels": {
