@@ -1,4 +1,5 @@
 import { MapPin } from "lucide-react";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { useTenant } from "@/context/useTenant";
 import styles from "./PageTitleBar.module.scss";
 
@@ -24,9 +25,11 @@ export function SegnoAzienda({ sedi, compact }: { sedi: number; compact: boolean
     if (!name) return null;
     if (compact) {
         return (
-            <span className={styles.azPin} role="img" aria-label={`${name}: ${sub.toLowerCase()}`} title={`${name} · ${sub}`}>
-                <MapPin size={20} aria-hidden />
-            </span>
+            <Tooltip content={`${name} · ${sub}`}>
+                <span className={styles.azPin} role="img" aria-label={`${name}: ${sub.toLowerCase()}`}>
+                    <MapPin size={20} aria-hidden />
+                </span>
+            </Tooltip>
         );
     }
     return (

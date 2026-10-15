@@ -373,7 +373,7 @@ export default function Products() {
     // «Un prodotto» da «Crea» di Menù e vetrina (D): `?nuovo=1` apre subito il drawer.
     const [searchParams, setSearchParams] = useSearchParams();
     useEffect(() => {
-        if (searchParams.get("nuovo") !== "1" || !canWriteProduct) return;
+        if (!LOOK_D || searchParams.get("nuovo") !== "1" || !canWriteProduct) return;
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             next.delete("nuovo");
@@ -504,13 +504,16 @@ export default function Products() {
     const [dGroups, setDGroups] = useState<ProductGroup[]>([]);
     const [dGroupOf, setDGroupOf] = useState<Record<string, string[]>>({});
     const [dCatalogNames, setDCatalogNames] = useState<Record<string, string>>({});
+    // gruppi, legami e menù: finché non arrivano la tabella aspetta, se non arrivano lo dice
+    const [dMeta, setDMeta] = useState<"loading" | "ok" | "error">("loading");
+    const [dTry, setDTry] = useState(0);
     const [groupFilter, setGroupFilter] = useState("");
     const [sortD, setSortD] = useState<ProdottiSort>("gruppo");
     const { compact, setTop } = useCompactHead();
     useEffect(() => {
         if (!LOOK_D || !currentTenantId) return;
         let alive = true;
-        // Solo per la frase, il gruppo e i nomi dei menù: se non arrivano la tabella resta, senza.
+        // La frase, il gruppo e i nomi dei menù: senza, ogni riga direbbe «Senza gruppo» e «In nessun menù».
         Promise.all([getProductGroups(currentTenantId), listProductGroupLinks(currentTenantId), listCatalogs(currentTenantId)])
             .then(([groups, links, catalogs]) => {
                 if (!alive) return;
@@ -519,12 +522,14 @@ export default function Products() {
                 setDGroups(groups);
                 setDGroupOf(of);
                 setDCatalogNames(Object.fromEntries(catalogs.map(c => [c.id, c.name])));
+                setDMeta("ok");
             })
-            .catch(() => undefined);
+            // dopo la prima lettura buona, una ricarica fallita lascia i dati di prima
+            .catch(() => alive && setDMeta(m => (m === "ok" ? "ok" : "error")));
         return () => {
             alive = false;
         };
-    }, [currentTenantId, allProducts]);
+    }, [currentTenantId, allProducts, dTry]);
 
 
     const handleCreateVariant = (baseProduct: V2Product) => {
@@ -803,18 +808,27 @@ export default function Products() {
                                     setTop={setTop}
                                 />
                             )}
-                            {loadError ? (
+                            {loadError || dMeta === "error" ? (
                                 <EmptyState
                                     icon={<Package size={40} strokeWidth={1.5} />}
                                     title={`Non è stato possibile caricare i ${productPluralLower}`}
                                     description="Controlla la connessione e riprova."
                                     action={
-                                        <Button variant="secondary" onClick={() => loadData()}>
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => {
+                                                if (loadError) void loadData();
+                                                if (dMeta === "error") {
+                                                    setDMeta("loading");
+                                                    setDTry(n => n + 1);
+                                                }
+                                            }}
+                                        >
                                             Riprova
                                         </Button>
                                     }
                                 />
-                            ) : isLoading ? (
+                            ) : isLoading || dMeta === "loading" ? (
                                 <LoadingState />
                             ) : allProducts.length === 0 ? (
                                 <EmptyState
