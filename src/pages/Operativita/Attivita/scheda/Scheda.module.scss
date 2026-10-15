@@ -636,7 +636,9 @@
   .now {
     padding: 18px 20px;
     .nowLab { @include d-type(card-name); letter-spacing: 0; text-transform: none; color: var(--d-text); }
-    .say { @include d-type(body); min-width: 0; }
+    // la frase prende tutta la riga, i tasti di oggi sotto (copia `.sc-now`)
+    .nowRow { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .say { @include d-type(body); min-width: 0; flex: none; }
     .on { color: var(--d-brand); }
     .off { color: var(--d-s-wait-ink); }
   }
