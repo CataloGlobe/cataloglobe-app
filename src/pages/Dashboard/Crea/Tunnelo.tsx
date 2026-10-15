@@ -779,7 +779,8 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                                         <span className={s.idot}>{done ? <Check size={12} aria-hidden /> : n === "modifica" ? <Pencil size={11} aria-hidden /> : t.edit ? j : j + 1}</span>
                                         {stepLabel(t, n)}
                                         {/* la scelta fatta nel «Dove e quando» (D189) */}
-                                        {(n === "dove" || n === "quando" || n === "onda") && t.onda && <em>{t.onda === "on" ? "· in onda" : "· non in onda"}</em>}
+                                        {/* nella D una volta sola, sul primo fra «Dove» e «Quando» (copia) */}
+                                        {(LOOK_D ? n === st.find(x => x === "dove" || x === "quando") : n === "dove" || n === "quando" || n === "onda") && t.onda && <em>{t.onda === "on" ? "· in onda" : "· non in onda"}</em>}
                                     </button>
                                 </li>
                             );

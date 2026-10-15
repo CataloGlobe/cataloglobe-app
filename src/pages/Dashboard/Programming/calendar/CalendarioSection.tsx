@@ -118,6 +118,8 @@ export type CalendarioSectionProps = {
     onRoot: () => void;
     onResume: () => void;
     onExit: () => void;
+    /** Aperta da «Aggiungi» delle Regole (D): la briciola parte da lì. */
+    from?: "rules";
     onSave: (then?: CalKind) => void;
     onDrop: () => void;
     onKeep: (to: CalKind) => void;
@@ -173,7 +175,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         <div className={s.itop}>
             <nav className={s.icrumb} aria-label="Percorso">
                 <Button size="sm" variant="ghost" onClick={exit}>
-                    Calendario
+                    {p.from === "rules" ? "Regole" : "Calendario"}
                 </Button>
                 <ChevronRight size={14} aria-hidden />
                 {D ? (
@@ -196,7 +198,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                 )}
             </nav>
             <Button size="sm" variant="secondary" leftIcon={<ArrowLeft size={16} />} onClick={exit}>
-                Torna al calendario
+                {p.from === "rules" ? "Torna alle regole" : "Torna al calendario"}
             </Button>
         </div>
     );
@@ -233,7 +235,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                 </div>
                 {p.kept && (
                     <div className={`${s.hnote} ${s.ikept}`}>
-                        <Bookmark size={15} aria-hidden />
+                        <Bookmark size={LOOK_D ? 18 : 15} strokeWidth={LOOK_D ? 1.8 : 2} aria-hidden />
                         <span>Hai lasciato a metà «{ADD_T[p.kept.kind]}».</span>
                         <Button size="sm" variant="secondary" onClick={p.onResume}>
                             Riprendi

@@ -2435,6 +2435,7 @@ select.in {
             }
         }
         em {
+            color: inherit;
             @include d-type(small);
         }
     }

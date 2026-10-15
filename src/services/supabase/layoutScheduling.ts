@@ -102,7 +102,8 @@ export type LayoutRuleOption = {
     status?: "active" | "inactive";
     inactive_reason?: "maintenance" | "closed" | "unavailable" | null;
     is_system?: boolean;
-    current_version?: { version: number } | null;
+    /** Solo styles: `config` serve al Calendario per il colore dello stile (D213). */
+    current_version?: { version: number; config?: unknown } | null;
     /** Set for variant products (parent_product_id IS NOT NULL). */
     parent_product_id?: string | null;
     /** Set for products with PRIMARY_PRICE option groups (format-based pricing). */
@@ -211,7 +212,7 @@ type RawStyleOptionRow = {
     name: string;
     tenant_id: string;
     is_system: boolean;
-    current_version: { version: number } | { version: number }[] | null;
+    current_version: { version: number; config?: unknown } | { version: number; config?: unknown }[] | null;
 };
 
 export type ProductGroupAssignmentOption = {
@@ -832,7 +833,7 @@ export async function listLayoutRuleOptions(tenantId: string): Promise<{
             supabase
                 .from("styles")
                 .select(
-                    "id, name, tenant_id, is_system, current_version:style_versions!current_version_id(version)"
+                    "id, name, tenant_id, is_system, current_version:style_versions!current_version_id(version, config)"
                 )
                 .eq("tenant_id", tenantId)
                 .eq("is_active", true)

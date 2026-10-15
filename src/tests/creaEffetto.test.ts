@@ -58,7 +58,8 @@ describe("le sedi di un gruppo", () => {
     it("con la risposta sede per sede: dove oggi vince l'altro dice cosa porta la scelta (D196)", () => {
         const c = sede("c", { mins: 0, days: 0, by: ["Catalogo"] });
         expect(effLab(c, "menu", () => "ins")).toEqual({ lab: "Non si vede: lì resta «Catalogo», al posto degli altri", ico: "off" });
-        expect(effLab(c, "stile", () => "ins").lab).toBe("Lascia «Catalogo»: lì resta il suo stile");
+        expect(effLab(c, "stile", () => "ins")).toEqual({ lab: "Lascia «Catalogo»: lì resta il suo stile", ico: "insieme" });
+        expect(effLab(sede("d", { by: ["Catalogo"] }), "stile", () => "ins").lab).toBe("Lascia «Catalogo»");
         expect(effLab(c, "menu", () => "pos")).toEqual({ lab: "Prende il posto di «Catalogo»: si salva col database nuovo", ico: "posto" });
         const mix = sede("a", { cov: ["Pranzo"], by: ["Catalogo"] });
         expect(effLab(mix, "menu", (_, con) => (con === "Pranzo" ? "ins" : "pos")).lab).toBe("Insieme a «Pranzo»: il cliente sceglie · prende il posto di «Catalogo»: si salva col database nuovo");

@@ -3,6 +3,7 @@
 import { q } from "@/pages/Dashboard/Programming/calendar/calendarModel";
 import { DB_WAIT, hoursText, listIt, type SedeEff } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { CreaKind as Kind } from "./creaModel";
+import { LOOK_D } from "@/styles/lookD";
 
 export type EffIco = "off" | "posto" | "insieme" | "solo";
 /** `prima`: in modifica, com'era nelle stesse sedi («Prima: …»). */
@@ -32,7 +33,8 @@ export function effLab(x: SedeEff, kind: Kind, val: EffVal): { lab: string; ico:
     if (!x.mins) {
         if (!x.by.length) return { lab: "Questa settimana non c'è", ico: "off" };
         if (byPos.length) return { lab: "Prende il posto di " + listIt(byPos.map(q)) + ": " + DB_WAIT, ico: "posto" };
-        if (byKeep.length) return { lab: kind === "stile" ? "Lascia " + listIt(byKeep.map(q)) + ": lì resta il suo stile" : "Non si vede: lì resta " + listIt(byKeep.map(q)) + ", al posto degli altri", ico: "off" };
+        // nella D lo stile che lascia gli altri non è spento: sta insieme a loro (copia)
+        if (byKeep.length) return { lab: kind === "stile" ? "Lascia " + listIt(byKeep.map(q)) + ": lì resta il suo stile" : "Non si vede: lì resta " + listIt(byKeep.map(q)) + ", al posto degli altri", ico: LOOK_D && kind === "stile" ? "insieme" : "off" };
         return { lab: `Questa settimana non va mai in onda: ${x.by.length > 1 ? "lo coprono" : "lo copre"} ` + listIt(x.by.map(q)), ico: "off" };
     }
     if (!x.cov.length && !byPos.length && !byKeep.length) return { lab: kind === "stile" ? "Non incrocia altri stili" : kind === "menu" ? "Non incrocia altri menù" : "Non incrocia altri contenuti", ico: "solo" };
@@ -40,7 +42,7 @@ export function effLab(x: SedeEff, kind: Kind, val: EffVal): { lab: string; ico:
     if (posto.length) out.push("Prende il posto di " + listIt(posto.map(q)));
     if (insieme.length) out.push(kind === "stile" ? "Lascia " + listIt(insieme.map(q)) : "Insieme a " + listIt(insieme.map(q)) + (kind === "menu" ? ": il cliente sceglie" : ""));
     if (byPos.length) out.push((out.length ? "prende il posto di " : "Prende il posto di ") + listIt(byPos.map(q)) + ": " + DB_WAIT);
-    if (byKeep.length) out.push((out.length ? "in parte resta " : "In parte resta ") + listIt(byKeep.map(q)));
+    if (byKeep.length) out.push(LOOK_D && kind === "stile" ? (out.length ? "lascia " : "Lascia ") + listIt(byKeep.map(q)) : (out.length ? "in parte resta " : "In parte resta ") + listIt(byKeep.map(q)));
     return { lab: out.join(" · "), ico: posto.length || byPos.length ? "posto" : insieme.length ? "insieme" : "solo" };
 }
 

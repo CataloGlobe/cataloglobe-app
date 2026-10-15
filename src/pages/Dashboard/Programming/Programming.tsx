@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Calendar, ChevronDown } from "lucide-react";
+import { Calendar, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -64,6 +64,11 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { ruleTypeLabel } from "./ruleTypeLabel";
 import { withPluralArticle } from "@/utils/ruleDetailForm";
 import styles from "./Programming.module.scss";
+import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import { LOOK_D } from "@/styles/lookD";
+import { VetrinaHead } from "../Vetrina/VetrinaHead";
+import { useCompactHead } from "../Vetrina/useCompactHead";
+import type { LeadPart } from "../Vetrina/vetrinaModel";
 
 type RuleTypeFilter = RuleType | "all";
 
@@ -287,6 +292,7 @@ export default function Programming() {
         () => ({
             catalogs: new Map(catalogs.map(c => [c.id, c.name])),
             styles: new Map(stylesOptions.map(c => [c.id, c.name])),
+            styleColors: new Map(stylesOptions.flatMap(c => (c.current_version?.config ? [[c.name, parseTokens(c.current_version.config).colors.primary] as const] : []))),
             featured: new Map(featuredOptions.map(c => [c.id, c.name])),
             products: new Map(productOptions.map(c => [c.id, c.name]))
         }),
@@ -539,6 +545,17 @@ export default function Programming() {
         [routeActivityId, seatActivities]
     );
 
+    const statusOf = useCallback((rule: LayoutRule) => {
+        const insight = ruleInsightsById.get(rule.id);
+        return deriveScheduleStatus({
+            enabled: rule.enabled,
+            endAt: rule.end_at,
+            isConfigDraft: isLayoutRuleDraft(rule),
+            isZeroReach: Boolean(insight?.zeroReachReason),
+            isActiveNow: insight?.isActiveNow ?? false
+        });
+    }, [ruleInsightsById]);
+
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
         const scheduled: LayoutRule[] = [];
@@ -547,14 +564,7 @@ export default function Programming() {
         const disabled: LayoutRule[] = [];
 
         for (const rule of filteredRules) {
-            const insight = ruleInsightsById.get(rule.id);
-            const status = deriveScheduleStatus({
-                enabled: rule.enabled,
-                endAt: rule.end_at,
-                isConfigDraft: isLayoutRuleDraft(rule),
-                isZeroReach: Boolean(insight?.zeroReachReason),
-                isActiveNow: insight?.isActiveNow ?? false
-            });
+            const status = statusOf(rule);
 
             if (status === "draft") {
                 // Bozza copre due cause distinte (deriveScheduleStatus):
@@ -626,7 +636,31 @@ export default function Programming() {
         });
 
         return { activeRules: active, scheduledRules: scheduled, draftRules: drafts, expiredRules: expired, disabledRules: disabled };
-    }, [filteredRules, ruleInsightsById]);
+    }, [filteredRules, ruleInsightsById, statusOf]);
+
+    // Nella D la frase in cima conta tutte le regole guardate, senza ricerca né tipo (copia, «Regole»)
+    const ruleLead = useMemo<LeadPart[] | null>(() => {
+        if (!LOOK_D) return null;
+        const n = { active: 0, scheduled: 0, draft: 0, disabled: 0, expired: 0 };
+        for (const rule of seatRules) {
+            const st = statusOf(rule);
+            if (st === "draft" || st === "disabled" || st === "expired" || st === "active") n[st] += 1;
+            else n.scheduled += 1;
+        }
+        const parts = ([
+            [n.active, "in onda adesso"],
+            [n.scheduled, n.scheduled === 1 ? "programmata" : "programmate"],
+            [n.draft, "in bozza"],
+            [n.disabled, n.disabled === 1 ? "spenta" : "spente"],
+            [n.expired, n.expired === 1 ? "scaduta" : "scadute"]
+        ] as const).filter(([c]) => c > 0);
+        const sede = routeActivityId ? activityById.get(routeActivityId)?.name : undefined;
+        const out: LeadPart[] = [{ strong: `${seatRules.length} ${seatRules.length === 1 ? "regola" : "regole"}` }];
+        if (sede) out.push({ text: ` a ${sede}` });
+        parts.forEach(([c, w], i) => out.push(i === 0 ? { text: ": " } : { text: ", " }, i === 0 ? { strong: `${c} ${w}` } : { text: `${c} ${w}` }));
+        out.push({ text: "." });
+        return out;
+    }, [seatRules, statusOf, routeActivityId, activityById]);
 
     const [showDrafts, setShowDrafts] = useState(true);
     const [showExpired, setShowExpired] = useState(false);
@@ -894,7 +928,8 @@ export default function Programming() {
         loading: isCreating
     }), [typeOptions, typeCounts, ruleTypeFilter, handleRuleTypeFilterChange, viewMode, searchTerm, headerSplitActions, isCreating]);
 
-    const calendarOnly = viewMode === "calendar";
+    // Nella D filtri, ricerca e «Aggiungi» stanno nella pagina, sotto la frase (copia, «Regole»)
+    const calendarOnly = viewMode === "calendar" || LOOK_D;
     usePageHeader({
         leading: calendarOnly ? undefined : headerLeading,
         actions: calendarOnly ? undefined : headerActions,
@@ -902,6 +937,49 @@ export default function Programming() {
         compact: calendarOnly ? undefined : headerCompact,
     });
 
+    const { compact: headCompact, setTop: setHeadTop } = useCompactHead();
+    // «Aggiungi» nella D apre «Cosa vuoi mettere in calendario?» del Calendario; uscendo si torna qui
+    const openAddFromRules = useCallback(() => {
+        setSearchParams(prev => {
+            prev.set("vista", "calendario");
+            prev.set("aggiungi", "regole");
+            return prev;
+        });
+    }, [setSearchParams]);
+    const backToRules = useCallback(() => {
+        setSearchParams(prev => {
+            prev.delete("vista");
+            prev.delete("aggiungi");
+            return prev;
+        });
+    }, [setSearchParams]);
+    const D_TYPE_ORDER: RuleTypeFilter[] = ["all", "layout", "featured", "price", "visibility"];
+    const ruleHead = LOOK_D && viewMode === "list" && (
+        <VetrinaHead<RuleTypeFilter>
+            family="menu"
+            lead={isLoading || loadFailed ? null : ruleLead}
+            filter={ruleTypeFilter}
+            onFilter={handleRuleTypeFilterChange}
+            filterOptions={D_TYPE_ORDER.map(value => ({ value, label: typeOptions.find(o => o.value === value)?.label ?? value, count: typeCounts[value] }))}
+            filterAll="all"
+            query={searchTerm}
+            onQuery={setSearchTerm}
+            placeholder="Cerca per nome, tipo o sede"
+            crea={
+                canCreate ? (
+                    <Button variant="primary" size="sm" leftIcon={<Plus size={16} />} disabled={!currentTenantId || !canEdit} onClick={openAddFromRules}>
+                        Aggiungi
+                    </Button>
+                ) : undefined
+            }
+            compact={headCompact}
+            setTop={setHeadTop}
+        />
+    );
+
+    // Nella D i gruppi hanno i nomi e le frasi della copia; «Disabilitate» diventa «Spente».
+    // Cercando si aprono tutti.
+    const searching = LOOK_D && searchTerm.trim() !== "";
     const statusGroups: Array<{
         key: string;
         title: string;
@@ -910,11 +988,21 @@ export default function Programming() {
         open: boolean;
         setOpen?: (open: boolean) => void;
     }> = [
-        { key: "active", title: "Adesso", rules: activeRules, open: true },
-        { key: "scheduled", title: "Programmate", rules: scheduledRules, open: true },
-        { key: "drafts", title: "Bozze", subtitle: "Incomplete, o senza una sede raggiunta", rules: draftRules, open: showDrafts, setOpen: setShowDrafts },
-        { key: "disabled", title: "Disabilitate", rules: disabledRules, open: showDisabled, setOpen: setShowDisabled },
-        { key: "expired", title: "Scadute", rules: expiredRules, open: showExpired, setOpen: setShowExpired }
+        LOOK_D
+            ? { key: "active", title: "Adesso", subtitle: "In onda in questo momento", rules: activeRules, open: true }
+            : { key: "active", title: "Adesso", rules: activeRules, open: true },
+        LOOK_D
+            ? { key: "scheduled", title: "Programmate", subtitle: "Vanno in onda nei loro giorni e nelle loro ore", rules: scheduledRules, open: true }
+            : { key: "scheduled", title: "Programmate", rules: scheduledRules, open: true },
+        LOOK_D
+            ? { key: "drafts", title: "Bozze", subtitle: "Incomplete: non vanno in onda", rules: draftRules, open: true }
+            : { key: "drafts", title: "Bozze", subtitle: "Incomplete, o senza una sede raggiunta", rules: draftRules, open: showDrafts, setOpen: setShowDrafts },
+        LOOK_D
+            ? { key: "disabled", title: "Spente", subtitle: "Pronte, non in onda: la voce resta con sedi e orari", rules: disabledRules, open: showDisabled || searching, setOpen: searching ? undefined : setShowDisabled }
+            : { key: "disabled", title: "Disabilitate", rules: disabledRules, open: showDisabled, setOpen: setShowDisabled },
+        LOOK_D
+            ? { key: "expired", title: "Scadute", subtitle: "Il periodo è finito", rules: expiredRules, open: showExpired || searching, setOpen: searching ? undefined : setShowExpired }
+            : { key: "expired", title: "Scadute", rules: expiredRules, open: showExpired, setOpen: setShowExpired }
     ];
 
     // «Dove si applica» larga quanto l'etichetta più lunga dell'elenco (o
@@ -985,6 +1073,7 @@ export default function Programming() {
                 />
             )}
 
+            {ruleHead}
             {viewMode === "list" ? (
                 loadFailed ? (
                     <InlineBanner
@@ -1080,7 +1169,7 @@ export default function Programming() {
                                         <Text as="h2" variant="title-sm" id={`rule-group-${group.key}`}>
                                             {group.title}
                                         </Text>
-                                        <Badge variant="neutral">{group.rules.length}</Badge>
+                                        <Badge variant="neutral" className={styles.groupCount}>{group.rules.length}</Badge>
                                         {group.subtitle && (
                                             <Text as="span" variant="body-sm" colorVariant="muted">
                                                 {group.subtitle}
@@ -1104,6 +1193,7 @@ export default function Programming() {
                 )
             ) : (
                 <CalendarioView
+                    addFromRules={LOOK_D && searchParams.get("aggiungi") === "regole" ? backToRules : undefined}
                     rules={seatRules}
                     names={calNames}
                     sedi={calSedi}
