@@ -6,6 +6,7 @@ import {
     useRef,
     useState,
     useSyncExternalStore,
+    type CSSProperties,
     type PointerEvent as ReactPointerEvent,
     type ReactNode,
     type RefObject
@@ -227,6 +228,8 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
     }, []);
 
     const index = Math.max(0, shown.length - 1);
+    // Pagine sulla pista: quelle in pila più quella che esce con «‹».
+    const pageCount = shown.length + leaving.length;
     const activePage = shown[index];
     const parentPage = index > 0 ? shown[index - 1] : undefined;
 
@@ -436,8 +439,8 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
     useLayoutEffect(() => {
         const track = trackRef.current;
         if (!present || !track) return;
-        const from = trackOffsetPercent(prevIndex.current);
-        const to = trackOffsetPercent(index);
+        const from = trackOffsetPercent(prevIndex.current, pageCount);
+        const to = trackOffsetPercent(index, pageCount);
         track.style.transform = `translateX(${to}%)`;
         if (from !== to && (state.move === "push" || state.move === "pop")) {
             animateHeight.current = true;
@@ -477,7 +480,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
             }
         }
         prevIndex.current = index;
-    }, [present, index, state.move, play, clearLeaving]);
+    }, [present, index, pageCount, state.move, play, clearLeaving]);
 
     // Altezza: segue il contenuto della pagina attiva (ResizeObserver); nella
     // spinta passa da un'altezza all'altra in animazione, altrimenti si imposta.
@@ -697,7 +700,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
                     )}
                 </div>
                 <div ref={viewportRef} className={styles.viewport}>
-                    <div ref={trackRef} className={styles.track}>
+                    <div ref={trackRef} className={styles.track} style={{ "--pages": pageCount } as CSSProperties}>
                         {[...shown, ...leaving].map((page, i) => (
                             <div
                                 key={page.key}
