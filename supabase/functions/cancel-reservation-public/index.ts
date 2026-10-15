@@ -5,6 +5,7 @@ import { COMPANY } from "../_shared/company-config.ts";
 import { formatDateIt, formatTimeIt } from "../_shared/emailFormat.ts";
 import { buildReservationsDashboardUrl } from "../_shared/publicSiteUrl.ts";
 import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts";
+import { notify } from "../_shared/notify.ts";
 import { buildReservationCancelledByCustomerEmail } from "../_shared/reservationEmails.ts";
 import {
     checkRateLimit,
@@ -215,77 +216,39 @@ async function notifyVenueOfCancellation(
         console.error("[cancel-reservation-public] venue email step failed:", mailErr);
     }
 
-    // Notifica in-app: stessa risoluzione destinatari di submit-reservation.
+    // Notifica in-app dal motore (`_shared/notify.ts`): stessi destinatari di
+    // submit-reservation (`reservations.manage` sulla sede). Tipo `warning`
+    // nel catalogo: un tavolo che si libera durante il servizio è qualcosa su
+    // cui la sala deve agire, non una riga da leggere con calma.
     try {
-        const { data: recipientIds, error: rpcError } = await supabase.rpc(
-            "get_users_with_activity_permission",
-            { p_permission_id: "reservations.manage", p_activity_id: activity.id }
+        await notify(
+            supabase,
+            {
+                eventType: "reservation.cancelled_by_customer",
+                recipients: {
+                    activityPermission: {
+                        permission: "reservations.manage",
+                        activityId: activity.id
+                    }
+                },
+                tenantId: activity.tenant_id,
+                data: {
+                    reservation_id: reservationId,
+                    activity_id: activity.id,
+                    activity_name: activity.name,
+                    customer_name: customerName,
+                    reservation_date: reservationDate,
+                    reservation_time: reservationTime,
+                    party_size: partySize,
+                    cancelled_by: "customer",
+                    date_label: formatDateIt(reservationDate),
+                    time_label: formatTimeIt(reservationTime)
+                }
+            },
+            `[cancel-reservation-public] reservation_id=${reservationId}`
         );
-
-        if (rpcError) {
-            console.error(
-                "[cancel-reservation-public] notification recipient lookup failed:",
-                rpcError
-            );
-            return;
-        }
-
-        const userIds: string[] = Array.isArray(recipientIds)
-            ? (recipientIds as unknown[])
-                  .map(v =>
-                      typeof v === "string"
-                          ? v
-                          : v && typeof v === "object" && "user_id" in v
-                              ? String((v as { user_id: unknown }).user_id)
-                              : ""
-                  )
-                  .filter(v => v.length > 0)
-            : [];
-
-        if (userIds.length === 0) {
-            console.log(
-                `[cancel-reservation-public] no notification recipients (reservation_id=${reservationId}, activity_id=${activity.id}).`
-            );
-            return;
-        }
-
-        const dateIt = formatDateIt(reservationDate);
-        const timeIt = formatTimeIt(reservationTime);
-        const rows = userIds.map(uid => ({
-            user_id: uid,
-            tenant_id: activity.tenant_id,
-            event_type: "reservation.cancelled_by_customer",
-            // `warning`, non `info`: un tavolo che si libera durante il
-            // servizio è qualcosa su cui la sala deve agire, non una riga
-            // da leggere con calma.
-            type: "warning",
-            title: "Prenotazione annullata dal cliente",
-            message: `${customerName} · ${dateIt} ${timeIt} · ${partySize} p.`,
-            data: {
-                reservation_id: reservationId,
-                activity_id: activity.id,
-                activity_name: activity.name,
-                customer_name: customerName,
-                reservation_date: reservationDate,
-                reservation_time: reservationTime,
-                party_size: partySize,
-                cancelled_by: "customer"
-            }
-        }));
-
-        const { error: insertNotifError } = await supabase.from("notifications").insert(rows);
-        if (insertNotifError) {
-            console.error(
-                "[cancel-reservation-public] notification fan-out insert failed:",
-                insertNotifError
-            );
-        } else {
-            console.log(
-                `[cancel-reservation-public] notification fan-out (reservation_id=${reservationId}, count=${rows.length}).`
-            );
-        }
     } catch (notifErr) {
-        console.error("[cancel-reservation-public] notification fan-out failed:", notifErr);
+        console.error("[cancel-reservation-public] notification failed:", notifErr);
     }
 }
 
