@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { openInServizio } from "./nav";
+import { openInServizio, sediGriglia } from "./nav";
 import { NOW, stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
@@ -31,7 +31,7 @@ function main(page: Page) {
 /** Entra nella sede di test dalla griglia delle Sedi e apre Prenotazioni da «In servizio». */
 async function openPrenotazioni(page: Page): Promise<void> {
     await openBusinessPage(page, "locations", "Sedi");
-    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    await sediGriglia(page);
     const card = main(page).getByRole("listitem").filter({ hasText: SEDE }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("link").first().click();

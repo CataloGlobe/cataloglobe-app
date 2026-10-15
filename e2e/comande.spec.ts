@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { openInServizio } from "./nav";
+import { openInServizio, sediGriglia } from "./nav";
 
 /**
  * Comande (lotto `ds-5-comande`, §47.1). Scritto sulla pagina di **oggi**,
@@ -30,7 +30,7 @@ test.describe.configure({ mode: "serial" });
 /** Entra nella sede di test dalla griglia delle Sedi e apre Comande da «In servizio». */
 async function openComande(page: Page): Promise<void> {
     await openBusinessPage(page, "locations", "Sedi");
-    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    await sediGriglia(page);
     const card = page.getByRole("main").getByRole("listitem").filter({ hasText: SEDE }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("link").first().click();
@@ -206,7 +206,7 @@ test.describe("Comande", () => {
         });
         // Diretto all'indirizzo delle Comande: la prova riguarda la striscia, non la navigazione.
         await openBusinessPage(page, "locations", "Sedi");
-        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        await sediGriglia(page);
         const card = page.getByRole("main").getByRole("listitem").filter({ hasText: SEDE }).first();
         await expect(card).toBeVisible({ timeout: 15_000 });
         await card.getByRole("link").first().click();

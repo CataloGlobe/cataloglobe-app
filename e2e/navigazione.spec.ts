@@ -40,6 +40,16 @@ const SERVIZIO = ["Servizio", ["In servizio", "Cosa vedono i clienti", "Sala", "
 const NUMERI = ["Clienti e numeri", ["Andamento", "Recensioni", "Clienti"]] as [string, string[]];
 const SEZIONI = ["Panoramica", MENU_VETRINA, CALENDARIO, SERVIZIO, NUMERI];
 const ACCOUNT = ["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"];
+// Nella D (PR 11a): la Sala esce da Servizio ed entra nella sezione Sede, con
+// la Scheda e Tutte le sedi; con una sede sola la sezione è «Il locale».
+const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
+const SERVIZIO_D = ["Servizio", ["In servizio", "Cosa vedono i clienti", "Storico"]] as [string, string[]];
+const SEZIONI_D = ["Panoramica", MENU_VETRINA, CALENDARIO, SERVIZIO_D, NUMERI];
+const SEDE_D = ["Sede", ["Scheda", "Sale e tavoli", "Tutte le sedi"]] as [string, string[]];
+const LOCALE_D = ["Il locale", ["Scheda", "Sale e tavoli"]] as [string, string[]];
+/** La sidebar attesa: con più sedi o con una sola. */
+const shapeOf = async (page: Page, una: boolean) =>
+    (await lookD(page)) ? [...SEZIONI_D, una ? LOCALE_D : SEDE_D] : [...SEZIONI, una ? "Il locale" : "Sedi"];
 
 /** Il pulsante dell'account in fondo alla sidebar. */
 const accountButton = (page: Page) => page.getByRole("button", { name: /^Account:/ });
@@ -95,7 +105,7 @@ test.describe("Sidebar (artifact v4, D143)", () => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await page.goto(`${businessRoot(paths[0])}/products`);
-        await expect.poll(() => sidebarShape(page), { timeout: 15_000 }).toEqual([...SEZIONI, "Sedi"]);
+        await expect.poll(() => sidebarShape(page), { timeout: 15_000 }).toEqual(await shapeOf(page, false));
         // Su Prodotti il pulsante dell'account non è «dove sono».
         await expect(accountButton(page)).not.toHaveAttribute("aria-current", "page");
         expect(await accountPages(page)).toEqual(ACCOUNT);
@@ -108,12 +118,13 @@ test.describe("Sidebar (artifact v4, D143)", () => {
         const paths = await locationPaths(page);
         test.skip(paths.length < 2, "serve più di una sede");
         await page.goto(`${paths[0]}/anagrafica`);
-        await expect.poll(() => sidebarShape(page), { timeout: 15_000 }).toEqual([...SEZIONI, "Sedi"]);
+        await expect.poll(() => sidebarShape(page), { timeout: 15_000 }).toEqual(await shapeOf(page, false));
         // L'account è dell'azienda: lo stesso menù anche dentro la sede.
         expect(await accountPages(page)).toEqual(ACCOUNT);
         // Si esce dalla sede col selettore in alto, non con un ritorno in testa al menu.
         await expect(page.getByRole("navigation", { name: "Contesto" })).toHaveCount(0);
-        await expect(page.getByRole("link", { name: /Tutte le sedi/ })).toHaveCount(0);
+        // Nella D «Tutte le sedi» è una parte della sezione Sede, non un ritorno.
+        if (!(await lookD(page))) await expect(page.getByRole("link", { name: /Tutte le sedi/ })).toHaveCount(0);
     });
 
     test("dentro la sede le voci portano alle rotte della sede; Clienti resta dell'azienda", async ({ page }) => {
@@ -132,9 +143,10 @@ test.describe("Sidebar (artifact v4, D143)", () => {
         const paths = await locationPaths(page);
         await asSingleSede(page);
         await page.goto(`${businessRoot(paths[0])}/products`);
-        await expect.poll(() => sidebarShape(page), { timeout: 15_000 }).toEqual([...SEZIONI, "Il locale"]);
+        await expect.poll(() => sidebarShape(page), { timeout: 15_000 }).toEqual(await shapeOf(page, true));
         expect(await accountPages(page)).toEqual(ACCOUNT);
-        await expect(menuRows(page).getByRole("link", { name: "Il locale", exact: true })).toHaveAttribute(
+        // Nella D «Il locale» è una sezione: la Scheda è la sua prima parte.
+        await expect((await lookD(page)) ? await sidebarLink(page, "Scheda") : menuRows(page).getByRole("link", { name: "Il locale", exact: true })).toHaveAttribute(
             "href",
             `${paths[0]}/anagrafica`
         );
@@ -144,7 +156,7 @@ test.describe("Sidebar (artifact v4, D143)", () => {
         const paths = await locationPaths(page);
         await asSingleSede(page);
         await page.goto(`${paths[0]}/comande`);
-        await expect(menuRows(page).getByRole("link", { name: "Il locale", exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(menuRows(page).getByRole((await lookD(page)) ? "button" : "link", { name: "Il locale", exact: true })).toBeVisible({ timeout: 15_000 });
         // La sezione della pagina è aperta e la parte accesa sotto la riga.
         await expect(sectionRow(page, SERVIZIO[0])).toHaveAttribute("aria-expanded", "true");
         await expect(await sidebarLink(page, "In servizio")).toHaveAttribute("aria-current", "page");
@@ -156,8 +168,9 @@ test.describe("Sidebar (artifact v4, D143)", () => {
         await page.goto(`${paths[0]}/servizio`);
         await expect(sectionRow(page, SERVIZIO[0])).toBeVisible({ timeout: 15_000 });
         const voci = await sidebarVoci(page);
-        for (const voce of SERVIZIO[1]) expect(voci).toContain(voce);
-        for (const voce of ["Calendario", "Regole", "Andamento", "Sedi"]) expect(voci).not.toContain(voce);
+        const d = await lookD(page);
+        for (const voce of d ? [...SERVIZIO_D[1], "Sale e tavoli"] : SERVIZIO[1]) expect(voci).toContain(voce);
+        for (const voce of ["Calendario", "Regole", "Andamento", d ? "Tutte le sedi" : "Sedi"]) expect(voci).not.toContain(voce);
         // Una pagina sola nella sezione: la riga porta lì col nome della sezione.
         await expect(menuRows(page).getByRole("link", { name: NUMERI[0], exact: true })).toHaveAttribute(
             "href",
@@ -171,11 +184,12 @@ test.describe("Sidebar (artifact v4, D143)", () => {
         await asRole(page, "manager", activityIdOf(paths[0]), "pro");
         await page.goto(`${businessRoot(paths[0])}/scheduling`);
         await expect(await sidebarLink(page, "Regole")).toHaveAttribute("aria-current", "page");
-        await expect(menuRows(page).getByRole("link", { name: "Il locale", exact: true })).toHaveAttribute(
+        const d = await lookD(page);
+        await expect(d ? await sidebarLink(page, "Scheda") : menuRows(page).getByRole("link", { name: "Il locale", exact: true })).toHaveAttribute(
             "href",
             `${paths[0]}/anagrafica`
         );
-        expect(await sidebarVoci(page)).not.toContain("Sedi");
+        expect(await sidebarVoci(page)).not.toContain(d ? "Tutte le sedi" : "Sedi");
     });
 
     test("aperta, si apre solo la sezione della pagina; il clic su una sezione porta alla sua ultima parte", async ({ page }) => {
@@ -276,7 +290,7 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         await sectionRow(page, SERVIZIO[0]).hover();
         await expect(sectionPanel(page, SERVIZIO[0])).toBeVisible();
         const voci = (await sectionPanel(page, SERVIZIO[0]).getByRole("link").allTextContents()).map(t => t.trim());
-        expect(voci).toEqual(SERVIZIO[1]);
+        expect(voci).toEqual((await lookD(page)) ? SERVIZIO_D[1] : SERVIZIO[1]);
         await closeSections(page);
         await page.getByRole("button", { name: "Espandi menù laterale" }).click();
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(W.open);

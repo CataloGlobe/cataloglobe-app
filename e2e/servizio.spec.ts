@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { asBasePlan, asRole } from "./asRole";
-import { currentVoce, sidebarLink } from "./nav";
+import { currentVoce, sidebarLink, sediGriglia } from "./nav";
 import { stubReservations, type ReservationsStub } from "./reservationsStub";
 
 /**
@@ -47,7 +47,7 @@ function main(page: Page) {
 /** L'indirizzo della sede di test (`…/locations/:id`), dalla griglia delle Sedi. */
 async function sedePath(page: Page): Promise<string> {
     await openBusinessPage(page, "locations", "Sedi");
-    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    await sediGriglia(page);
     const card = main(page).getByRole("listitem").filter({ hasText: SEDE }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     const href = await card.locator('a[href*="/locations/"]').first().getAttribute("href");
@@ -71,7 +71,8 @@ async function openVoce(page: Page, voce: string): Promise<string> {
 /** Elenco e Mappa: l'interruttore di «In servizio». La Sala è una parte di
  *  Servizio: la sua tab in alto (artifact v4, un livello solo di parti). */
 function modo(page: Page, name: "Elenco" | "Mappa" | "Gestisci la sala" | "Sala") {
-    if (name === "Sala") return page.getByRole("navigation", { name: "Parti di Servizio" }).getByRole("link", { name: "Sala", exact: true });
+    // Nella D la Sala è «Sale e tavoli», una parte della sezione Sede (PR 11a).
+    if (name === "Sala") return page.getByRole("navigation", { name: /^Parti di (Servizio|Sede|Il locale)$/ }).getByRole("link", { name: /^(Sala|Sale e tavoli)$/ });
     return page.getByRole("radio", { name: new RegExp(`^${name}`) });
 }
 
@@ -100,7 +101,8 @@ test.describe("Servizio", () => {
         await openVoce(page, "In servizio");
         // Le parti di Servizio, nell'ordine della sidebar (artifact v4, D157).
         const parti = page.getByRole("navigation", { name: "Parti di Servizio" }).getByRole("link");
-        await expect(parti).toHaveText(["In servizio", "Cosa vedono i clienti", "Sala", "Storico"], { timeout: 15_000 });
+        const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
+        await expect(parti).toHaveText(d ? ["In servizio", "Cosa vedono i clienti", "Storico"] : ["In servizio", "Cosa vedono i clienti", "Sala", "Storico"], { timeout: 15_000 });
         // Prenotazioni e Comande non sono parti: le apre l'interruttore di «In servizio».
         const pagine = page.getByRole("radiogroup", { name: "Parti di In servizio" }).getByRole("radio");
         await expect(pagine).toHaveText(["Elenco", "Mappa", "Prenotazioni", "Comande"]);

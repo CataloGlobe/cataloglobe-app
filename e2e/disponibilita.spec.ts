@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { sidebarLink } from "./nav";
+import { sidebarLink, sediGriglia } from "./nav";
 import {
     asSeatRole,
     INGREDIENT,
@@ -43,7 +43,7 @@ type OpenOptions = DisponibilitaOptions & {
 /** Apre la prima sede, installa lo stub e va su Disponibilità. Ritorna nome e id della sede. */
 async function openDisponibilita(page: Page, options: OpenOptions = {}): Promise<{ stub: DisponibilitaStub; name: string; activityId: string }> {
     await openBusinessPage(page, "locations", "Sedi");
-    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    await sediGriglia(page);
     const firstCard = main(page).getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     const link = firstCard.getByRole("link").first();
