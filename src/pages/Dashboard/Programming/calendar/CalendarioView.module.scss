@@ -2907,3 +2907,16 @@ button.dqsedi {
         }
     }
 }
+
+// il nome della sede tra le frecce, nell'anteprima dei tunnel (v55)
+@include look-d {
+    .wsname {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        @include d-type(control);
+        color: var(--d-text);
+    }
+}

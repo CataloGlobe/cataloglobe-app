@@ -29,6 +29,11 @@ function main(page: Page) {
     return page.getByRole("main");
 }
 const button = (page: Page, name: string | RegExp) => main(page).getByRole("button", { name, exact: typeof name === "string" });
+// la sede nella settimana dei tunnel: una tendina, o nella D il nome tra le frecce
+const sedeVista = (page: Page) =>
+    main(page)
+        .getByLabel("Sede da guardare")
+        .evaluate(el => (el instanceof HTMLSelectElement ? el.selectedOptions[0]?.textContent : el.textContent)?.trim() ?? "");
 const next = (page: Page) => button(page, "Avanti").click();
 /** «Avanti» con qualcosa che manca: resta acceso, non va avanti e lo dice sotto l'elemento da sistemare. */
 const stuck = async (page: Page, why: string) => {
@@ -588,16 +593,15 @@ test.describe("Tunnel di creazione — menù", () => {
         const porto = main(page).getByRole("button", { name: /^Porto e2e/ });
         await expect(porto).toContainText("come le altre");
         // la settimana a destra: una sede alla volta, con le frecce e «Sede da guardare»
-        const guarda = main(page).getByRole("combobox", { name: "Sede da guardare" });
-        await expect(guarda).toBeVisible();
-        const prima = await guarda.inputValue();
+        await expect(main(page).getByLabel("Sede da guardare")).toBeVisible();
+        const prima = await sedeVista(page);
         await expect(main(page).getByText(/^1 di 3/)).toBeVisible();
         await main(page).getByRole("button", { name: /^Sede successiva: / }).click();
         await expect(main(page).getByText(/^2 di 3/)).toBeVisible();
-        expect(await guarda.inputValue()).not.toBe(prima);
+        expect(await sedeVista(page)).not.toBe(prima);
         // aprire una sede la porta nella settimana
         await porto.click();
-        await expect(guarda.locator("option:checked")).toContainText("Porto e2e");
+        await expect.poll(() => sedeVista(page)).toContain("Porto e2e");
         await expect(main(page).getByText("Cambiando qui, cambia solo Porto e2e.")).toBeVisible();
         await main(page).getByRole("button", { name: "Sab e Dom", exact: true }).click();
         await expect(porto).toContainText("diversa");
@@ -647,7 +651,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(box.getByText("3 di 3 sedi viste")).toBeVisible();
         await expect(box.getByText("Le hai viste tutte.")).toBeVisible();
         await expect(box.getByRole("button", { name: /Porto e2e.*1 menù/ })).toHaveAttribute("aria-expanded", "true");
-        await expect(main(page).getByRole("combobox", { name: "Sede da guardare" }).locator("option:checked")).toHaveText(/^Porto e2e/);
+        await expect.poll(() => sedeVista(page)).toMatch(/^Porto e2e/);
         // una sede diversa dalle altre si vede, ma il database di oggi tiene una risposta sola
         // le regole di oggi valgono «al posto»: a Porto la carta sta da sola, e si sceglie quale si vede (punto 4)
         await expect(box.getByText(/, sta da solo$/).first()).toBeVisible();
@@ -701,7 +705,7 @@ test.describe("Tunnel di creazione — menù", () => {
         // in tre sedi a quelle ore c'è già uno stile (a Centro quello di «Pranzo e2e», che lì oggi vince):
         // la seconda parte del Quando, e la settimana una sede alla volta
         await expect(main(page).getByText("In quelle ore c'è già un altro stile in 3 sedi.")).toBeVisible();
-        await expect(main(page).getByRole("combobox", { name: "Sede da guardare" })).toBeVisible();
+        await expect(main(page).getByLabel("Sede da guardare")).toBeVisible();
         await button(page, /^Prende il posto degli altri/).click();
         await next(page);
         await expect(main(page).getByText(/^Al posto di «(.+)» a Centro e2e: si salva col database nuovo\. Per ora lascia «\1»\.$/).first()).toBeVisible();
