@@ -917,6 +917,18 @@ export default function Programming() {
         { key: "expired", title: "Scadute", rules: expiredRules, open: showExpired, setOpen: setShowExpired }
     ];
 
+    // La misura si rifà quando i caratteri sono caricati: prima il canvas usa
+    // quello di riserva, più stretto, e l'etichetta più lunga finiva coi puntini.
+    const [fontsLoaded, setFontsLoaded] = useState(0);
+    useEffect(() => {
+        const fonts = typeof document === "undefined" ? undefined : document.fonts;
+        if (!fonts) return;
+        const bump = () => setFontsLoaded(n => n + 1);
+        void fonts.ready.then(bump);
+        fonts.addEventListener("loadingdone", bump);
+        return () => fonts.removeEventListener("loadingdone", bump);
+    }, []);
+
     // «Dove si applica» larga quanto l'etichetta più lunga dell'elenco (o
     // l'intestazione), uguale in tutte le tabelle per stato: icona 14 + gap 6,
     // padding della cella 24 + 24, bordo. Tetto al 45%: «Regola» prende il resto.
@@ -926,7 +938,8 @@ export default function Programming() {
         const header = measureTextWidth("DOVE SI APPLICA", { size: 12, weight: 600, letterSpacing: 12 * 0.04 });
         const content = Math.max(label + 14 + 6, header);
         return `min(${Math.ceil(content + 48 + 2)}px, 45%)`;
-    }, [filteredRules, activityById, activityGroups]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- fontsLoaded: si rimisura col carattere vero
+    }, [filteredRules, activityById, activityGroups, fontsLoaded]);
 
     const tableProps = {
         insights: ruleInsightsById,

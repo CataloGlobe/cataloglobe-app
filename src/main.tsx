@@ -13,14 +13,16 @@ import { ToastProvider } from "@/context/Toast/ToastProvider";
 import { TooltipProvider } from "@/context/Tooltip/TooltipProvider";
 import App from "./App";
 import MotionProvider from "@/components/motion/MotionProvider";
-import { LOOK_D } from "@styles/lookD";
+import { lookDOn } from "@styles/lookD";
+import { LookDScope } from "@styles/LookDScope";
 import "@styles/global.scss";
 import "@styles/kinds.scss";
 import "./i18n";
 
 // Grafica nuova del back office (direzione D) dietro l'interruttore: la radice
 // porta `data-look="d"` prima del primo render, così non c'è un lampo dello stile vecchio.
-if (LOOK_D) document.documentElement.dataset.look = "d";
+// Solo nelle pagine del back office; poi `LookDScope` la segue a ogni cambio di pagina.
+if (lookDOn(window.location.pathname)) document.documentElement.dataset.look = "d";
 
 // Data router (createBrowserRouter) al posto di <BrowserRouter>: serve a
 // `useBlocker` (guardia "modifiche non salvate" sulla navigazione interna).
@@ -33,13 +35,16 @@ const router = createBrowserRouter(
         <Route
             path="*"
             element={
-                <AuthProvider>
-                    <ToastProvider>
-                        <NotificationsProvider>
-                            <App />
-                        </NotificationsProvider>
-                    </ToastProvider>
-                </AuthProvider>
+                <>
+                    <LookDScope />
+                    <AuthProvider>
+                        <ToastProvider>
+                            <NotificationsProvider>
+                                <App />
+                            </NotificationsProvider>
+                        </ToastProvider>
+                    </AuthProvider>
+                </>
             }
         />
     )
