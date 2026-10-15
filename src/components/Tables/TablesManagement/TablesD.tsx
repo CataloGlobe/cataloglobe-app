@@ -121,7 +121,7 @@ export function TablesD(p: Props) {
                                     <button type="button" className={s.hit} onClick={() => p.onEdit(t)} disabled={!p.canManage}>
                                         <b>{t.label}</b>
                                         <small>
-                                            {t.seats ?? "?"} posti
+                                            {t.seats ? `${t.seats} posti` : "Posti non scritti"}
                                             {p.reservationsEnabled && t.max_seats ? ` · fino a ${t.max_seats}` : ""}
                                             {p.reservationsEnabled && t.combination_group_name ? ` · si unisce a ${t.combination_group_name}` : ""}
                                         </small>
