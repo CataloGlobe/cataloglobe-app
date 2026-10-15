@@ -455,6 +455,7 @@ export default function Businesses() {
                   />
                 }
                 onDelete={canDelete ? handleDelete : undefined}
+                onAdd={canCreate && canEdit ? handleAddActivity : undefined}
               />
             </>
           ) : activeTab === "activities" ? (

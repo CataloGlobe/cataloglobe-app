@@ -98,6 +98,8 @@ export default function ActivitySchedaRoute() {
     useEffect(() => {
         if (!LOOK_D) return;
         let off = false;
+        // cambiando sede, niente menù della sede di prima finché non arriva il suo
+        setOnAir(undefined);
         getActiveCatalogForActivities(tenantId, [activity.id])
             .then(m => {
                 const c = m[activity.id];
