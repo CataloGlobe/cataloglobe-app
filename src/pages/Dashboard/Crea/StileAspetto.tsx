@@ -272,7 +272,7 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = n
                     <Group label="Colore principale" hint="Prezzi, pulsanti e la categoria in cui sei.">
                         <div className={s.sws}>
                             {COLORS.map(([c, n]) => (
-                                <button key={c} type="button" className={s.sw} style={ink(c)} title={n} aria-label={n} aria-pressed={sameHex(primary, c)} onClick={() => put("primary", c)} />
+                                <button key={c} type="button" className={s.sw} style={ink(c)} aria-label={n} aria-pressed={sameHex(primary, c)} onClick={() => put("primary", c)} />
                             ))}
                             {other("primary", "Colore principale", primary, !COLORS.some(c => sameHex(c[0], primary)))}
                         </div>
