@@ -49,6 +49,7 @@ import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
 import { compareCandidates } from "@shared/scheduleCompetition";
 import { describeTarget } from "./components/ruleTarget";
 import { measureTextWidth } from "@/utils/measureText";
+import { LOOK_D } from "@/styles/lookD";
 import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import CalendarioView from "./calendar/CalendarioView";
 import type { CalNames } from "./calendar/calendarModel";
@@ -934,7 +935,9 @@ export default function Programming() {
     // padding della cella 24 + 24, bordo. Tetto al 45%: «Regola» prende il resto.
     const whereWidth = useMemo(() => {
         const labels = filteredRules.map(rule => describeTarget(rule, activityById, activityGroups).label);
-        const label = Math.max(0, ...labels.map(text => measureTextWidth(text, { size: 14 })));
+        // Nella D le righe sono a peso 500 e la misura sul canvas resta corta di
+        // qualche px (provato: 117 contro 120): peso giusto e 4 px di margine.
+        const label = Math.max(0, ...labels.map(text => measureTextWidth(text, { size: 14, weight: LOOK_D ? 500 : 400 }) + (LOOK_D ? 4 : 0)));
         const header = measureTextWidth("DOVE SI APPLICA", { size: 12, weight: 600, letterSpacing: 12 * 0.04 });
         const content = Math.max(label + 14 + 6, header);
         return `min(${Math.ceil(content + 48 + 2)}px, 45%)`;
