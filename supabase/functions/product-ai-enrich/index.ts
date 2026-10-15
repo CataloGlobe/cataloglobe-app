@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/geminiFailure.ts";
 import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
 import { serializeError } from "../_shared/errors.ts";

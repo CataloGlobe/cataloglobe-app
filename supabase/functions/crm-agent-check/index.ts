@@ -13,7 +13,7 @@
 // TELEGRAM_BOT_TOKEN (facoltativo, per gli avvisi di spesa).
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { callCrmClaude } from "../_shared/crmClaude.ts";
 import { withAppCors } from "../_shared/cors.ts";
 

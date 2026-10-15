@@ -19,7 +19,7 @@
 // APP_URL (facoltativo).
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { loadTeam } from "../_shared/crmLeadMessage.ts";
 import { GEA_TEXT } from "../_shared/crmGea.ts";

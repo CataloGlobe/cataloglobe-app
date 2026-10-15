@@ -34,7 +34,7 @@
 // See docs/orders-architecture.md v1.2 §6 (order submit lifecycle) and §7
 // (order_groups lifecycle).
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { verifyCustomerJwt } from "../_shared/customerJwt.ts";
 import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
 import {

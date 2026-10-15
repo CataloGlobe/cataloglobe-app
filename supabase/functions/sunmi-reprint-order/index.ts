@@ -43,7 +43,7 @@
 //   400 INVALID_BODY · 401 UNAUTHORIZED · 403 FORBIDDEN · 404 ORDER_NOT_FOUND
 //   422 NO_ACTIVE_PRINTERS · 429 RATE_LIMITED · 500 INTERNAL_ERROR
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { pushComandaToPrinter } from "../_shared/printJobs.ts";
 import { renderComandaEscPos } from "../_shared/escpos.ts";

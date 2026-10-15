@@ -9,7 +9,7 @@
 // il tag di chi chiama; ritorna il numero di righe scritte in campanella
 // (0 anche in caso di errore).
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { buildNotifyArgs, type NotifyInput } from "./notifyArgs.ts";
 
 export type { NotifyInput, NotifyRecipients } from "./notifyArgs.ts";

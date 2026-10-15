@@ -33,7 +33,7 @@
 // META_VERIFY_TOKEN, META_PAGE_ACCESS_TOKEN, META_GRAPH_VERSION (facoltativo).
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { sendToTeam } from "../_shared/crmTeamAlert.ts";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";

@@ -32,7 +32,7 @@
 //
 // See docs/orders-architecture.md v1.2 §9.2 (rectification model), §14.
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { withAppCors } from "../_shared/cors.ts";
 

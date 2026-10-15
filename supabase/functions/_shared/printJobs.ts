@@ -26,7 +26,7 @@
 // (TRADE_NO_DUPLICATE) → trattato come successo: la comanda e' gia' uscita,
 // non va ristampata.
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { SUNMI_CODES, SUNMI_PATHS, sunmiRequest, type SunmiRequestOptions } from "./sunmi.ts";
 import { renderComandaEscPos, renderAnnulloEscPos, type ComandaPayload } from "./escpos.ts";
 import { buildComanda } from "./buildComanda.ts";

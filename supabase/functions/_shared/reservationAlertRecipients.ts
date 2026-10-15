@@ -8,7 +8,7 @@
 // Requires a service_role client: step 2 reads `tenants` and the auth admin
 // API, neither of which is reachable under an anon or user JWT.
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 
 export type RecipientSource = "per_site" | "owner";
 

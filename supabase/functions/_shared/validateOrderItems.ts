@@ -41,7 +41,7 @@
 // price overrides. Rows of another tenant attached through a foreign key are
 // dropped, never priced.
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { resolveRulesForActivity } from "./scheduleResolver.ts";
 import { getNowInRome } from "./schedulingNow.ts";
 import {

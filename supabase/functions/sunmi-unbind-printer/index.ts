@@ -21,7 +21,7 @@
 //   429 RATE_LIMITED · 502 SUNMI_CONFIG_ERROR · 502 SUNMI_ERROR
 //   504 SUNMI_UNREACHABLE · 500 INTERNAL_ERROR
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { sunmiUnbindShop } from "../_shared/sunmi.ts";
 import { withAppCors } from "../_shared/cors.ts";

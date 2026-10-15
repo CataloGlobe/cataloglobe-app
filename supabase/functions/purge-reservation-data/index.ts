@@ -24,7 +24,7 @@
 // `_shared/reservationRetention.ts`, testata in `src/tests/reservationRetention.test.ts`.
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import {
     ANONYMIZED_PLACEHOLDER,
     retentionCutoffDate,
