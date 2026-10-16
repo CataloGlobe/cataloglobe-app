@@ -18,6 +18,7 @@ function oneOff(name: string, cents: number, paidOn: string): CrmExpense {
         category: "other",
         amount_cents: cents,
         paid_by: null,
+        account_id: null,
         paid_on: paidOn,
         first_charge_on: null,
         billing_interval: null,
