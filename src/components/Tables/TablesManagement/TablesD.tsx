@@ -1,5 +1,5 @@
 import { useMemo, type CSSProperties } from "react";
-import { Layers, Plus, QrCode, RotateCw } from "lucide-react";
+import { Layers, Plus, QrCode, RotateCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -34,6 +34,12 @@ type Props = {
     onQrSingle: (t: V2Table) => void;
     onRegen: (t: V2Table) => void;
     onDelete: (t: V2Table) => void;
+    /** Capienza non dichiarata: il motore non lo propone alle prenotazioni (v73). */
+    isExcluded: (t: V2TableWithState) => boolean;
+    /** Le caselle e «Elimina N tavoli» (v73), solo con il permesso. */
+    selected: string[];
+    onSelected: (ids: string[]) => void;
+    onBulkDelete: (ids: string[]) => void;
 };
 
 const tavoli = (n: number) => (n === 1 ? "un tavolo" : `${n} tavoli`);
@@ -75,12 +81,25 @@ export function TablesD(p: Props) {
                 </Button>
             )}
             {p.canManage && (
-                <Button variant="primary" size="sm" leftIcon={<Plus size={16} />} onClick={p.onCreate} disabled={p.disabled}>
+                <Button
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<Plus size={16} />}
+                    onClick={() => {
+                        p.onSelected([]);
+                        p.onCreate();
+                    }}
+                    disabled={p.disabled}
+                >
                     Nuovo tavolo
                 </Button>
             )}
         </>
     );
+
+    // si conta e si elimina solo ciò che si vede: la ricerca o un'eliminazione non lasciano scelte nascoste
+    const visible = new Set(zones.cards.flatMap(z => z.list.map(t => t.id)));
+    const sel = p.selected.filter(id => visible.has(id));
 
     let order = 0;
     return (
@@ -106,6 +125,18 @@ export function TablesD(p: Props) {
                 compact={compact}
                 setTop={setTop}
             />
+            {p.canManage && sel.length > 0 && (
+                <div className={s.sel} role="region" aria-label="Tavoli selezionati">
+                    <b>{sel.length === 1 ? "1 tavolo selezionato" : `${sel.length} tavoli selezionati`}</b>
+                    <i className={s.fl} />
+                    <Button variant="ghost" size="sm" onClick={() => p.onSelected([])}>
+                        Annulla
+                    </Button>
+                    <Button variant="danger" size="sm" onClick={() => p.onBulkDelete(sel)} disabled={p.disabled}>
+                        {sel.length === 1 ? "Elimina 1 tavolo" : `Elimina ${sel.length} tavoli`}
+                    </Button>
+                </div>
+            )}
             {p.loading ? null : zones.cards.length ? (
                 <div className={s.zones} role="group" aria-label="Tavoli">
                     {zones.cards.map(z => (
@@ -117,11 +148,41 @@ export function TablesD(p: Props) {
                                 </span>
                             </div>
                             {z.list.map(t => (
-                                <div key={t.id} className={s.row} style={{ "--i": order++ } as CSSProperties}>
-                                    <button type="button" className={s.hit} onClick={() => p.onEdit(t)} disabled={!p.canManage}>
-                                        <b>{t.label}</b>
+                                <div key={t.id} className={`${s.row}${p.canManage ? ` ${s.rowCk}` : ""}`} style={{ "--i": order++ } as CSSProperties}>
+                                    {p.canManage && (
+                                        <label className={s.ck} title="Seleziona">
+                                            <input
+                                                type="checkbox"
+                                                aria-label={`Seleziona il tavolo ${t.label}`}
+                                                checked={p.selected.includes(t.id)}
+                                                onChange={e => p.onSelected(e.target.checked ? [...p.selected, t.id] : p.selected.filter(id => id !== t.id))}
+                                            />
+                                        </label>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className={s.hit}
+                                        onClick={() => {
+                                            p.onSelected([]);
+                                            p.onEdit(t);
+                                        }}
+                                        disabled={!p.canManage}
+                                    >
+                                        <b>
+                                            {t.label}
+                                            {p.isExcluded(t) && (
+                                                <span
+                                                    className={s.tri}
+                                                    title="Capienza non dichiarata (né posti né capienza massima): il motore di assegnazione automatica non propone questo tavolo alle prenotazioni. Resta assegnabile a mano."
+                                                    aria-label="Escluso dall'assegnazione automatica"
+                                                    role="img"
+                                                >
+                                                    <TriangleAlert size={16} strokeWidth={1.9} aria-hidden />
+                                                </span>
+                                            )}
+                                        </b>
                                         <small>
-                                            {t.seats ? `${t.seats} posti` : "Posti non scritti"}
+                                            {t.seats ? `${t.seats} posti` : "posti non indicati"}
                                             {p.reservationsEnabled && t.max_seats ? ` · fino a ${t.max_seats}` : ""}
                                             {p.reservationsEnabled && t.combination_group_name ? ` · si unisce a ${t.combination_group_name}` : ""}
                                         </small>
@@ -143,7 +204,7 @@ export function TablesD(p: Props) {
                                                     ...(p.orderingEnabled
                                                         ? [
                                                               { label: p.generatingId === t.id ? "Generazione..." : "Genera QR", icon: QrCode, onClick: () => p.onQrSingle(t) },
-                                                              { label: "Rigenera token QR", icon: RotateCw, onClick: () => p.onRegen(t) }
+                                                              { label: "Fai un QR nuovo", icon: RotateCw, onClick: () => p.onRegen(t) }
                                                           ]
                                                         : []),
                                                     rowAction.remove(() => p.onDelete(t))

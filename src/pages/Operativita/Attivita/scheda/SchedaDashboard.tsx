@@ -148,20 +148,32 @@ export function SchedaDashboard({ facts, tiles, now, onCopyLink, lead }: SchedaD
                                     {a.description ? <p>{a.description}</p> : <p><i>Manca la presentazione: due righe su cosa siete e perché venire.</i></p>}
                                 </span>
                             </button>
+                            {/* copia v63: la matita in alto a destra sulla copertina; sotto solo l'indirizzo */}
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                className={styles.heroEd}
+                                leftIcon={tiles.canManage ? <Pencil size={15} strokeWidth={1.9} aria-hidden /> : undefined}
+                                aria-label={tiles.canManage ? "Modifica foto, nome e presentazione" : "Apri Il locale"}
+                                onClick={() => tiles.open("locale")}
+                            >
+                                {edit}
+                            </Button>
                             <div className={styles.heroFt}>
                                 <span>{addressLine(a)}</span>
-                                <i className={styles.fl} />
-                                <Button variant="secondary" size="sm" onClick={() => tiles.open("locale")}>
-                                    {tiles.canManage ? "Cambia foto, nome e presentazione" : "Apri"}
-                                </Button>
                             </div>
                         </section>
                         <div className={styles.rowD}>
-                            <SchedaNow facts={facts} actions={now} />
+                            <SchedaNow facts={facts} actions={now} onEdit={() => tiles.open("orari")} canEdit={tiles.canManage} />
                             <section className={styles.pageD} data-k="link" aria-label="La vostra pagina">
                                 <div className={styles.hdD}>
                                     <h3>La vostra pagina</h3>
-                                    <Button variant="ghost" size="sm" onClick={() => tiles.open("link")}>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        leftIcon={tiles.canManage ? <Pencil size={15} strokeWidth={1.9} aria-hidden /> : undefined}
+                                        onClick={() => tiles.open("link")}
+                                    >
                                         {edit}
                                     </Button>
                                 </div>

@@ -1,4 +1,5 @@
 @use "@/styles/mixins" as m;
+@use "@/styles/d-type" as d;
 
 // Solo layout: le superfici sono Card e ListRow.
 .page {
@@ -31,4 +32,43 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
+}
+
+// Grafica D (copia v74): i pallini dei colori del QR nella card.
+@include m.look-d {
+  .qrPick {
+    display: grid;
+    gap: 10px;
+  }
+
+  .qrSw {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+
+    > span {
+      min-width: 96px;
+      @include d.d-type(note);
+      color: var(--d-muted);
+    }
+  }
+
+  .qrSwc {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--d-text) 18%, transparent);
+    background: var(--c);
+    cursor: pointer;
+
+    &[aria-pressed="true"] {
+      box-shadow: 0 0 0 2px var(--d-surface), 0 0 0 4px var(--d-brand);
+    }
+
+    &:disabled {
+      cursor: default;
+    }
+  }
 }

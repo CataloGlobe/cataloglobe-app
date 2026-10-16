@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { Printer, X } from "lucide-react";
 import ModalLayout, {
     ModalLayoutContent,
     ModalLayoutFooter,
@@ -19,6 +19,7 @@ import imgWifiStato from "@/assets/printer-guide/09-wifi-stato.png";
 import imgReportSeriale from "@/assets/printer-guide/10-report-seriale.png";
 import imgCardOnline from "@/assets/printer-guide/11-card-online.png";
 import styles from "./PrinterGuideModal.module.scss";
+import { LOOK_D } from "@styles/lookD";
 
 /**
  * Guida passo passo per collegare una stampante Sunmi, dentro il pannello.
@@ -387,6 +388,11 @@ export function PrinterGuideModal({ isOpen, onClose }: Props) {
     return (
         <ModalLayout isOpen={isOpen} onClose={onClose} width="sm" height="fit">
             <ModalLayoutHeader>
+                {LOOK_D && (
+                    <span className={styles.hdIcon}>
+                        <Printer size={20} strokeWidth={1.8} aria-hidden="true" />
+                    </span>
+                )}
                 <Text as="h2" variant="title-sm" weight={600}>
                     Collega la tua stampante
                 </Text>
