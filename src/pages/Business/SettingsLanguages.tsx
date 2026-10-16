@@ -338,7 +338,7 @@ export default function SettingsLanguages() {
                                 })}. ${t("languages.progress.waiting_hint")}`}
                             </InlineBanner>
                         )}
-                        <Card flush className={styles.langCard} bodyClassName={styles.langGrid}>
+                        <Card flush className={LOOK_D ? styles.langCard : undefined} bodyClassName={LOOK_D ? styles.langGrid : undefined}>
                             {orderedLangs.map(lang => {
                                 const isBase = lang.code === "it";
                                 return (

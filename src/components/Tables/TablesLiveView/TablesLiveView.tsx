@@ -449,11 +449,13 @@ export function TablesLiveView({
                                             // Nella D la tessera è un dato: niente disegno del tavolo.
                                             media={LOOK_D ? undefined : <TableSketch seats={t.seats ?? null} state={sketchState} />}
                                             mediaHeight={LOOK_D ? undefined : 120}
-                                            className={styles.tile}
+                                            className={LOOK_D ? styles.tile : undefined}
                                             data-tone={
-                                                t.bill_requested_count > 0 || t.waiter_called_count > 0
-                                                    ? "wait"
-                                                    : sketchState
+                                                !LOOK_D
+                                                    ? undefined
+                                                    : t.bill_requested_count > 0 || t.waiter_called_count > 0
+                                                      ? "wait"
+                                                      : sketchState
                                             }
                                             badge={
                                                 <span className={styles.badges}>

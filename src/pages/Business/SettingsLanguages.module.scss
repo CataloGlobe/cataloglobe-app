@@ -62,3 +62,14 @@
     }
   }
 }
+
+// Movimento ridotto: le righe delle lingue non si alzano (consiglio di
+// Lorenzo, review della pila D; come già fa Servizio).
+@media (prefers-reduced-motion: reduce) {
+  .langGrid > * {
+    @include look-d {
+      transition: none;
+      transform: none !important;
+    }
+  }
+}
