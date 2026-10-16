@@ -8,7 +8,7 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase/featuredScheduling";
-import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
+import { createScopedRuleDraft, updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import { ruleDateToIso } from "@/utils/ruleDetailForm";
 import { autoName, draftParts, priceKeys, timeFields, whenKey, whereKey, type Draft, type DraftLookups } from "./calendarDraft";
 import { whenOfRule, whereOfRule } from "./calendarModel";
@@ -97,7 +97,16 @@ async function writeRule(id: string, tenantId: string, D: Draft, name: string, p
     await writeTargets(id, tg);
 }
 
-async function createFor(tenantId: string, D: Draft, name: string): Promise<string> {
+/** Le sedi di chi salva, se non le gestisce tutte (null = owner o admin). */
+type Scope = readonly string[] | null | undefined;
+
+async function createFor(tenantId: string, D: Draft, name: string, scope: Scope): Promise<string> {
+    // un ruolo di sede crea regola e sedi insieme (#542): l'INSERT diretto la
+    // farebbe nascere su tutte le sedi, che il database gli rifiuta
+    if (scope) {
+        const activityIds = D.where.activityIds.length ? D.where.activityIds : [...scope];
+        return createScopedRuleDraft({ tenantId, ruleType: RULE_TYPE[D.kind], name, activityIds });
+    }
     return D.kind === "featured" ? createFeaturedRuleDraft({ tenantId, name }) : createRuleDraft({ tenantId, ruleType: RULE_TYPE[D.kind], name });
 }
 
@@ -105,8 +114,8 @@ async function createFor(tenantId: string, D: Draft, name: string): Promise<stri
  * Crea la regola e la scrive. Se la scrittura fallisce, la bozza appena nata
  * si toglie: non resta una regola orfana e «Riprova» non ne fa una seconda.
  */
-async function createAndWrite(tenantId: string, D: Draft, name: string, products: Products, contents: LayoutRule["featured_contents"]): Promise<string> {
-    const id = await createFor(tenantId, D, name);
+async function createAndWrite(tenantId: string, D: Draft, name: string, products: Products, contents: LayoutRule["featured_contents"], scope: Scope): Promise<string> {
+    const id = await createFor(tenantId, D, name, scope);
     try {
         await writeRule(id, tenantId, D, name, products, contents);
     } catch (err) {
@@ -148,12 +157,14 @@ async function leaveOut(r: LayoutRule, D: Draft) {
  * Salva la bozza. Con le ore diverse per sede (D145), una regola per ogni
  * orario diverso: la prima è quella di partenza, le altre nascono nuove.
  */
-export async function saveDraft(D: Draft, L: DraftLookups, tenantId: string, done?: Set<string>): Promise<void> {
-    for (const P of draftParts(D)) {
+export async function saveDraft(D: Draft, L: DraftLookups, tenantId: string, done?: Set<string>, scope?: Scope): Promise<void> {
+    // «Tutte le sedi» per chi non le gestisce tutte vuol dire le sue
+    const S: Draft = scope && D.where.all ? { ...D, where: { all: false, activityIds: [...scope], groupIds: [] } } : D;
+    for (const P of draftParts(S)) {
         // riprovando dopo un errore, le parti già salvate non si rifanno (sarebbero regole doppie)
         const key = whereKey(P.where) + "|" + whenKey(P.when);
         if (done?.has(key)) continue;
-        await saveOne(P, L, tenantId);
+        await saveOne(P, L, tenantId, scope);
         done?.add(key);
     }
 }
@@ -162,7 +173,7 @@ export async function saveDraft(D: Draft, L: DraftLookups, tenantId: string, don
  * Salva una regola. In modifica di una voce sola: se tempo e sedi restano quelli,
  * si riscrive la regola; se cambiano, la voce esce dalla regola e ne fa una sua.
  */
-async function saveOne(D: Draft, L: DraftLookups, tenantId: string): Promise<void> {
+async function saveOne(D: Draft, L: DraftLookups, tenantId: string, scope: Scope): Promise<void> {
     const name = D.name?.trim() || autoName(D, L);
     const r = D.rule;
     const contentOf = (id: string, base?: LayoutRule["featured_contents"][number]) => ({
@@ -184,7 +195,7 @@ async function saveOne(D: Draft, L: DraftLookups, tenantId: string): Promise<voi
             const drop = <T extends { productId: string }>(xs: T[]) => xs.filter(x => !D.picks.includes(x.productId));
             return writeRule(r.id, r.tenant_id, D, r.name ?? "", { price: [...drop(rest.price), ...mine.price], visibility: [...drop(rest.visibility), ...mine.visibility] }, []);
         }
-        await createAndWrite(tenantId, D, name, draftProducts(D, L), D.kind === "featured" ? [contentOf(D.thing!, r.featured_contents.find(c => c.featured_content_id === D.only))] : []);
+        await createAndWrite(tenantId, D, name, draftProducts(D, L), D.kind === "featured" ? [contentOf(D.thing!, r.featured_contents.find(c => c.featured_content_id === D.only))] : [], scope);
         try {
             await leaveOut(r, D);
         } catch {
@@ -198,7 +209,7 @@ async function saveOne(D: Draft, L: DraftLookups, tenantId: string): Promise<voi
         return writeRule(r.id, r.tenant_id, D, name, draftProducts(D, L), cs);
     }
 
-    await createAndWrite(tenantId, D, name, draftProducts(D, L), D.kind === "featured" ? [contentOf(D.thing!)] : []);
+    await createAndWrite(tenantId, D, name, draftProducts(D, L), D.kind === "featured" ? [contentOf(D.thing!)] : [], scope);
 }
 
 /** «Togli dal calendario» dalla sezione: la voce sola, o tutta la regola. */

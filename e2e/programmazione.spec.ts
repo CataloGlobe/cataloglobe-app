@@ -636,6 +636,34 @@ test.describe("Programmazione — ruolo di sede con più sedi", () => {
         expect(targets).not.toContain(SEDE.lago);
         await expect(page).toHaveURL(new RegExp(`/${NEW_ID}`));
     });
+    // Nella D «Aggiungi» porta alla sezione del Calendario: anche da lì la regola
+    // nasce con la RPC sulle sue sedi, mai con l'INSERT su tutte (#542).
+    test("D: un menù messo in calendario dalla sezione nasce sulle sue sedi (#542)", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000782";
+        stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
+        stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
+        stub.onWrite("schedule_layout.POST", () => null);
+        stub.onWrite("schedule_layout.PATCH", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openList(page, "layout");
+        test.skip(!(await lookD(page)), "solo nella grafica D");
+        await page.getByRole("button", { name: "Aggiungi", exact: true }).first().click();
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi mettere in calendario?" })).toBeVisible({ timeout: 15_000 });
+        await main(page).getByRole("button", { name: /^Menù/ }).click();
+        await main(page).getByRole("radiogroup", { name: "Scegli un menù" }).getByRole("radio", { name: /Pranzo e2e/ }).click();
+        const add = main(page).getByRole("button", { name: "Aggiungi al calendario" });
+        for (let i = 0; i < 6 && !(await add.isVisible()); i++) await main(page).getByRole("button", { name: "Avanti" }).click();
+        await add.click();
+        await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
+        const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
+        const targets = JSON.stringify(body.p_targets);
+        expect(targets).toContain(SEDE.centro);
+        expect(targets).toContain(SEDE.porto);
+        expect(targets).not.toContain(SEDE.lago);
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+        const patch = writesOf(stub, "schedules.PATCH").map(w => w.body as Record<string, unknown>);
+        expect(patch.some(b => b.apply_to_all === true)).toBe(false);
+    });
 });
 
 // «Sede» nella barra del Calendario: il bottone dice cosa si guarda (D150 E)

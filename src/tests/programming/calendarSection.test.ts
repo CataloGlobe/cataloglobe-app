@@ -9,11 +9,14 @@ vi.mock("@/services/supabase/featuredScheduling", () => ({
     createFeaturedRuleDraft: vi.fn(async () => "nuova-ev"),
     updateFeaturedRule: vi.fn(async () => undefined)
 }));
-vi.mock("@/services/supabase/scheduleTargets", () => ({ updateScheduleTargets: vi.fn(async () => undefined) }));
+vi.mock("@/services/supabase/scheduleTargets", () => ({
+    updateScheduleTargets: vi.fn(async () => undefined),
+    createScopedRuleDraft: vi.fn(async () => "nuova-sede")
+}));
 
 import { createRuleDraft, deleteLayoutRule, updateRule, type LayoutRule } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase/featuredScheduling";
-import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
+import { createScopedRuleDraft, updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import {
     blankDraft,
     DB,
@@ -336,6 +339,23 @@ describe("salvare la sezione", () => {
         expect(isDirty(T)).toBe(false);
         delete T.strikeBy;
         expect(isDirty(T)).toBe(true);
+    });
+
+    it("un ruolo di sede: la regola nasce con le sue sedi (RPC), mai su tutte (#542)", async () => {
+        const D = blankDraft("menu", ALL, "s1");
+        D.thing = "c2";
+        await saveDraft(D, L, "t", undefined, ["a1", "a2"]);
+        expect(createRuleDraft).not.toHaveBeenCalled();
+        expect(createScopedRuleDraft).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "t", ruleType: "layout", activityIds: ["a1", "a2"] }));
+        expect(updateRule).toHaveBeenCalledWith(expect.objectContaining({ scheduleId: "nuova-sede", applyToAll: false, activityIds: ["a1", "a2"] }));
+    });
+
+    it("un ruolo di sede che sceglie una sede: la regola nasce su quella", async () => {
+        const D = blankDraft("featured", { all: false, activityIds: ["a2"], groupIds: [] }, null);
+        D.thing = "f1";
+        await saveDraft(D, L, "t", undefined, ["a1", "a2"]);
+        expect(createFeaturedRuleDraft).not.toHaveBeenCalled();
+        expect(createScopedRuleDraft).toHaveBeenCalledWith(expect.objectContaining({ ruleType: "featured", activityIds: ["a2"] }));
     });
 
     it("una regola nuova che non si riesce a scrivere non resta orfana (#337.5)", async () => {

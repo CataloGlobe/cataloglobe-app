@@ -1258,13 +1258,15 @@ export default function Programming() {
                         groups: activityGroups.map(g => ({ id: g.id, name: g.name, activityIds: activityIdsByGroupId[g.id] ?? [] })),
                         defaultWhere: routeActivityId
                             ? { all: false, activityIds: [routeActivityId], groupIds: [] }
-                            : { all: true, activityIds: [], groupIds: [] },
+                            : scopedTargetIds
+                              ? { all: false, activityIds: scopedTargetIds, groupIds: [] }
+                              : { all: true, activityIds: [], groupIds: [] },
                         systemStyleId: stylesOptions.find(x => x.is_system)?.id ?? null,
                         canAdd: canCreate && canEdit,
                         onSave: async (draft, lookups, done) => {
                             // si rilegge anche se fallisce: un salvataggio a metà si deve vedere
                             try {
-                                await saveDraft(draft, lookups, currentTenantId!, done);
+                                await saveDraft(draft, lookups, currentTenantId!, done, scopedTargetIds);
                             } finally {
                                 await loadRules();
                             }
