@@ -602,7 +602,7 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                 );
                 break;
             case "tema":
-                body = <StoriaTema t={t} u={u} L={L} pick={data.pickList} menusOf={data.menusOf} sedi={data.sedi} business={business} />;
+                body = <StoriaTema t={t} u={u} L={L} pick={data.pickList} menusOf={data.menusOf} menusReady={data.menusReady} sedi={data.sedi} business={business} />;
                 break;
             case "onda":
                 body = <StoriaOnda t={t} u={u} L={L} onAir={onAir} />;

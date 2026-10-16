@@ -2083,9 +2083,13 @@ test.describe("Programmazione — card «Adesso» e matrice", () => {
         await expect(steps(page)).toContainText("5 · A mano");
         await nowCard(page).getByRole("button", { name: "Altri 3 passaggi" }).click();
         await expect(steps(page).getByRole("listitem")).toHaveCount(5);
-        const card = await nowCard(page).boundingBox();
+        // lo spazio dentro la card, senza il suo margine (nella D è più largo)
+        const inner = await nowCard(page).evaluate(el => {
+            const cs = getComputedStyle(el);
+            return el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        });
         const simulate = await nowCard(page).getByRole("button", { name: "Simula un altro momento" }).boundingBox();
-        expect((simulate?.width ?? 0) / (card?.width ?? 1)).toBeGreaterThan(0.8);
+        expect((simulate?.width ?? 0) / inner).toBeGreaterThan(0.8);
         await noHorizontalScroll(page);
     });
 

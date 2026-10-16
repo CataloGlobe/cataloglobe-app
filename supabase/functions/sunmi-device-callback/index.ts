@@ -34,7 +34,7 @@
 // Error codes (corpo testo semplice, MAI "SUCCESS"):
 //   400 INVALID_BODY / MISSING_HEADERS · 401 INVALID_SIGNATURE · 500 INTERNAL_ERROR
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import {
     readSunmiCredentialsFromEnv,
     verifySunmiCallbackSignature,

@@ -25,7 +25,7 @@
 // See docs/orders-architecture.md v1.1 §3.1 (session lifecycle),
 // §3.2 (table-fusion model B+), §5.2 (JWT pattern), §5.3 (RPC).
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { signCustomerJwt } from "../_shared/customerJwt.ts";
 import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
 import {

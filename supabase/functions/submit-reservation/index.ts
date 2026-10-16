@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { Resend } from "npm:resend@4";
 import { COMPANY } from "../_shared/company-config.ts";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
@@ -9,6 +9,7 @@ import {
     buildReservationsDashboardUrl
 } from "../_shared/publicSiteUrl.ts";
 import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts";
+import { notify } from "../_shared/notify.ts";
 import { buildReservationIcsAttachment } from "../_shared/reservationIcs.ts";
 import { isReservationTimeBookable } from "../_shared/openingHours.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
@@ -726,48 +727,25 @@ Deno.serve(async (req: Request) => {
             console.error("[submit-reservation] venue alert resolver failed:", mailErr);
         }
 
-        // ── In-app notification fan-out (best-effort) ────────────────────
-        // One row per user with `reservations.manage` on this activity.
-        // Resolution via the SECURITY DEFINER helper
-        // `public.get_users_with_activity_permission(permission, activity)`
-        // (service_role only). Failures NEVER fail the reservation —
-        // the row is already saved and emails were already sent above.
+        // ── In-app notification (best-effort) ────────────────────────────
+        // Motore delle notifiche (`_shared/notify.ts` → RPC `notify`): una
+        // riga per chi ha `reservations.manage` sulla sede. Titolo e testo
+        // dal catalogo `notification_types`. Auto-confirmed → event_type
+        // dedicato, così campanella e deep link possono distinguerlo.
+        // Mai bloccante: la prenotazione è già salvata e le email partite.
         try {
-            const { data: recipientIds, error: rpcError } = await supabase.rpc(
-                "get_users_with_activity_permission",
+            await notify(
+                supabase,
                 {
-                    p_permission_id: "reservations.manage",
-                    p_activity_id: activity.id
-                }
-            );
-
-            if (rpcError) {
-                console.error(
-                    "[submit-reservation] notification recipient lookup failed:",
-                    rpcError
-                );
-            } else {
-                const userIds: string[] = Array.isArray(recipientIds)
-                    ? (recipientIds as unknown[])
-                          .map(v =>
-                              typeof v === "string"
-                                  ? v
-                                  : v && typeof v === "object" && "user_id" in v
-                                      ? String((v as { user_id: unknown }).user_id)
-                                      : ""
-                          )
-                          .filter(v => v.length > 0)
-                    : [];
-
-                if (userIds.length === 0) {
-                    console.log(
-                        `[submit-reservation] no notification recipients (reservation_id=${reservationId}, activity_id=${activity.id}).`
-                    );
-                } else {
-                    const dateIt = formatDateIt(reservationDate);
-                    const timeIt = formatTimeIt(reservationTime);
-                    const message = `${customerName} · ${dateIt} ${timeIt} · ${partySize} p.`;
-                    const data = {
+                    eventType: isAutoConfirmed ? "reservation.auto_confirmed" : "reservation.new",
+                    recipients: {
+                        activityPermission: {
+                            permission: "reservations.manage",
+                            activityId: activity.id
+                        }
+                    },
+                    tenantId: activity.tenant_id,
+                    data: {
                         reservation_id: reservationId,
                         activity_id: activity.id,
                         activity_name: activity.name,
@@ -777,47 +755,15 @@ Deno.serve(async (req: Request) => {
                         reservation_date: reservationDate,
                         reservation_time: reservationTime,
                         party_size: partySize,
-                        source: "online"
-                    };
-
-                    // Auto-confirmed → dedicated event_type + label so the
-                    // bell + the dashboard deep-link can branch if needed.
-                    // Fan-out destinations and message body are identical.
-                    const eventType = isAutoConfirmed
-                        ? "reservation.auto_confirmed"
-                        : "reservation.new";
-                    const notificationTitle = isAutoConfirmed
-                        ? "Prenotazione confermata (auto)"
-                        : "Nuova prenotazione";
-
-                    const rows = userIds.map(uid => ({
-                        user_id: uid,
-                        tenant_id: activity.tenant_id,
-                        event_type: eventType,
-                        type: "info",
-                        title: notificationTitle,
-                        message,
-                        data
-                    }));
-
-                    const { error: insertNotifError } = await supabase
-                        .from("notifications")
-                        .insert(rows);
-
-                    if (insertNotifError) {
-                        console.error(
-                            "[submit-reservation] notification fan-out insert failed:",
-                            insertNotifError
-                        );
-                    } else {
-                        console.log(
-                            `[submit-reservation] notification fan-out (reservation_id=${reservationId}, count=${rows.length}).`
-                        );
+                        source: "online",
+                        date_label: formatDateIt(reservationDate),
+                        time_label: formatTimeIt(reservationTime)
                     }
-                }
-            }
+                },
+                `[submit-reservation] reservation_id=${reservationId}`
+            );
         } catch (notifErr) {
-            console.error("[submit-reservation] notification fan-out failed:", notifErr);
+            console.error("[submit-reservation] notification failed:", notifErr);
         }
 
         // The client renders different success copy based on `status`:

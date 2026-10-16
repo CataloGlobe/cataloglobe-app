@@ -24,9 +24,12 @@ export type OnAir = {
 
 const OFF: OnAir = { state: "off", when: null, where: null };
 
+/** Le sedi che contano per riga e frase: quelle attive, le stesse in `reachOf`, `onAirOf` e `leadOf`. */
+const activeOf = (activities: readonly AppearanceActivity[]) => activities.filter(a => a.status === "active");
+
 /** «tutte le sedi» se le prende tutte, il nome se è una, altrimenti «N sedi». */
 function reachOf(ids: readonly string[], activities: readonly AppearanceActivity[]): string {
-    const active = activities.filter(a => a.status === "active");
+    const active = activeOf(activities);
     if (active.length > 0 && active.every(a => ids.includes(a.id))) return "tutte le sedi";
     if (ids.length === 1) return activities.find(a => a.id === ids[0])?.name ?? "1 sede";
     return `${ids.length} sedi`;
@@ -35,11 +38,11 @@ function reachOf(ids: readonly string[], activities: readonly AppearanceActivity
 /**
  * La riga «In onda · quando · dove» di una card (`mvOnda`). Il quando è quello
  * della regola che lo porta (adesso, o la prima viva); il dove si dice solo
- * con più sedi.
+ * con più sedi attive.
  */
 export function onAirOf(appearance: Appearance | null, activities: readonly AppearanceActivity[]): OnAir {
     if (!appearance) return OFF;
-    const multi = activities.length > 1;
+    const multi = activeOf(activities).length > 1;
     const name = (id: string) => activities.find(a => a.id === id)?.name;
     if (appearance.summary === "liveNow") {
         const live = liveSeats(appearance);
@@ -67,11 +70,13 @@ export type LeadWords = {
     none: string;
     /** «Adesso in onda:», «Adesso la pagina si veste con». */
     lead: string;
+    /** L'attacco con una sede sola; se manca, «Adesso i clienti vedono». */
+    one?: string;
 };
 
 /**
  * La frase in cima (`mvLeadOra`): chi è in onda adesso e dove. Con una sede
- * sola «Adesso i clienti vedono X e Y.»; con più sedi «Adesso in onda: X a
+ * attiva «Adesso i clienti vedono X e Y.» (o `words.one`); con più sedi «Adesso in onda: X a
  * Centro e Porto, Y a Lago.»; se niente, «Adesso nessun menù è in onda.».
  * `emptySeats` aggiunge le sedi aperte che non mostrano niente (Menù).
  */
@@ -87,9 +92,9 @@ export function leadOf(
     if (live.length === 0) return [{ text: `Adesso ${words.none} è in onda.` }];
 
     const parts: LeadPart[] = [];
-    const active = activities.filter(a => a.status === "active");
-    if (activities.length <= 1) {
-        parts.push({ text: "Adesso i clienti vedono " });
+    const active = activeOf(activities);
+    if (active.length <= 1) {
+        parts.push({ text: `${words.one ?? "Adesso i clienti vedono"} ` });
         live.forEach((item, i) => {
             if (i > 0) parts.push({ text: i === live.length - 1 ? " e " : ", " });
             parts.push({ name: item.name });

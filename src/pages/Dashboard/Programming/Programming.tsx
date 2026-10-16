@@ -49,6 +49,7 @@ import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
 import { compareCandidates } from "@shared/scheduleCompetition";
 import { describeTarget } from "./components/ruleTarget";
 import { measureTextWidth } from "@/utils/measureText";
+import { LOOK_D } from "@/styles/lookD";
 import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import CalendarioView from "./calendar/CalendarioView";
 import type { CalNames } from "./calendar/calendarModel";
@@ -65,10 +66,10 @@ import { ruleTypeLabel } from "./ruleTypeLabel";
 import { withPluralArticle } from "@/utils/ruleDetailForm";
 import styles from "./Programming.module.scss";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { LOOK_D } from "@/styles/lookD";
 import { VetrinaHead } from "../Vetrina/VetrinaHead";
 import { useCompactHead } from "../Vetrina/useCompactHead";
 import type { LeadPart } from "../Vetrina/vetrinaModel";
+import { LAST_BASE_TIP, lastBaseMenu } from "./calendar/baseRule";
 
 type RuleTypeFilter = RuleType | "all";
 
@@ -672,6 +673,11 @@ export default function Programming() {
     };
 
     const handleToggleEnabled = async (ruleId: string, enabled: boolean) => {
+        // la sola regola di base non si spegne: il locale resterebbe senza menù (D238)
+        if (!enabled && lastBaseMenu(rules, ruleId)) {
+            showToast({ type: "error", message: LAST_BASE_TIP, duration: 6000 });
+            return;
+        }
         // Optimistic update
         setRules(prev => prev.map(r => (r.id === ruleId ? { ...r, enabled } : r)));
         setUpdatingRules(prev => {
@@ -1005,16 +1011,31 @@ export default function Programming() {
             : { key: "expired", title: "Scadute", rules: expiredRules, open: showExpired, setOpen: setShowExpired }
     ];
 
+    // La misura si rifà quando i caratteri sono caricati: prima il canvas usa
+    // quello di riserva, più stretto, e l'etichetta più lunga finiva coi puntini.
+    const [fontsLoaded, setFontsLoaded] = useState(0);
+    useEffect(() => {
+        const fonts = typeof document === "undefined" ? undefined : document.fonts;
+        if (!fonts) return;
+        const bump = () => setFontsLoaded(n => n + 1);
+        void fonts.ready.then(bump);
+        fonts.addEventListener("loadingdone", bump);
+        return () => fonts.removeEventListener("loadingdone", bump);
+    }, []);
+
     // «Dove si applica» larga quanto l'etichetta più lunga dell'elenco (o
     // l'intestazione), uguale in tutte le tabelle per stato: icona 14 + gap 6,
     // padding della cella 24 + 24, bordo. Tetto al 45%: «Regola» prende il resto.
     const whereWidth = useMemo(() => {
         const labels = filteredRules.map(rule => describeTarget(rule, activityById, activityGroups).label);
-        const label = Math.max(0, ...labels.map(text => measureTextWidth(text, { size: 14 })));
+        // Nella D le righe sono a peso 500 e la misura sul canvas resta corta di
+        // qualche px (provato: 117 contro 120): peso giusto e 4 px di margine.
+        const label = Math.max(0, ...labels.map(text => measureTextWidth(text, { size: 14, weight: LOOK_D ? 500 : 400 }) + (LOOK_D ? 4 : 0)));
         const header = measureTextWidth("DOVE SI APPLICA", { size: 12, weight: 600, letterSpacing: 12 * 0.04 });
         const content = Math.max(label + 14 + 6, header);
         return `min(${Math.ceil(content + 48 + 2)}px, 45%)`;
-    }, [filteredRules, activityById, activityGroups]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- fontsLoaded: si rimisura col carattere vero
+    }, [filteredRules, activityById, activityGroups, fontsLoaded]);
 
     const tableProps = {
         insights: ruleInsightsById,

@@ -12,6 +12,7 @@ import { ISLAND_ID, LANGUAGE_BUTTON_ID, MENU_BUTTON_ID, MORE_BUTTON_ID, SEARCH_F
 import IslandCategories from "./IslandCategories";
 import LanguageButton from "./LanguageButton";
 import { openVenueSheet } from "../sheets/venueSheetPages";
+import { useCappelloCover } from "../story/cappelloCover";
 import styles from "./Island.module.scss";
 
 // Isteresi: compatta oltre 40 px, torna estesa sotto 8 px. Validata su iPhone e Android (PR 1).
@@ -189,6 +190,12 @@ export default function Island({
     }, []);
 
     const coverSet = coverImageUrl ? buildCoverImageSet(coverImageUrl) : null;
+    // In Storia la foto del cappello prende il posto della copertina, in dissolvenza (v38 «Unica»).
+    // L'ultima resta montata: tornando al Menu sfuma via invece di sparire.
+    const cappelloCover = useCappelloCover();
+    const [storyCover, setStoryCover] = useState<string | null>(null);
+    if (cappelloCover && cappelloCover !== storyCover) setStoryCover(cappelloCover);
+    const storyCoverOn = storia && !!cappelloCover;
     const openSearch = (trigger: HTMLElement) => {
         // Focus sincrono in-gesto sul campo fantasma: la tastiera iOS sale subito.
         // Alla chiusura il fuoco torna a chi ha aperto, non al campo fantasma.
@@ -262,6 +269,16 @@ export default function Island({
                         width={1920}
                         height={1080}
                     />
+                    {storyCover ? (
+                        <img
+                            src={storyCover}
+                            alt=""
+                            role="presentation"
+                            className={`${styles.coverImg} ${styles.coverStory}`}
+                            data-on={storyCoverOn || undefined}
+                            decoding="async"
+                        />
+                    ) : null}
                 </div>
             )}
 

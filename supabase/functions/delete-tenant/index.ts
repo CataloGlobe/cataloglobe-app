@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { createStripeClient, scheduleStripeCancel } from "../_shared/stripe-helpers.ts";
 import { serializeError } from "../_shared/errors.ts";
 import { withAppCors } from "../_shared/cors.ts";
@@ -136,6 +136,20 @@ async function handle(req: Request): Promise<Response> {
         }
 
         console.log(`delete-tenant: Tenant ${tenantId} soft-deleted by user ${userId}`);
+
+        // Avvisi (motore notifiche): campanella ai membri, email all'owner.
+        // Mai bloccante: l'eliminazione è già fatta.
+        try {
+            const { error: notifyError } = await supabaseAdmin.rpc(
+                "notify_tenant_deletion_scheduled",
+                { p_tenant_id: tenantId, p_actor: userId }
+            );
+            if (notifyError) {
+                console.error("delete-tenant: notify failed:", notifyError.message);
+            }
+        } catch (notifyErr) {
+            console.error("delete-tenant: notify threw:", serializeError(notifyErr).message);
+        }
 
         supabaseAdmin
             .from("audit_logs")

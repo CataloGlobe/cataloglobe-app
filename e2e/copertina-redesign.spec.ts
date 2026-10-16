@@ -5,15 +5,11 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * Copertina dell'isola nel redesign (D14): con la copertina accesa nello stile
  * ma senza foto della sede, niente blocco vuoto e isola come senza copertina;
  * con la foto, la copertina c'è solo se lo stile la accende.
- * Prende il posto di `header-senza-cover.spec.ts` il giorno dell'accensione
- * (l'header piatto della pagina di oggi nel redesign non esiste).
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/copertina-redesign.spec.ts`; senza il flag la spec si salta da sola.
+ * Ha preso il posto di `header-senza-cover.spec.ts`, tolta con l'accensione
+ * (l'header piatto della pagina vecchia nel redesign non esiste).
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 async function openPage(page: Page, showCoverImage: boolean, cover?: string): Promise<void> {
     await stubPublicPage(page, { ordering: false, cover, styleConfig: { header: { showCoverImage } } });

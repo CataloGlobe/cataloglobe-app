@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { COOLDOWN_MS } from "../_shared/otpCore.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

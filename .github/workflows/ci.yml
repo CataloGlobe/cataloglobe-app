@@ -49,5 +49,3 @@ jobs:
       # Build del client pubblico + confronto coi tetti in
       # scripts/public-bundle-budget.json (gzip, JS iniziale / CSS iniziale / chunk lazy).
       - run: npm run public:budget:check
-      # Stessa misura con la pagina nuova (flag acceso come su staging), tetti in `redesign`.
-      - run: npm run public:budget:check:redesign

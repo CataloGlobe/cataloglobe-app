@@ -30,7 +30,7 @@
 // See docs/orders-architecture.md v1.2 §6 (order submit), §7 (order_groups
 // lifecycle) e CLAUDE.md sezione "Epic Ordinazioni dal tavolo".
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { withAppCors } from "../_shared/cors.ts";
 import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";

@@ -6,13 +6,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * basso a destra, sempre in modo ordine, col numero solo coi piatti scelti (D74,
  * deciso da Lorenzo il 2026-10-13), apre la finestra «Il tuo ordine» al centro. Sul telefono resta il
  * cerchio nella barra in basso. Stub senza login, `get-orders-for-session` finto.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/ordine-desktop-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 async function openPage(page: Page, width: number, height: number) {
     await page.setViewportSize({ width, height });

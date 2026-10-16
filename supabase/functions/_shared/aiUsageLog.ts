@@ -15,7 +15,7 @@
 //   - Nessun controllo quota qui — l'enforcement è una fase futura, altrove.
 // =============================================================================
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { PRICE_MAP_VERSION, computeCostNanoUsd } from "./aiPricing.ts";
 
 export interface AiUsageEventInput {

@@ -120,6 +120,20 @@ test.describe("Sedi", () => {
         await expect(main.locator('article, [role="listitem"]')).toHaveCount(0);
     });
 
+    test("la ricerca scritta mentre l'azienda si carica resta", async ({ page }) => {
+        // Le aziende arrivano tardi: la pagina non deve rendersi prima di
+        // sapere i permessi e poi rimontarsi svuotando la ricerca.
+        await page.route(/\/rest\/v1\/user_tenants_view\?/, async route => {
+            await new Promise(resolve => setTimeout(resolve, 2_000));
+            await route.fallback();
+        });
+        await page.reload();
+        const search = page.getByRole("textbox", { name: /Cerca (una )?sede/ });
+        await search.fill("nessuna-sede-con-questo-nome");
+        await expect(page.getByRole("main").getByText("Nessun risultato")).toBeVisible({ timeout: 15_000 });
+        await expect(search).toHaveValue("nessuna-sede-con-questo-nome");
+    });
+
     test("drawer «Nuova sede»: si apre e si chiude senza creare", async ({ page }) => {
         await page.getByRole("button", { name: "Aggiungi sede" }).click();
         const dialog = page.getByRole("dialog");

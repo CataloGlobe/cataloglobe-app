@@ -20,7 +20,7 @@
 // pagina mostra un messaggio. Stesso trattamento per l'email di contatto, che
 // l'art. 13 rende obbligatoria tanto quanto l'identita' del titolare.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",

@@ -34,7 +34,7 @@
 // CRM_JOB_SECRET, TELEGRAM_BOT_TOKEN, APP_URL (facoltativo: «Apri nel CRM»).
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { fillWhatsappTemplate } from "../_shared/crmWhatsapp.ts";

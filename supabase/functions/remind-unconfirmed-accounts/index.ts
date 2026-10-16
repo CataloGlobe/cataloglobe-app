@@ -15,7 +15,7 @@
 // send-tenant-invite; nel vault è `internal_edge_secret`).
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { Resend } from "npm:resend@4";
 import { COMPANY } from "../_shared/company-config.ts";
 import { buildSignupReminderEmail } from "../_shared/accountEmails.ts";

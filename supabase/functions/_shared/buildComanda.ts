@@ -19,7 +19,7 @@
 // get_tenant_member_names: "first_name last_name", fallback "Staff" come in
 // PrintReceipt.tsx.
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import type { ComandaItem, ComandaPayload } from "./escpos.ts";
 
 // ============================================================

@@ -447,7 +447,19 @@
         "video_play": "Watch the video",
         "video_play_aria": "Play the story video",
         "discover_label": "Discover the story",
-        "image_alt_fallback": "Story image"
+        "image_alt_fallback": "Story image",
+        "count_one": "{{count}} story",
+        "count_other": "{{count}} stories",
+        "read_more": "Keep reading",
+        "read_less": "Show less",
+        "reading_time_one": "{{count}} min read",
+        "reading_time_other": "{{count}} min read",
+        "try_with": "Try it with this story",
+        "error_title": "We can't load the stories",
+        "error_body": "Check your connection and try again: the menu is still available.",
+        "loading_aria": "Loading the stories",
+        "back_aria": "Back to Story",
+        "cap_aria": "About the venue"
     },
     "reviews": {
         "rating_labels": {
@@ -619,7 +631,15 @@
             "closed_call": "Call the venue to cancel.",
             "closed_contact": "Contact the venue directly to cancel.",
             "not_cancellable_title": "Booking cannot be cancelled",
-            "not_cancellable_text": "This booking cannot be cancelled from here."
+            "not_cancellable_text": "This booking cannot be cancelled from here.",
+            "allergies_title": "Allergies",
+            "allergies_text": "You listed allergies for this booking. If you no longer want the venue to see them, you can remove them.",
+            "allergies_button": "Remove my allergies",
+            "allergies_confirm_text": "Your allergies will be deleted and the venue will no longer see them. This cannot be undone.",
+            "allergies_confirm_button": "Yes, remove allergies",
+            "allergies_removing": "Removing…",
+            "allergies_keep_button": "No, keep them",
+            "allergies_removed": "Allergies removed. The venue can no longer see them."
         },
         "confirm": {
             "doc_title": "{{brand}} · Confirm your booking",
@@ -685,6 +705,7 @@
         "order_note_aria": "Notes for the kitchen, for the whole order",
         "order_title": "Order {{number}}",
         "sent_ok": "Sent to the kitchen",
+        "cancelled_title": "Order cancelled",
         "sent_summary_one": "{{count}} dish · {{total}}",
         "sent_summary_other": "{{count}} dishes · {{total}}",
         "add_more": "Add more",

@@ -447,7 +447,19 @@
         "video_play": "Ver el vídeo",
         "video_play_aria": "Reproducir el vídeo de la historia",
         "discover_label": "Descubre la historia",
-        "image_alt_fallback": "Imagen de la historia"
+        "image_alt_fallback": "Imagen de la historia",
+        "count_one": "{{count}} historia",
+        "count_other": "{{count}} historias",
+        "read_more": "Seguir leyendo",
+        "read_less": "Mostrar menos",
+        "reading_time_one": "{{count}} min de lectura",
+        "reading_time_other": "{{count}} min de lectura",
+        "try_with": "Para probar con esta historia",
+        "error_title": "No podemos cargar las historias",
+        "error_body": "Comprueba la conexión y vuelve a intentarlo: el menú sigue disponible.",
+        "loading_aria": "Cargando las historias",
+        "back_aria": "Volver a la Historia",
+        "cap_aria": "El local"
     },
     "reviews": {
         "rating_labels": {
@@ -619,7 +631,15 @@
             "closed_call": "Llama al local para anular.",
             "closed_contact": "Contacta directamente con el local para anular.",
             "not_cancellable_title": "Reserva no anulable",
-            "not_cancellable_text": "Esta reserva no se puede anular desde aquí."
+            "not_cancellable_text": "Esta reserva no se puede anular desde aquí.",
+            "allergies_title": "Alergias",
+            "allergies_text": "Has indicado alergias para esta reserva. Si ya no quieres que el local las vea, puedes quitarlas.",
+            "allergies_button": "Quitar mis alergias",
+            "allergies_confirm_text": "Tus alergias se borrarán y el local ya no las verá. No se pueden recuperar.",
+            "allergies_confirm_button": "Sí, quitar las alergias",
+            "allergies_removing": "Quitando…",
+            "allergies_keep_button": "No, mantenerlas",
+            "allergies_removed": "Alergias quitadas. El local ya no las ve."
         },
         "confirm": {
             "doc_title": "{{brand}} · Confirmar la asistencia",
@@ -685,6 +705,7 @@
         "order_note_aria": "Notas para la cocina, para todo el pedido",
         "order_title": "Pedido {{number}}",
         "sent_ok": "Enviado a la cocina",
+        "cancelled_title": "Pedido cancelado",
         "sent_summary_one": "{{count}} plato · {{total}}",
         "sent_summary_other": "{{count}} platos · {{total}}",
         "add_more": "Añadir más",

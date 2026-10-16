@@ -80,6 +80,7 @@ import { calLead, inOndaOra } from "./calendarLead";
 import { CalendarioAgenda, type AgendaItem } from "./CalendarioAgenda";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { PartialSaveError } from "./calendarSave";
+import { lastBaseMenu } from "./baseRule";
 
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const DAYS_L = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -1301,6 +1302,7 @@ export default function CalendarioView({
                     products={products}
                     formatNames={formatNames}
                     pairedName={pairedName}
+                    lastBase={lastBaseMenu(rules, entry.ruleId)}
                     writable={!!onDrop && (isWritable ? isWritable(entry.rule) : false)}
                     onEnable={
                         canOff
