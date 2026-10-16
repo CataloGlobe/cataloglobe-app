@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/Button/Button";
@@ -51,7 +51,8 @@ export function CostsCalendar({
     onRetry,
     onMonth,
     onDay,
-    onOpen
+    onOpen,
+    toolbar
 }: {
     /** «AAAA-MM». */
     month: string;
@@ -68,6 +69,8 @@ export function CostsCalendar({
     onMonth: (month: string) => void;
     onDay: (day: string) => void;
     onOpen: (expense: CrmExpense) => void;
+    /** Filtri e Elenco/Calendario, in alto a destra. */
+    toolbar: ReactNode;
 }) {
     const reduceMotion = useReducedMotion();
     const byId = useMemo(() => new Map(expenses.map(e => [e.id, e])), [expenses]);
@@ -139,6 +142,7 @@ export function CostsCalendar({
         const withCharges = [...new Set(monthCharges.map(c => c.chargedOn))].sort();
         return (
             <section className={styles.box} aria-label="Calendario delle spese">
+                <div className={styles.calTop}>{toolbar}</div>
                 {nav}
                 <TileState
                     loading={loading}
@@ -164,6 +168,7 @@ export function CostsCalendar({
     return (
         <section className={styles.calendar} aria-label="Calendario delle spese">
             <div className={styles.calMain}>
+                <div className={styles.calTop}>{toolbar}</div>
                 {nav}
                 <TileState loading={loading} error={error} onRetry={onRetry}>
                     <div className={styles.calGrid}>

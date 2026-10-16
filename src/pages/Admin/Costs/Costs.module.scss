@@ -1072,14 +1072,6 @@
     gap: var(--space-8);
 }
 
-/* Filtri dello storico: chi paga e tipo di spesa (proposta 12). */
-.historyFilters {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-bottom: var(--space-4);
-}
-
 /* Mese per mese: «Da pagare» sopra «Pagato», barre più chiare (proposta 16). */
 .monthsChart[data-future] .monthsBar rect {
     opacity: 0.5;
@@ -1177,5 +1169,69 @@
     &:focus-visible {
         outline: 2px solid var(--brand-primary);
         outline-offset: 2px;
+    }
+}
+
+/* Schede e filtri sulla stessa riga: i filtri in alto a destra (Alex, 2026-10-16). */
+.tabsHead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8) var(--space-16);
+
+    > :first-child {
+        min-width: 0;
+    }
+}
+
+.filterMenus {
+    display: inline-flex;
+    gap: var(--space-8);
+    padding: var(--space-8) 0;
+}
+
+.filterTrigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.noMatch {
+    padding: var(--space-12) 0;
+}
+
+.toolbar {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    margin-left: auto;
+}
+
+.calTop {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--space-8);
+}
+
+// Barre di scorrimento sottili, senza binario: solo il cursore, tondo (Alex, 2026-10-16).
+.movesScroll,
+.trioBody {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong, var(--border)) transparent;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+        border: 0;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: var(--radius-pill);
     }
 }

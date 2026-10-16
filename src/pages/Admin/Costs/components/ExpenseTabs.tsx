@@ -1,7 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
-import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
@@ -15,47 +14,20 @@ import {
     formatEuroCents,
     monthlyEquivalentCents
 } from "@shared/crmExpenses";
-import { isJointAccount, payerKey, settlementText } from "@/utils/crm/expenseBalance";
-import { filterHistory, historyByMonth, oneOffByMonth, type HistoryRow } from "@/utils/crm/expenseCalendar";
+import { isJointAccount, settlementText } from "@/utils/crm/expenseBalance";
+import { filterHistory, historyByMonth, oneOffByMonth } from "@/utils/crm/expenseCalendar";
+import { categoryMatches, moveMatches, payerMatches, type ExpenseFilters } from "@/utils/crm/expenseFilters";
 import type { ChargePayer } from "@/utils/crm/expenseTerms";
 import { formatMonthIt, formatShortDateIt, type CrmExpenseMonth } from "@/utils/crm/expenses";
-import type { CrmExpense, CrmExpenseCategory, CrmExpenseCharge, CrmExpenseSettlement } from "@/types/crm";
+import type { CrmExpense, CrmExpenseCharge, CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import { ExpenseIcon } from "./ExpenseIcon";
 import { KindTag } from "./KindTag";
-import { CATEGORY_META, expenseKind } from "./expenseCategoryMeta";
+import { expenseKind } from "./expenseCategoryMeta";
 import { MonthsByCategory } from "./MonthsByCategory";
 import styles from "../Costs.module.scss";
 
 type ExpenseTab = "subscriptions" | "oneoff" | "history" | "months";
-
-/** «comune» nell'indirizzo = i conti comuni; un nome = quella persona. */
-const JOINT_FILTER = "comune";
-
-/**
- * Una riga passa il filtro di chi paga: l'addebito se l'ha pagato lui (dal
- * conto in vigore quel giorno), il movimento se l'ha fatto o ricevuto. Il
- * filtro per tipo lascia fuori i movimenti: non sono spese.
- */
-function historyMatch(
-    row: HistoryRow,
-    who: string,
-    type: string,
-    chargePayer: (expenseId: string, date: string) => ChargePayer
-): boolean {
-    if (row.kind === "move") {
-        if (type) return false;
-        if (!who) return true;
-        const s = row.settlement;
-        if (who === JOINT_FILTER) return isJointAccount(s.to_name) || isJointAccount(s.from_name);
-        return payerKey(s.from_name) === payerKey(who) || payerKey(s.to_name) === payerKey(who);
-    }
-    if (type && row.expense.category !== type) return false;
-    if (!who) return true;
-    const payer = chargePayer(row.expense.id, row.date);
-    if (who === JOINT_FILTER) return payer.type === "joint";
-    return payer.type === "person" && payerKey(payer.name) === payerKey(who);
-}
 
 function capitalize(text: string): string {
     return text.charAt(0).toUpperCase() + text.slice(1);
@@ -98,11 +70,10 @@ export function ExpenseTabs({
     accountLabel,
     charges,
     settlements,
-    team,
+    toolbar,
     chargePayer,
-    historyWho,
-    historyType,
-    onHistoryFilters,
+    filters,
+    onFilters,
     onDeleteMove
 }: {
     expenses: CrmExpense[];
@@ -122,19 +93,29 @@ export function ExpenseTabs({
     /** Addebiti caricati (lo storico tiene quelli fino a oggi). */
     charges: CrmExpenseCharge[];
     settlements: CrmExpenseSettlement[];
-    /** I nomi della squadra, per il filtro di chi paga. */
-    team: string[];
+    /** Filtri e Elenco/Calendario, a destra delle schede. */
+    toolbar: ReactNode;
     chargePayer: (expenseId: string, date: string) => ChargePayer;
-    /** Filtri dello storico dall'indirizzo: "" = tutti. */
-    historyWho: string;
-    historyType: string;
-    onHistoryFilters: (values: { chi?: string; tipo?: string }) => void;
+    /** Chi paga e tipo, dall'indirizzo: valgono in tutte le schede. */
+    filters: ExpenseFilters;
+    onFilters: (values: { chi?: string[]; tipo?: string[] }) => void;
     onDeleteMove: (move: CrmExpenseSettlement) => void;
 }) {
     const [tab, setTab] = useState<ExpenseTab>("history");
+    const filtered = filters.who.length > 0 || filters.types.length > 0;
+    // Una spesa passa coi filtri se il tipo torna e la paga chi è scelto (al prossimo addebito, o quando è stata pagata).
+    const shown = useMemo(
+        () =>
+            expenses.filter(
+                e =>
+                    categoryMatches(e.category, filters.types) &&
+                    payerMatches(chargePayer(e.id, nextCharges.get(e.id) ?? e.paid_on ?? today), filters.who)
+            ),
+        [expenses, filters, chargePayer, nextCharges, today]
+    );
 
     const subscriptions = useMemo(() => {
-        const subs = expenses.filter(e => e.kind === "subscription");
+        const subs = shown.filter(e => e.kind === "subscription");
         // Prima chi si rinnova, dal più vicino; poi i finiti.
         return subs.sort((a, b) => {
             const na = nextCharges.get(a.id);
@@ -144,37 +125,41 @@ export function ExpenseTabs({
             if (nb) return 1;
             return a.name.localeCompare(b.name, "it");
         });
-    }, [expenses, nextCharges]);
+    }, [shown, nextCharges]);
     // Quanto pesano al mese gli abbonamenti che si rinnovano ancora (gli annuali a 1/12).
     const activeSubs = subscriptions.filter(e => nextCharges.has(e.id) && !e.cancelled_on);
     const subsMonthlyCents = activeSubs.reduce(
         (sum, e) => sum + monthlyEquivalentCents(e.amount_cents, e.billing_interval ?? "month"),
         0
     );
-    const oneOffMonths = useMemo(() => oneOffByMonth(expenses), [expenses]);
-    const oneOffCount = useMemo(() => expenses.filter(e => e.kind === "one_off").length, [expenses]);
+    const oneOffMonths = useMemo(() => oneOffByMonth(shown), [shown]);
+    const oneOffCount = useMemo(() => shown.filter(e => e.kind === "one_off").length, [shown]);
     // Una scala sola per pagato e da pagare: le barre si confrontano.
     const scaleMax = Math.max(1, ...months.map(m => m.totalCents), ...futureMonths.map(m => m.totalCents));
     const fullHistory = useMemo(
         () => historyByMonth(charges, expenses, settlements, today),
         [charges, expenses, settlements, today]
     );
-    // Un valore dell'indirizzo che non c'è più (nome, tipo) vale «tutti».
-    const who = historyWho === JOINT_FILTER || team.some(n => payerKey(n) === payerKey(historyWho)) ? historyWho : "";
-    const type = historyType in CATEGORY_META ? historyType : "";
     const history = useMemo(
-        () => (who || type ? filterHistory(fullHistory, row => historyMatch(row, who, type, chargePayer)) : fullHistory),
-        [fullHistory, who, type, chargePayer]
+        () =>
+            filtered
+                ? filterHistory(fullHistory, row =>
+                      row.kind === "move"
+                          ? moveMatches(row.settlement, filters)
+                          : categoryMatches(row.expense.category, filters.types) &&
+                            payerMatches(chargePayer(row.expense.id, row.date), filters.who)
+                  )
+                : fullHistory,
+        [fullHistory, filtered, filters, chargePayer]
     );
-    const whoOptions: ChipOption<string>[] = [
-        { value: "tutti", label: "Tutti" },
-        ...team.map(name => ({ value: name, label: name })),
-        { value: JOINT_FILTER, label: "Conto comune" }
-    ];
-    const typeOptions: ChipOption<string>[] = [
-        { value: "tutti", label: "Tutti i tipi" },
-        ...(Object.keys(CATEGORY_META) as CrmExpenseCategory[]).map(c => ({ value: c, label: CATEGORY_META[c].label }))
-    ];
+    const noMatch = (
+        <Text as="p" variant="body-sm" colorVariant="muted" className={styles.noMatch}>
+            Niente con questi filtri.{" "}
+            <Button variant="ghost" size="sm" onClick={() => onFilters({ chi: [], tipo: [] })}>
+                Togli i filtri
+            </Button>
+        </Text>
+    );
 
     const actions = (expense: CrmExpense) => (
         <TableRowActions
@@ -206,6 +191,7 @@ export function ExpenseTabs({
     return (
         <section className={styles.tabsBox} aria-label="Le spese">
             <Tabs value={tab} onChange={setTab} variant="line">
+                <div className={styles.tabsHead}>
                 <Tabs.List aria-label="Le spese">
                     <Tabs.Tab value="history">Storico</Tabs.Tab>
                     <Tabs.Tab value="subscriptions" badge={subscriptions.length || undefined}>
@@ -216,15 +202,18 @@ export function ExpenseTabs({
                     </Tabs.Tab>
                     <Tabs.Tab value="months">Mese per mese</Tabs.Tab>
                 </Tabs.List>
+                {toolbar}
+                </div>
 
                 <Tabs.Panel value="subscriptions">
                     <TileState
                         loading={loading}
                         error={error}
                         onRetry={onRetry}
-                        empty={subscriptions.length === 0}
+                        empty={!filtered && subscriptions.length === 0}
                         emptyText="Nessun abbonamento. Aggiungine uno con la data del primo addebito."
                     >
+                        {filtered && subscriptions.length === 0 && noMatch}
                         <Text as="p" variant="caption" colorVariant="muted" className={styles.tilesTotal}>
                             {activeSubs.length === 1 ? "1 attivo" : `${activeSubs.length} attivi`}:{" "}
                             {formatEuroCents(subsMonthlyCents)} al mese in tutto
@@ -281,9 +270,10 @@ export function ExpenseTabs({
                         loading={loading}
                         error={error}
                         onRetry={onRetry}
-                        empty={oneOffMonths.length === 0}
+                        empty={!filtered && oneOffMonths.length === 0}
                         emptyText="Nessuna spesa una tantum."
                     >
+                        {filtered && oneOffMonths.length === 0 && noMatch}
                         <div className={styles.monthBlocks}>
                             {oneOffMonths.map(m => (
                                 <div key={m.month} className={styles.monthBlock}>
@@ -329,32 +319,7 @@ export function ExpenseTabs({
                         empty={fullHistory.length === 0}
                         emptyText="Lo storico compare con la prima spesa o il primo movimento."
                     >
-                        <div className={styles.historyFilters}>
-                            <ChipGroupSingle
-                                ariaLabel="Chi paga"
-                                options={whoOptions}
-                                value={who || "tutti"}
-                                onChange={v => onHistoryFilters({ chi: v === "tutti" ? "" : v })}
-                                layout="auto"
-                                shape="pill"
-                            />
-                            <ChipGroupSingle
-                                ariaLabel="Tipo di spesa"
-                                options={typeOptions}
-                                value={type || "tutti"}
-                                onChange={v => onHistoryFilters({ tipo: v === "tutti" ? "" : v })}
-                                layout="auto"
-                                shape="pill"
-                            />
-                        </div>
-                        {history.length === 0 && (
-                            <Text as="p" variant="body-sm" colorVariant="muted">
-                                Niente con questi filtri.{" "}
-                                <Button variant="ghost" size="sm" onClick={() => onHistoryFilters({ chi: "", tipo: "" })}>
-                                    Togli i filtri
-                                </Button>
-                            </Text>
-                        )}
+                        {history.length === 0 && noMatch}
                         <div className={styles.monthBlocks}>
                             {history.map(m => (
                                 <div key={m.month} className={styles.monthBlock}>
@@ -429,9 +394,10 @@ export function ExpenseTabs({
                         loading={loading}
                         error={error}
                         onRetry={onRetry}
-                        empty={months.length === 0}
+                        empty={!filtered && months.length === 0}
                         emptyText="I mesi compaiono con la prima spesa."
                     >
+                        {filtered && months.length === 0 && noMatch}
                         <div className={styles.monthsPanel}>
                             {futureMonths.length > 0 && (
                                 <>

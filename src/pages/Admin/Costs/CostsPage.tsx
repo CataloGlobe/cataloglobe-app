@@ -28,16 +28,30 @@ import {
     listCrmExpenseSettlements,
     listCrmExpenseTerms
 } from "@/services/supabase/crmExpenses";
-import { CRM_BILLING_INTERVAL_LABEL, daysBetween, formatDaysLeft, formatEuroCents } from "@shared/crmExpenses";
+import {
+    CRM_BILLING_INTERVAL_LABEL,
+    CRM_EXPENSE_CATEGORIES,
+    daysBetween,
+    formatDaysLeft,
+    formatEuroCents
+} from "@shared/crmExpenses";
 import {
     computeExpenseBalance,
     isJointAccount,
+    payerKey,
     JOINT_ACCOUNT,
     payerSuggestions,
     transfersToSettlements,
     type SettlementDraft
 } from "@/utils/crm/expenseBalance";
 import { payerResolver, refundsAsCharges, termAt } from "@/utils/crm/expenseTerms";
+import {
+    categoryMatches,
+    JOINT_FILTER,
+    parseFilterList,
+    payerMatches,
+    type ExpenseFilters
+} from "@/utils/crm/expenseFilters";
 import { lastDayOfMonth, shiftDay, shiftMonth } from "@/utils/crm/expenseCalendar";
 import {
     buildCostsOverview,
@@ -50,7 +64,7 @@ import {
     type CrmExpenseDraft
 } from "@/utils/crm/expenses";
 import { isMissingOnDatabase } from "@/utils/crm/stages";
-import type { CrmExpense, CrmExpenseSettlement } from "@/types/crm";
+import type { CrmExpense, CrmExpenseCategory, CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import { useCrmLoad } from "@/pages/Admin/Crm/hooks/useCrmLoad";
 import { CostsCalendar } from "./components/CostsCalendar";
@@ -59,6 +73,7 @@ import { BalanceBand } from "./components/BalanceBand";
 import { CostsFigures } from "./components/CostsFigures";
 import { ExpenseIcon } from "./components/ExpenseIcon";
 import { ExpandButton } from "./components/ExpandButton";
+import { ExpenseFilterMenus } from "./components/ExpenseFilterMenus";
 import { PayersCard } from "./components/PayersCard";
 import { AccountsDrawer } from "./AccountsDrawer";
 import { ExpenseDrawer } from "./ExpenseDrawer";
@@ -99,15 +114,13 @@ export default function CostsPage() {
     const view: CostsView = searchParams.get("vista") === "calendario" ? "calendar" : "list";
     // Gli annuali nel costo al mese solo a richiesta (D258, Alex 2026-10-16).
     const includeYearly = searchParams.get("annuali") === "si";
-    // Filtri dello storico (proposta 12): chi paga e tipo di spesa, nell'indirizzo.
-    const historyWho = searchParams.get("chi") ?? "";
-    const historyType = searchParams.get("tipo") ?? "";
-    const setHistoryFilters = (values: { chi?: string; tipo?: string }) =>
+    // Filtri delle spese (Alex, 2026-10-16): chi paga e tipo, a scelta multipla, nell'indirizzo.
+    const setFilters = (values: { chi?: string[]; tipo?: string[] }) =>
         setSearchParams(
             prev => {
                 const next = new URLSearchParams(prev);
-                for (const [key, value] of Object.entries(values)) {
-                    if (value) next.set(key, value);
+                for (const [key, list] of Object.entries(values)) {
+                    if (list && list.length > 0) next.set(key, list.join(","));
                     else next.delete(key);
                 }
                 return next;
@@ -235,6 +248,54 @@ export default function CostsPage() {
         () => payerResolver({ expenses, terms, accounts, memberNames, isJointName: isJointAccount }),
         [expenses, terms, accounts, memberNames]
     );
+    const chiParam = searchParams.get("chi");
+    const tipoParam = searchParams.get("tipo");
+    const filters: ExpenseFilters = useMemo(
+        () => ({
+            who: parseFilterList(
+                chiParam,
+                (v): v is string => v === JOINT_FILTER || team.some(n => payerKey(n) === payerKey(v))
+            ),
+            types: parseFilterList(tipoParam, (v): v is CrmExpenseCategory =>
+                (CRM_EXPENSE_CATEGORIES as readonly string[]).includes(v)
+            )
+        }),
+        [chiParam, tipoParam, team]
+    );
+    // «Mese per mese» coi filtri: gli addebiti che passano, rimborsi compresi.
+    const filteredCharges = useMemo(() => {
+        if (filters.who.length === 0 && filters.types.length === 0) return null;
+        return chargesAndRefunds.filter(c => {
+            const expense = byId.get(c.expenseId);
+            return (
+                !!expense &&
+                categoryMatches(expense.category, filters.types) &&
+                payerMatches(chargePayer(c.expenseId, c.chargedOn), filters.who)
+            );
+        });
+    }, [filters, chargesAndRefunds, byId, chargePayer]);
+    const calendarCharges = useMemo(
+        () =>
+            filteredCharges
+                ? allCharges.filter(c => {
+                      const expense = byId.get(c.expenseId);
+                      return (
+                          !!expense &&
+                          categoryMatches(expense.category, filters.types) &&
+                          payerMatches(chargePayer(c.expenseId, c.chargedOn), filters.who)
+                      );
+                  })
+                : allCharges,
+        [filteredCharges, allCharges, byId, filters, chargePayer]
+    );
+    const tabMonths = useMemo(
+        () => (filteredCharges ? summarizeCharges(filteredCharges, expenses, today).months : summary.months),
+        [filteredCharges, expenses, today, summary.months]
+    );
+    const tabFutureMonths = useMemo(
+        () => (filteredCharges ? futureMonths(filteredCharges, expenses, today) : toPay),
+        [filteredCharges, expenses, today, toPay]
+    );
     // I conti comuni tutti, anche senza movimenti (Qonto, D256), quelli chiusi in fondo;
     // per gli aperti il prossimo addebito da domani, per dire quando il saldo non basta.
     const jointRows = useMemo(() => {
@@ -358,7 +419,6 @@ export default function CostsPage() {
     const headerActions = useMemo(
         () => (
             <div className={styles.headerActions}>
-                <SegmentedControl value={view} onChange={setView} options={VIEW_OPTIONS} size="sm" />
                 {extrasReady && (
                     <Button variant="secondary" onClick={() => setIsAccountsOpen(true)}>
                         Carte e conti
@@ -369,12 +429,20 @@ export default function CostsPage() {
                 </Button>
             </div>
         ),
-        [view, setView, openCreate, extrasReady]
+        [openCreate, extrasReady]
     );
 
     const headerCompact = useMemo<PageHeaderCompactConfig>(
         () => ({ primaryAction: { label: "Aggiungi spesa", onClick: openCreate } }),
         [openCreate]
+    );
+
+    // Filtri e Elenco/Calendario a destra, sopra la tabella o il calendario (Alex, 2026-10-16).
+    const toolbar = (
+        <div className={styles.toolbar}>
+            <ExpenseFilterMenus team={team} who={filters.who} types={filters.types} onChange={setFilters} />
+            <SegmentedControl value={view} onChange={setView} options={VIEW_OPTIONS} size="sm" />
+        </div>
     );
 
     usePageHeader({ title: "Costi", subtitle: "Spese inserite a mano, IVA inclusa.", actions: headerActions, compact: headerCompact });
@@ -602,9 +670,10 @@ export default function CostsPage() {
                     maxMonth={shiftMonth(currentMonth, MONTHS_AHEAD)}
                     selectedDay={calDay}
                     today={today}
-                    charges={allCharges}
+                    charges={calendarCharges}
                     expenses={expenses}
                     isPhone={isPhone}
+                    toolbar={toolbar}
                     loading={figuresLoading}
                     error={figuresError}
                     onRetry={reload}
@@ -620,8 +689,8 @@ export default function CostsPage() {
                     <ExpenseTabs
                         expenses={expenses}
                         nextCharges={nextCharges}
-                        months={summary.months}
-                        futureMonths={toPay}
+                        months={tabMonths}
+                        futureMonths={tabFutureMonths}
                         today={today}
                         loading={figuresLoading}
                         error={figuresError}
@@ -632,11 +701,10 @@ export default function CostsPage() {
                         accountLabel={e => accountNameAt(e, nextCharges.get(e.id) ?? e.paid_on ?? today)}
                         charges={allCharges}
                         settlements={settlements}
-                        team={team}
+                        toolbar={toolbar}
                         chargePayer={chargePayer}
-                        historyWho={historyWho}
-                        historyType={historyType}
-                        onHistoryFilters={setHistoryFilters}
+                        filters={filters}
+                        onFilters={setFilters}
                         onDeleteMove={move => {
                             setDialogError(null);
                             setMoveToDelete(move);
