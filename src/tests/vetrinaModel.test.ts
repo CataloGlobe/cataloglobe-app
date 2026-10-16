@@ -31,6 +31,11 @@ describe("Menù e vetrina: la riga «In onda»", () => {
     it("con una sede sola il dove non si dice", () => {
         expect(onAirOf(live("a"), SEDI.slice(0, 1))).toEqual({ state: "now", when: "sempre", where: null });
     });
+    it("una sede spenta non conta: con una sola attiva il dove non si dice", () => {
+        const unaSpenta: AppearanceActivity[] = [SEDI[0], { ...SEDI[1], status: "inactive" }];
+        expect(onAirOf(live("a"), unaSpenta).where).toBeNull();
+        expect(onAirOf(assigned, unaSpenta).where).toBeNull();
+    });
     it("in onda in altri momenti, o niente", () => {
         expect(onAirOf(assigned, SEDI)).toEqual({ state: "on", when: "sempre", where: "2 sedi" });
         expect(onAirOf(none, SEDI).state).toBe("off");
@@ -68,6 +73,16 @@ describe("Menù e vetrina: la frase in cima", () => {
         const one = SEDI.slice(0, 1);
         expect(text(leadOf([{ name: "Cena", appearance: live("a") }, { name: "Vini", appearance: live("a") }], one, WORDS))).toBe(
             "Adesso i clienti vedono [Cena] e [Vini]."
+        );
+    });
+    it("con una sede attiva e una spenta, come con una sede sola", () => {
+        const unaSpenta: AppearanceActivity[] = [SEDI[0], { ...SEDI[1], status: "inactive" }];
+        expect(text(leadOf([{ name: "Cena", appearance: live("a") }], unaSpenta, WORDS))).toBe("Adesso i clienti vedono [Cena].");
+    });
+    it("con una sede sola gli Stili tengono il loro attacco", () => {
+        const stili = { none: "nessuno stile", lead: "Adesso la pagina si veste con", one: "Adesso la pagina si veste con" };
+        expect(text(leadOf([{ name: "Sera", appearance: live("a") }], SEDI.slice(0, 1), stili))).toBe(
+            "Adesso la pagina si veste con [Sera]."
         );
     });
     it("niente in onda", () => {
