@@ -56,7 +56,9 @@ import { canDoOnActivity } from "@/lib/permissions";
 
 import { useDetailParam } from "@/hooks/useDetailParam";
 import styles from "./Orders.module.scss";
+import { LOOK_D } from "@/styles/lookD";
 import { useInServizioSwitch } from "@/pages/Dashboard/Servizio/useInServizioSwitch";
+import { resolveServizioMode } from "@/utils/servizioModes";
 import { useTablesLiveRealtime } from "@/components/Tables/TablesLiveView/useTablesLiveRealtime";
 import { openRequests, openRequestsText } from "@/utils/tableRequests";
 import { alertTarget } from "@/utils/operationalAlertRoutes";
@@ -68,13 +70,48 @@ import { alertTarget } from "@/utils/operationalAlertRoutes";
  */
 export default function Orders() {
     const [searchParams] = useSearchParams();
+    const { activityId = "" } = useParams<{ activityId: string }>();
+    const { permissions } = usePermissions();
+    const { hasFeature } = usePlanFeatures();
     const tab = searchParams.get("tab");
     if (tab === "storico") return <Navigate to="../storico" relative="path" replace />;
     if (tab === "tavoli") return <Navigate to="../servizio?modo=mappa" relative="path" replace />;
+    // Nella D le Comande stanno dentro In servizio (copia «Visual Redesign PR 3»,
+    // Alex 2026-10-16): l'indirizzo porta lì, con la comanda aperta se c'era.
+    // Solo se In servizio si apre (Mappa o Elenco usabili): chi ha soltanto
+    // le comande resta sulla board di sempre.
+    const inServizio = permissions ? resolveServizioMode("mappa", permissions, hasFeature, activityId) : null;
+    // Con la D, finché i permessi non arrivano non si monta la board: si saprà dove andare.
+    if (LOOK_D && !permissions) return null;
+    if (LOOK_D && (inServizio === "mappa" || inServizio === "elenco")) {
+        const next = new URLSearchParams(searchParams);
+        next.delete("tab");
+        next.set("parte", "comande");
+        return <Navigate to={`../servizio?${next.toString()}`} relative="path" replace />;
+    }
     return <OrdersBoard />;
 }
 
-function OrdersBoard() {
+/** Ciò che serve alla riga «Adesso» di In servizio (D). */
+export interface OrdersSummary {
+    nuove: number;
+    pronte: number;
+    /** Tavoli con il cameriere chiamato o il conto richiesto. */
+    attese: number;
+}
+
+/**
+ * Comande dentro In servizio (D, copia «Visual Redesign PR 3»): la board e i
+ * suoi pannelli, senza testata (la tiene In servizio, con «Crea ordine») e
+ * senza la riga della chiamata (la dice «Adesso»).
+ */
+export interface OrdersEmbed {
+    createOpen: boolean;
+    onCreateClose: () => void;
+    onSummary: (summary: OrdersSummary) => void;
+}
+
+export function OrdersBoard({ embedded }: { embedded?: OrdersEmbed } = {}) {
     const tenantId = useTenantId();
     const { showToast } = useToast();
     const { hasFeature } = usePlanFeatures();
@@ -358,7 +395,7 @@ function OrdersBoard() {
             : { leading: headerLeading, actions: headerActions, compact: headerCompact },
         [isLocked, headerLeading, headerActions, headerCompact]
     );
-    usePageHeader(headerConfig);
+    usePageHeader(headerConfig, !embedded);
 
     // ── Filtering (client-side: solo tableId) ──
     const filteredOrders = useMemo(() => {
@@ -755,6 +792,13 @@ function OrdersBoard() {
         return tableIds.size === 1 ? `${base}&tavolo=${requests[0].tableId}` : base;
     }, [businessId, selectedActivityId, requests]);
 
+    const readyCount = useMemo(() => activeOrders.filter(o => o.status === "ready").length, [activeOrders]);
+    const waitingTables = useMemo(() => new Set(requests.map(r => r.tableId)).size, [requests]);
+    const onSummary = embedded?.onSummary;
+    useEffect(() => {
+        onSummary?.({ nuove: submittedCount, pronte: readyCount, attese: waitingTables });
+    }, [onSummary, submittedCount, readyCount, waitingTables]);
+
     return (
         <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
         {() => (
@@ -769,7 +813,7 @@ function OrdersBoard() {
                 </InlineBanner>
             )}
 
-            {requestsHref && (
+            {requestsHref && !embedded && (
                 <InlineBanner
                     variant="warning"
                     icon={<Bell size={16} strokeWidth={2} aria-hidden />}
@@ -801,6 +845,7 @@ function OrdersBoard() {
                 pulseSubmittedToken={pulseToken}
                 canManage={canManage}
                 canEdit={canEdit}
+                embedded={!!embedded}
             />
 
             {orderToPrint && (
@@ -873,10 +918,10 @@ function OrdersBoard() {
             />
 
             <CreateOrderDrawer
-                open={isCreateOrderOpen}
+                open={embedded ? embedded.createOpen : isCreateOrderOpen}
                 tenantId={tenantId}
                 activityId={selectedActivityId}
-                onClose={() => setIsCreateOrderOpen(false)}
+                onClose={embedded ? embedded.onCreateClose : () => setIsCreateOrderOpen(false)}
                 onSubmitted={refreshAll}
             />
         </section>

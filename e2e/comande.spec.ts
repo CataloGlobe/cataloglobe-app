@@ -20,6 +20,7 @@ import { openInServizio, sediGriglia } from "./nav";
  */
 
 const SEDE = /Garbagnate/;
+const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
 const TAVOLO = "T TEST";
 const COLONNE = ["Nuove", "In lavorazione", "Pronte"] as const;
 /** Gli articoli della comanda della fixture. */
@@ -38,7 +39,14 @@ async function openComande(page: Page): Promise<void> {
     // redirect sia avvenuto farebbe vincere il redirect sul click.
     await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
     await openInServizio(page, "Comande");
-    await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
+    // Nella D le Comande stanno dentro In servizio (copia «Visual Redesign PR 3»):
+    // a 1440 le tre colonne ci stanno accanto alla sala.
+    if (await lookD(page)) {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/servizio(\?|$)/, { timeout: 15_000 });
+    } else {
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
+    }
     // La board è pronta quando la card della fixture c'è (il nome del tavolo
     // compare anche come `option` del filtro, nascosta: non basta a dirlo).
     await expect(fixtureMenu(page)).toBeVisible({ timeout: 15_000 });
@@ -88,7 +96,8 @@ test.describe("Comande", () => {
         await expect(card.getByRole("button", { name: "Conferma", exact: true })).toBeVisible();
 
         await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Aggiorna" })).toBeVisible();
+        // Nella D la board dentro In servizio non ha «Aggiorna» (come nella copia): si aggiorna da sola.
+        if (!(await lookD(page))) await expect(page.getByRole("button", { name: "Aggiorna" })).toBeVisible();
         await expect(page.getByRole("button", { name: /suoni notifiche/ })).toHaveAttribute("aria-pressed", /true|false/);
     });
 
@@ -212,6 +221,13 @@ test.describe("Comande", () => {
         await card.getByRole("link").first().click();
         await page.waitForURL(/\/locations\/[0-9a-f-]+\/[a-z-]+$/);
         await page.goto(page.url().replace(/\/[a-z-]+$/, "/comande"));
+        if (await lookD(page)) {
+            // Nella D /comande porta a In servizio: la chiamata la dice «Adesso», e la tessera del tavolo.
+            await expect(page).toHaveURL(/\/servizio\?parte=comande$/, { timeout: 15_000 });
+            await expect(page.getByRole("main").getByRole("status", { name: "Adesso" })).toContainText(/tavol[oi] ti aspett/, { timeout: 15_000 });
+            await expect(page.getByRole("main").getByRole("status").filter({ hasText: "cameriere chiamato" })).toHaveCount(0);
+            return;
+        }
         await expect(fixtureMenu(page)).toBeVisible({ timeout: 15_000 });
         const banner = page.getByRole("main").getByRole("status").filter({ hasText: "cameriere chiamato" });
         await expect(banner).toContainText(TAVOLO);
@@ -237,6 +253,7 @@ test.describe("Comande", () => {
 
     test("il filtro per tavolo restringe la board", async ({ page }) => {
         await openComande(page);
+        test.skip(await lookD(page), "nella D le Comande dentro In servizio non hanno il filtro per tavolo, come nella copia");
         const filtro = page.getByRole("main").getByRole("combobox", { name: "Filtra per tavolo" });
         await expect(filtro).toBeVisible();
         // T14: sta nella testata, sulla riga di «Aggiorna», non sopra la board.
@@ -261,7 +278,8 @@ test.describe("Comande", () => {
 
     test("sopra 1024 tre colonne affiancate, niente selettore di stato", async ({ page }) => {
         await openComande(page);
-        await page.setViewportSize({ width: 1280, height: 900 });
+        // Nella D a 1440: accanto alla sala le tre colonne ci stanno da lì.
+        await page.setViewportSize({ width: (await lookD(page)) ? 1440 : 1280, height: 900 });
         await expect(page.getByRole("tablist", { name: "Stato delle comande" })).toBeHidden();
 
         const main = page.getByRole("main");

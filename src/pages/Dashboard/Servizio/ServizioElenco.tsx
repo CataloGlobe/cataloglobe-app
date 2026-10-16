@@ -45,12 +45,26 @@ type ServizioElencoProps = {
     /** Il drawer «Senza prenotazione»: il bottone sta nella testata (T14 SV1). */
     walkinOpen: boolean;
     onWalkinClose: () => void;
+    /** In servizio della D: solo «In sala» o solo «In arrivo» (`ReservationsService`). */
+    part?: "inRoom" | "arriving";
+    /** Con «In arrivo»: le da confermare di tutta la sede, dove vederle, e il gesto fatto. */
+    pendingTotal?: number;
+    pendingHref?: string;
+    onPendingChange?: () => void;
 };
 
 /** La prenotazione e la tavolata si aprono una per volta. */
 const SEATING_SIBLINGS = ["prenotazione"] as const;
 
-export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }: ServizioElencoProps) {
+export default function ServizioElenco({
+    activityId,
+    walkinOpen,
+    onWalkinClose,
+    part,
+    pendingTotal = 0,
+    pendingHref = "",
+    onPendingChange
+}: ServizioElencoProps) {
     const { showToast } = useToast();
     const { permissions } = usePermissions();
 
@@ -258,6 +272,35 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
         );
     }, [tenantId, selectedSeatingId, runSeatingGesture]);
 
+    // In arrivo della D: da confermare in cima, coi gesti di Prenotazioni.
+    const { handleAction, canManageActivity } = desk;
+    const pendingRows = useMemo(
+        () =>
+            part === "arriving"
+                ? serviceReservations
+                      .filter(r => r.status === "pending")
+                      .sort((a, b) => (a.reservation_date + a.reservation_time).localeCompare(b.reservation_date + b.reservation_time))
+                : [],
+        [part, serviceReservations]
+    );
+    const pendingD = useMemo(
+        () => ({
+            rows: pendingRows,
+            total: pendingTotal,
+            href: pendingHref,
+            canManage: canManageActivity(activityId),
+            onConfirm: (r: (typeof pendingRows)[number]) => {
+                handleAction(r, "confirm");
+                onPendingChange?.();
+            },
+            onDecline: (r: (typeof pendingRows)[number]) => {
+                handleAction(r, "decline");
+                onPendingChange?.();
+            }
+        }),
+        [pendingRows, pendingTotal, pendingHref, canManageActivity, activityId, handleAction, onPendingChange]
+    );
+
     // SOLO al primo caricamento, come Prenotazioni: dopo, la pagina resta in
     // piedi e si aggiorna sotto.
     if (desk.isLoading && !desk.hasLoadedOnce) {
@@ -280,6 +323,8 @@ export default function ServizioElenco({ activityId, walkinOpen, onWalkinClose }
                     onOpenDetail={desk.handleOpenDetail}
                     onOpenSeating={handleOpenSeating}
                     tableRequests={tableRequests}
+                    only={part}
+                    pending={part === "arriving" ? pendingD : undefined}
                 />
             </div>
 

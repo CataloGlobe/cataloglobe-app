@@ -92,7 +92,15 @@ test.describe("Contesto di sede", () => {
         await openFirstLocation(page);
 
         await openInServizio(page, "Comande");
-        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
+        if (await lookD(page)) {
+            // Nella D le Comande sono una parte della pagina In servizio, e /comande porta lì.
+            await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/servizio(\?|$)/, { timeout: 15_000 });
+            await expect(page.getByRole("main").getByRole("region", { name: "Comande" })).toBeVisible();
+            await page.goto(page.url().replace(/\/servizio(\?.*)?$/, "/comande"));
+            await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/servizio\?parte=comande$/, { timeout: 15_000 });
+        } else {
+            await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
+        }
         await expect(page.getByRole("main")).toBeVisible();
 
         await openInServizio(page, "Prenotazioni");
@@ -103,10 +111,12 @@ test.describe("Contesto di sede", () => {
     test("/orders porta dentro una sede, non resta una pagina d'azienda", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${paths[0]}/comande`);
-        await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
+        // Nella D /comande porta a In servizio, parte Comande.
+        const comande = (await lookD(page)) ? /\/servizio\?parte=comande$/ : /\/comande$/;
+        await expect(page).toHaveURL(comande, { timeout: 15_000 });
 
         await page.goto(page.url().replace(/\/locations\/.*$/, "/orders"));
-        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$|\/locations$/, { timeout: 15_000 });
+        await expect(page).toHaveURL(new RegExp(`/locations/[0-9a-f-]+${comande.source}|/locations$`), { timeout: 15_000 });
     });
 
     test("«Sedi» riporta all'elenco", async ({ page }) => {
