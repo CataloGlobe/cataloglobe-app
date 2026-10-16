@@ -99,6 +99,16 @@ const SHADES: Partial<Record<CalKind, string[]>> = {
     style: ["#0f766e", "#b91c1c", "#0e7490", "#15803d"]
 };
 
+// D213: nella D lo stile prende il suo colore principale; se è chiaro si scurisce (×0,62),
+// così la corsia si legge anche su un colore pastello.
+function deepen(hex: string): string {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!m) return hex;
+    const c = [0, 8, 16].map(sh => (parseInt(m[1], 16) >> (16 - sh)) & 255);
+    if ((0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255 < 0.45) return "#" + m[1];
+    return "#" + c.map(v => Math.round(v * 0.62).toString(16).padStart(2, "0")).join("");
+}
+
 export type CalSede = { id: string; name: string };
 
 export type CalendarioViewProps = {
@@ -122,6 +132,11 @@ export type CalendarioViewProps = {
     /** «Spegni» e «Metti in onda»: la regola resta, spenta o accesa. */
     onEnable?: (rule: LayoutRule, on: boolean) => Promise<void>;
     /** La sezione Aggiungi / Modifica completa: senza, «Modifica completa» va al dettaglio della regola. */
+    /**
+     * Nella D, «Aggiungi» delle Regole apre qui «Cosa vuoi mettere in calendario?» con la
+     * briciola «Regole › Aggiungi»: uscendo si torna alle Regole con questa.
+     */
+    addFromRules?: () => void;
     /** Solo l'anteprima della settimana con questa bozza dentro (i tunnel di creazione): niente calendario intorno. */
     anteprima?: {
         draft: Draft;
@@ -254,6 +269,7 @@ export default function CalendarioView({
     onDrop,
     onEnable,
     section,
+    addFromRules,
     anteprima
 }: CalendarioViewProps) {
     const [nowDate, setNowDate] = useState(() => new Date());
@@ -283,7 +299,7 @@ export default function CalendarioView({
     const [panelBefore, setPanelBefore] = useState(true);
     const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
     // la sezione Aggiungi / Modifica completa prende il posto del calendario
-    const [sec, setSec] = useState<{ back: boolean } | null>(null);
+    const [sec, setSec] = useState<{ back: boolean; rules?: boolean } | null>(null);
     const [ownDraft, setDraft] = useState<Draft | null>(null);
     const draft = anteprima ? anteprima.draft : ownDraft;
     const [kept, setKept] = useState<Draft | null>(null);
@@ -378,10 +394,13 @@ export default function CalendarioView({
         const m = new Map<string, string>();
         for (const k of ["menu", "style"] as const) {
             const things = [...new Set(entries.filter(e => e.kind === k).map(e => e.thing))].sort((a, b) => a.localeCompare(b, "it"));
-            things.forEach((t, i) => m.set(k + ":" + t, SHADES[k]![i % SHADES[k]!.length]));
+            things.forEach((t, i) => {
+                const own = LOOK_D && k === "style" ? names.styleColors?.get(t) : undefined;
+                m.set(k + ":" + t, own ? deepen(own) : SHADES[k]![i % SHADES[k]!.length]);
+            });
         }
         return m;
-    }, [entries]);
+    }, [entries, names]);
     const colorOf = (k: CalKind, thing: string) => shade.get(k + ":" + thing) ?? KIND_COLOR[k];
 
     const whereFor = useCallback(
@@ -985,13 +1004,23 @@ export default function CalendarioView({
     // le parti della bozza già salvate (ore diverse per sede): «Riprova» non le rifà
     const savedParts = useRef(new Set<string>());
     const savingSec = useRef(false);
-    const closeSec = (saved: boolean) => {
+    const closeSec = (saved: boolean, toRules = true) => {
         savedParts.current = new Set();
         const back = sec?.back;
+        const rules = sec?.rules;
         setSec(null);
         setDraft(null);
         if (saved || !back) closePick();
+        if (rules && toRules) addFromRules?.();
     };
+    // arrivando dalle Regole si apre subito «Aggiungi»
+    const fromRules = !!addFromRules;
+    useEffect(() => {
+        if (!fromRules) return;
+        setSec({ back: false, rules: true });
+        setDraft(null);
+        setNote(null);
+    }, [fromRules]);
     // «Tieni da parte» sopravvive all'uscita verso Menù, Stili, In evidenza
     useEffect(() => setKept(tenantId ? readAside(tenantId) : null), [tenantId]);
     const keep = (d: Draft | null) => {
@@ -1011,13 +1040,14 @@ export default function CalendarioView({
                 setDDay(dayOfWeek(pd.from));
             }
             setNote({ text: (draft.mode === "edit" ? "Salvato: " : "Aggiunto al calendario: ") + draftLabel(draft, L) + "." });
-            closeSec(true);
+            // dalle Regole si torna lì solo con un salvataggio pulito e senza un passo dopo
+            closeSec(true, !then);
             if (then) section.onGoNew(then);
         } catch (err) {
             if (err instanceof PartialSaveError) {
                 // la voce è in due regole: si chiude e si guarda il calendario riletto, senza «Riprova»
                 setNote({ text: "Salvato solo in parte: " + draftLabel(draft, L) + " ora è in due regole. Controlla il calendario e togli quella che non serve.", error: true });
-                closeSec(true);
+                closeSec(true, false);
             } else setNote({ text: "Non siamo riusciti a salvare. Riprova.", error: true });
         } finally {
             savingSec.current = false;
@@ -1030,7 +1060,7 @@ export default function CalendarioView({
         try {
             await section.onDrop(draft);
             setNote({ text: "Tolto dal calendario: " + draftLabel(draft, L) + "." });
-            closeSec(true);
+            closeSec(true, false);
         } catch {
             setNote({ text: "Non siamo riusciti a toglierlo. Riprova.", error: true });
         } finally {
@@ -1459,15 +1489,16 @@ export default function CalendarioView({
                             keep(null);
                         }}
                         onExit={() => closeSec(false)}
+                        from={sec?.rules ? "rules" : undefined}
                         onSave={then => void saveSec(then)}
                         onDrop={() => void dropSec()}
                         onKeep={to => {
                             if (draft) keep({ ...draft, tried: false });
-                            closeSec(false);
+                            closeSec(false, false);
                             section.onGoNew(to);
                         }}
                         onGoNew={to => {
-                            closeSec(false);
+                            closeSec(false, false);
                             section.onGoNew(to);
                         }}
                         voce={(k, id) => voceOf(entries, spente, k, id)}

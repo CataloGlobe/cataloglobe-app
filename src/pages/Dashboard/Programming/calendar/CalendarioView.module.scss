@@ -2514,6 +2514,20 @@ button.dqsedi {
         @include d-type(small);
         color: var(--d-muted);
     }
+    // col pannello aperto la colonna dei nomi resta stretta: quadratino del tipo,
+    // le righe delle cose vuote (copia), senza il pallino
+    .slim .flabs {
+        padding: 4px 3px 1px;
+    }
+    .slim .flab {
+        padding: 0;
+    }
+    .slim .fname {
+        padding: 0;
+        &::before {
+            display: none;
+        }
+    }
     .flane,
     .fgap {
         height: 30px;
@@ -2976,5 +2990,60 @@ button.dqsedi {
             opacity: 0;
             transform: translateY(-4px);
         }
+    }
+}
+
+// «Hai lasciato a metà» e la finestra che si apre uscendo dal tunnel, nella D (copia)
+@include look-d {
+    .ikept {
+        padding: 10px 14px;
+        border-radius: 14px;
+        margin: 0 0 14px;
+        background: var(--d-soft);
+        color: var(--d-text);
+        > svg {
+            color: var(--d-brand-deep);
+        }
+    }
+    .iscrim {
+        background: rgba(20, 20, 50, 0.34);
+    }
+    .idlg {
+        width: min(420px, 100%);
+        padding: 24px;
+        border: 0;
+        border-radius: var(--d-r-card);
+        background: var(--d-surface);
+        box-shadow: var(--d-shadow-modal);
+        animation: idlgIn 220ms var(--d-ease-move) both;
+        h3 {
+            @include d-type(pane-title);
+        }
+        p {
+            @include d-type(read);
+            color: var(--d-muted);
+        }
+        &:has(.idf > :nth-child(3)) {
+            width: min(580px, calc(100vw - 32px));
+        }
+    }
+    .idf {
+        margin-top: 0;
+        padding-top: 8px;
+        border-top: 0;
+        &:has(> :nth-child(3)) {
+            flex-wrap: nowrap;
+        }
+    }
+}
+@keyframes idlgIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .idlg {
+        animation: none;
     }
 }

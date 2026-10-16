@@ -64,6 +64,8 @@ export type CalNames = {
     styles: Map<string, string>;
     featured: Map<string, string>;
     products: Map<string, string>;
+    /** Il colore principale di ogni stile, per nome (D213): nella D la corsia dello stile ne prende il tono. */
+    styleColors?: Map<string, string>;
 };
 
 export type CalSeat = { activityId: string; groupIds: readonly string[] };

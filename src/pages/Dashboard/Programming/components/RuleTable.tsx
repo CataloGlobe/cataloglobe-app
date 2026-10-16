@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Lock } from "lucide-react";
+import { EyeOff, Lock, Megaphone, Palette, Tag, UtensilsCrossed, type LucideIcon } from "lucide-react";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@components/ui/DataTable/DataTable";
 import { TableRowActions } from "@components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@components/ui/TableRowActions/rowAction";
@@ -18,7 +18,28 @@ import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutSche
 import { ruleTypeLabel } from "../ruleTypeLabel";
 import type { RuleInsight } from "@/utils/ruleInsights";
 import { describeTarget } from "./ruleTarget";
+import { LOOK_D } from "@/styles/lookD";
 import styles from "./RuleTable.module.scss";
+
+// Nella D la riga ha l'icona della famiglia e una frase su cosa fa la regola (copia, «Regole»)
+const D_ICON: Record<LayoutRule["rule_type"] | "style", LucideIcon> = { layout: UtensilsCrossed, style: Palette, featured: Megaphone, price: Tag, visibility: EyeOff };
+const dKind = (rule: LayoutRule) => (rule.rule_type === "layout" && !rule.layout?.catalog_id && rule.layout?.style_id ? "style" : rule.rule_type);
+
+function dCosa(rule: LayoutRule, menu: string, product: string, products: string): string | null {
+    const n = (rule.rule_type === "price" ? rule.price_overrides : rule.visibility_overrides)?.length ?? 0;
+    switch (rule.rule_type) {
+        case "layout":
+            return rule.layout?.catalog_id ? `Mostra il ${menu}` : rule.layout?.style_id ? "Veste la pagina" : null;
+        case "featured":
+            return "In cima alla pagina";
+        case "price":
+            return n ? `Cambia ${n === 1 ? "un prezzo" : `${n} prezzi`}` : null;
+        case "visibility":
+            return n ? `${n === 1 ? `Un ${product}` : `${n} ${products}`} non disponibil${n === 1 ? "e" : "i"}` : null;
+        default:
+            return null;
+    }
+}
 
 export type { RuleInsight };
 
@@ -86,7 +107,7 @@ export function RuleTable({
     whereWidth = "180px",
     ariaLabel
 }: RuleTableProps) {
-    const { catalogLabel } = useVerticalConfig();
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
     const isPhone = useMediaQuery("(max-width: 767px)");
     // Sotto 1024 il tipo scende nella seconda riga: il nome ha la precedenza.
     const isCompact = useMediaQuery("(max-width: 1023px)");
@@ -100,6 +121,8 @@ export function RuleTable({
             {
                 id: "rule",
                 header: "Regola",
+                // nella D c'è anche «Quando»: il nome tiene il doppio, se no a 1024 resta una lettera
+                width: LOOK_D ? "minmax(0, 2fr)" : undefined,
                 cell: (_, rule) => {
                     const insight = insights.get(rule.id);
                     const name = nameOf(rule);
@@ -121,18 +144,32 @@ export function RuleTable({
                     // Dove perde (ma vince altrove): la riga ambra «A X vince …» (PG5).
                     const losing = !insight?.isOverridden ? insight?.losingSeats : undefined;
 
-                    return (
+                    const DIcon = D_ICON[dKind(rule)];
+                    const off = !rule.enabled || isDraft || (rule.end_at !== null && new Date(rule.end_at).getTime() < Date.now());
+                    const lines = (
                         <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${isPhone ? DATA_TABLE_CLASSES.cellTwoLineWrap : ""}`}>
                             <span className={styles.nameLine}>
-                                <span className={styles.dot} data-state={state} aria-hidden="true" />
+                                {!LOOK_D && <span className={styles.dot} data-state={state} aria-hidden="true" />}
                                 <Link to={ruleHref(rule)} className={styles.name}>
                                     {name}
                                 </Link>
-                                {showTypeBadge && !isCompact && <Badge variant="neutral" role="presentation">{ruleTypeLabel(rule.rule_type, catalogLabel)}</Badge>}
+                                {LOOK_D && showTypeBadge && (
+                                    <i className={styles.dKindTag} data-kind={dKind(rule)}>
+                                        {ruleTypeLabel(rule.rule_type, catalogLabel)}
+                                    </i>
+                                )}
+                                {!LOOK_D && showTypeBadge && !isCompact && <Badge variant="neutral" role="presentation">{ruleTypeLabel(rule.rule_type, catalogLabel)}</Badge>}
                                 {isDraft && <StatusBadge variant="warning" label="Bozza" />}
                             </span>
                             <span>
-                                {[
+                                {(LOOK_D
+                                    ? [
+                                          // il verbo di staging dice anche quale menù («Mostra Pranzo»); la frase della copia se manca
+                                          action ? action.charAt(0).toUpperCase() + action.slice(1) : dCosa(rule, catalogLabel.toLowerCase(), productLabel.toLowerCase(), productLabelPlural.toLowerCase()),
+                                          isPhone ? summary : null,
+                                          isPhone ? target.label : null
+                                      ]
+                                    : [
                                     // Sotto 768 il tipo lo dice già il verbo («mostra Carta»,
                                     // «cambia 3 prezzi»): resta solo se il verbo manca (bozza).
                                     showTypeBadge && isCompact && (!isPhone || !action)
@@ -141,7 +178,7 @@ export function RuleTable({
                                     action,
                                     summary,
                                     isPhone ? target.label : null
-                                ]
+                                ])
                                     .filter(Boolean)
                                     .join(" · ")}
                             </span>
@@ -188,11 +225,20 @@ export function RuleTable({
                             )}
                         </div>
                     );
+                    if (!LOOK_D) return lines;
+                    return (
+                        <div className={styles.dName} data-off={off ? "" : undefined}>
+                            <span className={styles.dIcon} data-kind={dKind(rule)} aria-hidden="true">
+                                <DIcon size={17} strokeWidth={1.8} />
+                            </span>
+                            {lines}
+                        </div>
+                    );
                 }
             },
             {
                 id: "where",
-                header: "Dove si applica",
+                header: LOOK_D ? "Dove" : "Dove si applica",
                 width: whereWidth,
                 hideOnPhone: true,
                 cell: (_, rule) => {
@@ -208,13 +254,28 @@ export function RuleTable({
                     );
                     return target.tooltip ? <Tooltip content={target.tooltip} side="top">{content}</Tooltip> : content;
                 }
-            }
+            },
+            // nella D il quando ha la sua colonna (al telefono sta sotto il nome)
+            ...(LOOK_D
+                ? [
+                      {
+                          id: "when",
+                          header: "Quando",
+                          hideOnPhone: true,
+                          cell: (_: unknown, rule: LayoutRule) => (
+                              <Text as="span" variant="body-sm" className={styles.dWhen}>
+                                  {buildRuleSummary(rule)}
+                              </Text>
+                          )
+                      } satisfies ColumnDefinition<LayoutRule>
+                  ]
+                : [])
         ];
 
         if (canWrite && onToggleEnabled) {
             cols.push({
                 id: "enabled",
-                header: "Attiva",
+                header: LOOK_D ? "In onda" : "Attiva",
                 width: "72px",
                 align: "center",
                 cell: (_, rule) => {
@@ -279,7 +340,7 @@ export function RuleTable({
         }
 
         return cols;
-    }, [activityById, activityGroups, canWrite, canWriteRule, catalogById, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onOpen, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
+    }, [activityById, activityGroups, canWrite, canWriteRule, catalogById, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onOpen, onToggleEnabled, productLabel, productLabelPlural, ruleHref, showTypeBadge, updatingIds, whereWidth]);
 
     const ids = useMemo(() => rules.map(r => r.id), [rules]);
 

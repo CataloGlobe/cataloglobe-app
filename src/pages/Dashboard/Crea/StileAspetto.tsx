@@ -20,6 +20,15 @@ import s from "./StileAspetto.module.scss";
 type Look = StyleTokenModel;
 type ColorKey = "primary" | "accent" | "pageBackground";
 
+// Nella D (D212) la tessera è chiara e dentro c'è il campione con lo sfondo vero: il testo
+// del campione si legge sullo sfondo, e su sfondo scuro un colore scuro si schiarisce.
+const DARK = 0.3;
+const lookTile = (bg: string, pri: string) => ({
+    "--b": bg,
+    "--tx": lum(bg) < DARK ? "#f5f3ee" : "#1d1a2e",
+    "--p": lum(bg) < DARK && lum(pri) < DARK ? `color-mix(in srgb, ${pri} 55%, #fff)` : pri,
+});
+
 const labOf = <V extends string>(opts: Opts<V>, v: V) => opts.find(o => o[0] === v)?.[1] ?? "";
 const colorName = (c: string) => COLORS.find(x => sameHex(x[0], c))?.[1] ?? "un tuo colore";
 
@@ -175,7 +184,7 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = n
                                 type="button"
                                 className={s.look}
                                 // nella D la tessera ha lo sfondo della pagina e si accende quella in uso (copia `.tu-abt`)
-                                style={{ "--b": k.bg, "--p": k.primary, "--tx": lum(k.bg) < 0.35 ? "var(--d-surface)" : "var(--d-text)" } as CSSProperties}
+                                style={(LOOK_D ? lookTile(k.bg, k.primary) : { "--b": k.bg, "--p": k.primary, "--tx": lum(k.bg) < 0.35 ? "var(--d-surface)" : "var(--d-text)" }) as CSSProperties}
                                 aria-pressed={LOOK_D ? sameHex(primary, k.primary) && sameHex(bg, k.bg) && l.typography.fontFamily === k.font : undefined}
                                 onClick={() =>
                                     set(x => {
@@ -187,10 +196,26 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = n
                                     })
                                 }
                             >
-                                <i style={{ ...ink(k.bg), color: k.primary, fontFamily: FONTS[k.font].css }} aria-hidden>
-                                    Aa
-                                </i>
-                                {k.name}
+                                {LOOK_D ? (
+                                    <>
+                                        <span className={s.lookSw} style={{ fontFamily: FONTS[k.font].css }} aria-hidden>
+                                            Aa
+                                        </span>
+                                        <b className={s.lookName}>{k.name}</b>
+                                        <i className={s.lookTick} aria-hidden>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M5 12.5l4.5 4.5L19 7.5" />
+                                            </svg>
+                                        </i>
+                                    </>
+                                ) : (
+                                    <>
+                                        <i style={{ ...ink(k.bg), color: k.primary, fontFamily: FONTS[k.font].css }} aria-hidden>
+                                            Aa
+                                        </i>
+                                        {k.name}
+                                    </>
+                                )}
                             </button>
                         ))}
                     </div>

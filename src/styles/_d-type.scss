@@ -92,7 +92,8 @@ $d-type: (
   plan-num: (family: num, size: 22px, weight: var(--d-num-weight), tracking: -0.02em),
   plan-kicker: (size: 12px, weight: 600),
   body-m: (size: 14px, weight: 500),
-  gate-title: (family: display, size: 19px, weight: 700, tracking: -0.01em)
+  gate-title: (family: display, size: 19px, weight: 700, tracking: -0.01em),
+  look-aa: (family: display, size: 24px, weight: 700)
 );
 
 @mixin d-type($role) {

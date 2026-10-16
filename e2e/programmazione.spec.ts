@@ -65,11 +65,31 @@ function group(page: Page, title: RegExp): Locator {
         .locator("xpath=ancestor::*[.//text()[contains(., ' e2e')]][1]");
 }
 
+/** Con VITE_BACKOFFICE_D acceso (`data-look="d"`) le Regole sono quelle della D. */
+function lookD(page: Page): Promise<boolean> {
+    return page.evaluate(() => document.documentElement.dataset.look === "d");
+}
+
+/**
+ * Nella D «Aggiungi» non crea la bozza: apre «Cosa vuoi mettere in calendario?» del
+ * Calendario con la briciola «Regole › Aggiungi», e «Torna alle regole» riporta qui.
+ */
+async function addOpensTunnel(page: Page): Promise<void> {
+    await page.getByRole("button", { name: "Aggiungi", exact: true }).first().click();
+    await expect(page).toHaveURL(/vista=calendario/);
+    await expect(main(page).getByRole("heading", { name: "Cosa vuoi mettere in calendario?" })).toBeVisible({ timeout: 15_000 });
+    await expect(main(page).getByRole("navigation", { name: "Percorso" })).toContainText("Regole");
+    await main(page).getByRole("button", { name: "Torna alle regole" }).click();
+    await expect(page).not.toHaveURL(/vista=calendario/);
+    await expect(ruleList(page)).toBeVisible();
+}
+
 const GROUP = {
     adesso: /^(In esecuzione|Adesso)$/,
     programmate: /^Programmate$/,
     bozze: /^Bozze$/,
-    disabilitate: /^Disabilitate$/,
+    // nella D «Spente» (copia, «Regole»)
+    disabilitate: /^(Disabilitate|Spente)$/,
     scadute: /^Scadute$/
 };
 
@@ -246,18 +266,22 @@ test.describe("Programmazione — elenco", () => {
         await expect(rowOf(rule(page, "carta"))).toContainText(`A Centro e2e vince «${RULE_NAME.pranzo}»`);
         await expect(rowOf(rule(page, "bozza"))).toContainText("Bozza");
         await expect(rowOf(rule(page, "pranzo"))).toContainText(/11:00.15:00/);
-        // Il verbo del mockup, per tipo (P3-bis).
-        await expect(rowOf(rule(page, "pranzo"))).toContainText("mostra Pranzo e2e · Lun–Ven · 11:00–15:00");
-        await expect(rowOf(rule(page, "spritz"))).toContainText("cambia 3 prezzi");
-        await expect(rowOf(rule(page, "stagionali"))).toContainText("nasconde 1 · non disponibile 1");
-        await expect(rowOf(rule(page, "natale"))).toContainText("mostra 1 contenuto");
+        // Il verbo del mockup, per tipo (P3-bis). Nella D comincia con la maiuscola
+        // e il quando ha la sua colonna.
+        const d = await lookD(page);
+        await expect(rowOf(rule(page, "pranzo"))).toContainText(d ? "Mostra Pranzo e2e" : "mostra Pranzo e2e · Lun–Ven · 11:00–15:00");
+        if (d) await expect(rowOf(rule(page, "pranzo"))).toContainText("Lun–Ven · 11:00–15:00");
+        await expect(rowOf(rule(page, "spritz"))).toContainText(d ? "Cambia 3 prezzi" : "cambia 3 prezzi");
+        await expect(rowOf(rule(page, "stagionali"))).toContainText(d ? "Nasconde 1 · non disponibile 1" : "nasconde 1 · non disponibile 1");
+        await expect(rowOf(rule(page, "natale"))).toContainText(d ? "Mostra 1 contenuto" : "mostra 1 contenuto");
     });
 
     test("a 375 la riga di «Tutte» non ripete il tipo: lo dice il verbo", async ({ page }) => {
         await openList(page, "all");
         await page.setViewportSize({ width: 375, height: 812 });
         const spritz = rowOf(rule(page, "spritz"));
-        await expect(spritz).toContainText("cambia 3 prezzi");
+        // nella D la frase comincia con la maiuscola: «Cambia 3 prezzi»
+        await expect(spritz).toContainText(/[Cc]ambia 3 prezzi/);
         await expect(spritz).not.toContainText("Prezzi ·");
         // Una bozza senza verbo tiene il tipo.
         await expect(rowOf(rule(page, "bozza"))).toContainText("Menù e stile");
@@ -305,13 +329,27 @@ test.describe("Programmazione — elenco", () => {
         await openList(page);
         const toggle = page.getByRole("switch", { name: new RegExp(RULE_NAME.bozza) });
         await expect(toggle).toBeDisabled();
-        await page.getByLabel("Completa la regola per attivarla.").first().hover();
-        await expect(page.getByRole("tooltip").getByText("Completa la regola per attivarla.")).toBeVisible();
+        // lo scroll fino alla riga può chiudere il fumetto appena aperto: si ripassa sopra
+        await expect(async () => {
+            await page.getByLabel("Completa la regola per attivarla.").first().hover();
+            await expect(page.getByRole("tooltip").getByText("Completa la regola per attivarla.")).toBeVisible({ timeout: 1500 });
+        }).toPass({ timeout: 10_000 });
         expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
     });
 
     test("il filtro per tipo dice quante regole ci sono", async ({ page }) => {
         await openList(page);
+        if (await lookD(page)) {
+            // nella D sono chip nella pagina, nell'ordine della copia; il numero conta la ricerca
+            const chips = main(page).getByRole("radiogroup", { name: "Quali mostrare" });
+            await expect(chips.getByRole("radio", { name: /^Tutte\s*12$/ })).toHaveAttribute("aria-checked", "true");
+            await expect(chips.getByRole("radio", { name: /^Menù e stile\s*6$/ })).toBeVisible();
+            await expect(chips.getByRole("radio", { name: /^Prezzi\s*2$/ })).toBeVisible();
+            await expect(chips.getByRole("radio")).toHaveText([/^Tutte/, /^Menù e stile/, /^In evidenza/, /^Prezzi/, /^Disponibilità/]);
+            await searchFor(page, "Porto");
+            await expect(chips.getByRole("radio", { name: /^Tutte\s*2$/ })).toBeVisible();
+            return;
+        }
         // Tabs col contatore (F2): il nome della tab è «etichetta N».
         const filter = main(page).getByRole("tablist", { name: "Tipo di regola" });
         await expect(filter.getByRole("tab", { name: /^Tutte 12$/ })).toHaveAttribute("aria-selected", "true");
@@ -405,6 +443,7 @@ test.describe("Programmazione — elenco", () => {
         stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
         stub.onWrite("schedules.PATCH", () => null);
         await openList(page, "price");
+        if (await lookD(page)) return addOpensTunnel(page);
         await page.getByRole("button", { name: "Aggiungi", exact: true }).first().click();
         await expect.poll(() => writesOf(stub, "schedules.POST").length).toBe(1);
         const body = writesOf(stub, "schedules.POST")[0].body as Record<string, unknown>;
@@ -419,6 +458,7 @@ test.describe("Programmazione — elenco", () => {
         stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
         stub.onWrite("rpc.update_schedule_targets", () => null);
         await openSeatList(page, SEDE.porto, "price");
+        if (await lookD(page)) return addOpensTunnel(page);
         await page.getByRole("button", { name: "Aggiungi", exact: true }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
         const targets = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
@@ -554,6 +594,7 @@ test.describe("Programmazione — ruolo di sede, decide il database", () => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000780";
         stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
         await openSeatList(page, SEDE.centro, "price");
+        if (await lookD(page)) return addOpensTunnel(page);
         await page.getByRole("button", { name: /^Aggiungi/ }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
         const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
@@ -585,6 +626,7 @@ test.describe("Programmazione — ruolo di sede con più sedi", () => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000781";
         stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
         await openList(page, "layout");
+        if (await lookD(page)) return addOpensTunnel(page);
         await page.getByRole("button", { name: /^Aggiungi/ }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);
         const body = writesOf(stub, "rpc.create_schedule_with_targets")[0].body as Record<string, unknown>;
@@ -694,7 +736,10 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
 
     test("Calendario e Regole sono parti; il Calendario prende tutta la pagina e resta nell'indirizzo", async ({ page }) => {
         await openList(page, "layout");
-        const tipi = main(page).getByRole("tablist", { name: "Tipo di regola" });
+        // nella D il tipo si sceglie coi chip della pagina (copia, «Regole»)
+        const tipi = (await lookD(page))
+            ? main(page).getByRole("radiogroup", { name: "Quali mostrare" })
+            : main(page).getByRole("tablist", { name: "Tipo di regola" });
         await expect(tipi).toBeVisible();
         await openCalendar(page);
         await expect(partiCalendario(page).getByRole("link", { name: "Calendario", exact: true })).toHaveAttribute("aria-current", "page");
@@ -1743,9 +1788,24 @@ for (const width of [1024, 1280]) {
         await stubProgrammazione(page);
         await openList(page);
         await page.setViewportSize({ width, height: 900 });
+        const create = main(page).getByRole("button", { name: "Aggiungi", exact: true });
+        // nella D il tipo sta nella barra con «Aggiungi»: chip, o «Mostra solo» quando non c'è posto
+        if (await lookD(page)) {
+            const chips = main(page).getByRole("radiogroup", { name: "Quali mostrare" });
+            const zipped = main(page).getByRole("button", { name: /^Mostra solo/ });
+            const filter = chips.or(zipped).first();
+            await expect(filter).toBeVisible();
+            await expect(create).toBeVisible();
+            const sameRow = async () => {
+                // chip e «Mostra solo» si scambiano mentre la barra si misura
+                const f = await filter.boundingBox({ timeout: 1000 }).catch(() => null), c = await create.boundingBox();
+                return f !== null && c !== null && f.y < c.y + c.height && c.y < f.y + f.height;
+            };
+            await expect.poll(sameRow).toBe(true);
+            return;
+        }
         const tabs = main(page).getByRole("tablist", { name: "Tipo di regola" });
         await expect(tabs.getByRole("tab", { name: /^Tutte 12$/ })).toBeVisible();
-        const create = main(page).getByRole("button", { name: "Aggiungi", exact: true });
         await expect(create).toBeVisible();
         // si aspetta che la testata si sistemi: la riga delle azioni si misura dopo il primo disegno
         const below = async () => {

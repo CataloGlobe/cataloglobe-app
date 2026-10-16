@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 // RuleTable: solo disposizione. Tipografia da DataTable (cellTwoLine) e Text.
 
 .nameLine {
@@ -90,4 +93,73 @@
     color: inherit;
     text-decoration: underline;
   }
+}
+
+@include look-d {
+    // Nella D (copia, «Regole»): l'icona della famiglia davanti al nome, il tipo in un
+    // cartellino del suo colore, le regole spente o scadute in grigio
+    .dName {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: start;
+      gap: 12px;
+      min-width: 0;
+
+      &[data-off] .name,
+      &[data-off] .nameLine {
+        color: var(--d-muted);
+      }
+
+      &[data-off] .dIcon {
+        filter: grayscale(0.6);
+        opacity: 0.75;
+      }
+    }
+
+    .dIcon,
+    .dKindTag {
+      --bg: var(--d-fam-menu);
+      --ink: var(--d-fam-menu-ink);
+      background: var(--bg);
+      color: var(--ink);
+
+      &[data-kind="style"] {
+        --bg: var(--d-fam-sty);
+        --ink: var(--d-fam-sty-ink);
+      }
+
+      &[data-kind="featured"] {
+        --bg: var(--d-fam-ev);
+        --ink: var(--d-fam-ev-ink);
+      }
+
+      &[data-kind="price"] {
+        --bg: var(--d-fam-pr);
+        --ink: var(--d-fam-pr-ink);
+      }
+
+      &[data-kind="visibility"] {
+        --bg: color-mix(in srgb, var(--d-muted) 14%, var(--d-surface));
+        --ink: var(--d-muted);
+      }
+    }
+
+    .dIcon {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 11px;
+    }
+
+    .dKindTag {
+      padding: 1px 7px;
+      border-radius: 7px;
+      font-style: normal;
+      @include d-type(tile-kind);
+    }
+
+    .dWhen {
+      font-variant-numeric: tabular-nums;
+    }
 }

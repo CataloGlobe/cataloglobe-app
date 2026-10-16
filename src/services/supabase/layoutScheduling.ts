@@ -3,6 +3,7 @@ import { computePriority, levelFromPriority } from "@utils/priorityUtils";
 import type { PriorityLevel } from "@utils/priorityUtils";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import { daysOfWeekForDb } from "@utils/scheduleDays";
+import { LOOK_D } from "@styles/lookD";
 
 // Un UPDATE/DELETE rifiutato dall'RLS non dà errore: PostgREST risponde 200
 // con zero righe. Come deleteReview si chiede indietro l'id e zero righe è un
@@ -102,7 +103,8 @@ export type LayoutRuleOption = {
     status?: "active" | "inactive";
     inactive_reason?: "maintenance" | "closed" | "unavailable" | null;
     is_system?: boolean;
-    current_version?: { version: number } | null;
+    /** Solo styles: `config` serve al Calendario per il colore dello stile (D213). */
+    current_version?: { version: number; config?: unknown } | null;
     /** Set for variant products (parent_product_id IS NOT NULL). */
     parent_product_id?: string | null;
     /** Set for products with PRIMARY_PRICE option groups (format-based pricing). */
@@ -211,7 +213,7 @@ type RawStyleOptionRow = {
     name: string;
     tenant_id: string;
     is_system: boolean;
-    current_version: { version: number } | { version: number }[] | null;
+    current_version: { version: number; config?: unknown } | { version: number; config?: unknown }[] | null;
 };
 
 export type ProductGroupAssignmentOption = {
@@ -832,7 +834,9 @@ export async function listLayoutRuleOptions(tenantId: string): Promise<{
             supabase
                 .from("styles")
                 .select(
-                    "id, name, tenant_id, is_system, current_version:style_versions!current_version_id(version)"
+                    LOOK_D
+                        ? "id, name, tenant_id, is_system, current_version:style_versions!current_version_id(version, config)"
+                        : "id, name, tenant_id, is_system, current_version:style_versions!current_version_id(version)"
                 )
                 .eq("tenant_id", tenantId)
                 .eq("is_active", true)
