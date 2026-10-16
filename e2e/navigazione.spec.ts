@@ -43,7 +43,8 @@ const ACCOUNT = ["Impostazioni", "Team", "Abbonamento", "Lingue", "Assistenza"];
 // Nella D (PR 11a): la Sala esce da Servizio ed entra nella sezione Sede, con
 // la Scheda e Tutte le sedi; con una sede sola la sezione è «Il locale».
 const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
-const SERVIZIO_D = ["Servizio", ["In servizio", "Cosa vedono i clienti", "Storico"]] as [string, string[]];
+// Come nella copia «Visual Redesign PR 3»: «Cosa vedono i clienti» si apre da «Disponibilità».
+const SERVIZIO_D = ["Servizio", ["In servizio", "Prenotazioni", "Storico"]] as [string, string[]];
 const SEZIONI_D = ["Panoramica", MENU_VETRINA, CALENDARIO, SERVIZIO_D, NUMERI];
 const SEDE_D = ["Sede", ["Scheda", "Sale e tavoli", "Tutte le sedi"]] as [string, string[]];
 const LOCALE_D = ["Il locale", ["Scheda", "Sale e tavoli"]] as [string, string[]];
@@ -289,7 +290,8 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         // Chiusa: al passaggio la sezione apre il pannello, con le sue parti.
         await sectionRow(page, SERVIZIO[0]).hover();
         await expect(sectionPanel(page, SERVIZIO[0])).toBeVisible();
-        const voci = (await sectionPanel(page, SERVIZIO[0]).getByRole("link").allTextContents()).map(t => t.trim());
+        // Il numero accanto alla voce (In servizio, Prenotazioni) non fa parte del nome.
+        const voci = (await sectionPanel(page, SERVIZIO[0]).getByRole("link").allTextContents()).map(t => t.trim().replace(/\s*\d+\+?$/, ""));
         expect(voci).toEqual((await lookD(page)) ? SERVIZIO_D[1] : SERVIZIO[1]);
         await closeSections(page);
         await page.getByRole("button", { name: "Espandi menù laterale" }).click();

@@ -41,6 +41,28 @@ interface SidebarSectionProps {
 }
 
 /**
+ * Il numero di una voce. Nella D come nella copia (`.cn2`): il numero solo, a
+ * destra, col pallino caldo quando aspetta qualcuno; fuori dalla D il Badge.
+ */
+function ItemBadge({ item, id }: { item: AppSidebarNavItem; id: string }) {
+    // Il nome della voce resta il suo («In servizio»): il numero è la sua
+    // descrizione (`aria-describedby` della voce), non una parte del nome.
+    if (LOOK_D) {
+        return (
+            <span id={id} className={styles.count} title={item.badgeLabel} aria-label={item.badgeLabel} aria-hidden="true">
+                {item.badgeDot && <i className={styles.countDot} aria-hidden="true" />}
+                {item.badge}
+            </span>
+        );
+    }
+    return (
+        <span title={item.badgeLabel} aria-label={item.badgeLabel}>
+            <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
+        </span>
+    );
+}
+
+/**
  * Una sezione della sidebar (Officina, solo desktop): una riga con l'icona e
  * il nome, che non porta a una pagina. Sidebar aperta (`inline`): il clic apre
  * le pagine sotto la riga, rientrate (Alex, 2026-10-08). Sidebar chiusa: le
@@ -142,8 +164,10 @@ export function SidebarSection({
         const listId = `${panelId}-list`;
         const list = (
             <ul id={listId} className={styles.subList} aria-label={title}>
-                {items.map(item => {
+                {items.map((item, index) => {
                     const active = item === current;
+                    const countId = `${panelId}-count-${index}`;
+                    const describedBy = LOOK_D && item.badge !== undefined ? countId : undefined;
                     const body = (
                         <>
                             <Text as="span" variant="body-sm" className={styles.label}>
@@ -164,9 +188,7 @@ export function SidebarSection({
                                     </span>
                                 )}
                                 {item.badge !== undefined ? (
-                                    <span title={item.badgeLabel} aria-label={item.badgeLabel}>
-                                        <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
-                                    </span>
+                                    <ItemBadge item={item} id={countId} />
                                 ) : (
                                     (item.showDot || item.loading) && (
                                         <span
@@ -190,6 +212,7 @@ export function SidebarSection({
                                     to={item.to}
                                     className={[styles.link, styles.subLink, active ? styles.active : ""].join(" ")}
                                     aria-current={active ? "page" : undefined}
+                                    aria-describedby={describedBy}
                                 >
                                     {body}
                                 </Link>
@@ -261,8 +284,10 @@ export function SidebarSection({
                 </b>
             )}
             <ul className={fly.list}>
-                {items.map(item => {
+                {items.map((item, index) => {
                     const active = item === current;
+                    const countId = `${panelId}-flycount-${index}`;
+                    const describedBy = LOOK_D && item.badge !== undefined ? countId : undefined;
                     const body = (
                         <>
                             <Text as="span" variant="body-sm" weight={active ? 600 : 400} className={fly.label}>
@@ -280,9 +305,7 @@ export function SidebarSection({
                                 </span>
                             )}
                             {item.badge !== undefined ? (
-                                <span title={item.badgeLabel} aria-label={item.badgeLabel}>
-                                    <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
-                                </span>
+                                <ItemBadge item={item} id={countId} />
                             ) : (
                                 (item.showDot || item.loading) && (
                                     <span
@@ -305,6 +328,7 @@ export function SidebarSection({
                                     to={item.to}
                                     className={`${fly.item} ${active ? fly.active : ""}`}
                                     aria-current={active ? "page" : undefined}
+                                    aria-describedby={describedBy}
                                     onClick={onClose}
                                 >
                                     {body}

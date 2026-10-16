@@ -104,21 +104,30 @@ function tessera(page: Page) {
 }
 
 test.describe("Servizio", () => {
-    test("Servizio: In servizio, Cosa vedono i clienti, Sala e Storico; In servizio tiene insieme le sue pagine", async ({ page }) => {
+    test("Servizio: le sue parti (nella D In servizio, Prenotazioni, Storico); In servizio tiene insieme le sue pagine", async ({ page }) => {
         await openVoce(page, "In servizio");
         // Le parti di Servizio, nell'ordine della sidebar (artifact v4, D157).
         const parti = page.getByRole("navigation", { name: "Parti di Servizio" }).getByRole("link");
         const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
-        await expect(parti).toHaveText(d ? ["In servizio", "Cosa vedono i clienti", "Storico"] : ["In servizio", "Cosa vedono i clienti", "Sala", "Storico"], { timeout: 15_000 });
-        // Prenotazioni e Comande non sono parti: le apre l'interruttore di «In servizio».
+        // Nella D come nella copia «Visual Redesign PR 3»: Prenotazioni è una parte, «Cosa vedono» si apre da «Disponibilità».
+        await expect(parti).toHaveText(d ? ["In servizio", "Prenotazioni", "Storico"] : ["In servizio", "Cosa vedono i clienti", "Sala", "Storico"], { timeout: 15_000 });
+        // Comande (e fuori dalla D Prenotazioni) non sono parti: le apre l'interruttore di «In servizio».
         const pagine = page.getByRole("radiogroup", { name: "Parti di In servizio" }).getByRole("radio");
-        await expect(pagine).toHaveText(["Elenco", "Mappa", "Prenotazioni", "Comande"]);
+        await expect(pagine).toHaveText(d ? ["Elenco", "Mappa", "Comande"] : ["Elenco", "Mappa", "Prenotazioni", "Comande"]);
         await page.getByRole("radio", { name: "Comande", exact: true }).click();
         await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
         await expect(page.getByRole("radio", { name: "Comande", exact: true })).toHaveAttribute("aria-checked", "true");
         await expect(await sidebarLink(page, "In servizio")).toHaveAttribute("aria-current", "page");
-        await page.getByRole("radio", { name: "Prenotazioni", exact: true }).click();
-        await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
+        if (d) {
+            await parti.getByText("Prenotazioni", { exact: true }).click();
+            await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
+            await expect(await sidebarLink(page, "Prenotazioni")).toHaveAttribute("aria-current", "page");
+            await expect(page.getByRole("radiogroup", { name: "Parti di In servizio" })).toHaveCount(0);
+            await openVoce(page, "In servizio");
+        } else {
+            await page.getByRole("radio", { name: "Prenotazioni", exact: true }).click();
+            await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
+        }
         await page.getByRole("radio", { name: "Mappa", exact: true }).click();
         await expect(page).toHaveURL(/\/servizio\?modo=mappa$/, { timeout: 15_000 });
     });
