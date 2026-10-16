@@ -12,6 +12,7 @@ import {
     expenseDraftFrom,
     expenseDraftToInput,
     formatMonthIt,
+    futureMonths,
     recurringMonthlyCents,
     romeTodayIso,
     summarizeCharges,
@@ -142,6 +143,41 @@ describe("summarizeCharges", () => {
         expect(summary.months[0]).toMatchObject({ subscriptionCents: 9446, oneOffCents: 0 });
         expect(summary.months[1].totalCents).toBe(0);
         expect(summary.months[2]).toMatchObject({ oneOffCents: 2019, subscriptionCents: 0 });
+    });
+
+    it("divide il mese per categoria, rimborsi compresi", () => {
+        const withCategories = [
+            expense({ id: "sw", kind: "subscription", category: "software" }),
+            expense({ id: "hw", kind: "one_off", category: "hardware", paid_on: "2026-10-03", first_charge_on: null, billing_interval: null })
+        ];
+        const summary = summarizeCharges(
+            [
+                { expenseId: "sw", chargedOn: "2026-10-02", amountCents: 9446 },
+                { expenseId: "hw", chargedOn: "2026-10-03", amountCents: 5000 },
+                { expenseId: "hw", chargedOn: "2026-10-08", amountCents: -770 }
+            ],
+            withCategories,
+            "2026-10-15"
+        );
+        expect(summary.months[0].byCategory).toEqual({ software: 9446, hardware: 4230 });
+    });
+
+    it("da pagare: da domani, dal mese più lontano, coi mesi vuoti in mezzo", () => {
+        const months = futureMonths(
+            [
+                { expenseId: "sub", chargedOn: "2026-10-02", amountCents: 9446 },
+                { expenseId: "sub", chargedOn: "2026-10-15", amountCents: 100 },
+                { expenseId: "sub", chargedOn: "2026-10-20", amountCents: 9446 },
+                { expenseId: "one", chargedOn: "2027-01-05", amountCents: 3292 }
+            ],
+            expenses,
+            "2026-10-15"
+        );
+        expect(months.map(m => m.month)).toEqual(["2027-01", "2026-12", "2026-11", "2026-10"]);
+        expect(months[0]).toMatchObject({ oneOffCents: 3292, subscriptionCents: 0 });
+        expect(months[1].totalCents).toBe(0);
+        expect(months[3].totalCents).toBe(9446);
+        expect(futureMonths([], expenses, "2026-10-15")).toEqual([]);
     });
 
     it("senza addebiti niente mesi", () => {

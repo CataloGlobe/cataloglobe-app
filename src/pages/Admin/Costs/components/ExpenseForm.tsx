@@ -6,7 +6,6 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { DateInput } from "@/components/ui/Input/DateInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import Text from "@/components/ui/Text/Text";
-import { CRM_EXPENSE_CATEGORIES, CRM_EXPENSE_CATEGORY_LABEL, type CrmExpenseCategory } from "@shared/crmExpenses";
 import {
     CRM_EXPENSE_FREQUENCY_OPTIONS,
     expenseDateOf,
@@ -21,6 +20,7 @@ import {
 import { JOINT_ACCOUNT } from "@/utils/crm/expenseBalance";
 import { paidByForAccount } from "@/utils/crm/expenseTerms";
 import type { CrmExpenseAccount } from "@/types/crm";
+import { CategoryPicker } from "./CategoryPicker";
 import styles from "../Costs.module.scss";
 
 /**
@@ -29,13 +29,10 @@ import styles from "../Costs.module.scss";
  *
  * Proposta 1 di D38 (scelta da Alex il 2026-10-05): cinque campi a vista
  * (Cosa, Importo, Quanto spesso, Data, Pagata da), il resto in «Altre
- * opzioni», «Disdetto» solo su una spesa che c'è già.
+ * opzioni», «Disdetto» solo su una spesa che c'è già. La categoria a vista
+ * sotto «Cosa» (Alex, 2026-10-16: l'icona della riga viene da lì).
  */
 
-const CATEGORY_OPTIONS = CRM_EXPENSE_CATEGORIES.map(value => ({
-    value,
-    label: CRM_EXPENSE_CATEGORY_LABEL[value]
-}));
 
 type Props = {
     formId: string;
@@ -114,6 +111,7 @@ export function ExpenseForm({
                 error={errors.name}
                 disabled={disabled}
             />
+            <CategoryPicker value={draft.category} onChange={category => patch({ category })} disabled={disabled} />
             <div className={styles.fieldRow}>
                 <TextInput
                     label="Importo in euro"
@@ -215,13 +213,6 @@ export function ExpenseForm({
             )}
             <CollapsibleSection label="Altre opzioni" defaultOpen={Boolean(draft.notes.trim() || errors.remindDaysBefore)}>
                 <div className={styles.form}>
-                    <Select
-                        label="Categoria"
-                        value={draft.category}
-                        onChange={e => patch({ category: e.target.value as CrmExpenseCategory })}
-                        options={CATEGORY_OPTIONS}
-                        disabled={disabled}
-                    />
                     {isSubscription && (
                         <>
                             <Switch

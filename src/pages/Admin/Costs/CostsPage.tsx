@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CalendarDays, List } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
@@ -28,35 +28,53 @@ import {
     listCrmExpenseSettlements,
     listCrmExpenseTerms
 } from "@/services/supabase/crmExpenses";
-import { CRM_BILLING_INTERVAL_LABEL, daysBetween, formatDaysLeft, formatEuroCents } from "@shared/crmExpenses";
+import {
+    CRM_BILLING_INTERVAL_LABEL,
+    CRM_EXPENSE_CATEGORIES,
+    daysBetween,
+    formatDaysLeft,
+    formatEuroCents
+} from "@shared/crmExpenses";
 import {
     computeExpenseBalance,
-    evenByDeposit,
     isJointAccount,
+    payerKey,
     JOINT_ACCOUNT,
     payerSuggestions,
     transfersToSettlements,
     type SettlementDraft
 } from "@/utils/crm/expenseBalance";
-import { refundsAsCharges, termAt } from "@/utils/crm/expenseTerms";
+import { payerResolver, refundsAsCharges, termAt } from "@/utils/crm/expenseTerms";
+import {
+    categoryMatches,
+    JOINT_FILTER,
+    parseFilterList,
+    payerMatches,
+    type ExpenseFilters
+} from "@/utils/crm/expenseFilters";
 import { lastDayOfMonth, shiftDay, shiftMonth } from "@/utils/crm/expenseCalendar";
 import {
     buildCostsOverview,
-    formatMonthIt,
+    expenseDraftFrom,
     formatShortDateIt,
     romeTodayIso,
+    futureMonths,
     summarizeCharges,
     upcomingRenewals,
     type CrmExpenseDraft
 } from "@/utils/crm/expenses";
 import { isMissingOnDatabase } from "@/utils/crm/stages";
-import type { CrmExpense, CrmExpenseSettlement } from "@/types/crm";
+import type { CrmExpense, CrmExpenseCategory, CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import { useCrmLoad } from "@/pages/Admin/Crm/hooks/useCrmLoad";
 import { CostsCalendar } from "./components/CostsCalendar";
 import { ExpenseTabs } from "./components/ExpenseTabs";
+import { BalanceBand } from "./components/BalanceBand";
+import { CostsFigures } from "./components/CostsFigures";
+import { ExpenseIcon } from "./components/ExpenseIcon";
+import { ExpandButton } from "./components/ExpandButton";
+import { ExpenseFilterMenus } from "./components/ExpenseFilterMenus";
 import { PayersCard } from "./components/PayersCard";
-import { QuickExpenseRow } from "./components/QuickExpenseRow";
 import { AccountsDrawer } from "./AccountsDrawer";
 import { ExpenseDrawer } from "./ExpenseDrawer";
 import { SettlementDrawer } from "./SettlementDrawer";
@@ -73,6 +91,8 @@ type CostsView = "list" | "calendar";
 
 /** Quanti giorni guarda «In arrivo». */
 const UPCOMING_DAYS = 30;
+/** Quanti mesi avanti si vedono nel calendario e in «Mese per mese». */
+const MONTHS_AHEAD = 12;
 
 const VIEW_OPTIONS = [
     { value: "list" as const, label: "Elenco", icon: <List size={16} aria-hidden="true" /> },
@@ -87,27 +107,32 @@ function orMissing<T>(load: Promise<T>): Promise<T | null> {
     });
 }
 
-function centsToInput(cents: number): string {
-    return (cents / 100).toFixed(2).replace(".", ",");
-}
-
-function signedDelta(cents: number, previousMonth: string): string {
-    if (cents === 0) return `come ${previousMonth}`;
-    return `${cents > 0 ? "+" : "−"}${formatEuroCents(Math.abs(cents))} su ${previousMonth}`;
-}
-
 export default function CostsPage() {
     usePageTitle("Costi");
     const { showToast } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
     const view: CostsView = searchParams.get("vista") === "calendario" ? "calendar" : "list";
+    // Gli annuali nel costo al mese solo a richiesta (D258, Alex 2026-10-16).
+    const includeYearly = searchParams.get("annuali") === "si";
+    // Filtri delle spese (Alex, 2026-10-16): chi paga e tipo, a scelta multipla, nell'indirizzo.
+    const setFilters = (values: { chi?: string[]; tipo?: string[] }) =>
+        setSearchParams(
+            prev => {
+                const next = new URLSearchParams(prev);
+                for (const [key, list] of Object.entries(values)) {
+                    if (list && list.length > 0) next.set(key, list.join(","));
+                    else next.delete(key);
+                }
+                return next;
+            },
+            { replace: true }
+        );
     const [tick, setTick] = useState(0);
     const isPhone = useMediaQuery("(max-width: 767px)");
     const figureVariant = isPhone ? "title-sm" : "title-lg";
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selected, setSelected] = useState<CrmExpense | null>(null);
     const [drawerDraft, setDrawerDraft] = useState<CrmExpenseDraft | null>(null);
-    const quickNameRef = useRef<HTMLInputElement>(null);
     const { user } = useAuth();
     const [toDelete, setToDelete] = useState<CrmExpense | null>(null);
     const [moveToDelete, setMoveToDelete] = useState<CrmExpenseSettlement | null>(null);
@@ -119,13 +144,19 @@ export default function CostsPage() {
     const [dialogError, setDialogError] = useState<string | null>(null);
 
     const today = useMemo(() => romeTodayIso(), [tick]); // eslint-disable-line react-hooks/exhaustive-deps
+    const currentMonth = today.slice(0, 7);
     const [calMonth, setCalMonth] = useState(() => today.slice(0, 7));
     const [calDay, setCalDay] = useState(today);
+    // Il riquadro allargato dei tre in fila; uno alla volta.
+    const [wide, setWide] = useState<"accounts" | "payers" | "upcoming" | null>(null);
+    const expandButton = (key: "accounts" | "payers" | "upcoming", what: string) => (
+        <ExpandButton expanded={wide === key} onToggle={() => setWide(w => (w === key ? null : key))} what={what} />
+    );
 
-    // Gli addebiti arrivano fino alla fine del mese prossimo: servono al
-    // calendario e a «In arrivo» (oggi + 30 giorni, se va oltre).
+    // Gli addebiti arrivano fino a un anno avanti (proposta 16): servono al
+    // calendario, a «Mese per mese» e a «In arrivo» (oggi + 30 giorni).
     const until = useMemo(() => {
-        const endNext = lastDayOfMonth(shiftMonth(today.slice(0, 7), 1));
+        const endNext = lastDayOfMonth(shiftMonth(today.slice(0, 7), MONTHS_AHEAD));
         const in30 = shiftDay(today, UPCOMING_DAYS);
         return in30 > endNext ? in30 : endNext;
     }, [today]);
@@ -175,16 +206,29 @@ export default function CostsPage() {
     const extrasError = accountsLoad.error ?? termsLoad.error ?? refundsLoad.error;
 
     const summary = useMemo(() => summarizeCharges(chargesAndRefunds, expenses, today), [chargesAndRefunds, expenses, today]);
+    const toPay = useMemo(() => futureMonths(allCharges, expenses, today), [allCharges, expenses, today]);
     const overview = useMemo(
-        () => buildCostsOverview({ expenses, charges: chargesAndRefunds, nextCharges, terms, accounts, today }),
-        [expenses, chargesAndRefunds, nextCharges, terms, accounts, today]
+        () => buildCostsOverview({ expenses, charges: chargesAndRefunds, nextCharges, terms, accounts, today, includeYearly }),
+        [includeYearly, expenses, chargesAndRefunds, nextCharges, terms, accounts, today]
     );
-    const activeCount = useMemo(() => upcomingRenewals(expenses, nextCharges).length, [expenses, nextCharges]);
+    const renewals = useMemo(() => upcomingRenewals(expenses, nextCharges), [expenses, nextCharges]);
+    const monthRows = useMemo(() => {
+        const byExpense = new Map(expenses.map(e => [e.id, e]));
+        return chargesAndRefunds
+            .filter(c => c.chargedOn.slice(0, 7) === currentMonth && c.chargedOn <= today)
+            .flatMap(c => {
+                const expense = byExpense.get(c.expenseId);
+                return expense ? [{ expense, date: c.chargedOn, amountCents: c.amountCents }] : [];
+            })
+            .sort((a, b) => (a.date < b.date ? 1 : -1));
+    }, [chargesAndRefunds, expenses, currentMonth, today]);
     const upcoming = useMemo(() => {
         const last = shiftDay(today, UPCOMING_DAYS);
         return allCharges.filter(c => c.chargedOn >= today && c.chargedOn <= last).sort((a, b) => (a.chargedOn < b.chargedOn ? -1 : 1));
     }, [allCharges, today]);
     const upcomingTotal = upcoming.reduce((sum, c) => sum + c.amountCents, 0);
+    const todayCharges = upcoming.filter(c => c.chargedOn === today);
+    const laterCharges = upcoming.filter(c => c.chargedOn !== today);
     const byId = useMemo(() => new Map(expenses.map(e => [e.id, e])), [expenses]);
     const accountById = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
     /** Su che conto sta la spesa quel giorno (con i «Cambia da…»); null senza conto. */
@@ -200,24 +244,97 @@ export default function CostsPage() {
         () => computeExpenseBalance({ charges: chargesAndRefunds, expenses, settlements, team, today, accounts, terms, memberNames }),
         [chargesAndRefunds, expenses, settlements, team, today, accounts, terms, memberNames]
     );
-    const depositHint = useMemo(() => {
-        const hint = evenByDeposit(balance);
-        const target = openJoint[0];
-        return hint && target ? { ...hint, accountName: target.name, accountId: target.id } : null;
-    }, [balance, openJoint]);
+    const chargePayer = useMemo(
+        () => payerResolver({ expenses, terms, accounts, memberNames, isJointName: isJointAccount }),
+        [expenses, terms, accounts, memberNames]
+    );
+    const chiParam = searchParams.get("chi");
+    const tipoParam = searchParams.get("tipo");
+    const filters: ExpenseFilters = useMemo(
+        () => ({
+            who: parseFilterList(
+                chiParam,
+                (v): v is string => v === JOINT_FILTER || team.some(n => payerKey(n) === payerKey(v))
+            ),
+            types: parseFilterList(tipoParam, (v): v is CrmExpenseCategory =>
+                (CRM_EXPENSE_CATEGORIES as readonly string[]).includes(v)
+            )
+        }),
+        [chiParam, tipoParam, team]
+    );
+    // «Mese per mese» coi filtri: gli addebiti che passano, rimborsi compresi.
+    const filteredCharges = useMemo(() => {
+        if (filters.who.length === 0 && filters.types.length === 0) return null;
+        return chargesAndRefunds.filter(c => {
+            const expense = byId.get(c.expenseId);
+            return (
+                !!expense &&
+                categoryMatches(expense.category, filters.types) &&
+                payerMatches(chargePayer(c.expenseId, c.chargedOn), filters.who)
+            );
+        });
+    }, [filters, chargesAndRefunds, byId, chargePayer]);
+    const calendarCharges = useMemo(
+        () =>
+            filteredCharges
+                ? allCharges.filter(c => {
+                      const expense = byId.get(c.expenseId);
+                      return (
+                          !!expense &&
+                          categoryMatches(expense.category, filters.types) &&
+                          payerMatches(chargePayer(c.expenseId, c.chargedOn), filters.who)
+                      );
+                  })
+                : allCharges,
+        [filteredCharges, allCharges, byId, filters, chargePayer]
+    );
+    const tabMonths = useMemo(
+        () => (filteredCharges ? summarizeCharges(filteredCharges, expenses, today).months : summary.months),
+        [filteredCharges, expenses, today, summary.months]
+    );
+    const tabFutureMonths = useMemo(
+        () => (filteredCharges ? futureMonths(filteredCharges, expenses, today) : toPay),
+        [filteredCharges, expenses, today, toPay]
+    );
+    // I conti comuni tutti, anche senza movimenti (Qonto, D256), quelli chiusi in fondo;
+    // per gli aperti il prossimo addebito da domani, per dire quando il saldo non basta.
+    const jointRows = useMemo(() => {
+        const byAccount = new Map(balance.jointAccounts.map(j => [j.accountId, j]));
+        const expenseById = new Map(expenses.map(e => [e.id, e]));
+        const nextCharge = (accountId: string) =>
+            allCharges
+                .filter(c => {
+                    // Gli addebiti di oggi sono già nello «spesi» del conto.
+                    if (c.chargedOn <= today) return false;
+                    const expense = expenseById.get(c.expenseId);
+                    return expense ? termAt(expense, terms, c.chargedOn).accountId === accountId : false;
+                })
+                .reduce<(typeof allCharges)[number] | null>((first, c) => (!first || c.chargedOn < first.chargedOn ? c : first), null);
+        const rows = accounts
+            .filter(a => a.kind === "joint")
+            .map(a => ({
+                key: a.id,
+                name: a.name,
+                closedOn: a.closed_on,
+                totals: byAccount.get(a.id) ?? null,
+                next: a.closed_on ? null : nextCharge(a.id)
+            }));
+        const manual = byAccount.get(null);
+        if (manual) rows.push({ key: "manual", name: JOINT_ACCOUNT, closedOn: null, totals: manual, next: null });
+        return rows.sort((a, b) => Number(Boolean(a.closedOn)) - Number(Boolean(b.closedOn)));
+    }, [accounts, balance.jointAccounts, expenses, allCharges, terms, today]);
     const payers = useMemo(() => payerSuggestions(team), [team]);
     const myName = useMemo(
         () => (teamLoad.data ?? []).find(m => m.user_id === user?.id)?.display_name ?? "",
         [teamLoad.data, user?.id]
     );
     const people = useMemo(() => balance.people.map(p => p.name), [balance.people]);
-    /** Il conto personale aperto di chi è entrato, se ne ha uno solo: la riga veloce parte da lì. */
+    /** Il conto personale aperto di chi è entrato, se ne ha uno solo: la spesa nuova parte da lì. */
     const myAccountId = useMemo(() => {
         const mine = accounts.filter(a => a.kind === "personal" && !a.closed_on && a.owner_member_id === user?.id);
         return mine.length === 1 ? mine[0].id : "";
     }, [accounts, user?.id]);
 
-    const currentMonth = today.slice(0, 7);
     const firstMonth = summary.months.at(-1)?.month ?? currentMonth;
 
     const setView = useCallback(
@@ -235,43 +352,19 @@ export default function CostsPage() {
         [setSearchParams]
     );
 
-    // «Aggiungi spesa»: nell'elenco porta alla riga veloce, nel calendario
-    // (dove la riga non c'è) apre il drawer.
+    // «Aggiungi spesa» apre il drawer, già con chi è entrato e la sua carta
+    // (la riga veloce sempre aperta è uscita, proposta 4 del 2026-10-16).
     const openCreate = useCallback(() => {
-        if (view === "list" && quickNameRef.current) {
-            quickNameRef.current.scrollIntoView({ block: "center", behavior: "smooth" });
-            quickNameRef.current.focus({ preventScroll: true });
-            return;
-        }
         setSelected(null);
-        setDrawerDraft(null);
+        setDrawerDraft({ ...expenseDraftFrom(null, today), paidBy: myName, accountId: myAccountId });
         setIsDrawerOpen(true);
-    }, [view]);
-
-    const openDetails = useCallback((draft: CrmExpenseDraft) => {
-        setSelected(null);
-        setDrawerDraft(draft);
-        setIsDrawerOpen(true);
-    }, []);
+    }, [today, myName, myAccountId]);
 
     const openEdit = useCallback((expense: CrmExpense) => {
         setSelected(expense);
         setDrawerDraft(null);
         setIsDrawerOpen(true);
     }, []);
-
-    const handleQuickAdded = useCallback(
-        (summary: string, expense: CrmExpense) => {
-            reload();
-            showToast({
-                message: `Aggiunta: ${summary}.`,
-                type: "success",
-                actionLabel: "Dettagli",
-                onAction: () => openEdit(expense)
-            });
-        },
-        [reload, showToast, openEdit]
-    );
 
     const askDelete = useCallback((expense: CrmExpense) => {
         setDialogError(null);
@@ -326,7 +419,6 @@ export default function CostsPage() {
     const headerActions = useMemo(
         () => (
             <div className={styles.headerActions}>
-                <SegmentedControl value={view} onChange={setView} options={VIEW_OPTIONS} size="sm" />
                 {extrasReady && (
                     <Button variant="secondary" onClick={() => setIsAccountsOpen(true)}>
                         Carte e conti
@@ -337,7 +429,7 @@ export default function CostsPage() {
                 </Button>
             </div>
         ),
-        [view, setView, openCreate, extrasReady]
+        [openCreate, extrasReady]
     );
 
     const headerCompact = useMemo<PageHeaderCompactConfig>(
@@ -345,69 +437,55 @@ export default function CostsPage() {
         [openCreate]
     );
 
+    // Filtri e Elenco/Calendario a destra, sopra la tabella o il calendario (Alex, 2026-10-16).
+    const toolbar = (
+        <div className={styles.toolbar}>
+            <ExpenseFilterMenus team={team} who={filters.who} types={filters.types} onChange={setFilters} />
+            <SegmentedControl value={view} onChange={setView} options={VIEW_OPTIONS} size="sm" />
+        </div>
+    );
+
     usePageHeader({ title: "Costi", subtitle: "Spese inserite a mano, IVA inclusa.", actions: headerActions, compact: headerCompact });
 
-    const monthName = formatMonthIt(currentMonth).split(" ")[0];
-    const previousName = formatMonthIt(shiftMonth(currentMonth, -1)).split(" ")[0];
-    const delta = summary.thisMonthCents - (summary.months[1]?.totalCents ?? 0);
 
     return (
         <div className={styles.page}>
-            <section className={styles.figures} aria-label="Il quadro">
-                <TileState loading={figuresLoading} error={figuresError} onRetry={reload}>
-                    <div className={styles.figure}>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            Speso finora
-                        </Text>
-                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
-                            {formatEuroCents(overview.spentSoFarCents)}
-                        </Text>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            {summary.months.length > 0 ? `da ${formatMonthIt(firstMonth)}, rimborsi tolti` : "ancora niente"}
-                        </Text>
-                    </div>
-                    <div className={styles.figure}>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            Costo al mese, da ora
-                        </Text>
-                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
-                            {formatEuroCents(overview.monthlyFromNowCents)}
-                        </Text>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            {activeCount === 1 ? "1 abbonamento attivo" : `${activeCount} abbonamenti attivi`}
-                        </Text>
-                    </div>
-                    <div className={styles.figure}>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            Ricarica a testa, al mese
-                        </Text>
-                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
-                            {formatEuroCents(overview.rechargePerPersonCents)}
-                        </Text>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            {overview.monthlyOnJointCents > 0
-                                ? `di cui ${formatEuroCents(overview.monthlyOnJointCents)} al mese già sul conto comune`
-                                : "metà del costo al mese, all'euro in su"}
-                        </Text>
-                    </div>
-                    <div className={styles.figure}>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            Speso a {monthName}
-                        </Text>
-                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
-                            {formatEuroCents(summary.thisMonthCents)}
-                        </Text>
-                        {summary.months.length > 1 && (
-                            <Text as="span" variant="caption" colorVariant="muted">
-                                {signedDelta(delta, previousName)}
-                            </Text>
-                        )}
-                    </div>
-                </TileState>
-            </section>
-            <Text as="p" variant="caption" colorVariant="muted">
-                Gli abbonamenti annuali contano 1/12 al mese; le spese una tantum non sono nella ricarica.
-            </Text>
+            {!figuresLoading && !figuresError && !settlementsLoad.error && balance.people.length > 0 && (
+                <BalanceBand
+                    balance={balance}
+                    disabled={settlementsMissing}
+                    onSettle={() => {
+                        setDialogError(null);
+                        setIsSettleOpen(true);
+                    }}
+                />
+            )}
+            <CostsFigures
+                loading={figuresLoading}
+                error={figuresError}
+                onRetry={reload}
+                overview={overview}
+                months={summary.months}
+                firstMonth={firstMonth}
+                currentMonth={currentMonth}
+                previousMonth={shiftMonth(currentMonth, -1)}
+                renewals={renewals}
+                monthRows={monthRows}
+                includeYearly={includeYearly}
+                onIncludeYearly={value =>
+                    setSearchParams(
+                        prev => {
+                            const next = new URLSearchParams(prev);
+                            if (value) next.set("annuali", "si");
+                            else next.delete("annuali");
+                            return next;
+                        },
+                        { replace: true }
+                    )
+                }
+                onOpen={openEdit}
+                figureVariant={figureVariant}
+            />
 
             {extrasError && (
                 <InlineBanner variant="warning">
@@ -418,20 +496,33 @@ export default function CostsPage() {
                 </InlineBanner>
             )}
 
+            <div className={styles.trio}>
             {extrasReady && !figuresLoading && !figuresError && (
+                <div className={styles.trioSlot} data-wide={wide === "accounts" || undefined}>
                 <Card
+                    className={styles.trioCard}
+                    bodyClassName={styles.trioBody}
                     title="Carte e conti comuni"
                     subtitle={
-                        openJoint.length > 0
+                        wide !== "accounts"
+                            ? openJoint.length > 0
+                                ? `${formatEuroCents(jointRows.reduce((sum, r) => sum + (r.closedOn ? 0 : Math.max(0, r.totals?.balanceCents ?? 0)), 0))} sui conti comuni.`
+                                : undefined
+                            : openJoint.length > 0
                             ? "Versato meno speso: quanto c'è ancora sopra."
                             : "Aggiungi le carte di ognuno e i conti comuni: scelto il conto, chi ha pagato viene da sé."
                     }
                     actions={
-                        <Button variant="secondary" size="sm" onClick={() => setIsAccountsOpen(true)}>
-                            Carte e conti
-                        </Button>
+                        <span className={styles.cardActions} data-compact-action>
+                            {wide === "accounts" && (
+                                <Button variant="secondary" size="sm" onClick={() => setIsAccountsOpen(true)}>
+                                    Carte e conti
+                                </Button>
+                            )}
+                            {expandButton("accounts", "Carte e conti comuni")}
+                        </span>
                     }
-                    flush={balance.jointAccounts.length > 0}
+                    flush={jointRows.length > 0 || overview.toMove.length > 0}
                 >
                     {overview.toMove.length > 0 && (
                         <div className={styles.toMove}>
@@ -450,31 +541,139 @@ export default function CostsPage() {
                             trailing={`prossimo ${formatShortDateIt(m.nextChargeOn)}`}
                         />
                     ))}
-                    {balance.jointAccounts.map(j => (
-                        <ListRow
-                            key={j.accountId ?? "manual"}
-                            title={j.accountId ? (accountById.get(j.accountId)?.name ?? JOINT_ACCOUNT) : JOINT_ACCOUNT}
-                            subtitle={`Versati ${formatEuroCents(j.depositedCents)} · spesi ${formatEuroCents(j.spentCents)}`}
-                            trailing={
-                                <span className={styles.figureValue} data-negative={j.balanceCents < 0 || undefined}>
-                                    {formatEuroCents(j.balanceCents)}
-                                </span>
-                            }
-                        />
-                    ))}
+                    {jointRows.map(row => {
+                        const left = row.totals?.balanceCents ?? 0;
+                        const short = row.next && left < row.next.amountCents ? row.next.amountCents - left : 0;
+                        const parts = [
+                            row.closedOn && `Chiuso il ${formatShortDateIt(row.closedOn)}`,
+                            row.totals
+                                ? `Versati ${formatEuroCents(row.totals.depositedCents)} · spesi ${formatEuroCents(row.totals.spentCents)}`
+                                : "Nessun movimento",
+                            short > 0 && row.next
+                                ? `mancano ${formatEuroCents(short)} per il ${formatShortDateIt(row.next.chargedOn)}`
+                                : row.next && `prossimo ${formatEuroCents(row.next.amountCents)} il ${formatShortDateIt(row.next.chargedOn)}`
+                        ];
+                        return (
+                            <ListRow
+                                key={row.key}
+                                title={row.name}
+                                subtitle={parts.filter(Boolean).join(" · ")}
+                                wrapSubtitle
+                                muted={Boolean(row.closedOn)}
+                                trailing={
+                                    <span
+                                        className={styles.figureValue}
+                                        data-negative={left < 0 || undefined}
+                                        data-short={short > 0 || undefined}
+                                    >
+                                        {formatEuroCents(left)}
+                                    </span>
+                                }
+                            />
+                        );
+                    })}
                 </Card>
+                </div>
             )}
+            {(
+                <div className={styles.trioSlot} data-wide={wide === "payers" || undefined}>
+                <PayersCard
+                    balance={balance}
+                    loading={figuresLoading || (teamLoad.loading && !teamLoad.data)}
+                    error={figuresError ?? settlementsLoad.error}
+                    settlements={settlements}
+                    settlementsMissing={settlementsMissing}
+                    onRetry={reload}
+                    onRecord={() => {
+                        setMoveDraft(null);
+                        setIsMoveOpen(true);
+                    }}
+                    onDeleteMove={move => {
+                        setDialogError(null);
+                        setMoveToDelete(move);
+                    }}
+                    expanded={wide === "payers"}
+                    expandButton={expandButton("payers", "Chi ha pagato")}
+                />
+                </div>
+            )}
+            {(
+                <div className={styles.trioSlot} data-wide={wide === "upcoming" || undefined}>
+                <Card
+                    className={styles.trioCard}
+                    bodyClassName={styles.trioBody}
+                    title={`In arrivo, ${UPCOMING_DAYS} giorni`}
+                    subtitle={upcoming.length > 0 ? `${formatEuroCents(upcomingTotal)} in tutto.` : undefined}
+                    actions={<span className={styles.cardActions} data-compact-action>{expandButton("upcoming", `In arrivo, ${UPCOMING_DAYS} giorni`)}</span>}
+                    flush
+                >
+                    <TileState
+                        loading={figuresLoading}
+                        error={figuresError}
+                        onRetry={reload}
+                        empty={upcoming.length === 0}
+                        emptyText="Nessun addebito nei prossimi 30 giorni."
+                    >
+                        {[todayCharges, laterCharges].map((group, g) =>
+                            group.length === 0 ? null : (
+                                <div key={g} role="group" aria-label={g === 0 ? "Oggi" : "Prossimi"}>
+                                    {todayCharges.length > 0 && (
+                                        <Text as="p" variant="caption" colorVariant="muted" className={styles.groupLabel}>
+                                            {g === 0 ? "Oggi" : "Prossimi"}
+                                        </Text>
+                                    )}
+                        {group.map((c, i) => {
+                            const expense = byId.get(c.expenseId);
+                            const daysLeft = daysBetween(today, c.chargedOn);
+                            const soon = expense?.remind_days_before != null && daysLeft <= expense.remind_days_before;
+                            const interval = expense?.billing_interval;
+                            return (
+                                <ListRow
+                                    key={`${c.expenseId}-${c.chargedOn}-${i}`}
+                                    leading={wide === "upcoming" ? <ExpenseIcon category={expense?.category} /> : undefined}
+                                    title={expense?.name ?? "Spesa"}
+                                    subtitle={[
+                                        `${formatEuroCents(c.amountCents)}${interval ? ` ${CRM_BILLING_INTERVAL_LABEL[interval]}` : ""}`,
+                                        expense && accountNameAt(expense, c.chargedOn)
+                                            ? `su ${accountNameAt(expense, c.chargedOn)}`
+                                            : expense?.paid_by &&
+                                              (isJointAccount(expense.paid_by) ? "dal conto comune" : `paga ${expense.paid_by}`)
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                    onClick={expense ? () => openEdit(expense) : undefined}
+                                    trailing={
+                                        g === 0 ? (
+                                            <StatusBadge variant="info" label="Oggi" />
+                                        ) : soon ? (
+                                            <StatusBadge variant="warning" label={formatDaysLeft(daysLeft)} />
+                                        ) : (
+                                            formatShortDateIt(c.chargedOn)
+                                        )
+                                    }
+                                />
+                            );
+                        })}
+                                </div>
+                            )
+                        )}
+                    </TileState>
+                </Card>
+                </div>
+            )}
+            </div>
 
             {view === "calendar" ? (
                 <CostsCalendar
                     month={calMonth}
                     minMonth={firstMonth < currentMonth ? firstMonth : shiftMonth(currentMonth, -1)}
-                    maxMonth={shiftMonth(currentMonth, 1)}
+                    maxMonth={shiftMonth(currentMonth, MONTHS_AHEAD)}
                     selectedDay={calDay}
                     today={today}
-                    charges={allCharges}
+                    charges={calendarCharges}
                     expenses={expenses}
                     isPhone={isPhone}
+                    toolbar={toolbar}
                     loading={figuresLoading}
                     error={figuresError}
                     onRetry={reload}
@@ -487,103 +686,11 @@ export default function CostsPage() {
                 />
             ) : (
                 <>
-                    <QuickExpenseRow
-                        ref={quickNameRef}
-                        expenses={expenses}
-                        today={today}
-                        defaultPayer={myName}
-                        defaultAccountId={myAccountId}
-                        isAccountOpen={id => accountById.get(id)?.closed_on == null}
-                        onAdded={handleQuickAdded}
-                        onDetails={openDetails}
-                    />
-
-                    <div className={styles.duo}>
-                        <PayersCard
-                            balance={balance}
-                            loading={figuresLoading || (teamLoad.loading && !teamLoad.data)}
-                            error={figuresError ?? settlementsLoad.error}
-                            settlements={settlements}
-                            settlementsMissing={settlementsMissing}
-                            onRetry={reload}
-                            onSettle={() => {
-                                setDialogError(null);
-                                setIsSettleOpen(true);
-                            }}
-                            onRecord={() => {
-                                setMoveDraft(null);
-                                setIsMoveOpen(true);
-                            }}
-                            onDeleteMove={move => {
-                                setDialogError(null);
-                                setMoveToDelete(move);
-                            }}
-                            depositHint={depositHint}
-                            onDeposit={
-                                depositHint
-                                    ? () => {
-                                          setMoveDraft({
-                                              fromName: depositHint.from,
-                                              toName: depositHint.accountName,
-                                              accountId: depositHint.accountId,
-                                              amount: centsToInput(depositHint.amountCents),
-                                              note: "Pareggio"
-                                          });
-                                          setIsMoveOpen(true);
-                                      }
-                                    : undefined
-                            }
-                        />
-
-                        <Card
-                            title={`In arrivo, ${UPCOMING_DAYS} giorni`}
-                            subtitle={upcoming.length > 0 ? `${formatEuroCents(upcomingTotal)} in tutto.` : undefined}
-                            flush
-                        >
-                            <TileState
-                                loading={figuresLoading}
-                                error={figuresError}
-                                onRetry={reload}
-                                empty={upcoming.length === 0}
-                                emptyText="Nessun addebito nei prossimi 30 giorni."
-                            >
-                                {upcoming.map((c, i) => {
-                                    const expense = byId.get(c.expenseId);
-                                    const daysLeft = daysBetween(today, c.chargedOn);
-                                    const soon = expense?.remind_days_before != null && daysLeft <= expense.remind_days_before;
-                                    const interval = expense?.billing_interval;
-                                    return (
-                                        <ListRow
-                                            key={`${c.expenseId}-${c.chargedOn}-${i}`}
-                                            title={expense?.name ?? "Spesa"}
-                                            subtitle={[
-                                                `${formatEuroCents(c.amountCents)}${interval ? ` ${CRM_BILLING_INTERVAL_LABEL[interval]}` : ""}`,
-                                                expense && accountNameAt(expense, c.chargedOn)
-                                                    ? `su ${accountNameAt(expense, c.chargedOn)}`
-                                                    : expense?.paid_by &&
-                                                      (isJointAccount(expense.paid_by) ? "dal conto comune" : `paga ${expense.paid_by}`)
-                                            ]
-                                                .filter(Boolean)
-                                                .join(" · ")}
-                                            onClick={expense ? () => openEdit(expense) : undefined}
-                                            trailing={
-                                                soon ? (
-                                                    <StatusBadge variant="warning" label={formatDaysLeft(daysLeft)} />
-                                                ) : (
-                                                    formatShortDateIt(c.chargedOn)
-                                                )
-                                            }
-                                        />
-                                    );
-                                })}
-                            </TileState>
-                        </Card>
-                    </div>
-
                     <ExpenseTabs
                         expenses={expenses}
                         nextCharges={nextCharges}
-                        months={summary.months}
+                        months={tabMonths}
+                        futureMonths={tabFutureMonths}
                         today={today}
                         loading={figuresLoading}
                         error={figuresError}
@@ -594,6 +701,10 @@ export default function CostsPage() {
                         accountLabel={e => accountNameAt(e, nextCharges.get(e.id) ?? e.paid_on ?? today)}
                         charges={allCharges}
                         settlements={settlements}
+                        toolbar={toolbar}
+                        chargePayer={chargePayer}
+                        filters={filters}
+                        onFilters={setFilters}
                         onDeleteMove={move => {
                             setDialogError(null);
                             setMoveToDelete(move);

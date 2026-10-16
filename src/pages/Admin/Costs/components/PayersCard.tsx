@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { BarList } from "@/components/ui/BarList/BarList";
 import { Button } from "@/components/ui/Button/Button";
@@ -10,10 +11,8 @@ import { settlementText as moveText, type ExpenseBalance } from "@/utils/crm/exp
 import { formatShortDateIt } from "@/utils/crm/expenses";
 import type { CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
+import { ExpenseIcon } from "./ExpenseIcon";
 import styles from "../Costs.module.scss";
-
-/** Quanti movimenti si vedono sotto il conto. */
-const RECENT_MOVES = 4;
 
 function listNames(names: string[]): string {
     if (names.length <= 1) return names[0] ?? "nessuno";
@@ -22,7 +21,8 @@ function listNames(names: string[]): string {
 
 /**
  * Chi ha pagato cosa (decisione di Alex del 2026-10-05): quanto ha messo
- * ognuno, chi deve quanto a chi, e i rimborsi già fatti. Il conto è in
+ * ognuno e i rimborsi già fatti. Chi deve quanto a chi sta nella banda in
+ * cima alla pagina (`BalanceBand`). Il conto è in
  * `computeExpenseBalance`; qui solo la vista.
  */
 export function PayersCard({
@@ -32,11 +32,10 @@ export function PayersCard({
     settlements,
     settlementsMissing,
     onRetry,
-    onSettle,
     onRecord,
     onDeleteMove,
-    depositHint,
-    onDeposit
+    expanded,
+    expandButton
 }: {
     balance: ExpenseBalance;
     loading: boolean;
@@ -45,52 +44,39 @@ export function PayersCard({
     /** La tabella dei movimenti non c'è ancora sul database. */
     settlementsMissing: boolean;
     onRetry: () => void;
-    onSettle: () => void;
     onRecord: () => void;
     onDeleteMove: (move: CrmExpenseSettlement) => void;
-    /** Pareggiare con un versamento sul conto comune: chi, quanto e dove. */
-    depositHint?: { from: string; amountCents: number; accountName: string } | null;
-    onDeposit?: () => void;
+    /** Piccolo: le sole barre. Allargato: spiegazioni e movimenti. */
+    expanded: boolean;
+    expandButton: ReactNode;
 }) {
-    const first = balance.transfers[0];
+    // Versato sui conti comuni e quanto ne resta: spiega perché le barre superano lo speso (Alex, 2026-10-16).
+    const depositedCents = balance.jointAccounts.reduce((sum, j) => sum + j.depositedCents, 0);
+    const leftOnJointCents = balance.jointAccounts.reduce((sum, j) => sum + Math.max(0, j.balanceCents), 0);
 
     return (
         <Card
+            className={styles.trioCard}
+            bodyClassName={styles.trioBodyFixed}
             title="Chi ha pagato"
-            subtitle={`Diviso in parti uguali fra ${listNames(balance.people.map(p => p.name))}: ${formatEuroCents(balance.sharedCents)} pagati di tasca vostra fino a oggi.`}
+            subtitle={
+                expanded
+                    ? `Diviso in parti uguali fra ${listNames(balance.people.map(p => p.name))}: ${formatEuroCents(balance.sharedCents)} pagati di tasca vostra fino a oggi.`
+                    : `${formatEuroCents(balance.sharedCents)} di tasca vostra, a metà.`
+            }
             actions={
-                <Button variant="secondary" size="sm" onClick={onRecord} disabled={settlementsMissing}>
-                    Registra un movimento
-                </Button>
+                <span className={styles.cardActions} data-compact-action>
+                    {expanded && (
+                        <Button variant="secondary" size="sm" onClick={onRecord} disabled={settlementsMissing}>
+                            Registra un movimento
+                        </Button>
+                    )}
+                    {expandButton}
+                </span>
             }
         >
             <TileState loading={loading} error={error} onRetry={onRetry}>
                 <div className={styles.payers}>
-                    <div className={styles.payerStatus} data-even={balance.even || undefined}>
-                        <Text as="p" variant="body" weight={600} color="inherit">
-                            {first
-                                ? balance.transfers.map(t => `${t.from} deve ${formatEuroCents(t.amountCents)} a ${t.to}`).join(" · ")
-                                : "Siete in pari"}
-                        </Text>
-                        {first && (
-                            <Button variant="primary" size="sm" onClick={onSettle} disabled={settlementsMissing}>
-                                Segna come pareggiato
-                            </Button>
-                        )}
-                    </div>
-
-                    {first && depositHint && onDeposit && (
-                        <div className={styles.depositHint}>
-                            <Text as="p" variant="body-sm" colorVariant="muted">
-                                Oppure {depositHint.from} versa {formatEuroCents(depositHint.amountCents)} in più su {depositHint.accountName}: il
-                                doppio, perché metà di quello che va sul conto comune è anche sua.
-                            </Text>
-                            <Button variant="secondary" size="sm" onClick={onDeposit} disabled={settlementsMissing}>
-                                Segna il versamento
-                            </Button>
-                        </div>
-                    )}
-
                     {/* Quanto ha messo ognuno, coi soldi passati fra voi: chi ha anticipato e poi è stato
                         rimborsato non risulta aver speso di più (Alex, 2026-10-16). Pari = barre uguali. */}
                     <BarList
@@ -103,13 +89,20 @@ export function PayersCard({
                             valueLabel: formatEuroCents(p.paidCents + p.settledCents)
                         }))}
                     />
-                    {balance.people.some(p => p.settledCents !== 0) && (
+                    {expanded && (depositedCents > 0 || balance.people.some(p => p.settledCents !== 0)) && (
                         <Text as="p" variant="caption" colorVariant="muted">
-                            Contati i soldi passati fra voi: quando siete in pari le barre sono uguali.
+                            {depositedCents > 0
+                                ? `Le barre contano anche i ${formatEuroCents(depositedCents)} versati sui conti comuni${
+                                      leftOnJointCents > 0
+                                          ? `: ${formatEuroCents(leftOnJointCents)} sono ancora lì, per questo insieme superano lo speso`
+                                          : ""
+                                  }. `
+                                : ""}
+                            Con i soldi passati fra voi: quando siete in pari le barre sono uguali.
                         </Text>
                     )}
 
-                    {(balance.jointCents > 0 || balance.unassignedCount > 0) && (
+                    {expanded && (balance.jointCents > 0 || balance.unassignedCount > 0) && (
                         <Text as="p" variant="caption" colorVariant="muted">
                             {[
                                 balance.jointCents > 0 && `Dal conto comune ${formatEuroCents(balance.jointCents)}: non pesa su nessuno.`,
@@ -129,18 +122,21 @@ export function PayersCard({
                         settlements.length > 0 && (
                             <div className={styles.moves}>
                                 <Text as="span" variant="caption" colorVariant="muted">
-                                    Ultimi movimenti
+                                    Movimenti, dal più recente
                                 </Text>
-                                <ul>
-                                    {settlements.slice(0, RECENT_MOVES).map(s => (
+                                <ul className={styles.movesScroll}>
+                                    {[...settlements].sort((a, b) => (a.settled_on < b.settled_on ? 1 : a.settled_on > b.settled_on ? -1 : 0)).map(s => (
                                         <li key={s.id} className={styles.move}>
-                                            <Text as="span" variant="caption" colorVariant="muted" className={styles.moveWhen}>
-                                                {formatShortDateIt(s.settled_on)}
-                                            </Text>
-                                            <Text as="span" variant="body-sm" className={styles.moveText}>
-                                                {moveText(s)}
-                                                {s.note ? ` · ${s.note}` : ""}
-                                            </Text>
+                                            <ExpenseIcon move />
+                                            <span className={styles.moveLines}>
+                                                <Text as="span" variant="body-sm" className={styles.ellipsis}>
+                                                    {moveText(s)}
+                                                </Text>
+                                                <Text as="span" variant="caption" colorVariant="muted" className={styles.ellipsis}>
+                                                    {formatShortDateIt(s.settled_on)}
+                                                    {s.note ? ` · ${s.note}` : ""}
+                                                </Text>
+                                            </span>
                                             <Text as="span" variant="body-sm" weight={600} className={styles.figureValue}>
                                                 {formatEuroCents(s.amount_cents)}
                                             </Text>
