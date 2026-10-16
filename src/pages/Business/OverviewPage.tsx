@@ -951,6 +951,24 @@ export default function OverviewPage() {
                 onClick={() => void handleCopyPublicUrl(location.publicUrl)}
             />
         );
+        // Le sospese come righe compatte: la `ListRow` della vetrina larga esce dalla card stretta.
+        const suspendedD = (locations?.suspended ?? []).map(location => (
+            <div key={location.id} className={styles.dRow}>
+                <PauseCircle size={20} className={styles.suspendedIcon} aria-hidden="true" />
+                <span className={styles.dRowText}>
+                    <span className={styles.dRowName}>{location.name}</span>
+                    <span className={styles.dRowSub}>
+                        {location.reason ? formatInactiveReason(location.reason) : "La pagina non si apre"}
+                    </span>
+                </span>
+                <span className={styles.dRowActions}>
+                    <StatusBadge variant="neutral" label="Sospesa" />
+                    <Button variant="secondary" size="sm" onClick={() => navigate(`${b}/locations/${location.id}/pubblicazione`)}>
+                        Apri sede
+                    </Button>
+                </span>
+            </div>
+        ));
         let vetrinaBody: ReactNode;
         if (locationsStatus !== "ready" || activeCount === 0 || !single) {
             vetrinaBody =
@@ -976,7 +994,7 @@ export default function OverviewPage() {
                                 </span>
                             </div>
                         ))}
-                        {suspendedRows}
+                        {suspendedD}
                     </div>
                 ) : (
                     showcaseBody
@@ -1037,7 +1055,7 @@ export default function OverviewPage() {
                             ariaLabel={`Azioni per ${single.name}`}
                         />
                     </div>
-                    {suspendedRows}
+                    {suspendedD}
                 </>
             );
         }
