@@ -28,25 +28,17 @@ export type HomeTodoSede = {
 export type HomeTodoState =
     | { status: "loading" }
     | { status: "error" }
-    | { status: "ready"; sedi: HomeTodoSede[] };
+    /** `partial`: almeno una lettura non è riuscita, quindi gli zeri non dicono «niente da fare». */
+    | { status: "ready"; sedi: HomeTodoSede[]; partial: boolean };
 
 const OPEN_STATUSES = ["submitted", "acknowledged", "ready"] as const;
-
-/** Un pezzo che fallisce vale zero: la Home non si ferma per una sezione
- *  (lo stesso dato resta nella sua pagina). */
-async function orZero<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
-    try {
-        return await promise;
-    } catch (error) {
-        console.error(`[Home] ${label} failed:`, error);
-        return fallback;
-    }
-}
 
 export function useHomeTodo(
     tenantId: string | null | undefined,
     sedi: { id: string; name: string }[] | null,
-    permissions: UserPermissions | null
+    permissions: UserPermissions | null,
+    /** Le sedi non si sono lette: «Da fare» lo dice invece di restare in caricamento. */
+    sediError = false
 ): HomeTodoState {
     const { hasFeature } = usePlanFeatures();
     const ordering = hasFeature("table_ordering");
@@ -56,9 +48,26 @@ export function useHomeTodo(
     const sediKey = sedi?.map(s => `${s.id}:${s.name}`).join("|") ?? null;
 
     useEffect(() => {
+        if (sediError) {
+            setState({ status: "error" });
+            return;
+        }
         if (!tenantId || !sedi || !permissions) return;
         let cancelled = false;
         setState({ status: "loading" });
+
+        // Un pezzo che fallisce vale zero, ma la Home lo sa: la pagina non si
+        // ferma per una sezione e non dice «Tutto a posto» per un errore.
+        let failed = false;
+        async function orZero<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
+            try {
+                return await promise;
+            } catch (error) {
+                console.error(`[Home] ${label} failed:`, error);
+                failed = true;
+                return fallback;
+            }
+        }
 
         async function load() {
             const can = (p: string, id: string) => canDoOnActivity(permissions!, p, id);
@@ -117,7 +126,7 @@ export function useHomeTodo(
                     };
                 })
             );
-            if (!cancelled) setState({ status: "ready", sedi: rows });
+            if (!cancelled) setState({ status: "ready", sedi: rows, partial: failed });
         }
 
         load().catch(error => {
@@ -129,7 +138,7 @@ export function useHomeTodo(
         };
         // `sedi` entra tramite `sediKey`: stessa lista, nessuna nuova lettura.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tenantId, sediKey, permissions, ordering, reservations]);
+    }, [tenantId, sediKey, sediError, permissions, ordering, reservations]);
 
     return state;
 }

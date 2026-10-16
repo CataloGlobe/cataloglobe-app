@@ -1089,6 +1089,7 @@ export default function OverviewPage() {
                 tenantId={tenantId!}
                 permissions={permissions}
                 sedi={locationsStatus === "ready" ? locations!.active.map(l => ({ id: l.id, name: l.name })) : null}
+                sediError={locationsStatus === "error"}
                 menuNone={
                     locationsStatus === "ready"
                         ? locations!.active.filter(l => menuStateFor(l.id) === "none").map(l => ({ id: l.id, name: l.name }))

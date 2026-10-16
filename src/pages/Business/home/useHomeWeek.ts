@@ -70,6 +70,10 @@ export function useHomeWeek(
                             : null
                 }
             });
+        }).catch(error => {
+            // Un errore fuori dalle letture: i numeri restano vuoti, mai lo scheletro per sempre.
+            console.error("[Home] week failed:", error);
+            if (!cancelled) setState({ status: "ready", week: { visits: null, revenue: null, covers: null, rating: null } });
         });
         return () => {
             cancelled = true;

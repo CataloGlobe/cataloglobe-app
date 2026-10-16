@@ -35,6 +35,7 @@ type Props = {
     tenantId: string;
     permissions: UserPermissions;
     sedi: { id: string; name: string }[] | null;
+    sediError: boolean;
     /** Sedi online che non mostrano nessun menù (stato già letto dalla vetrina). */
     menuNone: { id: string; name: string }[];
     createOptions: HomeCreateOption[];
@@ -77,6 +78,7 @@ function whenLabel(date: string, time: string): string {
 
 function todoFor(
     sede: HomeTodoSede,
+    seesServizio: boolean,
     b: string,
     catalogLower: string,
     showSede: boolean,
@@ -116,8 +118,9 @@ function todoFor(
             title: title.charAt(0).toUpperCase() + title.slice(1),
             sub: "In sala adesso",
             sede: tag,
-            button: "Vai al servizio",
-            to: `${s}/servizio`,
+            // Chi ha le comande ma non vede In servizio va sulle Comande della sede.
+            button: seesServizio ? "Vai al servizio" : "Vai alle comande",
+            to: seesServizio ? `${s}/servizio` : `${s}/comande`,
             urgent: true
         });
     }
@@ -193,6 +196,7 @@ export function HomeD({
     tenantId,
     permissions,
     sedi,
+    sediError,
     menuNone,
     createOptions,
     capabilities,
@@ -204,7 +208,7 @@ export function HomeD({
     const [all, setAll] = useState(false);
     const b = `/business/${tenantId}`;
 
-    const todo = useHomeTodo(tenantId, sedi, permissions);
+    const todo = useHomeTodo(tenantId, sedi, permissions, sediError);
 
     const seeAnalytics = canDoOnAnyActivity(permissions, "analytics.read");
     const show = {
@@ -221,7 +225,7 @@ export function HomeD({
     const items =
         todo.status === "ready"
             ? todo.sedi
-                  .flatMap(sede => todoFor(sede, b, catalogLower, many, noneIds.has(sede.id)))
+                  .flatMap(sede => todoFor(sede, canSeeServizio(permissions, sede.id), b, catalogLower, many, noneIds.has(sede.id)))
                   // Prima le urgenti, l'ordine di ogni gruppo resta.
                   .sort((x, y) => Number(!!y.urgent) - Number(!!x.urgent))
             : [];
@@ -229,13 +233,14 @@ export function HomeD({
     const cut = n > TODO_MAX + 1 && !all;
     const visible = cut ? items.slice(0, TODO_MAX) : items;
     const urgent = items.some(i => i.urgent);
+    const partial = todo.status === "ready" && todo.partial;
 
     // «Apri il servizio»: la prima sede dove chi guarda vede In servizio.
     const servizioSede = sedi?.find(s => canSeeServizio(permissions, s.id));
 
     const count = n === 1 ? "una cosa" : `${n} cose`;
     const line =
-        todo.status !== "ready" || !sedi ? null : (
+        todo.status !== "ready" || !sedi || (partial && n === 0) ? null : (
             <>
                 {sedi.length === 1 ? `Oggi a ${sedi[0].name}: ` : `Oggi in ${sedi.length} sedi: `}
                 {n > 0 ? (
@@ -377,6 +382,8 @@ export function HomeD({
         );
     } else if (todo.status === "error") {
         todoBody = <p className={styles.foot}>Non riusciamo a leggere cosa c'è da fare.</p>;
+    } else if (n === 0 && partial) {
+        todoBody = <p className={styles.foot}>Alcune letture non sono riuscite: riprova tra poco o guarda nelle sezioni.</p>;
     } else if (n === 0) {
         todoBody = (
             <div className={styles.ok}>
@@ -443,7 +450,7 @@ export function HomeD({
         <div className={styles.home}>
             <div className={styles.cmd}>
                 <p className={styles.answer} aria-live="off">
-                    {line ?? <Skeleton height="30px" width="320px" />}
+                    {line ?? (todo.status === "loading" ? <Skeleton height="30px" width="320px" /> : null)}
                 </p>
                 {servizioSede && (
                     <Button
