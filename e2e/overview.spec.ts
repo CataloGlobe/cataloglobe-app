@@ -37,9 +37,10 @@ test.describe("Panoramica", () => {
     test("Home della D: la riga di oggi e «Da fare»", async ({ page }) => {
         test.skip(!D_ON, "Solo con la D");
         const main = page.getByRole("main");
-        await expect(main.getByText(/^Oggi (a|in) /)).toBeVisible();
-        await expect(main.getByRole("heading", { name: "Da fare" })).toBeVisible();
-        await expect(main.getByRole("heading", { name: "Cosa hai attivato" })).toHaveCount(0);
+        // La riga di oggi arriva dopo le letture di «Da fare» (una per sede).
+        await expect(main.getByText(/^Oggi (a|in) .+ da fare\.$/)).toBeVisible({ timeout: 20_000 });
+        await expect(main.getByText("Da fare", { exact: true })).toBeVisible();
+        await expect(main.getByText("Cosa hai attivato", { exact: true })).toHaveCount(0);
     });
 
     test("vetrina: riga di una sede pubblica con nome, URL e QR", async ({ page }) => {
