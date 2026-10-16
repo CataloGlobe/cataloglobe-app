@@ -26,6 +26,7 @@ import { InhBox } from "./InhBox";
 import { InsiemeBox, type Nuovi } from "./InsiemeBox";
 import { CosaCambia } from "./CosaCambia";
 import { hAltri, hPeriodi, hVal, nascosto } from "./creaSedePer";
+import { LAST_BASE_TIP } from "@/pages/Dashboard/Programming/calendar/baseRule";
 
 export type U = (fn: (t: Tunnel) => void) => void;
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -396,9 +397,9 @@ export function OndaAsk({ t, u, small }: { t: Tunnel; u: U; small?: boolean }) {
                     on={t.onda === "off"}
                     icon={spegni ? <PowerOff size={18} /> : <CirclePause size={18} />}
                     title={spegni ? "No, lo spengo" : keepReady(t.kind)}
-                    text={spegni ? "Resta salvato, ma nessun cliente lo vede: nelle sue ore torna lo stile di prima." : `${t.kind === "storia" ? "La salvi completa" : "Lo salvi completo"}, ma nessun cliente ${o.lo} vede.`}
-                    disabled={offLater(t)}
-                    later={offLater(t) ? "Arriva col database nuovo" : undefined}
+                    text={spegni ? "Resta salvato, ma nessun cliente lo vede: nelle sue ore torna lo stile di prima." : t.edit?.base ? LAST_BASE_TIP : `${t.kind === "storia" ? "La salvi completa" : "Lo salvi completo"}, ma nessun cliente ${o.lo} vede.`}
+                    disabled={offLater(t) || !!t.edit?.base}
+                    later={offLater(t) ? "Arriva col database nuovo" : t.edit?.base ? "Serve un altro menù di base" : undefined}
                     onClick={() => u(x => void (x.onda = "off"))}
                 />
             </div>

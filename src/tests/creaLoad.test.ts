@@ -77,6 +77,20 @@ describe("modifica di un menù: quali regole contano (D189)", () => {
     });
 });
 
+
+describe("modifica del menù di base (D238)", () => {
+    it("la sola regola sempre e in tutte le sedi: non si tiene pronto, il locale resterebbe senza menù", async () => {
+        const { t } = await loadTunnel("menu", "c1", "t", data([rule({ applyToAll: true, activityIds: [] })]));
+        expect(t.edit?.base).toBe(true);
+    });
+
+    it("con un altro menù di base acceso, o con una regola solo a pranzo, si può", async () => {
+        const altro = rule({ applyToAll: true, activityIds: [], layout: { catalog_id: "c2", style_id: "s1" } as LayoutRule["layout"] });
+        expect((await loadTunnel("menu", "c1", "t", data([rule({ applyToAll: true, activityIds: [] }), altro]))).t.edit?.base).toBeFalsy();
+        const pranzo = rule({ applyToAll: true, activityIds: [], time_mode: "window", time_from: "12:00", time_to: "15:00" });
+        expect((await loadTunnel("menu", "c1", "t", data([pranzo]))).t.edit?.base).toBeFalsy();
+    });
+});
 describe("copia da un altro menù", () => {
     it("porta categorie, piatti e varianti, senza i segni del menù da cui vengono", async () => {
         vi.mocked(listCategories).mockResolvedValueOnce([
