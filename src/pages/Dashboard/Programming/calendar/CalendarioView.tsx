@@ -44,7 +44,7 @@ import { CalendarioSection, type SectionGroup } from "./CalendarioSection";
 import { type PannelloGruppo, type SedeScelta } from "@/components/ui/SediPannello/SediPannello";
 import { useTenantId } from "@/context/useTenantId";
 import { useConfrontoQui, useSediVista } from "@/hooks/useSediVista";
-import { confrontoGiorno, maggioranza, programma, type Diversi, type Programma } from "./calendarConfronto";
+import { confrontoGiorno, maggioranza, programma, type Diversi, type Pezzo, type Programma } from "./calendarConfronto";
 import {
     blankDraft,
     cloneDraft,
@@ -74,6 +74,11 @@ import {
     writeAside
 } from "./calendarDraft";
 import s from "./CalendarioView.module.scss";
+import { LOOK_D } from "@/styles/lookD";
+import { Lead } from "@/pages/Dashboard/Vetrina/VetrinaHead";
+import { calLead, inOndaOra } from "./calendarLead";
+import { CalendarioAgenda, type AgendaItem } from "./CalendarioAgenda";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { PartialSaveError } from "./calendarSave";
 import { lastBaseMenu } from "./baseRule";
 
@@ -264,6 +269,10 @@ export default function CalendarioView({
     const [dDay, setDDay] = useState(dayOfWeek(today));
     const [view, setView] = useState<"day" | "week">("week");
     const [panel, setPanel] = useState(true);
+    // D, al telefono: Agenda (d'apertura) o la Settimana stretta (copia `CAL.ph`)
+    const phone = useMediaQuery("(max-width: 640px)") && LOOK_D;
+    const [ph, setPh] = useState<"agenda" | "week">("agenda");
+    const agendaOn = phone && ph === "agenda" && !anteprima;
     const [pop, setPop] = useState(false);
     const [monOff, setMonOff] = useState(0);
     const multi = sedi.length > 1;
@@ -353,6 +362,16 @@ export default function CalendarioView({
     const spente = useMemo(() => (anteprima ? [] : entriesFromRules(rules, names, true)), [rules, names, anteprima]);
     const axis = useMemo(() => axisFor(entries), [entries]);
     const seatOf = useCallback((id: string): CalSeat => ({ activityId: id, groupIds: groupIdsByActivity[id] ?? [] }), [groupIdsByActivity]);
+    // D: la frase in cima, chi vedono i clienti adesso (copia `cNowLine`)
+    const leadD = useMemo(() => {
+        if (!LOOK_D || anteprima || !sedi.length) return null;
+        const day = (d: DayNum): readonly Pezzo[] => {
+            if (focus || !multi) return programma(entries, seatOf((focus ?? sedi[0]).id), d, axis).pezzi;
+            return maggioranza(scopeSedi.map(x => [x.id, programma(entries, seatOf(x.id), d, axis)] as const))?.base.pezzi ?? [];
+        };
+        const dove = !multi ? "" : focus ? `a ${focus.name}` : ", nella maggior parte delle sedi,";
+        return calLead(inOndaOra(day(today), day(today - 1), nowMin), dove);
+    }, [anteprima, sedi, focus, multi, entries, seatOf, axis, scopeSedi, today, nowMin]);
 
     const shade = useMemo(() => {
         const m = new Map<string, string>();
@@ -878,8 +897,8 @@ export default function CalendarioView({
                 <div className={s.mmh}>
                     <b>{ml.charAt(0).toUpperCase() + ml.slice(1) + " " + fp.year}</b>
                     <span>
-                        <IconButton size="sm" icon={<ChevronUp size={14} />} aria-label="Mese precedente" onClick={() => setMonOff(o => o - 1)} />
-                        <IconButton size="sm" icon={<ChevronDown size={14} />} aria-label="Mese successivo" onClick={() => setMonOff(o => o + 1)} />
+                        <IconButton size="sm" icon={LOOK_D ? <ChevronLeft size={14} /> : <ChevronUp size={14} />} aria-label="Mese precedente" onClick={() => setMonOff(o => o - 1)} />
+                        <IconButton size="sm" icon={LOOK_D ? <ChevronRight size={14} /> : <ChevronDown size={14} />} aria-label="Mese successivo" onClick={() => setMonOff(o => o + 1)} />
                     </span>
                 </div>
                 <div className={`${s.mmw} ${s.mmwd}`}>
@@ -1449,101 +1468,199 @@ export default function CalendarioView({
         );
     }
 
-    return (
-        <div className={`${s.root} ${s.gwrap} ${panel ? "" : s.closed} ${pickView ? s.ion : ""}`} onPointerMove={onPointerMove} onPointerLeave={hide}>
-            {panel && (
-                <aside className={s.gside} aria-label="Calendario del mese">
-                    <div className={s.gch}>
-                        <b>Calendario</b>
-                        <IconButton size="sm" icon={<PanelLeftClose size={16} />} aria-label="Chiudi la colonna del calendario" aria-expanded onClick={() => setPanel(false)} />
-                    </div>
-                    {miniMonth()}
-                </aside>
-            )}
-            <div className={s.gmain}>
-                <div className={s.dbar}>
-                    <div className={s.l}>
-                        {!panel && <IconButton icon={<PanelLeft size={16} />} aria-label="Apri la colonna del calendario" aria-expanded={false} onClick={() => setPanel(true)} />}
-                        <Button variant="secondary" size="sm" onClick={goToday}>
-                            Oggi
-                        </Button>
-                        <IconButton icon={<ChevronLeft size={16} />} aria-label={`${unit} precedente`} onClick={() => step(-1)} />
-                        <IconButton icon={<ChevronRight size={16} />} aria-label={`${unit} successiv${view === "day" ? "o" : "a"}`} onClick={() => step(1)} />
-                        <span className={s.gdate} ref={popRef}>
-                            <button type="button" className={s.glab} aria-expanded={pop} onClick={() => setPop(p => !p)}>
-                                {label}
-                                <ChevronDown size={14} aria-hidden />
-                            </button>
-                            {pop && <div className={s.gpop}>{miniMonth()}</div>}
-                        </span>
-                    </div>
-                    <div className={s.r}>
-                        <SegmentedControl
-                            size="sm"
-                            value={view}
-                            onChange={v => setView(v)}
-                            options={[
-                                { value: "day", label: "Giorno", icon: <Square size={14} aria-hidden /> },
-                                { value: "week", label: "Settimana", icon: <Columns3 size={14} aria-hidden /> }
-                            ]}
-                        />
-                        {actions}
-                        {section?.canAdd && (
-                            <Button variant="primary" size="sm" leftIcon={<Plus size={16} />} onClick={openAdd}>
-                                Aggiungi
-                            </Button>
-                        )}
-                    </div>
+    const gcls = `${s.gwrap} ${panel ? "" : s.closed} ${pickView ? s.ion : ""}`;
+    // l'agenda del telefono: il programma del giorno scelto, nella sede guardata o nella maggior parte
+    const agenda = (() => {
+        if (!agendaOn || !sedi.length) return null;
+        const sedeId = focus?.id ?? (!multi ? sedi[0].id : null);
+        const pezziOf = (day: DayNum) =>
+            sedeId
+                ? programma(entries, seatOf(sedeId), day, axis).pezzi
+                : (maggioranza(scopeSedi.map(x => [x.id, programma(entries, seatOf(x.id), day, axis)] as const))?.base.pezzi ?? []);
+        // Dopo mezzanotte la fascia della sera prima (Cena 19–02 alle 01:00) è ancora in onda:
+        // nell'agenda di oggi c'è anche lei, in cima, come dice la frase (`inOndaOra`).
+        const tail = selDay === today ? pezziOf(selDay - 1).filter(x => x.from <= nowMin + 1440 && nowMin + 1440 < x.to) : [];
+        const row = (x: (typeof tail)[number], day: DayNum, now: boolean): AgendaItem => {
+            const onPick = () => {
+                if (!sedeId) return;
+                const ln = fLines(dayCtx(entries, x.k, seatOf(sedeId), day), axis).find(l => l.thing === x.first);
+                const g = ln?.segs.find(sg => sg.from <= x.from && x.from < sg.to);
+                if (g) openPick({ kind: x.k, thing: x.first, date: day, sede: sedeId, from: g.from });
+            };
+            return {
+                key: `${day}|${x.k}|${x.label}|${x.from}`,
+                k: x.k,
+                label: x.k === "menu" ? x.label.split(" + ").map(shortName).join(" + ") : x.label,
+                hours: `${hhmm(x.from)}–${hhmm(x.to)}`,
+                color: x.k === "featured" ? KIND_COLOR.featured : colorOf(x.k, x.first),
+                now,
+                onPick: sedeId ? onPick : undefined
+            };
+        };
+        const items: AgendaItem[] = [
+            ...tail.map(x => row(x, selDay - 1, true)),
+            ...pezziOf(selDay).map(x => row(x, selDay, selDay === today && x.from <= nowMin && nowMin < x.to))
+        ];
+        const where = !multi ? "" : focus ? ` · ${focus.name}` : " · Tutte le sedi";
+        return (
+            <CalendarioAgenda
+                days={[0, 1, 2, 3, 4, 5, 6].map(i => ({ date: week + i, name: DAYS[i], num: dayParts(week + i).day }))}
+                selected={selDay}
+                today={today}
+                title={`${DAYS_L[dayOfWeek(selDay)]} ${dayParts(selDay).day} ${monthLong(selDay)}${where}`}
+                kinds={CAL_KINDS}
+                items={items}
+                onDay={d => setDDay(dayOfWeek(d))}
+            />
+        );
+    })();
+    const bar = (
+        <div className={s.dbar}>
+            <div className={s.l}>
+                {LOOK_D ? (
+                    <IconButton
+                        icon={panel ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
+                        aria-label={panel ? "Chiudi la colonna del calendario" : "Apri la colonna del calendario"}
+                        aria-expanded={panel}
+                        className={s.sideT}
+                        onClick={() => setPanel(p => !p)}
+                    />
+                ) : (
+                    !panel && <IconButton icon={<PanelLeft size={16} />} aria-label="Apri la colonna del calendario" aria-expanded={false} onClick={() => setPanel(true)} />
+                )}
+                <Button variant="secondary" size="sm" onClick={goToday}>
+                    Oggi
+                </Button>
+                <IconButton icon={<ChevronLeft size={16} />} aria-label={`${unit} precedente`} onClick={() => step(-1)} />
+                <IconButton icon={<ChevronRight size={16} />} aria-label={`${unit} successiv${view === "day" ? "o" : "a"}`} onClick={() => step(1)} />
+                <span className={s.gdate} ref={popRef}>
+                    <button type="button" className={s.glab} aria-expanded={pop} onClick={() => setPop(p => !p)}>
+                        {label}
+                        <ChevronDown size={14} aria-hidden />
+                    </button>
+                    {pop && <div className={s.gpop}>{miniMonth()}</div>}
+                </span>
+            </div>
+            <div className={s.r}>
+                {phone && !anteprima ? (
+                    <SegmentedControl
+                        size="sm"
+                        label="Come vedere il calendario"
+                        value={ph}
+                        onChange={v => {
+                            setPh(v);
+                            if (v === "week") setView("week");
+                        }}
+                        options={[
+                            { value: "agenda", label: "Agenda" },
+                            { value: "week", label: "Settimana" }
+                        ]}
+                    />
+                ) : (
+                    <SegmentedControl
+                        size="sm"
+                        value={view}
+                        onChange={v => setView(v)}
+                        options={[
+                            { value: "day", label: "Giorno", icon: <Square size={14} aria-hidden /> },
+                            { value: "week", label: "Settimana", icon: <Columns3 size={14} aria-hidden /> }
+                        ]}
+                    />
+                )}
+                {actions}
+                {section?.canAdd && (
+                    <Button variant="primary" size="sm" leftIcon={<Plus size={16} />} onClick={openAdd}>
+                        Aggiungi
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+    const side = panel && (
+        <aside className={s.gside} aria-label="Calendario del mese">
+            {!LOOK_D && (
+                <div className={s.gch}>
+                    <b>Calendario</b>
+                    <IconButton size="sm" icon={<PanelLeftClose size={16} />} aria-label="Chiudi la colonna del calendario" aria-expanded onClick={() => setPanel(false)} />
                 </div>
+            )}
+            {miniMonth()}
+        </aside>
+    );
+    const main = (
+        <div className={`${s.gmain} ${agenda ? s.agOn : ""}`}>
+            {!LOOK_D && bar}
+            {!LOOK_D && noteNode}
+            {!LOOK_D && summary}
+            {agenda}
+            <div className={s.flegend}>
+                <span>
+                    <i className={`${s.lg} ${s.on}`} />
+                    in onda
+                </span>
+                <span>
+                    <i className={`${s.lg} ${s.off}`} />
+                    c'è, ma lo copre un altro
+                </span>
+                {spente.length > 0 && (
+                    <span>
+                        <i className={`${s.lg} ${s.off} ${s.spenta}`} />
+                        pronto, non in onda
+                    </span>
+                )}
+                <span>
+                    <i className={`${s.lg} ${s.hid}`}>
+                        <span className={s.under}>
+                            <Layers size={10} strokeWidth={2.2} aria-hidden />1
+                        </span>
+                    </i>
+                    sotto c'è qualcosa che non si vede
+                </span>
+            </div>
+            <div className={s.dwrap} ref={wrapRef}>
+            <div className={s.dcal} ref={calRef}>
+                <div className={`${s.fcal} ${pickView || phone ? s.slim : ""} ${phone ? s.narrow : ""}`}>
+                    <div className={s.fhead}>
+                        <div />
+                        <div />
+                        <div className={s.fhours} ref={hours.ref}>
+                            {hoursHead}
+                        </div>
+                    </div>
+                    {body}
+                </div>
+            </div>
+            {todayOut && (
+                <button type="button" className={s.todayGo} style={{ top: todayOut.top }} onClick={() => jump(today)}>
+                    Oggi · {DAYS[dayOfWeek(today)].toLowerCase()} {dayParts(today).day}
+                    {todayOut.up ? <ArrowUp size={14} aria-hidden /> : <ArrowDown size={14} aria-hidden />}
+                </button>
+            )}
+            </div>
+            {!rules.length && <p className={s.dnote}>Non c'è ancora niente in calendario.</p>}
+            <p className={s.dnote}>Ogni {FSLOT} minuti: apri una corsia per vedere una linea per regola.</p>
+        </div>
+    );
+    // D (copia `pCal`): la frase, la barra e il riepilogo sopra; sotto il mese e la griglia, due card
+    if (LOOK_D)
+        return (
+            <div className={`${s.root} ${s.dpage}`} onPointerMove={onPointerMove} onPointerLeave={hide}>
+                {leadD && <Lead parts={leadD} family="menu" />}
+                {bar}
                 {noteNode}
                 {summary}
-                <div className={s.flegend}>
-                    <span>
-                        <i className={`${s.lg} ${s.on}`} />
-                        in onda
-                    </span>
-                    <span>
-                        <i className={`${s.lg} ${s.off}`} />
-                        c'è, ma lo copre un altro
-                    </span>
-                    {spente.length > 0 && (
-                        <span>
-                            <i className={`${s.lg} ${s.off} ${s.spenta}`} />
-                            pronto, non in onda
-                        </span>
-                    )}
-                    <span>
-                        <i className={`${s.lg} ${s.hid}`}>
-                            <span className={s.under}>
-                                <Layers size={10} strokeWidth={2.2} aria-hidden />1
-                            </span>
-                        </i>
-                        sotto c'è qualcosa che non si vede
-                    </span>
+                <div className={gcls}>
+                    {side}
+                    {main}
+                    {pickView}
                 </div>
-                <div className={s.dwrap} ref={wrapRef}>
-                <div className={s.dcal} ref={calRef}>
-                    <div className={`${s.fcal} ${pickView ? s.slim : ""}`}>
-                        <div className={s.fhead}>
-                            <div />
-                            <div />
-                            <div className={s.fhours} ref={hours.ref}>
-                                {hoursHead}
-                            </div>
-                        </div>
-                        {body}
-                    </div>
-                </div>
-                {todayOut && (
-                    <button type="button" className={s.todayGo} style={{ top: todayOut.top }} onClick={() => jump(today)}>
-                        Oggi · {DAYS[dayOfWeek(today)].toLowerCase()} {dayParts(today).day}
-                        {todayOut.up ? <ArrowUp size={14} aria-hidden /> : <ArrowDown size={14} aria-hidden />}
-                    </button>
-                )}
-                </div>
-                {!rules.length && <p className={s.dnote}>Non c'è ancora niente in calendario.</p>}
-                <p className={s.dnote}>Ogni {FSLOT} minuti: apri una corsia per vedere una linea per regola.</p>
+                {tipNode}
             </div>
+        );
+    return (
+        <div className={`${s.root} ${gcls}`} onPointerMove={onPointerMove} onPointerLeave={hide}>
+            {side}
+            {main}
             {pickView}
             {tipNode}
         </div>

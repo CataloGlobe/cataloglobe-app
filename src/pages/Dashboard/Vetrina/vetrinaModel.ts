@@ -1,6 +1,7 @@
 // Menù e vetrina nella D (Visual Redesign 2, PR 9; copia congelata `#p-mv`).
 // Solo dati e parole: la riga «In onda», la frase in cima, filtri e ordine.
 // Gli stati vengono da `ruleAppearance`, la stessa competizione del Calendario.
+import type { Family } from "@/components/ui/FamilyName/family";
 import {
     describeReach,
     describeWhen,
@@ -60,7 +61,8 @@ export function onAirOf(appearance: Appearance | null, activities: readonly Appe
 }
 
 /** Un pezzo della frase: testo, un nome della famiglia, o una mancanza (`b.dn`). */
-export type LeadPart = { text: string } | { name: string } | { down: string } | { strong: string };
+/** Un pezzo della frase; un nome può avere la sua famiglia (nel Calendario menù, stile e in evidenza stanno insieme). */
+export type LeadPart = { text: string } | { name: string; family?: Family } | { down: string } | { strong: string };
 
 /** Le parole della frase per famiglia: il soggetto quando niente è in onda, e l'attacco. */
 export type LeadWords = {
