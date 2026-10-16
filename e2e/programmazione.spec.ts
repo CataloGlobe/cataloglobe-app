@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
 import { sectionRow, sidebarLink } from "./nav";
-import { FEATURED, MATRIX_RULE_NAME, MENU, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, STYLE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { COVERED_RULE, COVERED_RULE_NAME, FEATURED, MATRIX_RULE_NAME, MENU, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, STYLE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
  * Programmazione (lotto `ds-5-programmazione`, P0). Scritto sulla pagina di
@@ -227,6 +227,31 @@ async function noHorizontalScroll(page: Page): Promise<void> {
     expect(overflow).toBeLessThanOrEqual(0);
 }
 
+test.describe("Programmazione — elenco, un menù coperto", () => {
+    test.beforeEach(async ({ page }) => {
+        await stubProgrammazione(page, { coveredMenu: true });
+    });
+
+    // «Carta copia» vale per tutte le sedi come «Carta», ma è venuta dopo: con
+    // l'ordine di oggi delle regole di menù perde ovunque. A Centro vince
+    // «Pranzo» (la sede prima nell'elenco), quindi è lui che la copre.
+    const copia = (page: Page) => ruleList(page).getByText(COVERED_RULE_NAME.cartaBis, { exact: true }).first();
+
+    test("la regola in finestra che perde sta in «Adesso», con «Sovrascritta da»", async ({ page }) => {
+        await openList(page);
+        const adesso = group(page, GROUP.adesso);
+        await expect(rowOf(adesso.getByText(COVERED_RULE_NAME.cartaBis, { exact: true }))).toContainText(/Sovrascritta da/);
+        await expect(rowOf(rule(page, "carta"))).not.toContainText(/Sovrascritta/);
+    });
+
+    test("«Sovrascritta da» porta alla regola che vince", async ({ page }) => {
+        await openList(page);
+        await rowOf(copia(page)).getByRole("link", { name: RULE_NAME.pranzo }).click();
+        await expect(page).toHaveURL(new RegExp(`/scheduling/${RULE.pranzo}`));
+        expect(page.url()).not.toContain(COVERED_RULE.cartaBis);
+    });
+});
+
 test.describe("Programmazione — elenco", () => {
     let stub: ProgrammazioneStub;
     test.beforeEach(async ({ page }) => {
@@ -236,12 +261,13 @@ test.describe("Programmazione — elenco", () => {
     test("le regole stanno nei cinque gruppi di stato, con «Tutte»", async ({ page }) => {
         await openList(page);
         const adesso = group(page, GROUP.adesso);
-        // «Adesso» è la finestra, non la vittoria (§34.4): anche la regola in
-        // finestra che perde, con «Sovrascritta da …».
+        // «Adesso» è la finestra, non la vittoria (§34.4). Le due «Promo» in
+        // evidenza a Porto si sommano (giudice nuovo, come la pagina pubblica):
+        // nessuna è sovrascritta. La regola che perde: «elenco, un menù coperto».
         for (const key of ["carta", "pranzo", "spritz", "stagionali", "promoPorto", "promoCosta"] as const) {
             await expect(adesso).toContainText(RULE_NAME[key]);
         }
-        await expect(rowOf(adesso.getByText(RULE_NAME.promoCosta, { exact: true }))).toContainText(/Sovrascritta da/);
+        await expect(rowOf(adesso.getByText(RULE_NAME.promoCosta, { exact: true }))).not.toContainText(/Sovrascritta/);
         const programmate = group(page, GROUP.programmate);
         for (const key of ["aperitivo", "natale"] as const) {
             await expect(programmate).toContainText(RULE_NAME[key]);
@@ -258,9 +284,8 @@ test.describe("Programmazione — elenco", () => {
         await expect(group(page, GROUP.scadute)).toContainText(RULE_NAME.saldi);
     });
 
-    test("i segni della riga: sovrascritta, nessuna sede raggiunta, sedi escluse, bozza", async ({ page }) => {
+    test("i segni della riga: nessuna sede raggiunta, sedi escluse, bozza", async ({ page }) => {
         await openList(page);
-        await expect(rowOf(rule(page, "promoCosta"))).toContainText(/Sovrascritta/);
         await expect(rowOf(rule(page, "gruppoVuoto"))).toContainText(/Nessuna sede raggiunta/);
         // La riga ambra (T9b, PG5): in quale sede vince un'altra regola.
         await expect(rowOf(rule(page, "carta"))).toContainText(`A Centro e2e vince «${RULE_NAME.pranzo}»`);
@@ -361,11 +386,6 @@ test.describe("Programmazione — elenco", () => {
         await expect(filter.getByRole("tab", { name: /^Tutte 2$/ })).toBeVisible();
     });
 
-    test("«Sovrascritta da» porta alla regola che vince", async ({ page }) => {
-        await openList(page);
-        await rowOf(rule(page, "promoCosta")).getByRole("link", { name: RULE_NAME.promoPorto }).click();
-        await expect(page).toHaveURL(new RegExp(`/scheduling/featured/${RULE.promoPorto}`));
-    });
 
     test("se il caricamento fallisce lo dice, e «Riprova» ricarica", async ({ page }) => {
         let failing = true;

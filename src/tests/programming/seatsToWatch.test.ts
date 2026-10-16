@@ -5,7 +5,7 @@ import type { MatrixCell, MatrixRow } from "@/utils/scheduleMatrix";
 // Le sedi «da guardare» della card «Adesso» d'azienda (T9b, PG5): sospese,
 // senza menù attivo, con modifiche a mano. Le altre sono «senza problemi».
 const empty: MatrixCell<{ id: string }> = { kind: "empty", diagnosis: { kind: "none", count: 0 } };
-const winner: MatrixCell<{ id: string }> = { kind: "winner", rule: { id: "r" } };
+const winner: MatrixCell<{ id: string }> = { kind: "winner", rule: { id: "r" }, rules: [{ id: "r" }] };
 
 function row(o: Partial<MatrixRow<{ id: string }>> & { activityId: string; layout?: "winner" | "empty" }): MatrixRow<{ id: string }> {
     return {

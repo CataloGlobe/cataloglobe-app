@@ -1,11 +1,9 @@
 import type { LayoutRule, LayoutRuleOption } from "@/services/supabase/layoutScheduling";
-import { toCompetitionRule } from "@/utils/ruleInsights";
+import { isViewRuleActiveNow, judgeSeat, toJudgeRule, viewLayerOf } from "@/utils/judgeView";
 import { describeRuleAction } from "@/utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
 import {
-    isTimeRuleActiveNow,
-    resolveCompetition,
     specificityFor,
     type CompetitionRuleType,
     type CompetitionSeat,
@@ -14,9 +12,9 @@ import {
 
 /**
  * La matrice sedi × strati di Programmazione (§20.3, §50.7): per ogni sede,
- * strato per strato, la regola che vince nell'istante del cursore — la
- * stessa `resolveCompetition` della pagina pubblica e di «Sovrascritta da» —
- * e, dove non vince nessuna, perché. Più il riepilogo della banda.
+ * strato per strato, cosa è in onda nell'istante del cursore — lo stesso
+ * giudice della pagina pubblica e di «Sovrascritta da» (`judge`) — e, dove
+ * non c'è niente, perché. Più il riepilogo della banda.
  * Pura: nessuna richiesta, lavora sulle regole già caricate dalla pagina.
  */
 
@@ -32,7 +30,11 @@ export type MatrixDiagnosis = {
     count: number;
 };
 
-export type MatrixCell<R> = { kind: "winner"; rule: R } | { kind: "empty"; diagnosis: MatrixDiagnosis };
+/**
+ * `rules`: le regole in onda nello strato, la prima davanti (`rule`). Nel menù
+ * più d'una quando i menù sono «insieme»; negli altri strati si sommano.
+ */
+export type MatrixCell<R> = { kind: "winner"; rule: R; rules: R[] } | { kind: "empty"; diagnosis: MatrixDiagnosis };
 
 export type MatrixRow<R> = {
     activityId: string;
@@ -82,7 +84,7 @@ function diagnose<R extends LayoutRule>(rules: readonly R[], seat: CompetitionSe
             endAt: rule.end_at,
             isConfigDraft: false,
             isZeroReach: false,
-            isActiveNow: rule.enabled && isTimeRuleActiveNow(rule, instant),
+            isActiveNow: isViewRuleActiveNow(rule, instant),
             now
         });
         if (status === "scheduled") counts.outOfWindow += 1;
@@ -103,19 +105,22 @@ export function buildScheduleMatrix<R extends LayoutRule>(input: ScheduleMatrixI
         }
     }
 
-    const competitionRules = rules.map(toCompetitionRule);
-    const rulesByType = new Map<CompetitionRuleType, R[]>(MATRIX_LAYERS.map(type => [type, rules.filter(r => r.rule_type === type)]));
+    const judgeRules = rules.map(toJudgeRule);
+    const rulesByType = new Map<CompetitionRuleType, R[]>(
+        MATRIX_LAYERS.map(type => [type, rules.filter(r => viewLayerOf(r.rule_type) === type)])
+    );
     const seats = filterActivityId ? activities.filter(activity => activity.id === filterActivityId) : activities;
 
     const rows = seats.map(activity => {
         const seat: CompetitionSeat = { activityId: activity.id, groupIds: groupIdsByActivityId.get(activity.id) ?? [] };
-        const outcome = resolveCompetition(competitionRules, seat, instant);
+        const outcome = judgeSeat(judgeRules, seat, instant);
         const cells = {} as Record<CompetitionRuleType, MatrixCell<R>>;
         for (const type of MATRIX_LAYERS) {
-            const winner = outcome[type].winner;
-            cells[type] = winner
-                ? { kind: "winner", rule: winner.rule.source }
-                : { kind: "empty", diagnosis: diagnose(rulesByType.get(type) ?? [], seat, instant) };
+            const shown = outcome[type].shown.map(entry => entry.rule.source);
+            cells[type] =
+                shown.length > 0
+                    ? { kind: "winner", rule: shown[0], rules: shown }
+                    : { kind: "empty", diagnosis: diagnose(rulesByType.get(type) ?? [], seat, instant) };
         }
         return {
             activityId: activity.id,
@@ -140,6 +145,12 @@ export function buildScheduleMatrix<R extends LayoutRule>(input: ScheduleMatrixI
 
 const MANUAL_LINE = "modifiche a mano in corso, che vincono sulle regole.";
 
+/** «A», «A e B», «A, B e C». */
+export function joinNames(names: readonly string[]): string {
+    if (names.length <= 1) return names[0] ?? "";
+    return `${names.slice(0, -1).join(", ")} e ${names[names.length - 1]}`;
+}
+
 /** L'esito della banda e la riga delle modifiche a mano (null se non ce ne sono). */
 export function describeBand<R extends LayoutRule>(
     matrix: ScheduleMatrix<R>,
@@ -155,12 +166,12 @@ export function describeBand<R extends LayoutRule>(
         const manual = !row.suspended && (row.manualCount ?? 0) > 0 ? `Ha ${MANUAL_LINE}` : null;
         if (row.suspended) return { headline: `${row.name} è sospesa: non mostra un menù`, manual };
         const layout = row.cells.layout;
-        const catalogId = layout.kind === "winner" ? layout.rule.layout?.catalog_id : null;
-        const name = catalogId ? catalogName(catalogId) : undefined;
-        return {
-            headline: layout.kind === "winner" ? `${row.name} sta mostrando ${name ?? "un menù"}` : `${row.name} non sta mostrando un menù`,
-            manual
-        };
+        if (layout.kind !== "winner") return { headline: `${row.name} non sta mostrando un menù`, manual };
+        const names = layout.rules.map(rule => {
+            const catalogId = rule.layout?.catalog_id;
+            return (catalogId ? catalogName(catalogId) : undefined) ?? "un menù";
+        });
+        return { headline: `${row.name} sta mostrando ${joinNames(names)}`, manual };
     }
 
     const headline =

@@ -1,24 +1,16 @@
 import type { LayoutRule, LayoutRuleFeaturedContent } from "@/services/supabase/layoutScheduling";
 import { buildRuleSummary } from "@/utils/ruleHelpers";
-import { toCompetitionRule } from "@/utils/ruleInsights";
+import { isViewRuleActiveNow, judgeSeat, toJudgeRule, viewLayerOf, type ViewLayer, type ViewOutcome } from "@/utils/judgeView";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { ruleReachesAnyActivity } from "@/utils/scheduleReach";
 import { deriveScheduleStatus, type ScheduleStatus } from "@/utils/scheduleStatus";
-import {
-    isTimeRuleActiveNow,
-    resolveCompetition,
-    specificityFor,
-    type CompetitionOutcome,
-    type CompetitionRule,
-    type CompetitionSeat,
-    type RomeDateTime
-} from "@shared/scheduleCompetition";
+import { specificityFor, type CompetitionSeat, type RomeDateTime } from "@shared/scheduleCompetition";
 
 /**
  * Dove e quando appare una cosa (§50.13): un menù, uno stile, un contenuto in
  * evidenza — e, senza regole, una storia. Una sola fonte per le quattro
- * pagine, e la stessa competizione della pagina pubblica, della matrice e di
- * «Sovrascritta da»: `resolveCompetition` una volta per sede, poi per ogni
+ * pagine, e lo stesso giudice della pagina pubblica, della matrice e di
+ * «Sovrascritta da»: `judge` una volta per sede, poi per ogni
  * regola che nomina l'oggetto il motivo per cui, in quella sede, è in onda o
  * no. Pura: lavora sulle regole caricate da `listAppearanceSources`.
  *
@@ -112,7 +104,7 @@ type Seat = CompetitionSeat & { name: string; suspended: boolean };
 
 export type AppearanceIndex = {
     seats: Seat[];
-    outcomes: Map<string, CompetitionOutcome<CompetitionRule & { source: LayoutRule }>>;
+    outcomes: Map<string, ViewOutcome<LayoutRule>>;
     entries: Map<string, AppearanceRuleEntry>;
     rules: readonly LayoutRule[];
     instant: RomeDateTime;
@@ -136,8 +128,8 @@ export function buildAppearance(input: AppearanceInput): AppearanceIndex {
         suspended: activity.status !== "active"
     }));
 
-    const competitionRules = rules.map(toCompetitionRule);
-    const outcomes = new Map(seats.map(seat => [seat.activityId, resolveCompetition(competitionRules, seat, instant)]));
+    const judgeRules = rules.map(toJudgeRule);
+    const outcomes = new Map(seats.map(seat => [seat.activityId, judgeSeat(judgeRules, seat, instant)]));
 
     const activityIds = new Set(activities.map(activity => activity.id));
     const reachCtx = {
@@ -154,7 +146,7 @@ export function buildAppearance(input: AppearanceInput): AppearanceIndex {
             endAt: rule.end_at,
             isConfigDraft: isDraft,
             isZeroReach,
-            isActiveNow: rule.enabled && isTimeRuleActiveNow(rule, instant),
+            isActiveNow: isViewRuleActiveNow(rule, instant),
             now
         });
         entries.set(rule.id, {
@@ -187,15 +179,27 @@ function namesSubject(rule: LayoutRule, subject: AppearanceSubject): boolean {
  * l'abbonamento: una regola che andrebbe in onda non va in onda in una sede
  * sospesa, né con l'abbonamento fermo.
  */
-function seatReason(index: AppearanceIndex, seat: Seat, rule: LayoutRule): { reason: SeatReason; overriddenBy: LayoutRule | null } {
-    const layer = index.outcomes.get(seat.activityId)?.[rule.rule_type];
+function seatReason(
+    index: AppearanceIndex,
+    seat: Seat,
+    rule: LayoutRule,
+    subject: AppearanceSubject
+): { reason: SeatReason; overriddenBy: LayoutRule | null } {
+    const outcome = index.outcomes.get(seat.activityId);
+    // Lo stile si legge nel suo strato; una layout che perde il menù perde anche lo stile.
+    const ruleLayer = viewLayerOf(rule.rule_type);
+    const liveLayer: ViewLayer = subject.kind === "style" ? "style" : ruleLayer;
+    const coverLayers: ViewLayer[] = subject.kind === "style" ? ["style", ruleLayer] : [ruleLayer];
+    const covered = coverLayers
+        .map(layer => outcome?.[layer].covered.find(({ entry }) => entry.rule.id === rule.id))
+        .find(found => found !== undefined);
     let reason: SeatReason;
     let overriddenBy: LayoutRule | null = null;
-    if (layer?.winner?.rule.id === rule.id) {
+    if (outcome?.[liveLayer].shown.some(entry => entry.rule.id === rule.id)) {
         reason = "live";
-    } else if (layer?.contenders.some(entry => entry.rule.id === rule.id)) {
+    } else if (covered) {
         reason = "overridden";
-        overriddenBy = layer.winner?.rule.source ?? null;
+        overriddenBy = covered.by.rule.source;
     } else if (isLayoutRuleDraft(rule)) {
         reason = "draft";
     } else if (!rule.enabled) {
@@ -238,7 +242,7 @@ export function appearanceOf(index: AppearanceIndex, subject: AppearanceSubject)
         let best: AppearanceSeat | null = null;
         for (const rule of ordered) {
             if (specificityFor(rule, seat) === null) continue;
-            const { reason, overriddenBy } = seatReason(index, seat, rule);
+            const { reason, overriddenBy } = seatReason(index, seat, rule, subject);
             if (!best || REASON_ORDER.indexOf(reason) < REASON_ORDER.indexOf(best.reason)) {
                 best = { activityId: seat.activityId, name: seat.name, reason, rule, overriddenBy };
             }

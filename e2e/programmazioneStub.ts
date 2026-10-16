@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { TENANT_ID } from "./reservationsStub";
+import { legacySlots } from "./legacySlots";
 import { stubRest, type RestStub, type Row, type Tables } from "./restStub";
 
 /**
@@ -83,6 +84,14 @@ export const MATRIX_RULE_NAME: Record<keyof typeof MATRIX_RULE, string> = {
     primaveraLago: "Primavera Lago e2e"
 };
 
+/**
+ * Una seconda regola di menù per tutte le sedi, messa dopo «Carta»
+ * (`{ coveredMenu: true }`): perde ovunque, è «Sovrascritta». Fra le regole
+ * in evidenza non succede più: si sommano, come nella pagina pubblica.
+ */
+export const COVERED_RULE = { cartaBis: uuid(131) } as const;
+export const COVERED_RULE_NAME: Record<keyof typeof COVERED_RULE, string> = { cartaBis: "Carta copia e2e" };
+
 /** Nomi come li vede l'utente: i test li cercano per testo. */
 export const RULE_NAME: Record<keyof typeof RULE, string> = {
     carta: "Carta tutto il giorno e2e",
@@ -144,7 +153,7 @@ type StubRule = {
     created: string;
 };
 
-function rules(matrix: boolean): StubRule[] {
+function rules(matrix: boolean, coveredMenu = false): StubRule[] {
     const all = true;
     const base: Array<Omit<StubRule, "id" | "name"> & { key: keyof typeof RULE }> = [
         { key: "carta", rule_type: "layout", enabled: true, all, created: "2026-03-01T10:00:00Z" },
@@ -161,6 +170,9 @@ function rules(matrix: boolean): StubRule[] {
         { key: "natale", rule_type: "featured", enabled: true, all, time_mode: "window", start_at: "2026-11-30T23:00:00Z", end_at: "2026-12-31T22:59:59Z", created: "2026-03-12T10:00:00Z" }
     ];
     const out: StubRule[] = base.map(({ key, ...r }) => ({ ...r, id: RULE[key], name: RULE_NAME[key] }));
+    if (coveredMenu) {
+        out.push({ id: COVERED_RULE.cartaBis, name: COVERED_RULE_NAME.cartaBis, rule_type: "layout", enabled: true, all, created: "2026-03-04T10:00:00Z" });
+    }
     if (!matrix) return out;
     return [
         ...out,
@@ -194,8 +206,8 @@ function scheduleRow(r: StubRule): Row {
     };
 }
 
-function makeTables(matrix: boolean, manySeats: boolean, oneSeat = false): Tables {
-    const rs = rules(matrix);
+function makeTables(matrix: boolean, manySeats: boolean, oneSeat = false, coveredMenu = false): Tables {
+    const rs = rules(matrix, coveredMenu);
     const style = { id: STYLE.base, name: "Stile base e2e", current_version: { config: {} } };
     const layout = (key: keyof typeof RULE, catalog: string | null): Row => ({
         schedule_id: RULE[key],
@@ -227,6 +239,8 @@ function makeTables(matrix: boolean, manySeats: boolean, oneSeat = false): Table
         schedule_targets: rs.flatMap(r =>
             (r.targets ?? []).map(t => ({ schedule_id: r.id, target_type: t.type, target_id: t.id }))
         ),
+        schedule_slots: legacySlots(rs.map(scheduleRow)),
+        schedule_slot_targets: [],
         schedule_layout: [
             layout("carta", MENU.carta),
             layout("pranzo", MENU.pranzo),
@@ -234,7 +248,8 @@ function makeTables(matrix: boolean, manySeats: boolean, oneSeat = false): Table
             // «Bozza senza menù»: la riga c'è, il menù no.
             layout("bozza", null),
             layout("gruppoVuoto", MENU.carta),
-            layout("spento", MENU.pranzo)
+            layout("spento", MENU.pranzo),
+            ...(coveredMenu ? [{ schedule_id: COVERED_RULE.cartaBis, tenant_id: TENANT_ID, catalog_id: MENU.carta, style_id: STYLE.base }] : [])
         ].map(row => ({ ...row, style })),
         schedule_price_overrides: [
             { schedule_id: RULE.spritz, product_id: PRODUCT.spritz, option_value_id: SPRITZ_FORMAT.piccolo, override_price: 4, show_original_price: true, product: productName(PRODUCT.spritz) },
@@ -310,11 +325,12 @@ export async function stubProgrammazione(
         /** il locale con una sede sola: solo Porto */ oneSeat?: boolean;
         dbWritable?: readonly string[];
         /** false: orologio vero, per le foto (Framer non si ferma) */ clock?: boolean;
+        /** una seconda regola di menù che perde ovunque (`COVERED_RULE`) */ coveredMenu?: boolean;
         /** l'ordine salvato dell'in evidenza (database nuovo): righe di `featured_content_positions` */
         positions?: { activity_id: string; featured_content_id: string; position: number }[];
     } = {}
 ): Promise<ProgrammazioneStub> {
-    const tables = makeTables(Boolean(options.matrix), Boolean(options.manySeats), Boolean(options.oneSeat));
+    const tables = makeTables(Boolean(options.matrix), Boolean(options.manySeats), Boolean(options.oneSeat), Boolean(options.coveredMenu));
     tables.featured_content_positions = (options.positions ?? []).map(r => ({ ...r, tenant_id: TENANT_ID }));
     const stub = await stubRest(page, {
         tables,

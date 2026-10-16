@@ -45,8 +45,9 @@ import { CompanyNowCard } from "./components/CompanyNowCard";
 import { schedulingPath } from "./schedulingPaths";
 import { matrixLayers } from "./components/matrixLayers";
 import { RuleTable } from "./components/RuleTable";
-import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
-import { compareCandidates } from "@shared/scheduleCompetition";
+import { toJudgeRule } from "@/utils/judgeView";
+import { computeRuleInsights } from "@/utils/ruleInsights";
+import { compareJudgeEntries } from "@shared/scheduleCompetition";
 import { describeTarget } from "./components/ruleTarget";
 import { measureTextWidth } from "@/utils/measureText";
 import { LOOK_D } from "@/styles/lookD";
@@ -505,7 +506,7 @@ export default function Programming() {
     // vede nel simulatore.
     const nowRome = useMemo(() => toRomeDateTime(currentTime), [currentTime]);
 
-    // Sedi × strati adesso: la stessa resolveCompetition di «Sovrascritta
+    // Sedi × strati adesso: lo stesso giudice (judge) di «Sovrascritta
     // da», sulle regole già caricate.
     // Solo le sedi di cui chi guarda legge la Programmazione (PG5).
     const readableSediIds = useMemo(() => new Set(readableSedi.map(a => a.id)), [readableSedi]);
@@ -610,10 +611,11 @@ export default function Programming() {
             const bOverridden = insightB?.isOverridden ? 1 : 0;
             if (aOverridden !== bOverridden) return bOverridden - aOverridden;
 
-            // 2. L'ordine della competizione: target, finestra, priorità, created_at, id
-            return compareCandidates(
-                { rule: toCompetitionRule(a), specificity: getTargetSpecificity(a) },
-                { rule: toCompetitionRule(b), specificity: getTargetSpecificity(b) }
+            // 2. L'ordine del giudice: le layout come oggi (target, finestra,
+            // priorità, created_at, id), le altre come le legge la pagina pubblica.
+            return compareJudgeEntries(
+                { rule: toJudgeRule(a), specificity: getTargetSpecificity(a) },
+                { rule: toJudgeRule(b), specificity: getTargetSpecificity(b) }
             );
         };
 

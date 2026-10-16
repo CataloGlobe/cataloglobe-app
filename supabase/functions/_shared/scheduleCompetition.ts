@@ -330,6 +330,16 @@ export function isJudgeRuleActiveAt(rule: JudgeRule, seat: CompetitionSeat, now:
     return rule.slots.some(slot => slotReaches(slot, seat) && isSlotActiveAt(slot, now));
 }
 
+/**
+ * La regola è attiva adesso in almeno una sede: periodo, poi una qualunque
+ * delle sue fasce. È l'«Adesso» dell'elenco del back office, che non guarda
+ * una sede sola.
+ */
+export function isJudgeRuleActiveAnywhereAt(rule: JudgeRule, now: RomeDateTime): boolean {
+    if (!isPeriodActive(rule, now)) return false;
+    return rule.slots.length === 0 || rule.slots.some(slot => isSlotActiveAt(slot, now));
+}
+
 /** Il punteggio di `temporalScore` letto dalle fasce: periodo 4, ore 2, giorni 1. */
 export function judgeTemporalScore(rule: JudgeRule): number {
     let score = 0;
@@ -379,6 +389,18 @@ export function compareStacked(a: JudgeEntry, b: JudgeEntry): number {
     const temporalDelta = judgeTemporalScore(b.rule) - judgeTemporalScore(a.rule);
     if (temporalDelta !== 0) return temporalDelta;
     return newestFirst(a, b);
+}
+
+/**
+ * L'ordine in cui il giudice legge le regole dello stesso tipo: le `layout` con
+ * l'ordine di oggi, menù e stili dal più nuovo, gli altri con `compareStacked`.
+ * Serve agli elenchi del back office, per mostrarle nello stesso ordine. Fra
+ * tipi diversi non è un ordine (non è simmetrico): si confronta dentro un tipo.
+ */
+export function compareJudgeEntries(a: JudgeEntry, b: JudgeEntry): number {
+    if (a.rule.rule_type === "layout" && b.rule.rule_type === "layout") return compareLayoutToday(a, b);
+    if (a.rule.rule_type === "menu" || a.rule.rule_type === "style") return newestFirst(a, b);
+    return compareStacked(a, b);
 }
 
 /** I valori che hanno senso per il tipo: menù «insieme» o «al posto», stile «al posto» o «tieni». */

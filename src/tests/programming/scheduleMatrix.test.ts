@@ -69,7 +69,7 @@ function build(rules: LayoutRule[], overrides: Partial<ScheduleMatrixInput<Layou
 const row = (m: ReturnType<typeof build>, id: string) => m.rows.find(r => r.activityId === id)!;
 
 describe("buildScheduleMatrix — una riga per sede, una cella per strato", () => {
-    it("chi vince in ogni cella è quello della competizione (resolveCompetition)", () => {
+    it("chi vince in ogni cella è quello della competizione (judge)", () => {
         const all = rule({ id: "principale", applyToAll: true });
         const colazioni = rule({ id: "colazioni", activityIds: ["comasina"], layout: { style_id: "s", catalog_id: "colazioni" } });
         const happy = rule({ id: "happy", rule_type: "price", applyToAll: true, price_overrides: price(2) });
