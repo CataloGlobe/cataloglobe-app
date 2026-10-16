@@ -2,7 +2,7 @@
 // «Cosa dici» c'è sempre; i piatti e il pulsante si aggiungono se servono e
 // diventano una parte come le altre. Creando, in cima, le idee da cui partire.
 import { useId, type ReactNode } from "react";
-import { CalendarHeart, ChefHat, Megaphone, MousePointerClick, Plus, Tag, UtensilsCrossed } from "lucide-react";
+import { CalendarHeart, ChefHat, Megaphone, MousePointerClick, Plus, Tag, Type, UtensilsCrossed } from "lucide-react";
 import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import { hasDishes, type Tunnel } from "./creaModel";
@@ -11,6 +11,7 @@ import { IDEE, dropDishes, dropIdea, ideaOf, pickIdea, type IdeaId } from "./evi
 import { EvidPiatti, type U } from "./CreaSteps";
 import { Field, Sh } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
+import { LOOK_D } from "@/styles/lookD";
 import s from "./Crea.module.scss";
 import st from "./StileAspetto.module.scss";
 import e from "./Evid.module.scss";
@@ -106,7 +107,7 @@ export function EvidContenuto({ t, u, imageUrl, pick, L, pro }: { t: Tunnel; u: 
             <Sh title="Il contenuto">Quello che diresti a voce arrivando al tavolo. I piatti e il pulsante si aggiungono solo se servono.</Sh>
             <div className={st.asp}>
                 {!t.edit && <EvidIdee t={t} u={u} />}
-                <EvidParte title="Cosa dici" now={t.title.trim() ? `«${t.title.trim()}»` : "ancora vuoto"}>
+                <EvidParte icon={LOOK_D ? <Type size={17} /> : undefined} title="Cosa dici" now={t.title.trim() ? `«${t.title.trim()}»` : "ancora vuoto"}>
                     <Field label="Titolo" id={ids.title}>
                         <input className={s.in} id={ids.title} data-bad="title" value={t.title} placeholder={ex[0]} autoComplete="off" onChange={ev => u(x => void (x.title = ev.target.value))} />
                     </Field>
