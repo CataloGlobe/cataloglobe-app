@@ -12,9 +12,23 @@
  *   * il totale si divide in parti uguali fra le persone (il team, più chi
  *     compare come pagatore);
  *   * un rimborso da A a B sposta il saldo: A ha dato di più, B di meno.
+ *
+ * Con carte e conti (mig 20261016120000, `expenseTerms.ts`): chi paga viene
+ * dal conto dell'addebito (personale = il titolare, comune = nessuno, metà a
+ * testa); un versamento è sul conto comune se il suo conto è comune o se va a
+ * «Conto comune». I rimborsi dei fornitori arrivano come addebiti negativi.
+ * Ogni conto comune ha il suo saldo: versato meno speso.
  */
 import { parseEuroToCents } from "@shared/crmExpenses";
-import type { CrmExpense, CrmExpenseCharge, CrmExpenseSettlement, CrmExpenseSettlementInput } from "@/types/crm";
+import type {
+    CrmExpense,
+    CrmExpenseAccount,
+    CrmExpenseCharge,
+    CrmExpenseSettlement,
+    CrmExpenseSettlementInput,
+    CrmExpenseTerm
+} from "@/types/crm";
+import { payerResolver } from "@/utils/crm/expenseTerms";
 
 export const JOINT_ACCOUNT = "Conto comune";
 
@@ -61,6 +75,16 @@ export interface ExpenseBalance {
     /** Chi dà quanto a chi per tornare in pari; vuoto se siete in pari. */
     transfers: BalanceTransfer[];
     even: boolean;
+    /** Per ogni conto comune: versato, speso, saldo. `accountId` null = «Conto comune» scritto a mano. */
+    jointAccounts: JointAccountBalance[];
+}
+
+export interface JointAccountBalance {
+    accountId: string | null;
+    depositedCents: number;
+    spentCents: number;
+    /** Versato meno speso: positivo = soldi ancora sul conto. */
+    balanceCents: number;
 }
 
 export interface BalanceSources {
@@ -70,9 +94,22 @@ export interface BalanceSources {
     /** I nomi del team (`crm_team_members.display_name`). */
     team: string[];
     today: string;
+    /** Carte e conti, cambi da una data, titolari: facoltativi finché le tabelle non ci sono. */
+    accounts?: CrmExpenseAccount[];
+    terms?: CrmExpenseTerm[];
+    memberNames?: Map<string, string>;
 }
 
-export function computeExpenseBalance({ charges, expenses, settlements, team, today }: BalanceSources): ExpenseBalance {
+export function computeExpenseBalance({
+    charges,
+    expenses,
+    settlements,
+    team,
+    today,
+    accounts = [],
+    terms = [],
+    memberNames = new Map()
+}: BalanceSources): ExpenseBalance {
     const names = new Map<string, string>();
     const paid = new Map<string, number>();
     const settled = new Map<string, number>();
@@ -86,19 +123,27 @@ export function computeExpenseBalance({ charges, expenses, settlements, team, to
 
     for (const name of team) note(name);
 
-    const payerOf = new Map(expenses.map(e => [e.id, e.paid_by]));
+    const payerOf = payerResolver({ expenses, terms, accounts, memberNames, isJointName: isJointAccount });
+    const jointById = new Map(accounts.filter(a => a.kind === "joint").map(a => [a.id, a]));
+    const joint = new Map<string | null, JointAccountBalance>();
+    const jointOf = (accountId: string | null): JointAccountBalance => {
+        const entry = joint.get(accountId) ?? { accountId, depositedCents: 0, spentCents: 0, balanceCents: 0 };
+        joint.set(accountId, entry);
+        return entry;
+    };
     let jointCents = 0;
     let unassignedCents = 0;
     const unassigned = new Set<string>();
 
     for (const charge of charges) {
         if (charge.chargedOn > today) continue;
-        const payer = payerOf.get(charge.expenseId);
-        if (isJointAccount(payer)) {
+        const payer = payerOf(charge.expenseId, charge.chargedOn);
+        if (payer.type === "joint") {
             jointCents += charge.amountCents;
+            jointOf(payer.accountId).spentCents += charge.amountCents;
             continue;
         }
-        const key = payer ? note(payer) : null;
+        const key = payer.type === "person" ? note(payer.name) : null;
         if (!key) {
             unassignedCents += charge.amountCents;
             unassigned.add(charge.expenseId);
@@ -110,9 +155,11 @@ export function computeExpenseBalance({ charges, expenses, settlements, team, to
     for (const s of settlements) {
         if (s.settled_on > today) continue;
         const from = note(s.from_name);
-        if (isJointAccount(s.to_name)) {
+        const toJointAccount = s.account_id ? jointById.get(s.account_id) : undefined;
+        if (toJointAccount || isJointAccount(s.to_name)) {
             // Versamento sul conto comune: come una spesa pagata da chi versa.
             if (from) add(paid, from, s.amount_cents);
+            jointOf(toJointAccount?.id ?? null).depositedCents += s.amount_cents;
             continue;
         }
         const to = note(s.to_name);
@@ -146,7 +193,8 @@ export function computeExpenseBalance({ charges, expenses, settlements, team, to
         unassignedCents,
         unassignedCount: unassigned.size,
         transfers,
-        even: transfers.length === 0
+        even: transfers.length === 0,
+        jointAccounts: [...joint.values()].map(j => ({ ...j, balanceCents: j.depositedCents - j.spentCents }))
     };
 }
 

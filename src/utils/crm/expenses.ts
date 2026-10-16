@@ -11,7 +11,8 @@ import {
     type CrmExpenseCategory,
     type CrmExpenseKind
 } from "@shared/crmExpenses";
-import type { CrmExpense, CrmExpenseCharge, CrmExpenseInput } from "@/types/crm";
+import type { CrmExpense, CrmExpenseAccount, CrmExpenseCharge, CrmExpenseInput, CrmExpenseTerm } from "@/types/crm";
+import { termAt } from "@/utils/crm/expenseTerms";
 
 const MONTHS = [
     "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
@@ -98,12 +99,82 @@ export function summarizeCharges(
     };
 }
 
-/** Quanto pesano al mese gli abbonamenti ancora attivi (l'annuale diviso 12). */
-export function recurringMonthlyCents(expenses: CrmExpense[], nextCharges: Map<string, string>): number {
+/**
+ * Quanto pesano al mese gli abbonamenti ancora attivi (l'annuale diviso 12),
+ * al prezzo del prossimo addebito: un «Cambia da…» già deciso conta.
+ */
+export function recurringMonthlyCents(
+    expenses: CrmExpense[],
+    nextCharges: Map<string, string>,
+    terms: CrmExpenseTerm[] = []
+): number {
     return expenses.reduce((sum, e) => {
-        if (e.kind !== "subscription" || !e.billing_interval || !nextCharges.has(e.id)) return sum;
-        return sum + monthlyEquivalentCents(e.amount_cents, e.billing_interval);
+        const next = nextCharges.get(e.id);
+        if (e.kind !== "subscription" || !e.billing_interval || !next) return sum;
+        return sum + monthlyEquivalentCents(termAt(e, terms, next).amountCents, e.billing_interval);
     }, 0);
+}
+
+export interface CostsOverview {
+    /** Addebiti fino a oggi, meno i rimborsi. */
+    spentSoFarCents: number;
+    /** Abbonamenti attivi al mese, da ora (annuali /12). */
+    monthlyFromNowCents: number;
+    /** La parte di `monthlyFromNowCents` che il prossimo addebito prende da un conto comune aperto. */
+    monthlyOnJointCents: number;
+    /** Ricarica mensile a testa sul cointestato: metà del mensile, all'euro in su. */
+    rechargePerPersonCents: number;
+    /** Abbonamenti attivi il cui prossimo addebito sta su un conto chiuso. */
+    toMove: { expense: CrmExpense; accountName: string; nextChargeOn: string }[];
+}
+
+/**
+ * Il quadro in cima a Costi (decisione di Alex del 2026-10-16): la ricarica
+ * conta tutti gli abbonamenti attivi, non solo quelli già sul cointestato,
+ * perché tutto si sposta lì; le una tantum restano fuori.
+ */
+export function buildCostsOverview({
+    expenses,
+    charges,
+    nextCharges,
+    terms,
+    accounts,
+    today,
+    people = 2
+}: {
+    expenses: CrmExpense[];
+    /** Addebiti e rimborsi (negativi). */
+    charges: CrmExpenseCharge[];
+    nextCharges: Map<string, string>;
+    terms: CrmExpenseTerm[];
+    accounts: CrmExpenseAccount[];
+    today: string;
+    people?: number;
+}): CostsOverview {
+    const accountById = new Map(accounts.map(a => [a.id, a]));
+    const spentSoFarCents = charges.reduce((sum, c) => (c.chargedOn <= today ? sum + c.amountCents : sum), 0);
+    let monthlyFromNowCents = 0;
+    let monthlyOnJointCents = 0;
+    const toMove: CostsOverview["toMove"] = [];
+
+    for (const e of expenses) {
+        const next = nextCharges.get(e.id);
+        if (e.kind !== "subscription" || !e.billing_interval || !next) continue;
+        const term = termAt(e, terms, next);
+        const monthly = monthlyEquivalentCents(term.amountCents, e.billing_interval);
+        monthlyFromNowCents += monthly;
+        const account = term.accountId ? accountById.get(term.accountId) : undefined;
+        if (!account) continue;
+        if (account.closed_on && account.closed_on <= next) {
+            toMove.push({ expense: e, accountName: account.name, nextChargeOn: next });
+        } else if (account.kind === "joint") {
+            monthlyOnJointCents += monthly;
+        }
+    }
+
+    toMove.sort((a, b) => a.nextChargeOn.localeCompare(b.nextChargeOn));
+    const rechargePerPersonCents = people > 0 ? Math.ceil(monthlyFromNowCents / people / 100) * 100 : 0;
+    return { spentSoFarCents, monthlyFromNowCents, monthlyOnJointCents, rechargePerPersonCents, toMove };
 }
 
 export interface CrmUpcomingRenewal {
@@ -137,6 +208,8 @@ export interface CrmExpenseDraft {
     /** Come scritto («109,80»). */
     amount: string;
     paidBy: string;
+    /** Carta o conto; "" = nessuno (si usa «Pagata da»). */
+    accountId: string;
     paidOn: string;
     firstChargeOn: string;
     billingInterval: CrmBillingInterval;
@@ -162,6 +235,7 @@ export function expenseDraftFrom(expense: CrmExpense | null, today: string): Crm
             category: "software",
             amount: "",
             paidBy: "",
+            accountId: "",
             paidOn: today,
             firstChargeOn: today,
             billingInterval: "month",
@@ -178,6 +252,7 @@ export function expenseDraftFrom(expense: CrmExpense | null, today: string): Crm
         category: expense.category,
         amount: centsToInput(expense.amount_cents),
         paidBy: expense.paid_by ?? "",
+        accountId: expense.account_id ?? "",
         paidOn: expense.paid_on ?? today,
         firstChargeOn: expense.first_charge_on ?? today,
         billingInterval: expense.billing_interval ?? "month",
@@ -225,6 +300,7 @@ export function expenseDraftToInput(draft: CrmExpenseDraft): CrmExpenseInput {
         category: draft.category,
         amountCents: parseEuroToCents(draft.amount) as number,
         paidBy: draft.paidBy.trim() || null,
+        accountId: draft.accountId || null,
         paidOn: isSubscription ? null : draft.paidOn,
         firstChargeOn: isSubscription ? draft.firstChargeOn : null,
         billingInterval: isSubscription ? draft.billingInterval : null,

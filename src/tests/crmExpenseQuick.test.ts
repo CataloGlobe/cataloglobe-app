@@ -21,6 +21,7 @@ function expense(overrides: Partial<CrmExpense>): CrmExpense {
         category: "software",
         amount_cents: 9000,
         paid_by: "Alessandro",
+        account_id: null,
         paid_on: null,
         first_charge_on: "2026-09-02",
         billing_interval: "month",

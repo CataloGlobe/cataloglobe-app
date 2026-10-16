@@ -23,6 +23,7 @@ function expense(paidBy: string | null): CrmExpense {
         category: "software",
         amount_cents: 0,
         paid_by: paidBy,
+        account_id: null,
         paid_on: "2026-10-01",
         first_charge_on: null,
         billing_interval: null,
@@ -37,7 +38,7 @@ function expense(paidBy: string | null): CrmExpense {
 }
 
 function settlement(from: string, to: string, cents: number, on = "2026-10-02"): CrmExpenseSettlement {
-    return { id: id(), from_name: from, to_name: to, amount_cents: cents, settled_on: on, note: null, created_by: null, created_at: "" };
+    return { id: id(), from_name: from, to_name: to, amount_cents: cents, settled_on: on, note: null, account_id: null, created_by: null, created_at: "" };
 }
 
 /** Una spesa pagata da `who` con un solo addebito. */

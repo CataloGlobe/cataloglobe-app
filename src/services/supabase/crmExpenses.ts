@@ -7,7 +7,19 @@
  * pagina e per il promemoria dei rinnovi.
  */
 import { supabase } from "@/services/supabase/client";
-import type { CrmExpense, CrmExpenseCharge, CrmExpenseInput, CrmExpenseSettlement, CrmExpenseSettlementInput } from "@/types/crm";
+import type {
+    CrmExpense,
+    CrmExpenseAccount,
+    CrmExpenseAccountInput,
+    CrmExpenseCharge,
+    CrmExpenseInput,
+    CrmExpenseRefund,
+    CrmExpenseRefundInput,
+    CrmExpenseSettlement,
+    CrmExpenseSettlementInput,
+    CrmExpenseTerm,
+    CrmExpenseTermInput
+} from "@/types/crm";
 
 export async function listCrmExpenses(): Promise<CrmExpense[]> {
     const { data, error } = await supabase
@@ -48,6 +60,9 @@ function toRow(input: CrmExpenseInput) {
         category: input.category,
         amount_cents: input.amountCents,
         paid_by: input.paidBy,
+        // Solo se c'è: prima della mig 20261016120000 la colonna non esiste
+        // e una chiave in più farebbe fallire ogni salvataggio (PGRST204).
+        ...(input.accountId ? { account_id: input.accountId } : {}),
         paid_on: isSubscription ? null : input.paidOn,
         first_charge_on: isSubscription ? input.firstChargeOn : null,
         billing_interval: isSubscription ? input.billingInterval : null,
@@ -111,7 +126,8 @@ export async function createCrmExpenseSettlements(inputs: CrmExpenseSettlementIn
             to_name: input.toName.trim(),
             amount_cents: input.amountCents,
             settled_on: input.settledOn,
-            note: input.note
+            note: input.note,
+            ...(input.accountId ? { account_id: input.accountId } : {})
         }))
     );
     if (error) throw error;
@@ -119,5 +135,89 @@ export async function createCrmExpenseSettlements(inputs: CrmExpenseSettlementIn
 
 export async function deleteCrmExpenseSettlement(id: string): Promise<void> {
     const { error } = await supabase.from("crm_expense_settlements").delete().eq("id", id);
+    if (error) throw error;
+}
+
+// -----------------------------------------------------------------------------
+// Carte e conti, cambi da una data, rimborsi (mig 20261016120000)
+// -----------------------------------------------------------------------------
+
+/** Carte e conti, prima quelli aperti, per nome. */
+export async function listCrmExpenseAccounts(): Promise<CrmExpenseAccount[]> {
+    const { data, error } = await supabase
+        .from("crm_expense_accounts")
+        .select("*")
+        .order("closed_on", { ascending: true, nullsFirst: true })
+        .order("name", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as CrmExpenseAccount[];
+}
+
+export async function createCrmExpenseAccount(input: CrmExpenseAccountInput): Promise<CrmExpenseAccount> {
+    const { data, error } = await supabase
+        .from("crm_expense_accounts")
+        .insert({
+            name: input.name.trim(),
+            kind: input.kind,
+            owner_member_id: input.kind === "personal" ? input.ownerMemberId : null
+        })
+        .select("*")
+        .single();
+    if (error) throw error;
+    return data as CrmExpenseAccount;
+}
+
+/** Chiude un conto (resta nello storico) o lo riapre con `closedOn` null. */
+export async function setCrmExpenseAccountClosed(id: string, closedOn: string | null): Promise<void> {
+    const { error } = await supabase.from("crm_expense_accounts").update({ closed_on: closedOn }).eq("id", id);
+    if (error) throw error;
+}
+
+export async function listCrmExpenseTerms(): Promise<CrmExpenseTerm[]> {
+    const { data, error } = await supabase
+        .from("crm_expense_terms")
+        .select("*")
+        .order("valid_from", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as CrmExpenseTerm[];
+}
+
+/** «Cambia da…». Errori 22023 dal trigger: `term_not_subscription`, `term_before_first_charge`. */
+export async function createCrmExpenseTerm(input: CrmExpenseTermInput): Promise<void> {
+    const { error } = await supabase.from("crm_expense_terms").insert({
+        expense_id: input.expenseId,
+        valid_from: input.validFrom,
+        amount_cents: input.amountCents,
+        account_id: input.accountId
+    });
+    if (error) throw error;
+}
+
+export async function deleteCrmExpenseTerm(id: string): Promise<void> {
+    const { error } = await supabase.from("crm_expense_terms").delete().eq("id", id);
+    if (error) throw error;
+}
+
+export async function listCrmExpenseRefunds(): Promise<CrmExpenseRefund[]> {
+    const { data, error } = await supabase
+        .from("crm_expense_refunds")
+        .select("*")
+        .order("refunded_on", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as CrmExpenseRefund[];
+}
+
+export async function createCrmExpenseRefund(input: CrmExpenseRefundInput): Promise<void> {
+    const { error } = await supabase.from("crm_expense_refunds").insert({
+        expense_id: input.expenseId,
+        refunded_on: input.refundedOn,
+        amount_cents: input.amountCents,
+        note: input.note
+    });
+    if (error) throw error;
+}
+
+export async function deleteCrmExpenseRefund(id: string): Promise<void> {
+    const { error } = await supabase.from("crm_expense_refunds").delete().eq("id", id);
     if (error) throw error;
 }

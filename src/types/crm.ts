@@ -349,6 +349,8 @@ export interface CrmExpense {
     /** Centesimi di euro, IVA inclusa. */
     amount_cents: number;
     paid_by: string | null;
+    /** Carta o conto dal primo addebito (mig 20261016120000); null nelle righe vecchie. */
+    account_id: string | null;
     /** Una tantum: giorno del pagamento. */
     paid_on: string | null;
     /** Abbonamento: primo addebito al prezzo indicato. */
@@ -378,6 +380,7 @@ export interface CrmExpenseInput {
     category: CrmExpenseCategory;
     amountCents: number;
     paidBy: string | null;
+    accountId: string | null;
     paidOn: string | null;
     firstChargeOn: string | null;
     billingInterval: CrmBillingInterval | null;
@@ -394,6 +397,8 @@ export interface CrmExpenseSettlement {
     amount_cents: number;
     settled_on: string;
     note: string | null;
+    /** Il conto comune su cui arriva il versamento (mig 20261016120000). */
+    account_id: string | null;
     created_by: string | null;
     created_at: string;
 }
@@ -403,6 +408,61 @@ export interface CrmExpenseSettlementInput {
     toName: string;
     amountCents: number;
     settledOn: string;
+    note: string | null;
+    accountId?: string | null;
+}
+
+export type CrmExpenseAccountKind = "personal" | "joint";
+
+/** Una carta o un conto, con un nome generico (mig 20261016120000). */
+export interface CrmExpenseAccount {
+    id: string;
+    name: string;
+    /** `personal`: di `owner_member_id`. `joint`: cassa comune, metà a testa. */
+    kind: CrmExpenseAccountKind;
+    owner_member_id: string | null;
+    closed_on: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CrmExpenseAccountInput {
+    name: string;
+    kind: CrmExpenseAccountKind;
+    ownerMemberId: string | null;
+}
+
+/** «Cambia da…»: da `valid_from` l'abbonamento costa `amount_cents` e, se c'è, passa su `account_id`. */
+export interface CrmExpenseTerm {
+    id: string;
+    expense_id: string;
+    valid_from: string;
+    amount_cents: number;
+    account_id: string | null;
+    created_at: string;
+}
+
+export interface CrmExpenseTermInput {
+    expenseId: string;
+    validFrom: string;
+    amountCents: number;
+    accountId: string | null;
+}
+
+/** Un rimborso del fornitore: importo positivo, conta in negativo. */
+export interface CrmExpenseRefund {
+    id: string;
+    expense_id: string;
+    refunded_on: string;
+    amount_cents: number;
+    note: string | null;
+    created_at: string;
+}
+
+export interface CrmExpenseRefundInput {
+    expenseId: string;
+    refundedOn: string;
+    amountCents: number;
     note: string | null;
 }
 
