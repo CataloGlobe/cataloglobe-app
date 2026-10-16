@@ -19,8 +19,19 @@ describe("NAV_MODELS nella D — Sede con Scheda, Sale e tavoli, Tutte le sedi",
         const m = await modelsD();
         const shape = m.azienda.groups.map(g => [g.title, g.entries.map(e => e.label)]);
         expect(shape.at(-1)).toEqual(["Sede", ["Scheda", "Sale e tavoli", "Tutte le sedi"]]);
-        expect(shape.find(([t]) => t === "Servizio")?.[1]).toEqual(["In servizio", "Cosa vedono i clienti", "Storico"]);
+        expect(shape.find(([t]) => t === "Servizio")?.[1]).toEqual(["In servizio", "Prenotazioni", "Storico"]);
         expect(m.sede.groups.at(-1)?.title).toBe("Sede");
+    });
+
+    it("Servizio come nella copia: i numeri su In servizio e Prenotazioni, «Cosa vedono» tiene accesa In servizio", async () => {
+        const m = await modelsD();
+        const servizio = m.sede.groups.find(g => g.key === "servizio")!;
+        expect(servizio.entries.map(e => [e.key, e.signal])).toEqual([
+            ["servizio", "servizio"],
+            ["prenotazioni", "pendingReservations"],
+            ["storico", undefined]
+        ]);
+        expect(servizio.entries[0].matchSegments).toEqual(["comande", "cosa-vedono"]);
     });
 
     it("una sede sola: «Il locale» con Scheda e Sale e tavoli", async () => {

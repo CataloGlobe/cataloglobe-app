@@ -59,7 +59,7 @@ export type NavKey =
     | "support";
 
 /** I segnali di oggi (§51.15): li calcola il layout, la voce dice quale le spetta. */
-export type NavSignal = "translations" | "import" | "supportUnread";
+export type NavSignal = "translations" | "import" | "supportUnread" | "servizio" | "pendingReservations";
 
 type HasFeature = (feature: PlanFeature) => boolean;
 
@@ -457,7 +457,14 @@ const SECTIONS = [PANORAMICA, CREA, CALENDARIO_SEZIONE, IN_SALA, NUMERI];
 const SALE_D: NavEntry = { ...SALA, label: "Sale e tavoli" };
 const IN_SALA_D: NavGroup = {
     ...IN_SALA,
-    entries: [{ ...SERVIZIO, exceptSearch: SALA.search }, COSA_VEDONO, STORICO]
+    // Come nella copia «Visual Redesign PR 3» (Alex, 2026-10-16): In servizio,
+    // Prenotazioni, Storico, coi numeri di ciò che aspetta. «Cosa vedono i
+    // clienti» esce dalla sidebar: diventa la Disponibilità dentro Servizio.
+    entries: [
+        { ...SERVIZIO, exceptSearch: SALA.search, matchSegments: ["comande", "cosa-vedono"], signal: "servizio" },
+        { ...PRENOTAZIONI, signal: "pendingReservations" },
+        STORICO
+    ]
 };
 const TUTTE_D: NavEntry = { ...LOCATIONS, label: "Tutte le sedi", seat: "list", matchSegments: undefined };
 const SEDE_D: NavGroup = { key: "sedi", title: "Sede", seat: "one", entries: [SCHEDA, SALE_D, TUTTE_D] };

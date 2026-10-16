@@ -26,10 +26,16 @@ import { asSingleSede, currentVoce, menuRows, openInServizio, sedeSwitcher, side
 
 // Le parti che dentro una sede portano alle sue rotte (artifact v4).
 const SEDE_VOCI = ["Calendario", "Regole", "In servizio", "Cosa vedono i clienti", "Sala", "Storico", "Andamento", "Recensioni"] as const;
-/** Nella D la Sala è «Sale e tavoli», nella sezione Sede (PR 11a). */
+const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
+/**
+ * Nella D la Sala è «Sale e tavoli», nella sezione Sede (PR 11a); in Servizio
+ * «Prenotazioni» prende il posto di «Cosa vedono i clienti», che si apre da
+ * «Disponibilità» (copia «Visual Redesign PR 3»).
+ */
 async function sedeVoci(page: Page): Promise<string[]> {
-    const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
-    return SEDE_VOCI.map(v => (d && v === "Sala" ? "Sale e tavoli" : v));
+    const d = await lookD(page);
+    const nomeD: Record<string, string> = { Sala: "Sale e tavoli", "Cosa vedono i clienti": "Prenotazioni" };
+    return SEDE_VOCI.map(v => (d ? (nomeD[v] ?? v) : v));
 }
 
 function nav(page: Page) {
@@ -119,7 +125,8 @@ test.describe("Contesto di sede", () => {
         await (await sidebarLink(page, "In servizio")).click();
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/servizio(\?|$)/, { timeout: 15_000 });
 
-        await (await sidebarLink(page, "Cosa vedono i clienti")).click();
+        if (await lookD(page)) await page.getByRole("button", { name: /^Disponibilità/ }).click();
+        else await (await sidebarLink(page, "Cosa vedono i clienti")).click();
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/cosa-vedono$/, { timeout: 15_000 });
 
         await (await sidebarLink(page, "Regole")).click();
@@ -144,7 +151,9 @@ test.describe("Contesto di sede", () => {
     test("«Cosa vedono i clienti» è una voce a sé: niente tab della Scheda", async ({ page }) => {
         const paths = await locationPaths(page);
         await page.goto(`${paths[0]}/cosa-vedono`);
-        await expect(await sidebarLink(page, "Cosa vedono i clienti")).toHaveAttribute("aria-current", "page");
+        // Nella D la pagina sta dentro «In servizio», che resta accesa.
+        const voce = (await lookD(page)) ? "In servizio" : "Cosa vedono i clienti";
+        await expect(await sidebarLink(page, voce)).toHaveAttribute("aria-current", "page");
         await expect(page.getByRole("main").getByRole("table").first()).toBeVisible({ timeout: 15_000 });
         await expect(page.getByRole("tab", { name: /^(Anagrafica|Orari|Pubblicazione)$/ })).toHaveCount(0);
     });

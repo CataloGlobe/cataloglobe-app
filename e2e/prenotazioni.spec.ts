@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { openInServizio, sediGriglia } from "./nav";
+import { openInServizio, sediGriglia, sidebarLink } from "./nav";
 import { NOW, stubReservations, type ReservationsStub } from "./reservationsStub";
 
 // D244: con la grafica D accesa le richieste si chiamano «da confermare».
@@ -85,10 +85,16 @@ test.describe("Prenotazioni", () => {
         const parti = main(page).getByRole("radiogroup", { name: "Parti di In servizio" });
         await expect(giorni).toBeChecked();
         await expect(nav).toBeVisible();
-        await expect(parti.getByRole("radio", { name: "Prenotazioni" })).toBeChecked();
-        const navBox = await nav.boundingBox();
-        const partiBox = await parti.boundingBox();
-        expect(Math.abs(navBox!.y + navBox!.height / 2 - (partiBox!.y + partiBox!.height / 2))).toBeLessThan(12);
+        if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+            // Nella D Prenotazioni è una parte di Servizio a sé: niente interruttore.
+            await expect(await sidebarLink(page, "Prenotazioni")).toHaveAttribute("aria-current", "page");
+            await expect(parti).toHaveCount(0);
+        } else {
+            await expect(parti.getByRole("radio", { name: "Prenotazioni" })).toBeChecked();
+            const navBox = await nav.boundingBox();
+            const partiBox = await parti.boundingBox();
+            expect(Math.abs(navBox!.y + navBox!.height / 2 - (partiBox!.y + partiBox!.height / 2))).toBeLessThan(12);
+        }
 
         // T14 PN2: niente riquadro «Oggi»; la sua frase è l'intestazione della
         // card delle richieste: 4 prenotazioni accettate, ~15 coperti.

@@ -7,6 +7,7 @@ import type { PageHeaderSection } from "@/context/PageHeaderContext";
 import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 import { usePlanFeatures, type PlanFeature } from "@/lib/planFeatures";
+import { LOOK_D } from "@/styles/lookD";
 import { SERVIZIO_MODES, modeAccess, type ModeAccess, type ServizioMode } from "@/utils/servizioModes";
 
 /** Le pagine che «In servizio» tiene insieme (artifact v4, primo giro). */
@@ -19,6 +20,10 @@ const PAGES: ReadonlyArray<{ part: "prenotazioni" | "comande"; label: string; pe
     { part: "prenotazioni", label: "Prenotazioni", permission: "reservations.read", feature: "table_reservation" },
     { part: "comande", label: "Comande", permission: "orders.read", feature: "table_ordering" }
 ];
+
+// Nella D Prenotazioni è una parte di Servizio a sé, nella sidebar e in alto
+// (copia «Visual Redesign PR 3»): l'interruttore tiene Elenco, Mappa e Comande.
+const PAGES_SHOWN = LOOK_D ? PAGES.filter(p => p.part !== "prenotazioni") : PAGES;
 
 type Entry = { part: InServizioPart; label: string; access: Exclude<ModeAccess, "hidden"> };
 
@@ -52,7 +57,7 @@ export function useInServizioSwitch(
             label: m.label,
             access: modeAccess(m, permissions, hasFeature, activityId)
         }));
-        const pages = PAGES.map(p => ({
+        const pages = PAGES_SHOWN.map(p => ({
             part: p.part,
             label: p.label,
             access: (!canDoOnActivity(permissions, p.permission, activityId)
@@ -75,7 +80,8 @@ export function useInServizioSwitch(
         [current, businessId, activityId, navigate, onModeChange]
     );
 
-    const show = current !== null && entries.length > 1;
+    // Sulla pagina che l'interruttore non tiene (Prenotazioni nella D) niente interruttore.
+    const show = current !== null && entries.length > 1 && entries.some(e => e.part === current);
 
     const leading = useMemo(
         () =>
