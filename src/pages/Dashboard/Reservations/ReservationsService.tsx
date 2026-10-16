@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
     Armchair,
     Bell,
@@ -11,6 +12,7 @@ import {
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection/CollapsibleSection";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
@@ -87,6 +89,25 @@ interface Props {
     onOpenSeating: (s: SeatingWithState) => void;
     /** Richieste aperte per tavolo (conto, cameriere), come sulle tessere della Mappa. */
     tableRequests?: ReadonlyMap<string, TableRequests>;
+    /**
+     * In servizio della D (copia «Visual Redesign PR 3»): una parte sola.
+     * «inRoom» = le tavolate aperte; «arriving» = da confermare e arrivi di
+     * oggi. Senza, le tre sezioni di sempre.
+     */
+    only?: "inRoom" | "arriving";
+    /**
+     * Con `only="arriving"`: le prenotazioni da confermare, coi due gesti.
+     * `rows` sono quelle dei giorni caricati (oggi, ieri, domani); `total`
+     * tutte quelle della sede: le altre si guardano in Prenotazioni (`href`).
+     */
+    pending?: {
+        rows: readonly V2Reservation[];
+        total: number;
+        href: string;
+        canManage: boolean;
+        onConfirm: (r: V2Reservation) => void;
+        onDecline: (r: V2Reservation) => void;
+    };
 }
 
 const TIME_FORMATTER = new Intl.DateTimeFormat("it-IT", {
@@ -103,6 +124,18 @@ function seatingTableLabels(s: SeatingWithState): string[] {
     return [...s.tables].map(t => t.label).sort(compareTableLabels);
 }
 
+const PENDING_DAY = new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "numeric", month: "short" });
+
+/** «Oggi», «Domani» o il giorno: una da confermare può essere per più avanti. */
+function formatPendingDay(isoDate: string): string {
+    const today = new Date();
+    const day = new Date(`${isoDate}T00:00:00`);
+    const diff = Math.round((day.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000);
+    if (diff === 0) return "Oggi";
+    if (diff === 1) return "Domani";
+    return PENDING_DAY.format(day);
+}
+
 export default function ReservationsService({
     board,
     canRead,
@@ -110,7 +143,9 @@ export default function ReservationsService({
     tableViews,
     onOpenDetail,
     onOpenSeating,
-    tableRequests
+    tableRequests,
+    only,
+    pending
 }: Props) {
     // "da 45 min" deve restare vero anche se non succede niente: un tick al
     // minuto, senza refetch. I dati cambiano via realtime, l'orologio da qui.
@@ -203,6 +238,7 @@ export default function ReservationsService({
             <ListRow
                 key={s.id}
                 dense
+                stacked={!!only}
                 onClick={() => openRow(s)}
                 muted={done}
                 title={
@@ -282,11 +318,16 @@ export default function ReservationsService({
         );
     };
 
+    // Dentro il riquadro della sala (D): le sezioni senza la loro carta.
+    const panelCard = only ? styles.panelCard : undefined;
+
     return (
         <div className={styles.serviceBoard}>
             {/* ── In sala adesso ──────────────────────────────────── */}
             {/* «+ Senza prenotazione» sta nella testata di Servizio (T14 SV1). */}
+            {only !== "arriving" && (
             <Card
+                className={panelCard}
                 title="In sala adesso"
                 badge={board.inRoom.length > 0 ? <Badge>{board.inRoom.length}</Badge> : undefined}
                 flush={board.inRoom.length > 0}
@@ -301,10 +342,63 @@ export default function ReservationsService({
                     board.inRoom.map(s => renderSeatingRow(s, false))
                 )}
             </Card>
+            )}
+
+            {/* ── Da confermare (solo In arrivo della D) ─────────────── */}
+            {only === "arriving" && pending && (pending.rows.length > 0 || pending.total > 0) && (
+                <Card
+                    className={panelCard}
+                    title="Da confermare"
+                    badge={<Badge>{Math.max(pending.total, pending.rows.length)}</Badge>}
+                    flush
+                >
+                    {pending.rows.map(r => (
+                        <ListRow
+                            key={r.id}
+                            dense
+                            onClick={() => onOpenDetail(r)}
+                            leading={
+                                <Text as="span" variant="title-sm" weight={600} className={styles.timelineTime}>
+                                    {r.reservation_time.slice(0, 5)}
+                                </Text>
+                            }
+                            title={r.customer_name}
+                            subtitle={`${r.party_size} ${r.party_size === 1 ? "persona" : "persone"} · ${formatPendingDay(r.reservation_date)}`}
+                            stacked
+                            meta={
+                                pending.canManage ? (
+                                    <span className={styles.pendingActions} onClick={e => e.stopPropagation()}>
+                                        <Button size="sm" variant="secondary" onClick={() => pending.onDecline(r)}>
+                                            Rifiuta
+                                        </Button>
+                                        <Button size="sm" variant="primary" onClick={() => pending.onConfirm(r)}>
+                                            Conferma
+                                        </Button>
+                                    </span>
+                                ) : undefined
+                            }
+                        />
+                    ))}
+                    {pending.total > pending.rows.length && (
+                        <Link to={pending.href} className={styles.pendingMore}>
+                            {pending.rows.length === 0
+                                ? "Vedile in Prenotazioni"
+                                : `${pending.total - pending.rows.length === 1 ? "Un'altra" : `Altre ${pending.total - pending.rows.length}`} in Prenotazioni`}
+                        </Link>
+                    )}
+                </Card>
+            )}
 
             {/* ── In arrivo ───────────────────────────────────────── */}
-            {board.arriving.length > 0 && (
-                <Card title="In arrivo" badge={<Badge>{board.arriving.length}</Badge>} flush>
+            {only === "arriving" && board.arriving.length === 0 && (
+                <Card className={panelCard} title="Oggi">
+                    <Text as="p" variant="body-sm" colorVariant="muted">
+                        Nessun altro arrivo oggi.
+                    </Text>
+                </Card>
+            )}
+            {only !== "inRoom" && board.arriving.length > 0 && (
+                <Card className={panelCard} title={only === "arriving" ? "Oggi" : "In arrivo"} badge={<Badge>{board.arriving.length}</Badge>} flush>
                     {board.arriving.map(({ reservation: r, late }) => {
                         const tableView = tableViews.get(r.id);
                         return (
@@ -333,7 +427,8 @@ export default function ReservationsService({
                                         {tableView && <TableAssignmentBadge view={tableView} />}
                                     </>
                                 }
-                                metaInline
+                                metaInline={!only}
+                                stacked={!!only}
                             />
                         );
                     })}
@@ -343,9 +438,9 @@ export default function ReservationsService({
             {/* ── Concluse ────────────────────────────────────────
                 Chiusa di default: è il servizio passato. Solo le chiuse
                 dall'operatore; quelle del cron no (§18.1). */}
-            {board.closed.length > 0 && (
+            {!only && board.closed.length > 0 && (
                 <CollapsibleSection label={`Concluse · ${board.closed.length}`}>
-                    <Card flush>{board.closed.map(s => renderSeatingRow(s, true))}</Card>
+                    <Card className={panelCard} flush>{board.closed.map(s => renderSeatingRow(s, true))}</Card>
                 </CollapsibleSection>
             )}
         </div>

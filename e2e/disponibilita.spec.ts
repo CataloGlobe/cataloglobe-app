@@ -355,13 +355,14 @@ test.describe("Cosa vedono i clienti — chi vede la spiegazione", () => {
 });
 
 test.describe("Cosa vedono i clienti — nome e indirizzo", () => {
-    test("la voce si chiama «Cosa vedono i clienti» e porta alla pagina nuova", async ({ page }) => {
+    test("la voce si chiama «Cosa vedono i clienti» (nella D la pagina è «Disponibilità») e porta alla pagina nuova", async ({ page }) => {
         await openDisponibilita(page);
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(page).toHaveURL(/\/cosa-vedono$/);
         // Nella D si apre da «Disponibilità» in Servizio, e «In servizio» resta accesa.
         const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
         await expect(await sidebarLink(page, d ? "In servizio" : "Cosa vedono i clienti")).toHaveAttribute("aria-current", "page");
+        if (d) await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Disponibilità");
     });
 
     test("il vecchio indirizzo rimanda al nuovo, con la vista", async ({ page }) => {

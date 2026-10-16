@@ -44,13 +44,14 @@ interface SidebarSectionProps {
  * Il numero di una voce. Nella D come nella copia (`.cn2`): il numero solo, a
  * destra, col pallino caldo quando aspetta qualcuno; fuori dalla D il Badge.
  */
-function ItemBadge({ item, id }: { item: AppSidebarNavItem; id: string }) {
+function ItemBadge({ item }: { item: AppSidebarNavItem }) {
     // Il nome della voce resta il suo («In servizio»): il numero è la sua
-    // descrizione (`aria-describedby` della voce), non una parte del nome.
+    // descrizione (`aria-describedby` della voce, `BadgeDescription`), non
+    // una parte del nome.
     if (LOOK_D) {
         return (
-            <span id={id} className={styles.count} title={item.badgeLabel} aria-label={item.badgeLabel} aria-hidden="true">
-                {item.badgeDot && <i className={styles.countDot} aria-hidden="true" />}
+            <span className={styles.count} title={item.badgeLabel} aria-hidden="true">
+                {item.badgeDot && <i className={styles.countDot} />}
                 {item.badge}
             </span>
         );
@@ -58,6 +59,21 @@ function ItemBadge({ item, id }: { item: AppSidebarNavItem; id: string }) {
     return (
         <span title={item.badgeLabel} aria-label={item.badgeLabel}>
             <Badge variant={item.badgeTone ?? "neutral"}>{item.badge}</Badge>
+        </span>
+    );
+}
+
+/**
+ * La descrizione del numero di una voce nella D: un testo nascosto alla vista,
+ * accanto al link e non dentro (il nome e il testo della voce restano suoi).
+ * Un `aria-label` su uno `span` senza ruolo i lettori di schermo lo saltano;
+ * `aria-describedby` legge invece il testo, anche nascosto.
+ */
+function BadgeDescription({ item, id }: { item: AppSidebarNavItem; id: string }) {
+    if (!LOOK_D || item.badge === undefined) return null;
+    return (
+        <span id={id} className="visually-hidden" aria-hidden="true">
+            {item.badgeLabel ?? String(item.badge)}
         </span>
     );
 }
@@ -188,7 +204,7 @@ export function SidebarSection({
                                     </span>
                                 )}
                                 {item.badge !== undefined ? (
-                                    <ItemBadge item={item} id={countId} />
+                                    <ItemBadge item={item} />
                                 ) : (
                                     (item.showDot || item.loading) && (
                                         <span
@@ -217,6 +233,7 @@ export function SidebarSection({
                                     {body}
                                 </Link>
                             )}
+                            <BadgeDescription item={item} id={countId} />
                         </li>
                     );
                 })}
@@ -305,7 +322,7 @@ export function SidebarSection({
                                 </span>
                             )}
                             {item.badge !== undefined ? (
-                                <ItemBadge item={item} id={countId} />
+                                <ItemBadge item={item} />
                             ) : (
                                 (item.showDot || item.loading) && (
                                     <span
@@ -334,6 +351,7 @@ export function SidebarSection({
                                     {body}
                                 </Link>
                             )}
+                            <BadgeDescription item={item} id={countId} />
                         </li>
                     );
                 })}

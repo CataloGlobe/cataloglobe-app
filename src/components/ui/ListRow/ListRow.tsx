@@ -43,6 +43,8 @@ interface ListRowBaseProps {
      *  titolo: per una cifra corta (un importo, una quantità), non per un
      *  gruppo di badge. */
     metaInline?: boolean;
+    /** I badge sotto il titolo anche su schermo largo: per un riquadro stretto. */
+    stacked?: boolean;
     trailing?: ReactNode;
     /** Sotto 768 il trailing scende in una riga sua, a destra: per due
      *  bottoni di testo (una coda con «Tieni nascosta» · «Pubblica»), che
@@ -83,6 +85,7 @@ export function ListRow({
     wrapSubtitle = false,
     meta,
     metaInline = false,
+    stacked = false,
     trailing,
     trailingWrap = false,
     onClick,
@@ -115,6 +118,7 @@ export function ListRow({
         selected ? styles.selected : "",
         muted ? styles.muted : "",
         metaInline ? styles.metaInline : "",
+        stacked ? styles.stacked : "",
         trailingWrap ? styles.trailingWrap : "",
         dense ? styles.dense : "",
         className ?? ""

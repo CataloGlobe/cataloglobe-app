@@ -9,8 +9,11 @@ import { PageHeaderContext, type PageHeaderConfig } from "./PageHeaderContext";
  * Deps: title/subtitle (primitivi, value-compared) + leading/actions/titleAddon
  * (ReactNode, reference-compared). La pagina DEVE memoizzare actions/titleAddon
  * via useMemo, altrimenti il re-create per render scatena un loop di setConfig.
+ *
+ * `enabled = false`: la pagina è montata dentro un'altra che ha già la sua
+ * testata (Comande dentro In servizio nella D) e non tocca niente.
  */
-export function usePageHeader(config: PageHeaderConfig | null) {
+export function usePageHeader(config: PageHeaderConfig | null, enabled = true) {
     const ctx = useContext(PageHeaderContext);
     if (!ctx) {
         throw new Error("usePageHeader must be used within PageHeaderProvider");
@@ -18,6 +21,7 @@ export function usePageHeader(config: PageHeaderConfig | null) {
     const { setConfig } = ctx;
 
     useEffect(() => {
+        if (!enabled) return;
         setConfig(config);
         return () => setConfig(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -30,5 +34,6 @@ export function usePageHeader(config: PageHeaderConfig | null) {
         config?.titleAddon,
         config?.titleSide,
         setConfig,
+        enabled,
     ]);
 }
