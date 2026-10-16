@@ -33,7 +33,8 @@ async function revalidateAfterScheduleMutation(scheduleId: string): Promise<void
 }
 
 export type LayoutTimeMode = "always" | "window";
-export type RuleType = "layout" | "price" | "visibility" | "featured";
+/** `menu` e `style`: le regole separate del modello nuovo (multi menù), salvate dal Calendario. */
+export type RuleType = "layout" | "menu" | "style" | "price" | "visibility" | "featured";
 export type RuleTargetType = "activity" | "activity_group";
 export type VisibilityMode = "hide" | "disable";
 
@@ -622,6 +623,27 @@ async function loadLayoutRules(tenantId: string, ruleId?: string): Promise<Layou
         );
     }
 
+    // Le regole `menu` e `style` portano il loro menù o stile in `layout`, con
+    // l'altra metà a null: le viste leggono il campo di sempre.
+    const menuRuleIds = baseRules.filter(rule => rule.rule_type === "menu").map(rule => rule.id);
+    const styleRuleIds = baseRules.filter(rule => rule.rule_type === "style").map(rule => rule.id);
+    if (menuRuleIds.length > 0) {
+        const { data, error } = await supabase
+            .from("schedule_menu")
+            .select("schedule_id, catalog_id")
+            .in("schedule_id", menuRuleIds);
+        if (error) throw error;
+        for (const row of data ?? []) layoutByScheduleId.set(row.schedule_id, { catalog_id: row.catalog_id, style_id: null });
+    }
+    if (styleRuleIds.length > 0) {
+        const { data, error } = await supabase
+            .from("schedule_style")
+            .select("schedule_id, style_id")
+            .in("schedule_id", styleRuleIds);
+        if (error) throw error;
+        for (const row of data ?? []) layoutByScheduleId.set(row.schedule_id, { catalog_id: null, style_id: row.style_id });
+    }
+
     const priceRuleIds = baseRules.filter(rule => rule.rule_type === "price").map(rule => rule.id);
 
     const priceOverridesByScheduleId = new Map<string, PriceRuleProductOverride[]>();
@@ -802,7 +824,10 @@ async function loadLayoutRules(tenantId: string, ruleId?: string): Promise<Layou
             activityIds,
             groupIds,
             visibility_mode: rule.visibility_mode ?? "hide",
-            layout: rule.rule_type === "layout" ? (layoutByScheduleId.get(rule.id) ?? null) : null,
+            layout:
+                rule.rule_type === "layout" || rule.rule_type === "menu" || rule.rule_type === "style"
+                    ? (layoutByScheduleId.get(rule.id) ?? null)
+                    : null,
             price_overrides:
                 rule.rule_type === "price" ? (priceOverridesByScheduleId.get(rule.id) ?? []) : [],
             visibility_overrides: visibilityOverrides,
@@ -1528,6 +1553,8 @@ interface AppearanceScheduleRow {
         | { catalog_id: string | null; style_id: string | null }
         | Array<{ catalog_id: string | null; style_id: string | null }>
         | null;
+    menu?: { catalog_id: string } | Array<{ catalog_id: string }> | null;
+    style?: { style_id: string } | Array<{ style_id: string }> | null;
     targets: Array<{ target_type: string; target_id: string }> | null;
     featured: Array<{ featured_content_id: string; slot: "before_catalog" | "after_catalog"; sort_order: number }> | null;
 }
@@ -1542,12 +1569,14 @@ export async function listAppearanceSources(tenantId: string): Promise<Appearanc
                 enabled, time_mode, days_of_week, time_from, time_to, start_at, end_at, created_at,
                 on_air_since, overlap_mode,
                 layout:schedule_layout!schedule_layout_schedule_id_fkey(catalog_id, style_id),
+                menu:schedule_menu(catalog_id),
+                style:schedule_style(style_id),
                 targets:schedule_targets(target_type, target_id),
                 featured:schedule_featured_contents(featured_content_id, slot, sort_order)
                 `
             )
             .eq("tenant_id", tenantId)
-            .in("rule_type", ["layout", "featured"]),
+            .in("rule_type", ["layout", "menu", "style", "featured"]),
         supabase.from("activities").select("id, name, status").eq("tenant_id", tenantId).order("name", { ascending: true }),
         supabase.from("activity_group_members").select("group_id, activity_id").eq("tenant_id", tenantId)
     ]);
@@ -1561,7 +1590,15 @@ export async function listAppearanceSources(tenantId: string): Promise<Appearanc
     }
 
     const rules = ((schedulesRes.data ?? []) as unknown as AppearanceScheduleRow[]).map((row): LayoutRule => {
-        const layout = Array.isArray(row.layout) ? (row.layout[0] ?? null) : row.layout;
+        const one = <T,>(x: T | T[] | null | undefined): T | null => (Array.isArray(x) ? (x[0] ?? null) : (x ?? null));
+        const menu = one(row.menu), style = one(row.style);
+        // `menu` e `style` portano il loro pezzo in `layout`, come in `loadLayoutRules`
+        const layout =
+            row.rule_type === "menu"
+                ? menu && { catalog_id: menu.catalog_id, style_id: null }
+                : row.rule_type === "style"
+                  ? style && { catalog_id: null, style_id: style.style_id }
+                  : one(row.layout);
         const targets = row.apply_to_all ? [] : (row.targets ?? []);
         return {
             id: row.id,

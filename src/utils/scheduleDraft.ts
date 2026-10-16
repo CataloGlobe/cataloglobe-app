@@ -19,6 +19,8 @@ export function isLayoutRuleDraft(rule: LayoutRule): boolean {
     if (rule.rule_type === "layout") {
         return !rule.layout?.catalog_id || !rule.layout?.style_id;
     }
+    if (rule.rule_type === "menu") return !rule.layout?.catalog_id;
+    if (rule.rule_type === "style") return !rule.layout?.style_id;
     if (rule.rule_type === "featured") {
         return rule.featured_contents.length === 0;
     }

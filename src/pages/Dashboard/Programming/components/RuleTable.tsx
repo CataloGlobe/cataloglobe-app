@@ -22,7 +22,7 @@ import { LOOK_D } from "@/styles/lookD";
 import styles from "./RuleTable.module.scss";
 
 // Nella D la riga ha l'icona della famiglia e una frase su cosa fa la regola (copia, «Regole»)
-const D_ICON: Record<LayoutRule["rule_type"] | "style", LucideIcon> = { layout: UtensilsCrossed, style: Palette, featured: Megaphone, price: Tag, visibility: EyeOff };
+const D_ICON: Record<LayoutRule["rule_type"], LucideIcon> = { layout: UtensilsCrossed, menu: UtensilsCrossed, style: Palette, featured: Megaphone, price: Tag, visibility: EyeOff };
 const dKind = (rule: LayoutRule) => (rule.rule_type === "layout" && !rule.layout?.catalog_id && rule.layout?.style_id ? "style" : rule.rule_type);
 
 function dCosa(rule: LayoutRule, menu: string, product: string, products: string): string | null {
@@ -30,6 +30,10 @@ function dCosa(rule: LayoutRule, menu: string, product: string, products: string
     switch (rule.rule_type) {
         case "layout":
             return rule.layout?.catalog_id ? `Mostra il ${menu}` : rule.layout?.style_id ? "Veste la pagina" : null;
+        case "menu":
+            return `Mostra il ${menu}`;
+        case "style":
+            return "Veste la pagina";
         case "featured":
             return "In cima alla pagina";
         case "price":

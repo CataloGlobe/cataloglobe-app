@@ -105,6 +105,20 @@ export function whenOfRule(rule: LayoutRule): CalWhen {
         };
     }
     if (rule.time_mode === "always") return w;
+    // `menu` e `style` le scrive save_schedule_model: le ore vere sono le fasce
+    // (le colonne dicono solo la prima). Le fasce del Calendario hanno gli stessi giorni.
+    if ((rule.rule_type === "menu" || rule.rule_type === "style") && rule.slots?.length) {
+        const days = rule.slots[0].days_of_week;
+        if (days) {
+            if (days.length === 0) return { never: true };
+            if (days.length < 7) w.days = days.map(d => (d + 6) % 7).sort((a, b) => a - b);
+        }
+        const ranges = rule.slots
+            .filter(s => !(s.start_minute === 0 && s.end_minute >= 1440))
+            .map((s): [number, number] => [s.start_minute, s.end_minute]);
+        if (ranges.length) w.ranges = ranges;
+        return w;
+    }
     if (rule.days_of_week) {
         if (rule.days_of_week.length === 0) return { never: true };
         if (rule.days_of_week.length < 7) w.days = rule.days_of_week.map(d => (d + 6) % 7).sort((a, b) => a - b);
@@ -132,7 +146,7 @@ export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames, 
     const out: CalEntry[] = [];
     for (const rule of rules) {
         if (rule.enabled === spente || isLayoutRuleDraft(rule)) continue;
-        if (spente && rule.rule_type !== "layout" && rule.rule_type !== "featured") continue;
+        if (spente && rule.rule_type !== "layout" && rule.rule_type !== "menu" && rule.rule_type !== "style" && rule.rule_type !== "featured") continue;
         const when = whenOfRule(rule);
         if (when.never) continue;
         const base = {
@@ -141,7 +155,8 @@ export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames, 
             when,
             tscore: temporalScore(rule),
             priority: rule.priority,
-            created: Date.parse(rule.created_at) || 0,
+            // fra i menù e gli stili del modello nuovo conta quando sono andati in onda
+            created: Date.parse((rule.rule_type === "menu" || rule.rule_type === "style" ? rule.on_air_since : null) ?? rule.created_at) || 0,
             rule
         };
         const push = (kind: CalKind, thing: string, add: boolean, suffix: string = kind) =>
@@ -150,6 +165,11 @@ export function entriesFromRules(rules: readonly LayoutRule[], names: CalNames, 
             const { catalog_id, style_id } = rule.layout;
             if (catalog_id) push("menu", names.catalogs.get(catalog_id) ?? "Menù", false);
             if (style_id) push("style", names.styles.get(style_id) ?? "Stile", false);
+        } else if (rule.rule_type === "menu" && rule.layout?.catalog_id) {
+            // «insieme» si aggiunge agli altri menù, «al posto» li copre
+            push("menu", names.catalogs.get(rule.layout.catalog_id) ?? "Menù", rule.overlap_mode === "together");
+        } else if (rule.rule_type === "style" && rule.layout?.style_id) {
+            push("style", names.styles.get(rule.layout.style_id) ?? "Stile", false);
         } else if (rule.rule_type === "price") {
             const ps = rule.price_overrides;
             const label = (p: (typeof ps)[number]) => p.product_name ?? names.products.get(p.product_id) ?? "Prodotto";

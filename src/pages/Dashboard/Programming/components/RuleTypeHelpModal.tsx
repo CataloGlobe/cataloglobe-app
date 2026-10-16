@@ -81,12 +81,15 @@ type HelpContent = {
 
 /** Chiave del contenuto: i quattro tipi di regola più la panoramica "Tutte". */
 export type HelpRuleKey = RuleType | "all";
+/** `menu` e `style` hanno la guida di «Menù e stile». */
+type HelpKey = Exclude<HelpRuleKey, "menu" | "style">;
+const helpKeyOf = (k: HelpRuleKey): HelpKey => (k === "menu" || k === "style" ? "layout" : k);
 
 /**
  * Il contenuto, con le parole del verticale: `Label` «Menù», `menu` «menù»,
  * `product` / `products` «prodotto» / «prodotti».
  */
-function helpContent(Label: string, product: string, products: string): Record<HelpRuleKey, HelpContent> {
+function helpContent(Label: string, product: string, products: string): Record<HelpKey, HelpContent> {
     const menu = Label.toLowerCase();
     return {
     layout: {
@@ -318,7 +321,7 @@ export const HowItWorksButton = forwardRef<HTMLButtonElement, HowItWorksButtonPr
             leftIcon={<CircleHelp size={16} aria-hidden="true" />}
             onClick={onClick}
             aria-haspopup="dialog"
-            aria-label={helpContent(catalogLabel, productLabel.toLowerCase(), productLabelPlural.toLowerCase())[ruleType].title}
+            aria-label={helpContent(catalogLabel, productLabel.toLowerCase(), productLabelPlural.toLowerCase())[helpKeyOf(ruleType)].title}
         >
             Come funziona
         </Button>
@@ -444,7 +447,7 @@ export function RuleTypeHelpModal({
     returnFocusOnClose = true
 }: Props) {
     const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
-    const content = helpContent(catalogLabel, productLabel.toLowerCase(), productLabelPlural.toLowerCase())[ruleType];
+    const content = helpContent(catalogLabel, productLabel.toLowerCase(), productLabelPlural.toLowerCase())[helpKeyOf(ruleType)];
 
     /* Ritorno del focus al link. `ModalLayout` prova a farlo da sé, ma rimette
        il focus mentre il suo FocusLock è ancora montato e il lock se lo

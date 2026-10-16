@@ -164,9 +164,9 @@ export function buildAppearance(input: AppearanceInput): AppearanceIndex {
 function namesSubject(rule: LayoutRule, subject: AppearanceSubject): boolean {
     switch (subject.kind) {
         case "catalog":
-            return rule.rule_type === "layout" && rule.layout?.catalog_id === subject.id;
+            return (rule.rule_type === "layout" || rule.rule_type === "menu") && rule.layout?.catalog_id === subject.id;
         case "style":
-            return rule.rule_type === "layout" && rule.layout?.style_id === subject.id;
+            return (rule.rule_type === "layout" || rule.rule_type === "style") && rule.layout?.style_id === subject.id;
         case "featured":
             return rule.rule_type === "featured" && rule.featured_contents.some(fc => fc.featured_content_id === subject.id);
     }

@@ -117,7 +117,7 @@ function matrixAt(rules: LayoutRule[], instant: ReturnType<typeof rome>, filterA
 function toOldRule(r: LayoutRule): CompetitionRule {
     return {
         id: r.id,
-        rule_type: r.rule_type,
+        rule_type: r.rule_type as CompetitionRule["rule_type"],
         enabled: r.enabled,
         priority: r.priority,
         created_at: r.created_at,

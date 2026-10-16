@@ -7,7 +7,7 @@ import { MatrixCellLines as CellLines } from "./MatrixCellLines";
 import styles from "./SeatMatrix.module.scss";
 
 /** Le colonne degli strati, nell'ordine in cui si applicano (§20.6). */
-const LAYER_COLUMNS: ReadonlyArray<{ type: RuleType; header: string }> = [
+const LAYER_COLUMNS: ReadonlyArray<{ type: "visibility" | "price" | "featured"; header: string }> = [
     { type: "visibility", header: "Disponibilità" },
     { type: "price", header: "Prezzi" },
     { type: "featured", header: "In evidenza" }
