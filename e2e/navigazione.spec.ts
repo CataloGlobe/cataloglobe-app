@@ -291,8 +291,20 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         await sectionRow(page, SERVIZIO[0]).hover();
         await expect(sectionPanel(page, SERVIZIO[0])).toBeVisible();
         // Il numero accanto alla voce (In servizio, Prenotazioni) non fa parte del nome.
-        const voci = (await sectionPanel(page, SERVIZIO[0]).getByRole("link").allTextContents()).map(t => t.trim().replace(/\s*\d+\+?$/, ""));
-        expect(voci).toEqual((await lookD(page)) ? SERVIZIO_D[1] : SERVIZIO[1]);
+        // Il nome accessibile è la voce sola; il numero, se c'è, è la descrizione.
+        const attese = (await lookD(page)) ? SERVIZIO_D[1] : SERVIZIO[1];
+        const link = sectionPanel(page, SERVIZIO[0]).getByRole("link");
+        await expect(link).toHaveCount(attese.length);
+        for (const [i, voce] of attese.entries()) await expect(link.nth(i)).toHaveAccessibleName(voce);
+        let descritte = 0;
+        for (let i = 0; i < attese.length; i++) {
+            if ((await link.nth(i).getAttribute("aria-describedby")) === null) continue;
+            descritte++;
+            // Il numero si legge come frase («3 prenotazioni da confermare»), non come «3» da solo.
+            await expect(link.nth(i)).toHaveAccessibleDescription(/\d.*[a-z]{3,}/);
+        }
+        // Nella D almeno un numero c'è (comande nuove o prenotazioni da confermare nei dati di prova).
+        if (await lookD(page)) expect(descritte).toBeGreaterThan(0);
         await closeSections(page);
         await page.getByRole("button", { name: "Espandi menù laterale" }).click();
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(W.open);
