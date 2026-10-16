@@ -2190,11 +2190,19 @@ button.dqsedi {
    due card. Le misure delle corsie stanno tutte qui (il codice non le legge). */
 @include look-d {
     .dpage {
+        --d-gap: 14px;
+
         display: flex;
         flex-direction: column;
         gap: 14px;
     }
-    .dpage > .dbar {
+    // frase e barra: la testata che si stringe scorrendo (vedi Vetrina `.head`)
+    .dhead {
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+    }
+    .dhead > .dbar {
         gap: 10px;
     }
     .sideT[aria-expanded="true"] {
