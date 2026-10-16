@@ -1072,3 +1072,11 @@
     justify-content: flex-end;
     gap: var(--space-8);
 }
+
+/* Filtri dello storico: chi paga e tipo di spesa (proposta 12). */
+.historyFilters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+}

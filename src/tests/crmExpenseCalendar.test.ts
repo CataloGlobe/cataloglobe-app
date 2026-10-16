@@ -3,6 +3,7 @@ import type { CrmExpense, CrmExpenseSettlement } from "@/types/crm";
 import {
     calendarDays,
     chargesByDay,
+    filterHistory,
     historyByMonth,
     lastDayOfMonth,
     oneOffByMonth,
@@ -126,5 +127,23 @@ describe("storico", () => {
             "2026-10-16"
         );
         expect(history.map(m => m.month)).toEqual(["2026-02", "2026-01"]);
+    });
+
+    it("il filtro rifà il totale del mese e toglie i mesi rimasti vuoti", () => {
+        const a = oneOff("A", 100, "2026-01-05");
+        const b = oneOff("B", 300, "2026-01-09");
+        const history = historyByMonth(
+            [
+                { expenseId: "A", chargedOn: "2026-01-05", amountCents: 100 },
+                { expenseId: "B", chargedOn: "2026-01-09", amountCents: 300 }
+            ],
+            [a, b],
+            [move("m1", "Alessandro", "Lorenzo", 50, "2026-02-01")],
+            "2026-10-16"
+        );
+        const onlyB = filterHistory(history, r => r.kind === "charge" && r.expense.name === "B");
+        expect(onlyB.map(m => m.month)).toEqual(["2026-01"]);
+        expect(onlyB[0].spentCents).toBe(300);
+        expect(onlyB[0].rows).toHaveLength(1);
     });
 });

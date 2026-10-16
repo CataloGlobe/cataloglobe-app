@@ -146,3 +146,14 @@ export function historyByMonth(
         .sort((a, b) => (a.month < b.month ? 1 : -1))
         .map(m => ({ ...m, rows: m.rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)) }));
 }
+
+/** Lo storico coi soli movimenti che passano il filtro: il totale si rifà, i mesi vuoti escono. */
+export function filterHistory(history: HistoryMonth[], keep: (row: HistoryRow) => boolean): HistoryMonth[] {
+    return history
+        .map(m => {
+            const rows = m.rows.filter(keep);
+            const spentCents = rows.reduce((sum, r) => (r.kind === "charge" ? sum + r.amountCents : sum), 0);
+            return { ...m, rows, spentCents };
+        })
+        .filter(m => m.rows.length > 0);
+}

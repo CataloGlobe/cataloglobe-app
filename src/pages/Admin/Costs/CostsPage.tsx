@@ -37,7 +37,7 @@ import {
     transfersToSettlements,
     type SettlementDraft
 } from "@/utils/crm/expenseBalance";
-import { refundsAsCharges, termAt } from "@/utils/crm/expenseTerms";
+import { payerResolver, refundsAsCharges, termAt } from "@/utils/crm/expenseTerms";
 import { lastDayOfMonth, shiftDay, shiftMonth } from "@/utils/crm/expenseCalendar";
 import {
     buildCostsOverview,
@@ -95,6 +95,21 @@ export default function CostsPage() {
     const view: CostsView = searchParams.get("vista") === "calendario" ? "calendar" : "list";
     // Gli annuali nel costo al mese solo a richiesta (D258, Alex 2026-10-16).
     const includeYearly = searchParams.get("annuali") === "si";
+    // Filtri dello storico (proposta 12): chi paga e tipo di spesa, nell'indirizzo.
+    const historyWho = searchParams.get("chi") ?? "";
+    const historyType = searchParams.get("tipo") ?? "";
+    const setHistoryFilters = (values: { chi?: string; tipo?: string }) =>
+        setSearchParams(
+            prev => {
+                const next = new URLSearchParams(prev);
+                for (const [key, value] of Object.entries(values)) {
+                    if (value) next.set(key, value);
+                    else next.delete(key);
+                }
+                return next;
+            },
+            { replace: true }
+        );
     const [tick, setTick] = useState(0);
     const isPhone = useMediaQuery("(max-width: 767px)");
     const figureVariant = isPhone ? "title-sm" : "title-lg";
@@ -205,6 +220,10 @@ export default function CostsPage() {
     const balance = useMemo(
         () => computeExpenseBalance({ charges: chargesAndRefunds, expenses, settlements, team, today, accounts, terms, memberNames }),
         [chargesAndRefunds, expenses, settlements, team, today, accounts, terms, memberNames]
+    );
+    const chargePayer = useMemo(
+        () => payerResolver({ expenses, terms, accounts, memberNames, isJointName: isJointAccount }),
+        [expenses, terms, accounts, memberNames]
     );
     // I conti comuni tutti, anche senza movimenti (Qonto, D256), quelli chiusi in fondo;
     // per gli aperti il prossimo addebito da domani, per dire quando il saldo non basta.
@@ -578,6 +597,11 @@ export default function CostsPage() {
                         accountLabel={e => accountNameAt(e, nextCharges.get(e.id) ?? e.paid_on ?? today)}
                         charges={allCharges}
                         settlements={settlements}
+                        team={team}
+                        chargePayer={chargePayer}
+                        historyWho={historyWho}
+                        historyType={historyType}
+                        onHistoryFilters={setHistoryFilters}
                         onDeleteMove={move => {
                             setDialogError(null);
                             setMoveToDelete(move);

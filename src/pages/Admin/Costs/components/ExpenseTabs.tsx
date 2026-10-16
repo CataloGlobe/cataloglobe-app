@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { ChipGroupSingle, type ChipOption } from "@/components/ui/Chip/ChipGroup";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
@@ -14,18 +15,47 @@ import {
     formatEuroCents,
     monthlyEquivalentCents
 } from "@shared/crmExpenses";
-import { isJointAccount, settlementText } from "@/utils/crm/expenseBalance";
-import { historyByMonth, oneOffByMonth } from "@/utils/crm/expenseCalendar";
+import { isJointAccount, payerKey, settlementText } from "@/utils/crm/expenseBalance";
+import { filterHistory, historyByMonth, oneOffByMonth, type HistoryRow } from "@/utils/crm/expenseCalendar";
+import type { ChargePayer } from "@/utils/crm/expenseTerms";
 import { formatMonthIt, formatShortDateIt, type CrmExpenseMonth } from "@/utils/crm/expenses";
-import type { CrmExpense, CrmExpenseCharge, CrmExpenseSettlement } from "@/types/crm";
+import type { CrmExpense, CrmExpenseCategory, CrmExpenseCharge, CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import { ExpenseIcon } from "./ExpenseIcon";
 import { KindTag } from "./KindTag";
-import { expenseKind } from "./expenseCategoryMeta";
+import { CATEGORY_META, expenseKind } from "./expenseCategoryMeta";
 import { MonthsByCategory } from "./MonthsByCategory";
 import styles from "../Costs.module.scss";
 
 type ExpenseTab = "subscriptions" | "oneoff" | "history" | "months";
+
+/** «comune» nell'indirizzo = i conti comuni; un nome = quella persona. */
+const JOINT_FILTER = "comune";
+
+/**
+ * Una riga passa il filtro di chi paga: l'addebito se l'ha pagato lui (dal
+ * conto in vigore quel giorno), il movimento se l'ha fatto o ricevuto. Il
+ * filtro per tipo lascia fuori i movimenti: non sono spese.
+ */
+function historyMatch(
+    row: HistoryRow,
+    who: string,
+    type: string,
+    chargePayer: (expenseId: string, date: string) => ChargePayer
+): boolean {
+    if (row.kind === "move") {
+        if (type) return false;
+        if (!who) return true;
+        const s = row.settlement;
+        if (who === JOINT_FILTER) return isJointAccount(s.to_name) || isJointAccount(s.from_name);
+        return payerKey(s.from_name) === payerKey(who) || payerKey(s.to_name) === payerKey(who);
+    }
+    if (type && row.expense.category !== type) return false;
+    if (!who) return true;
+    const payer = chargePayer(row.expense.id, row.date);
+    if (who === JOINT_FILTER) return payer.type === "joint";
+    return payer.type === "person" && payerKey(payer.name) === payerKey(who);
+}
 
 function capitalize(text: string): string {
     return text.charAt(0).toUpperCase() + text.slice(1);
@@ -67,6 +97,11 @@ export function ExpenseTabs({
     accountLabel,
     charges,
     settlements,
+    team,
+    chargePayer,
+    historyWho,
+    historyType,
+    onHistoryFilters,
     onDeleteMove
 }: {
     expenses: CrmExpense[];
@@ -84,6 +119,13 @@ export function ExpenseTabs({
     /** Addebiti caricati (lo storico tiene quelli fino a oggi). */
     charges: CrmExpenseCharge[];
     settlements: CrmExpenseSettlement[];
+    /** I nomi della squadra, per il filtro di chi paga. */
+    team: string[];
+    chargePayer: (expenseId: string, date: string) => ChargePayer;
+    /** Filtri dello storico dall'indirizzo: "" = tutti. */
+    historyWho: string;
+    historyType: string;
+    onHistoryFilters: (values: { chi?: string; tipo?: string }) => void;
     onDeleteMove: (move: CrmExpenseSettlement) => void;
 }) {
     const [tab, setTab] = useState<ExpenseTab>("history");
@@ -108,7 +150,26 @@ export function ExpenseTabs({
     );
     const oneOffMonths = useMemo(() => oneOffByMonth(expenses), [expenses]);
     const oneOffCount = useMemo(() => expenses.filter(e => e.kind === "one_off").length, [expenses]);
-    const history = useMemo(() => historyByMonth(charges, expenses, settlements, today), [charges, expenses, settlements, today]);
+    const fullHistory = useMemo(
+        () => historyByMonth(charges, expenses, settlements, today),
+        [charges, expenses, settlements, today]
+    );
+    // Un valore dell'indirizzo che non c'è più (nome, tipo) vale «tutti».
+    const who = historyWho === JOINT_FILTER || team.some(n => payerKey(n) === payerKey(historyWho)) ? historyWho : "";
+    const type = historyType in CATEGORY_META ? historyType : "";
+    const history = useMemo(
+        () => (who || type ? filterHistory(fullHistory, row => historyMatch(row, who, type, chargePayer)) : fullHistory),
+        [fullHistory, who, type, chargePayer]
+    );
+    const whoOptions: ChipOption<string>[] = [
+        { value: "tutti", label: "Tutti" },
+        ...team.map(name => ({ value: name, label: name })),
+        { value: JOINT_FILTER, label: "Conto comune" }
+    ];
+    const typeOptions: ChipOption<string>[] = [
+        { value: "tutti", label: "Tutti i tipi" },
+        ...(Object.keys(CATEGORY_META) as CrmExpenseCategory[]).map(c => ({ value: c, label: CATEGORY_META[c].label }))
+    ];
 
     const actions = (expense: CrmExpense) => (
         <TableRowActions
@@ -260,9 +321,35 @@ export function ExpenseTabs({
                         loading={loading}
                         error={error}
                         onRetry={onRetry}
-                        empty={history.length === 0}
+                        empty={fullHistory.length === 0}
                         emptyText="Lo storico compare con la prima spesa o il primo movimento."
                     >
+                        <div className={styles.historyFilters}>
+                            <ChipGroupSingle
+                                ariaLabel="Chi paga"
+                                options={whoOptions}
+                                value={who || "tutti"}
+                                onChange={v => onHistoryFilters({ chi: v === "tutti" ? "" : v })}
+                                layout="auto"
+                                shape="pill"
+                            />
+                            <ChipGroupSingle
+                                ariaLabel="Tipo di spesa"
+                                options={typeOptions}
+                                value={type || "tutti"}
+                                onChange={v => onHistoryFilters({ tipo: v === "tutti" ? "" : v })}
+                                layout="auto"
+                                shape="pill"
+                            />
+                        </div>
+                        {history.length === 0 && (
+                            <Text as="p" variant="body-sm" colorVariant="muted">
+                                Niente con questi filtri.{" "}
+                                <Button variant="ghost" size="sm" onClick={() => onHistoryFilters({ chi: "", tipo: "" })}>
+                                    Togli i filtri
+                                </Button>
+                            </Text>
+                        )}
                         <div className={styles.monthBlocks}>
                             {history.map(m => (
                                 <div key={m.month} className={styles.monthBlock}>
