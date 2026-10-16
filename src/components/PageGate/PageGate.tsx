@@ -65,6 +65,7 @@ export function PageGate({ feature, readPermission, activityId, scope, children 
         return (
             <div className={styles.lockedWrap}>
                 <EmptyState
+                    gate
                     icon={<Lock size={40} strokeWidth={1.5} />}
                     title={
                         billingCapable
@@ -107,7 +108,7 @@ export function PageGate({ feature, readPermission, activityId, scope, children 
         if (!canRead) {
             return (
                 <div className={styles.lockedWrap}>
-                    <EmptyState
+                    <EmptyState gate
                         icon={<Lock size={40} strokeWidth={1.5} />}
                         title="Non hai accesso a questa sezione"
                         description="Contatta il proprietario o un amministratore per ottenere l'accesso."

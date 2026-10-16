@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { usePermissions } from "@/context/usePermissions";
 import { isOwnerOrAdmin } from "@/lib/permissions";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./ProLockedPanel.module.scss";
 
 interface ProLockedPanelProps {
@@ -41,10 +42,10 @@ export function ProLockedPanel({ tenantId, title, description }: ProLockedPanelP
                 </div>
                 {billingCapable ? (
                     <div className={styles.actions}>
-                        <Button variant="primary" onClick={() => navigate(`/business/${tenantId}/settings/abbonamento`)}>
+                        <Button variant="primary" size={LOOK_D ? "sm" : undefined} onClick={() => navigate(`/business/${tenantId}/settings/abbonamento`)}>
                             Passa a Pro
                         </Button>
-                        <Button as="a" variant="secondary" href="/#prezzi" target="_blank" rel="noopener noreferrer">
+                        <Button as="a" variant={LOOK_D ? "ghost" : "secondary"} size={LOOK_D ? "sm" : undefined} href="/#prezzi" target="_blank" rel="noopener noreferrer">
                             Confronta i piani
                         </Button>
                     </div>

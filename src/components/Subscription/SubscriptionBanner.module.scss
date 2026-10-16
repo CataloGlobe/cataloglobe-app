@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 .banner {
     display: flex;
     align-items: center;
@@ -100,6 +103,82 @@
 
         .icon {
             color: #ef4444;
+        }
+    }
+}
+
+/* --- Grafica D (v66 `.ab-ban`): riquadro tondo col bordo del tono, testo
+   14, pulsante bianco col bordo del colore del testo. --- */
+.banner {
+    @include look-d {
+        gap: 10px 14px;
+        padding: 10px 14px;
+        border-radius: 14px;
+        @include d-type(body-m);
+
+        button:not(.link),
+        a {
+            background: var(--d-surface) !important;
+            color: inherit !important;
+            border-color: currentColor !important;
+            box-shadow: none !important;
+        }
+    }
+}
+
+.content {
+    @include look-d {
+        gap: 10px 14px;
+        flex: 1 1 260px;
+
+        p,
+        span,
+        div {
+            color: inherit;
+            font: inherit;
+        }
+    }
+}
+
+.link {
+    @include look-d {
+        font: inherit;
+        font-weight: 600;
+    }
+}
+
+.info {
+    @include look-d {
+        background: color-mix(in srgb, var(--d-brand) 9%, var(--d-surface));
+        border-color: color-mix(in srgb, var(--d-brand) 24%, var(--d-surface));
+        color: var(--d-brand-deep);
+
+        .icon {
+            color: currentColor;
+        }
+    }
+}
+
+.warning {
+    @include look-d {
+        background: var(--d-ban-warn);
+        border-color: var(--d-ban-warn-line);
+        color: var(--d-ban-warn-ink);
+
+        .icon {
+            color: currentColor;
+        }
+    }
+}
+
+.error {
+    @include look-d {
+        background: var(--d-ban-err);
+        border-color: var(--d-ban-err-line);
+        color: var(--d-ban-err-ink);
+
+        .icon {
+            color: currentColor;
         }
     }
 }

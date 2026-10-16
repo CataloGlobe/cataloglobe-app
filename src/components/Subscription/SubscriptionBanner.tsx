@@ -9,6 +9,7 @@ import { usePermissions } from "@/context/usePermissions";
 import { canDoOnTenant } from "@/lib/permissions";
 import { createPortalSession } from "@/services/supabase/billing";
 import { useToast } from "@/context/Toast/ToastContext";
+import { LOOK_D } from "@styles/lookD";
 import styles from "./SubscriptionBanner.module.scss";
 
 export function SubscriptionBanner() {
@@ -55,7 +56,7 @@ export function SubscriptionBanner() {
         return (
             <div className={`${styles.banner} ${styles.info}`}>
                 <div className={styles.content}>
-                    <Clock size={16} className={styles.icon} />
+                    <Clock size={LOOK_D ? 18 : 16} className={styles.icon} />
                     <Text variant="body-sm" weight={500}>
                         {trialDaysLeft !== null
                             ? <>Hai <strong>{trialDaysLeft} giorn{trialDaysLeft === 1 ? "o rimasto" : "i rimasti"}</strong> di prova gratuita.</>
@@ -76,7 +77,7 @@ export function SubscriptionBanner() {
         return (
             <div className={`${styles.banner} ${styles.warning}`}>
                 <div className={styles.content}>
-                    <AlertTriangle size={16} className={styles.icon} />
+                    <AlertTriangle size={LOOK_D ? 18 : 16} className={styles.icon} />
                     <Text variant="body-sm" weight={500}>
                         Problema con il pagamento. Aggiorna il metodo di pagamento per evitare interruzioni.
                     </Text>
@@ -87,7 +88,7 @@ export function SubscriptionBanner() {
                         size="sm"
                         onClick={handlePortal}
                         disabled={loading || !selectedTenant.stripe_customer_id}
-                        leftIcon={<ExternalLink size={14} />}
+                        leftIcon={LOOK_D ? undefined : <ExternalLink size={14} />}
                     >
                         {loading ? "Apertura..." : "Aggiorna pagamento"}
                     </Button>
@@ -100,7 +101,7 @@ export function SubscriptionBanner() {
         return (
             <div className={`${styles.banner} ${styles.error}`}>
                 <div className={styles.content}>
-                    <XCircle size={16} className={styles.icon} />
+                    {LOOK_D ? <AlertTriangle size={18} className={styles.icon} /> : <XCircle size={16} className={styles.icon} />}
                     <Text variant="body-sm" weight={500}>
                         {status === "canceled"
                             ? "Il tuo abbonamento è stato cancellato. Riattiva per continuare a modificare i contenuti."

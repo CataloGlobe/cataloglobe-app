@@ -71,6 +71,7 @@ import {
 } from "lucide-react";
 import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
+import { LOOK_D } from "@styles/lookD";
 
 /**
  * La mappa stato → strip (§37.5: una sola uscita per stato). Il tono e la
@@ -1098,6 +1099,32 @@ export default function SubscriptionPage() {
                   { value: renewalValue, label: renewalLabel }
               ])
     ];
+    // Nella D le cifre stanno in riquadri con la parola sopra e una riga sotto
+    // (v65 `.kf`): stesse cifre, la parola di prima sale e sotto va il resto.
+    const stripFiguresD = [
+        {
+            kicker: stripFigures[0].label,
+            value: stripFigures[0].value,
+            label: allSeatsUsed
+                ? "Ogni sede in più si aggiunge al piano"
+                : `Ne puoi aprire ancora ${displaySeats - activityCount}`
+        },
+        ...(subUnavailable
+            ? []
+            : [
+                  { kicker: "Importo", value: stripFigures[1].value, label: amountLabel },
+                  {
+                      kicker: renewalLabel,
+                      value: renewalValue,
+                      label:
+                          isTrialing && trialDaysLeft !== null
+                              ? `${trialDaysLeft} giorn${trialDaysLeft === 1 ? "o" : "i"}`
+                              : billingInterval === "year"
+                              ? "Fatturazione annuale"
+                              : "Fatturazione mensile"
+                  }
+              ])
+    ];
     // Lo strip aspetta tutti i suoi dati: conteggio sedi e, per chi lo legge,
     // lo stato Stripe. Mai valori placeholder.
     const stripReady = activityCountLoaded !== null && (!canManageBilling || !subStateLoading);
@@ -1269,8 +1296,9 @@ export default function SubscriptionPage() {
                     badge={strip.badge}
                     title={stripTitle}
                     description={strip.description}
-                    figures={stripFigures}
+                    figures={LOOK_D ? stripFiguresD : stripFigures}
                     action={strip.action ?? undefined}
+                    variant={LOOK_D ? "plan" : undefined}
                 />
             ) : (
                 <Skeleton height="96px" radius="var(--radius-surface)" />
@@ -1353,7 +1381,7 @@ export default function SubscriptionPage() {
                 <Card title="Gestione" flush>
                     {!subStateLoading && pendingBanner && (
                         <ListRow
-                            leading={<CalendarRange size={20} aria-hidden />}
+                            leading={LOOK_D ? undefined : <CalendarRange size={20} aria-hidden />}
                             title="Cambio programmato"
                             subtitle={`${formatPendingChangeLabel({
                                 planName: pendingBanner.planName,
@@ -1372,7 +1400,7 @@ export default function SubscriptionPage() {
 
                     {hasSubscriptionRecord && (
                         <ListRow
-                            leading={<ExternalLink size={20} aria-hidden />}
+                            leading={LOOK_D ? undefined : <ExternalLink size={20} aria-hidden />}
                             title="Portale di fatturazione"
                             // T16 IM4: la frase del riquadro di prima sta qui, dove si gestisce.
                             subtitle={
@@ -1381,7 +1409,7 @@ export default function SubscriptionPage() {
                                     : "Metodo di pagamento, fatture e ricevute su Stripe."
                             }
                             onClick={() => void handlePortal()}
-                            trailing={portalLoading ? <Loader size="sm" /> : <ChevronRight size={16} aria-hidden />}
+                            trailing={portalLoading ? <Loader size="sm" /> : LOOK_D ? <ExternalLink size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
                         />
                     )}
 
@@ -1398,7 +1426,7 @@ export default function SubscriptionPage() {
                         const enabled = !subStateLoading && !alreadyPending && !blocked;
                         return (
                             <ListRow
-                                leading={<CalendarRange size={20} aria-hidden />}
+                                leading={LOOK_D ? undefined : <CalendarRange size={20} aria-hidden />}
                                 title={INTERVAL_ACTION_LABEL[oppositeInterval]}
                                 subtitle={subtitle}
                                 wrapSubtitle
@@ -1411,7 +1439,7 @@ export default function SubscriptionPage() {
 
                     {canCancelBilling && hasSubscriptionRecord && !isTerminal && !subUnavailable && (
                         <ListRow
-                            leading={<XCircle size={20} aria-hidden />}
+                            leading={LOOK_D ? undefined : <XCircle size={20} aria-hidden />}
                             title="Disdici abbonamento"
                             subtitle={
                                 cancelAtPeriodEnd

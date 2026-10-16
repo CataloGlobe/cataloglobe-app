@@ -3,6 +3,7 @@
 // fondo -50. Il testo è il -800 del tono (come StatusBadge): i fondi -50
 // restano pastello anche in scuro, il --text del tema sarebbe illeggibile.
 @use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 
 // Il testo ha diritto a una colonna leggibile (min 280): quando cifre e
 // azione non ci stanno accanto, scendono su una seconda riga invece di
@@ -131,5 +132,129 @@
   .figureLabel {
     color: var(--text-muted);
     opacity: 1;
+  }
+}
+
+// --- Variante `plan`: la striscia piena del piano (Abbonamento nella D, v65
+// `.card.c-br.a-plan`). Esiste solo con la D accesa: il chiamante la chiede
+// solo lì, quindi qui niente stile vecchio.
+.plan {
+  display: grid;
+  gap: 16px;
+  padding: var(--d-pad);
+  border-radius: var(--d-r-card);
+  background: var(--d-brand-deep);
+  color: var(--d-surface);
+  box-shadow: var(--d-shadow);
+  min-width: 0;
+}
+
+.planTop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.planTitle {
+  margin: 0;
+  color: inherit !important;
+  @include d-type(plan-title);
+  line-height: 1.1;
+}
+
+// Sul fondo indaco ogni distintivo è bianco velato; cambia solo il pallino.
+.planBadge {
+  @include look-d {
+    background-color: rgba(255, 255, 255, 0.16);
+    color: var(--d-surface);
+  }
+}
+
+.plan-warning .planBadge span:first-child,
+.plan-danger .planBadge span:first-child {
+  @include look-d {
+    background-color: var(--d-brief-warn) !important;
+  }
+}
+
+.planAction {
+  margin-left: auto;
+
+  // L'azione è un pulsante fantasma bianco velato (v65 `.a-plan .btn.gh`).
+  :global(button),
+  :global(a) {
+    background: rgba(255, 255, 255, 0.14) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: var(--d-surface) !important;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    :global(button:not(:disabled)):hover,
+    :global(a):hover {
+      background: rgba(255, 255, 255, 0.26) !important;
+    }
+  }
+
+  :global(button:disabled) {
+    opacity: 0.5;
+  }
+}
+
+.planDescription {
+  margin: -6px 0 0;
+  @include d-type(body-m);
+  max-width: 62ch;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.planFigures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.planFigure {
+  display: grid;
+  gap: 1px;
+  align-content: start;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  animation: planPop 340ms var(--d-ease-move) both;
+  animation-delay: calc(var(--i, 0) * 60ms + 120ms);
+
+  dd,
+  dt {
+    margin: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.planKicker {
+  @include d-type(plan-kicker);
+  color: var(--d-brief-muted);
+}
+
+.planValue {
+  @include d-type(plan-num);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.planLabel {
+  @include d-type(note);
+  color: var(--d-brief-muted);
+}
+
+@keyframes planPop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
   }
 }

@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 // Selettore condiviso piano + sedi. Stili portati 1:1 da
 // CreateBusinessWizard.module.scss (Step 2) per resa identica in onboarding.
 
@@ -260,4 +263,70 @@
     &:hover {
         background-color: var(--warning-800);
     }
+}
+
+// --- Grafica D (v65, pannello «Modifica piano e sedi»: `.ab-pl`, `.ab-seat`,
+// `.ab-sum`). Card del piano col bordo che si accende, prezzo grande, spunte
+// verdi; riquadro delle sedi grigio tenue.
+.planCard {
+  @include look-d {
+    gap: 6px;
+    padding: 14px;
+    border-radius: var(--d-r-card);
+    border: 1.5px solid color-mix(in srgb, var(--d-muted) 22%, transparent);
+    background: var(--d-surface);
+    box-shadow: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+}
+
+.planCardSelected {
+  @include look-d {
+    border-color: var(--d-brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--d-brand) 16%, transparent);
+  }
+}
+
+.planName {
+  @include look-d {
+    @include d-type(tile-title);
+  }
+}
+
+.planPriceValue {
+  @include look-d {
+    @include d-type(plan-title);
+  }
+}
+
+.planAnnualPitch {
+  @include look-d {
+    color: var(--d-s-ready-ink);
+    @include d-type(note);
+    font-weight: 600;
+  }
+}
+
+.planFeatureIcon {
+  @include look-d {
+    color: var(--d-s-ready-ink);
+  }
+}
+
+.seatsPanel {
+  @include look-d {
+    border: 0;
+    border-radius: var(--d-r-card);
+    background: var(--d-s-old);
+    padding: 12px 14px;
+  }
+}
+
+.breakdownBox {
+  @include look-d {
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--d-muted);
+  }
 }

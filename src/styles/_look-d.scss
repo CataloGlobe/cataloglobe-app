@@ -78,6 +78,15 @@ html[data-look="d"] {
   --d-s-old: color-mix(in srgb, var(--d-muted) 13%, transparent);
   // Il pallino di avviso su fondo indaco («In breve»).
   --d-brief-warn: #ffb199;
+  // Il testo secondario su fondo indaco (striscia del piano in Abbonamento, v65).
+  --d-brief-muted: #cfcaff;
+  // Il banner dell'abbonamento in cima alle pagine (v66 `.ab-ban`): ritardo ed errore.
+  --d-ban-warn: #fff7e6;
+  --d-ban-warn-line: #f5d48a;
+  --d-ban-warn-ink: #7a4b00;
+  --d-ban-err: #fdecec;
+  --d-ban-err-line: #f2b8b5;
+  --d-ban-err-ink: #8c1d18;
   // Recensioni: la stella e i colori del voto, dalla 5 alla 1 (v28 `SC`).
   --d-star: #e2a40c;
   --d-star-5: #1f9d6b;
