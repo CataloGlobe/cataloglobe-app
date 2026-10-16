@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
 import { Wallet } from "lucide-react";
-import { BarList } from "@/components/ui/BarList/BarList";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -17,11 +15,13 @@ import {
     monthlyEquivalentCents
 } from "@shared/crmExpenses";
 import { isJointAccount, settlementText } from "@/utils/crm/expenseBalance";
-import { historyByMonth, oneOffByMonth, renewalProgress } from "@/utils/crm/expenseCalendar";
+import { historyByMonth, oneOffByMonth } from "@/utils/crm/expenseCalendar";
 import { formatMonthIt, formatShortDateIt, type CrmExpenseMonth } from "@/utils/crm/expenses";
 import type { CrmExpense, CrmExpenseCharge, CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import { ExpenseIcon } from "./ExpenseIcon";
+import { KindTag } from "./KindTag";
+import { MonthsByCategory } from "./MonthsByCategory";
 import styles from "../Costs.module.scss";
 
 type ExpenseTab = "subscriptions" | "oneoff" | "history" | "months";
@@ -42,12 +42,12 @@ function renewalText(expense: CrmExpense, next: string | undefined, today: strin
     }
     if (!next) return "concluso";
     const days = daysBetween(today, next);
-    return days <= 7 ? `si rinnova ${formatDaysLeft(days)}, ${formatShortDateIt(next)}` : `si rinnova il ${formatShortDateIt(next)}`;
+    return `si rinnova ${formatDaysLeft(days)}, ${formatShortDateIt(next)}`;
 }
 
 /**
  * Le spese a schede (canvas K2, scelta da Alex il 2026-10-05): abbonamenti a
- * tessere con la barra verso il rinnovo, una tantum per mese, mese per mese.
+ * tessere coi giorni al rinnovo (la barra è uscita il 2026-10-16), una tantum per mese, mese per mese.
  * Lo storico è la scheda di base (Alex, 2026-10-16).
  * Ogni tessera o riga apre la spesa; il «⋯» la elimina. Lo storico mette
  * insieme addebiti e movimenti, così si vedono anche i soldi passati fra voi.
@@ -99,6 +99,12 @@ export function ExpenseTabs({
             return a.name.localeCompare(b.name, "it");
         });
     }, [expenses, nextCharges]);
+    // Quanto pesano al mese gli abbonamenti che si rinnovano ancora (gli annuali a 1/12).
+    const activeSubs = subscriptions.filter(e => nextCharges.has(e.id) && !e.cancelled_on);
+    const subsMonthlyCents = activeSubs.reduce(
+        (sum, e) => sum + monthlyEquivalentCents(e.amount_cents, e.billing_interval ?? "month"),
+        0
+    );
     const oneOffMonths = useMemo(() => oneOffByMonth(expenses), [expenses]);
     const oneOffCount = useMemo(() => expenses.filter(e => e.kind === "one_off").length, [expenses]);
     const history = useMemo(() => historyByMonth(charges, expenses, settlements, today), [charges, expenses, settlements, today]);
@@ -152,6 +158,10 @@ export function ExpenseTabs({
                         empty={subscriptions.length === 0}
                         emptyText="Nessun abbonamento. Aggiungine uno con la data del primo addebito."
                     >
+                        <Text as="p" variant="caption" colorVariant="muted" className={styles.tilesTotal}>
+                            {activeSubs.length === 1 ? "1 attivo" : `${activeSubs.length} attivi`}:{" "}
+                            {formatEuroCents(subsMonthlyCents)} al mese in tutto
+                        </Text>
                         <ul className={styles.tiles}>
                             {subscriptions.map(e => {
                                 const next = nextCharges.get(e.id);
@@ -181,18 +191,14 @@ export function ExpenseTabs({
                                                     : ""}
                                             </Text>
                                         </Text>
-                                        {next ? (
-                                            <ProgressBar
-                                                value={renewalProgress(next, interval, today)}
-                                                max={1}
-                                                variant={soon ? "warning" : "brand"}
-                                                label={renewalText(e, next, today)}
-                                            />
-                                        ) : (
-                                            <Text as="span" variant="caption" colorVariant="muted">
-                                                {renewalText(e, next, today)}
-                                            </Text>
-                                        )}
+                                        <Text
+                                            as="span"
+                                            variant="caption"
+                                            colorVariant={soon ? undefined : "muted"}
+                                            className={soon ? styles.renewSoon : undefined}
+                                        >
+                                            {renewalText(e, next, today)}
+                                        </Text>
                                     </li>
                                 );
                             })}
@@ -270,9 +276,12 @@ export function ExpenseTabs({
                                                 <li key={`c-${row.expense.id}-${row.date}`} className={styles.oneOffRow}>
                                                     <button type="button" className={styles.oneOffOpen} onClick={() => onOpen(row.expense)}>
                                                         <ExpenseIcon category={row.expense.category} />
-                                                        <Text as="span" variant="body-sm" className={styles.ellipsis}>
-                                                            {row.expense.name}
-                                                        </Text>
+                                                        <span className={styles.nameCell}>
+                                                            <Text as="span" variant="body-sm" className={styles.ellipsis}>
+                                                                {row.expense.name}
+                                                            </Text>
+                                                            <KindTag kind={row.expense.kind === "subscription" ? "subscription" : "one_off"} />
+                                                        </span>
                                                         <Text as="span" variant="caption" colorVariant="muted" className={styles.oneOffMeta}>
                                                             {formatShortDateIt(row.date)}
                                                             {accountLabel?.(row.expense)
@@ -291,11 +300,14 @@ export function ExpenseTabs({
                                                 <li key={`m-${row.settlement.id}`} className={styles.oneOffRow}>
                                                     <div className={`${styles.oneOffOpen} ${styles.oneOffStill}`}>
                                                         <ExpenseIcon move />
-                                                        <Text as="span" variant="body-sm" className={styles.ellipsis}>
-                                                            {settlementText(row.settlement)}
-                                                        </Text>
+                                                        <span className={styles.nameCell}>
+                                                            <Text as="span" variant="body-sm" className={styles.ellipsis}>
+                                                                {settlementText(row.settlement)}
+                                                            </Text>
+                                                            <KindTag kind="move" />
+                                                        </span>
                                                         <Text as="span" variant="caption" colorVariant="muted" className={styles.oneOffMeta}>
-                                                            {formatShortDateIt(row.date)} · movimento
+                                                            {formatShortDateIt(row.date)}
                                                             {row.settlement.note ? ` · ${row.settlement.note}` : ""}
                                                         </Text>
                                                         <Text as="span" variant="body-sm" weight={600} className={styles.figureValue}>
@@ -325,15 +337,7 @@ export function ExpenseTabs({
                         emptyText="I mesi compaiono con la prima spesa."
                     >
                         <div className={styles.monthsPanel}>
-                            <BarList
-                                aria-label="Speso mese per mese"
-                                items={months.map(m => ({
-                                    id: m.month,
-                                    label: capitalize(formatMonthIt(m.month)),
-                                    value: m.totalCents,
-                                    valueLabel: `${formatEuroCents(m.totalCents)} · abbonamenti ${formatEuroCents(m.subscriptionCents)}`
-                                }))}
-                            />
+                            <MonthsByCategory months={months} />
                         </div>
                     </TileState>
                 </Tabs.Panel>

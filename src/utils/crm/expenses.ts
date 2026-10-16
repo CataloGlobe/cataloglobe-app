@@ -52,6 +52,8 @@ export interface CrmExpenseMonth {
     totalCents: number;
     oneOffCents: number;
     subscriptionCents: number;
+    /** Per categoria, rimborsi tolti; solo quelle con addebiti nel mese. */
+    byCategory: Partial<Record<CrmExpenseCategory, number>>;
 }
 
 export interface CrmExpenseSummary {
@@ -68,6 +70,7 @@ export function summarizeCharges(
     today: string
 ): CrmExpenseSummary {
     const kindOf = new Map(expenses.map(e => [e.id, e.kind]));
+    const categoryOf = new Map(expenses.map(e => [e.id, e.category]));
     const byMonth = new Map<string, CrmExpenseMonth>();
     const currentMonth = today.slice(0, 7);
     let sinceStartCents = 0;
@@ -76,8 +79,10 @@ export function summarizeCharges(
     for (const charge of charges) {
         if (charge.chargedOn > today) continue;
         const month = charge.chargedOn.slice(0, 7);
-        const row = byMonth.get(month) ?? { month, totalCents: 0, oneOffCents: 0, subscriptionCents: 0 };
+        const row = byMonth.get(month) ?? { month, totalCents: 0, oneOffCents: 0, subscriptionCents: 0, byCategory: {} };
         row.totalCents += charge.amountCents;
+        const category = categoryOf.get(charge.expenseId) ?? "other";
+        row.byCategory[category] = (row.byCategory[category] ?? 0) + charge.amountCents;
         if (kindOf.get(charge.expenseId) === "subscription") row.subscriptionCents += charge.amountCents;
         else row.oneOffCents += charge.amountCents;
         byMonth.set(month, row);
@@ -88,7 +93,7 @@ export function summarizeCharges(
     const months: CrmExpenseMonth[] = [];
     if (byMonth.size > 0) {
         for (let m = currentMonth; m >= firstMonth; m = previousMonth(m)) {
-            months.push(byMonth.get(m) ?? { month: m, totalCents: 0, oneOffCents: 0, subscriptionCents: 0 });
+            months.push(byMonth.get(m) ?? { month: m, totalCents: 0, oneOffCents: 0, subscriptionCents: 0, byCategory: {} });
         }
     }
 

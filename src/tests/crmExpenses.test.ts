@@ -144,6 +144,23 @@ describe("summarizeCharges", () => {
         expect(summary.months[2]).toMatchObject({ oneOffCents: 2019, subscriptionCents: 0 });
     });
 
+    it("divide il mese per categoria, rimborsi compresi", () => {
+        const withCategories = [
+            expense({ id: "sw", kind: "subscription", category: "software" }),
+            expense({ id: "hw", kind: "one_off", category: "hardware", paid_on: "2026-10-03", first_charge_on: null, billing_interval: null })
+        ];
+        const summary = summarizeCharges(
+            [
+                { expenseId: "sw", chargedOn: "2026-10-02", amountCents: 9446 },
+                { expenseId: "hw", chargedOn: "2026-10-03", amountCents: 5000 },
+                { expenseId: "hw", chargedOn: "2026-10-08", amountCents: -770 }
+            ],
+            withCategories,
+            "2026-10-15"
+        );
+        expect(summary.months[0].byCategory).toEqual({ software: 9446, hardware: 4230 });
+    });
+
     it("senza addebiti niente mesi", () => {
         const summary = summarizeCharges([], expenses, "2026-10-15");
         expect(summary).toEqual({ thisMonthCents: 0, sinceStartCents: 0, months: [] });
