@@ -9,11 +9,26 @@ import {
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft, updateFeaturedRule } from "@/services/supabase/featuredScheduling";
 import { createScopedRuleDraft, updateScheduleTargets } from "@/services/supabase/scheduleTargets";
+import { saveScheduleModel, type ModelSlot } from "@/services/supabase/scheduleModel";
 import { ruleDateToIso } from "@/utils/ruleDetailForm";
-import { autoName, draftParts, priceKeys, timeFields, whenKey, whereKey, type Draft, type DraftLookups } from "./calendarDraft";
+import { autoName, draftParts, priceKeys, savesAsModel, timeFields, whenKey, whereKey, type Draft, type DraftLookups } from "./calendarDraft";
 import { whenOfRule, whereOfRule } from "./calendarModel";
 
 const RULE_TYPE: Record<Draft["kind"], RuleType> = { menu: "layout", style: "layout", price: "price", visibility: "visibility", featured: "featured" };
+/** Il tipo della regola salvata: `menu`/`style` col modello nuovo, altrimenti quello di oggi. */
+const ruleTypeOf = (D: Draft): RuleType => (savesAsModel(D) ? (D.kind as "menu" | "style") : RULE_TYPE[D.kind]);
+
+/**
+ * Le fasce del quando per save_schedule_model: gli stessi giorni per tutte
+ * (0 = domenica nel database, 0 = lunedì qui). Senza giorni né ore non si
+ * mandano: le scrive il ponte dalle colonne, come oggi.
+ */
+export function modelSlotsOf(w: Draft["when"]): ModelSlot[] | undefined {
+    if (!w.days && !w.ranges?.length) return undefined;
+    const days = w.days ? [...new Set(w.days.map(d => (d + 1) % 7))].sort((a, b) => a - b) : null;
+    const ranges = w.ranges?.length ? w.ranges : [[0, 1440] as [number, number]];
+    return ranges.map(([start, end]) => ({ days_of_week: days, start_minute: start, end_minute: end }));
+}
 
 type Target = { applyToAll: boolean; activityIds: string[]; groupIds: string[] };
 
@@ -57,6 +72,7 @@ const ruleProducts = (r: LayoutRule, skip: string | null): Products => ({
 /** Scrive la regola `id` com'è nella bozza (tempo, sedi, cosa). */
 async function writeRule(id: string, tenantId: string, D: Draft, name: string, products: Products, contents: LayoutRule["featured_contents"]) {
     const t = timeOf(D), tg = targetOf(D);
+    const model = savesAsModel(D);
     if (D.kind === "featured") {
         await updateFeaturedRule({
             id,
@@ -78,7 +94,7 @@ async function writeRule(id: string, tenantId: string, D: Draft, name: string, p
         await updateRule({
             scheduleId: id,
             tenantId,
-            ruleType: RULE_TYPE[D.kind],
+            ruleType: ruleTypeOf(D),
             name,
             ...tg,
             enabled: true,
@@ -88,13 +104,22 @@ async function writeRule(id: string, tenantId: string, D: Draft, name: string, p
             timeTo: t.timeTo,
             startAt: t.startAt,
             endAt: t.endAt,
-            ...(D.kind === "menu" ? { layout: { catalogId: D.thing, styleId: D.pair } } : {}),
-            ...(D.kind === "style" ? { layout: { catalogId: D.pair, styleId: D.thing } } : {}),
+            ...(D.kind === "menu" && !model ? { layout: { catalogId: D.thing, styleId: D.pair } } : {}),
+            ...(D.kind === "style" && !model ? { layout: { catalogId: D.pair, styleId: D.thing } } : {}),
             ...(D.kind === "price" ? { priceProducts: products.price } : {}),
             ...(D.kind === "visibility" ? { visibilityProductOverrides: products.visibility } : {})
         });
     }
     await writeTargets(id, tg);
+    if (model) {
+        // menù o stile, «insieme» o «al posto», e le fasce in un colpo (dopo le sedi:
+        // la RPC vuole poter scrivere su tutte)
+        const slots = modelSlotsOf(D.when);
+        await saveScheduleModel(id, {
+            ...(D.kind === "menu" ? { catalog_id: D.thing ?? undefined, overlap_mode: D.insieme ? "together" : "replace" } : { style_id: D.thing ?? undefined, overlap_mode: "replace" }),
+            ...(slots ? { slots } : {})
+        });
+    }
 }
 
 /** Le sedi di chi salva, se non le gestisce tutte (null = owner o admin). */
@@ -105,9 +130,9 @@ async function createFor(tenantId: string, D: Draft, name: string, scope: Scope)
     // farebbe nascere su tutte le sedi, che il database gli rifiuta
     if (scope) {
         const activityIds = D.where.activityIds.length ? D.where.activityIds : [...scope];
-        return createScopedRuleDraft({ tenantId, ruleType: RULE_TYPE[D.kind], name, activityIds });
+        return createScopedRuleDraft({ tenantId, ruleType: ruleTypeOf(D), name, activityIds });
     }
-    return D.kind === "featured" ? createFeaturedRuleDraft({ tenantId, name }) : createRuleDraft({ tenantId, ruleType: RULE_TYPE[D.kind], name });
+    return D.kind === "featured" ? createFeaturedRuleDraft({ tenantId, name }) : createRuleDraft({ tenantId, ruleType: ruleTypeOf(D), name });
 }
 
 /**

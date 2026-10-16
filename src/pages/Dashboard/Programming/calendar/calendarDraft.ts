@@ -240,11 +240,21 @@ export function invalid(D: Draft): string {
 }
 
 /**
+ * La bozza si salva come regola `menu` o `style` del modello nuovo
+ * (save_schedule_model): un menù o uno stile nuovo da solo, o una regola che
+ * è già di quel tipo. Una regola `layout` (menù e stile insieme) resta com'è.
+ */
+export function savesAsModel(D: Draft): boolean {
+    if (!DB.schedule || (D.kind !== "menu" && D.kind !== "style")) return false;
+    return D.rule ? D.rule.rule_type === D.kind : !D.pair;
+}
+
+/**
  * Le novità che si vedono ma il database di oggi non sa ancora tenere (D149):
  * la bozza si fa tutta, il salvataggio aspetta. "" se si salva.
  */
 export function waitsForDb(D: Draft): string {
-    if (DB.ready) return "";
+    if (DB.ready || savesAsModel(D)) return "";
     for (const w of D.per ? Object.values(D.per) : [D.when]) {
         const rs = w.ranges ?? [];
         if (rs.length > 1) return "Più fasce in una regola: " + DB_WAIT;
@@ -297,7 +307,7 @@ export function quandoScontro(tratti: readonly (readonly [number, number, number
 
 /** Cosa aspetta il database nuovo per gli scontri (D135, D149); "" se si salva. */
 export function scontriWait(D: Draft, sc: readonly Scontro[]): string {
-    if (DB.ready || !sc.some(x => x.vince)) return "";
+    if (DB.ready || savesAsModel(D) || !sc.some(x => x.vince)) return "";
     if (D.kind === "menu" && D.insieme) return "Due menù insieme: " + DB_WAIT + ". Per ora scegli «al posto».";
     if (NEW_MODEL.newestWins && sc.some(x => x.vince && x.pari)) return "Prende il posto di un altro a pari merito: " + DB_WAIT;
     return "";
