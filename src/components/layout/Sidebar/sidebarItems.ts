@@ -52,6 +52,12 @@ export interface SidebarNavItem {
      * permesso: a chi non può agire arriva 0.
      */
     count?: number;
+    /**
+     * Numeri del Servizio (D, copia «Visual Redesign PR 3»): «servizio» sono
+     * le comande nuove più i tavoli che chiamano, col pallino caldo;
+     * «pendingReservations» le prenotazioni da confermare.
+     */
+    countSignal?: "servizio" | "pendingReservations";
 }
 
 export interface SidebarNavGroup {
@@ -76,6 +82,10 @@ export interface SidebarSignals {
     translationWaitingLabel?: string;
     importInProgress?: boolean;
     supportUnread?: boolean;
+    /** Comande nuove e tavoli che chiamano nella sede del Servizio. */
+    servizioCount?: number;
+    /** Prenotazioni da confermare nella sede del Servizio. */
+    pendingReservations?: number;
 }
 
 interface BuildOptions {
@@ -96,7 +106,9 @@ export function buildSidebarGroups(
         translationWaitingCount = 0,
         translationWaitingLabel,
         importInProgress = false,
-        supportUnread = false
+        supportUnread = false,
+        servizioCount = 0,
+        pendingReservations = 0
     } = signals;
 
     return groups
@@ -114,7 +126,19 @@ export function buildSidebarGroups(
                     const showTranslation = !!item.showTranslationBadge && translationPendingCount > 0;
                     const showWaiting =
                         !!item.showTranslationBadge && !showTranslation && translationWaitingCount > 0;
-                    const count = item.count ?? 0;
+                    const count =
+                        item.count ??
+                        (item.countSignal === "servizio"
+                            ? servizioCount
+                            : item.countSignal === "pendingReservations"
+                                ? pendingReservations
+                                : 0);
+                    const countLabel =
+                        count > 0 && item.countSignal === "servizio"
+                            ? `${count} ${count === 1 ? "cosa aspetta" : "cose aspettano"} in servizio`
+                            : count > 0 && item.countSignal === "pendingReservations"
+                                ? `${count} ${count === 1 ? "prenotazione da confermare" : "prenotazioni da confermare"}`
+                                : undefined;
                     const showImport = !!item.showImportBadge && importInProgress;
                     return {
                         id: item.id,
@@ -142,7 +166,8 @@ export function buildSidebarGroups(
                                     ? count
                                     : undefined,
                         badgeTone: !showTranslation && !showWaiting && count > 0 ? "brand" : undefined,
-                        badgeLabel: showWaiting ? translationWaitingLabel : undefined,
+                        badgeLabel: showWaiting ? translationWaitingLabel : countLabel,
+                        badgeDot: !showTranslation && !showWaiting && count > 0 && item.countSignal === "servizio",
                         showDot: !!item.showUnreadDot && supportUnread,
                         dotLabel: item.showUnreadDot ? "Hai una risposta non letta" : undefined
                     };

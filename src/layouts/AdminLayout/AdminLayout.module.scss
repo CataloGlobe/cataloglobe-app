@@ -19,6 +19,12 @@
   --shadow-focus: var(--crm-nav-focus);
   --gray-600: var(--crm-nav-text);
 
+  /* Grafica D: la barra legge i --d-* (definiti su html), non i token qui sopra.
+     Ridefiniti qui arrivano solo alla barra del CRM, per ereditarietà. */
+  --d-side-bg: var(--crm-nav-bg-d);
+  --d-side-muted: var(--crm-nav-text);
+  --d-text: var(--crm-nav-text-strong);
+
   /* Contatori pieni (U7): il numero resta indaco, l'anello dice l'urgenza. */
   [data-tone="brand"] > * {
     --badge-bg: var(--brand-primary);

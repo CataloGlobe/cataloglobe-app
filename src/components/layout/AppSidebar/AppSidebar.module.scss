@@ -706,6 +706,15 @@ $sub-height: 34px;
   }
 }
 
+// La carta si stacca dallo sfondo con un filo viola appena più scuro (Alex,
+// 2026-10-16: lilla su lilla si confondeva). Il bordo sta dentro la larghezza.
+.desktop {
+  @include look-d {
+    box-sizing: border-box;
+    border: 1px solid color-mix(in srgb, var(--d-brand) 16%, transparent);
+  }
+}
+
 .desktop {
   @include look-d {
     height: calc(100% - 24px);
@@ -726,12 +735,23 @@ $sub-height: 34px;
   }
 }
 
-.brandMark {
+// Ridotta il segno sta nei 26 px della copia (`.mock.rail .logo`), al centro
+// della carta come le icone: il pulsante tondo resta a 8 px, non ci va sopra.
+// (Dentro `look-d` il selettore annidato finiva sotto `html` e non prendeva.)
+.brandRow[data-collapsed] .brandMark {
   @include look-d {
-    .brandRow[data-collapsed] & {
-      width: 26px;
-      height: 26px;
-    }
+    width: 26px;
+    height: 26px;
+  }
+}
+
+// Il nome accanto al segno, come nella copia (`.logo`): «CataloGlobe» scritto.
+.brandName {
+  @include look-d {
+    @include d-type(logo);
+
+    color: var(--d-text);
+    white-space: nowrap;
   }
 }
 
@@ -968,6 +988,36 @@ $sub-height: 34px;
         font-weight: 600;
       }
     }
+  }
+}
+
+// Il fuoco disegnato dentro la voce: la lista che si apre taglia ciò che
+// sborda, e l'anello di fuori restava mozzato a destra.
+.sidebar .link:focus-visible {
+  @include look-d {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--d-brand) 55%, transparent);
+  }
+}
+
+// Il numero di una voce (copia, `.cn2` e `.sd.wait`).
+.count {
+  @include look-d {
+    @include d-type(small);
+
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.countDot {
+  @include look-d {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--d-warm);
   }
 }
 

@@ -359,7 +359,9 @@ test.describe("Cosa vedono i clienti — nome e indirizzo", () => {
         await openDisponibilita(page);
         await expect(main(page).getByText("Big e2e", { exact: true })).toBeVisible({ timeout: 15_000 });
         await expect(page).toHaveURL(/\/cosa-vedono$/);
-        await expect(await sidebarLink(page, "Cosa vedono i clienti")).toBeVisible();
+        // Nella D si apre da «Disponibilità» in Servizio, e «In servizio» resta accesa.
+        const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
+        await expect(await sidebarLink(page, d ? "In servizio" : "Cosa vedono i clienti")).toHaveAttribute("aria-current", "page");
     });
 
     test("il vecchio indirizzo rimanda al nuovo, con la vista", async ({ page }) => {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import TenantSidebar from "@components/layout/Sidebar/TenantSidebar";
 import { useNavGroups } from "@components/layout/Sidebar/useNavGroups";
+import { useServizioCounts } from "@components/layout/Sidebar/useServizioCounts";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { HeaderNotifications } from "@components/layout/AppHeader/HeaderNotifications";
 import { AiUsagePill } from "@components/layout/AppHeader/AiUsagePill";
@@ -321,13 +322,15 @@ export default function MainLayout() {
     const vistaSede = useSediVista(tenantId).sede;
     const chosenActivityId =
         vistaSede?.kind === "sede" && readableActivities.some(a => a.id === vistaSede.id) ? vistaSede.id : null;
+    // I numeri di In servizio e Prenotazioni (D): nella sede dove porta Servizio.
+    const servizioCounts = useServizioCounts(tenantId, defaultActivityId, LOOK_D && sediLoaded);
     const nav = useNavGroups({
         context: navContext,
         activityId: viewedActivityId,
         defaultActivityId,
         chosenActivityId,
         loading: !sediLoaded,
-        signals: { translationPendingCount, importInProgress, supportUnread },
+        signals: { translationPendingCount, importInProgress, supportUnread, ...servizioCounts },
         translationWaiting
     });
 

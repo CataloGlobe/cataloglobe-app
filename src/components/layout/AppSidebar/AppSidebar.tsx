@@ -71,6 +71,8 @@ export interface AppSidebarNavItem {
     /** Contatore a destra (`Badge neutral`; `badgeTone="brand"` se sono cose da fare). */
     badge?: number | string;
     badgeTone?: "neutral" | "brand";
+    /** D: il pallino caldo prima del numero (cose che aspettano in servizio, `.sd.wait`). */
+    badgeDot?: boolean;
     /** Testo del contatore, come titolo e per i lettori di schermo (es. traduzioni in attesa). */
     badgeLabel?: string;
     /** Anello attorno al contatore, del colore della cosa più urgente (CRM in /admin). */
@@ -520,7 +522,13 @@ export function AppSidebar({
             {/* A binario (D) il segno sta nei 26 px della v28 (22 di altezza = 26 di
                 larghezza): a 27 sbordava sotto il pulsante tondo. */}
             <Logo variant="icon" color="flat" size={LOOK_D && collapsed ? 22 : 27} alt="" className={styles.brandIcon} />
-            {!collapsed && <Logo variant="wordmark" color="auto" size={15} alt="" className={styles.brandWordmark} />}
+            {/* D: il nome scritto accanto al segno, come nella copia «Visual Redesign PR 3». */}
+            {!collapsed &&
+                (LOOK_D ? (
+                    <span className={styles.brandName}>CataloGlobe</span>
+                ) : (
+                    <Logo variant="wordmark" color="auto" size={15} alt="" className={styles.brandWordmark} />
+                ))}
         </>
     );
     const toggleLabel = collapsed ? "Apri la barra laterale" : "Chiudi la barra laterale";
@@ -583,12 +591,12 @@ export function AppSidebar({
                     {brand?.homeTo ? (
                         <Link to={brand.homeTo} className={styles.phoneBrandD} aria-label="CataloGlobe, vai all'inizio">
                             <Logo variant="icon" color="flat" size={27} alt="" />
-                            <Logo variant="wordmark" color="auto" size={15} alt="" />
+                            <span className={styles.brandName}>CataloGlobe</span>
                         </Link>
                     ) : (
                         <span className={styles.phoneBrandD}>
                             <Logo variant="icon" color="flat" size={27} alt="" />
-                            <Logo variant="wordmark" color="auto" size={15} alt="" />
+                            <span className={styles.brandName}>CataloGlobe</span>
                         </span>
                     )}
                     {/* Sede e campanella della testata, come icone (v30). */}
