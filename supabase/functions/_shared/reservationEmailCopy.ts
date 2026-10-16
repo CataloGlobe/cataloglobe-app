@@ -111,6 +111,15 @@ export interface ReservationEmailCopy {
     /** Spiega l'allegato METHOD:CANCEL. Compare SOLO quando l'allegato c'e'. */
     outcomeIcsNote: string;
 
+    // --- Annullamento fatto dal cliente (dal link della mail) ------------------
+    /**
+     * Corpo dell'email che porta il METHOD:CANCEL a chi ha appena annullato da
+     * solo. Il titolo e' quello dell'annullamento (`outcomeTitle("cancel")`);
+     * il corpo no: «se pensi sia un errore contatta il locale» qui e' falso,
+     * l'ha fatto lui.
+     */
+    selfCancelledBody(venue: string, em: Emphasize): string;
+
     // --- Spostamento (l'operatore cambia data o ora) ---------------------------
     updatedSubject(venue: string): string;
     updatedTitle: string;
@@ -182,6 +191,8 @@ const IT: ReservationEmailCopy = {
             ? `Ci dispiace, la tua richiesta di prenotazione presso ${em(venue)} ${em("non è stata confermata")}. Puoi provare con una data o un orario diverso.`
             : `La tua prenotazione presso ${em(venue)} è stata ${em("annullata")}. Se ritieni che ci sia stato un errore, contatta direttamente il locale.`,
     outcomeIcsNote: "Se avevi salvato l'appuntamento nel calendario, l'allegato lo rimuove.",
+    selfCancelledBody: (venue, em) =>
+        `Come hai chiesto, la tua prenotazione presso ${em(venue)} è stata ${em("annullata")}. Grazie per averci avvisato.`,
 
     updatedSubject: venue => `La tua prenotazione è stata spostata — ${venue}`,
     updatedTitle: "Prenotazione spostata",
@@ -242,6 +253,8 @@ const EN: ReservationEmailCopy = {
             ? `We're sorry — your booking request for ${em(venue)} ${em("wasn't confirmed")}. You're welcome to try a different date or time.`
             : `Your booking at ${em(venue)} has been ${em("cancelled")}. If you think this is a mistake, please contact the venue directly.`,
     outcomeIcsNote: "The attached file updates your calendar: the event will disappear on its own.",
+    selfCancelledBody: (venue, em) =>
+        `As requested, your booking at ${em(venue)} has been ${em("cancelled")}. Thanks for letting us know.`,
 
     updatedSubject: venue => `Your booking has been moved — ${venue}`,
     updatedTitle: "Booking moved",
@@ -301,6 +314,8 @@ const FR: ReservationEmailCopy = {
             ? `Nous sommes désolés, votre demande de réservation chez ${em(venue)} ${em("n'a pas été confirmée")}. Vous pouvez tenter une autre date ou un autre horaire.`
             : `Votre réservation chez ${em(venue)} a été ${em("annulée")}. Si vous pensez qu'il s'agit d'une erreur, contactez directement l'établissement.`,
     outcomeIcsNote: "La pièce jointe met à jour votre agenda : le rendez-vous disparaîtra tout seul.",
+    selfCancelledBody: (venue, em) =>
+        `Comme vous l'avez demandé, votre réservation chez ${em(venue)} a été ${em("annulée")}. Merci de nous avoir prévenus.`,
 
     updatedSubject: venue => `Votre réservation a été déplacée — ${venue}`,
     updatedTitle: "Réservation déplacée",
@@ -364,6 +379,8 @@ const DE: ReservationEmailCopy = {
             ? `Leider wurde Ihre Reservierungsanfrage bei ${em(venue)} ${em("nicht bestätigt")}. Versuchen Sie es gerne an einem anderen Tag oder zu einer anderen Uhrzeit.`
             : `Ihre Reservierung bei ${em(venue)} wurde ${em("storniert")}. Sollte das ein Versehen sein, wenden Sie sich bitte direkt an das Lokal.`,
     outcomeIcsNote: "Der Anhang aktualisiert Ihren Kalender: der Termin verschwindet von selbst.",
+    selfCancelledBody: (venue, em) =>
+        `Wie gewünscht wurde Ihre Reservierung bei ${em(venue)} ${em("storniert")}. Danke, dass Sie Bescheid gegeben haben.`,
 
     updatedSubject: venue => `Ihre Reservierung wurde verschoben — ${venue}`,
     updatedTitle: "Reservierung verschoben",
@@ -421,6 +438,8 @@ const ES: ReservationEmailCopy = {
             ? `Lo sentimos, tu solicitud de reserva en ${em(venue)} ${em("no se ha confirmado")}. Puedes probar con otra fecha u otra hora.`
             : `Tu reserva en ${em(venue)} se ha ${em("cancelado")}. Si crees que ha sido un error, ponte en contacto directamente con el local.`,
     outcomeIcsNote: "El archivo adjunto actualiza tu calendario: la cita desaparecerá sola.",
+    selfCancelledBody: (venue, em) =>
+        `Como pediste, tu reserva en ${em(venue)} se ha ${em("cancelado")}. Gracias por avisarnos.`,
 
     updatedSubject: venue => `Tu reserva se ha trasladado — ${venue}`,
     updatedTitle: "Reserva trasladada",

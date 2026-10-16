@@ -6,7 +6,11 @@ import { formatDateIt, formatTimeIt } from "../_shared/emailFormat.ts";
 import { buildReservationsDashboardUrl } from "../_shared/publicSiteUrl.ts";
 import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts";
 import { notify } from "../_shared/notify.ts";
-import { buildReservationCancelledByCustomerEmail } from "../_shared/reservationEmails.ts";
+import {
+    buildReservationCancelledByCustomerEmail,
+    buildReservationSelfCancelledEmail
+} from "../_shared/reservationEmails.ts";
+import { buildReservationCancelledIcsAttachment } from "../_shared/reservationIcs.ts";
 import {
     checkRateLimit,
     extractClientIp,
@@ -263,6 +267,69 @@ async function notifyVenueOfCancellation(
     }
 }
 
+interface CustomerCancellationArgs {
+    reservationId: string;
+    customerEmail: string | null;
+    customerName: string;
+    customerLanguage: string | null;
+    venueName: string;
+    reservationDate: string;
+    reservationTime: string;
+    partySize: number;
+    durationMinutes: number | null;
+    /** `ics_sequence` riletto dopo l'UPDATE, gia' incrementato dal trigger. */
+    icsSequence: number;
+}
+
+/**
+ * Conferma al cliente che ha annullato, con allegato METHOD:CANCEL (stesso UID
+ * dell'invito, SEQUENCE piu' alto): chi aveva salvato l'evento dalla conferma o
+ * dal promemoria se lo vede sparire dal calendario. Senza, la prenotazione
+ * annullata restava in agenda.
+ *
+ * Best-effort come l'avviso alla sede: l'annullamento e' gia' scritto, quindi
+ * un guasto qui si logga e basta, non lancia mai.
+ */
+async function sendCustomerCancellationEmail(args: CustomerCancellationArgs): Promise<void> {
+    const to = typeof args.customerEmail === "string" ? args.customerEmail.trim() : "";
+    if (to.length === 0) return;
+    try {
+        const attachments = buildReservationCancelledIcsAttachment({
+            reservationId: args.reservationId,
+            venueName: args.venueName,
+            reservationDate: args.reservationDate,
+            reservationTime: args.reservationTime,
+            durationMinutes: args.durationMinutes,
+            language: args.customerLanguage,
+            icsSequence: args.icsSequence,
+            now: new Date()
+        });
+        const email = buildReservationSelfCancelledEmail({
+            activityName: args.venueName,
+            customerName: args.customerName,
+            reservationDate: args.reservationDate,
+            reservationTime: args.reservationTime,
+            partySize: args.partySize,
+            hasCancelIcs: attachments !== undefined,
+            language: args.customerLanguage
+        });
+        await resend.emails.send({
+            from: COMPANY.email.sender,
+            replyTo: COMPANY.contact.support,
+            to,
+            subject: email.subject,
+            html: email.html,
+            text: email.text,
+            ...(attachments ? { attachments } : {})
+        });
+    } catch (mailErr) {
+        console.error(
+            `[cancel-reservation-public] customer email failed (reservation_id=${args.reservationId}):`,
+            mailErr
+        );
+    }
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
@@ -358,8 +425,10 @@ Deno.serve(async (req: Request) => {
             .from("reservations")
             .select(
                 "id, status, reservation_date, reservation_time, party_size, customer_name, allergies, " +
+                "customer_email, customer_language, " +
                 "activity:activities!inner(id, tenant_id, name, slug, phone, phone_public, " +
-                "reservation_cancellation_cutoff_minutes, reservation_notification_emails)"
+                "reservation_cancellation_cutoff_minutes, reservation_notification_emails, " +
+                "reservation_duration_minutes)"
             )
             .eq("id", reservationId)
             .maybeSingle();
@@ -384,6 +453,7 @@ Deno.serve(async (req: Request) => {
             phone_public: boolean | null;
             reservation_cancellation_cutoff_minutes: number | null;
             reservation_notification_emails: string[] | null;
+            reservation_duration_minutes: number | null;
         };
 
         // ── Cutoff, computed from the DB row ───────────────────────────
@@ -497,7 +567,9 @@ Deno.serve(async (req: Request) => {
             .update({ status: ACTION_TO_STATUS.cancel_by_customer, allergies: null })
             .eq("id", reservationId)
             .in("status", ACTION_EXPECTS.cancel_by_customer)
-            .select("id, status")
+            // ics_sequence letto DOPO l'UPDATE: il trigger l'ha appena
+            // incrementato, e il CANCEL deve portare quel numero.
+            .select("id, status, ics_sequence")
             .maybeSingle();
 
         if (updateErr) {
@@ -530,6 +602,20 @@ Deno.serve(async (req: Request) => {
             reservationDate: reservation.reservation_date as string,
             reservationTime: reservation.reservation_time as string,
             partySize: reservation.party_size as number
+        });
+
+        // ── Email al cliente, con il .ics che toglie l'evento ──────────
+        await sendCustomerCancellationEmail({
+            reservationId: updated.id as string,
+            customerEmail: reservation.customer_email as string | null,
+            customerName: reservation.customer_name as string,
+            customerLanguage: reservation.customer_language as string | null,
+            venueName: activity.name,
+            reservationDate: reservation.reservation_date as string,
+            reservationTime: reservation.reservation_time as string,
+            partySize: reservation.party_size as number,
+            durationMinutes: activity.reservation_duration_minutes,
+            icsSequence: updated.ics_sequence as number
         });
 
         return jsonResponse(
