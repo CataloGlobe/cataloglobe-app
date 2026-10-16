@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import type { VoteLineProps } from "./VoteLine";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { smoothPath } from "./voteTrend";
@@ -69,12 +69,15 @@ export function VoteLineD({
   const label = name ? `Il voto · ${name}` : "Il voto";
 
   // Il Tooltip resta sempre attorno (spento finché non è compatta), così la
-  // pillola non rinasce quando la testata si stringe.
+  // pillola non rinasce quando la testata si stringe. Sempre controllato:
+  // Radix non vuole che passi da controllato a non controllato.
+  const [tipOpen, setTipOpen] = useState(false);
   return (
     <Tooltip
       content="Torna in cima"
       side="bottom"
-      open={compact ? undefined : false}
+      open={compact && tipOpen}
+      onOpenChange={setTipOpen}
     >
       <section
         className={styles.vote}
