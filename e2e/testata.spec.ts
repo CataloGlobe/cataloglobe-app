@@ -76,6 +76,9 @@ test.describe("Testata — due righe prima della barra compatta", () => {
     test("Prodotti: a 768 l'interruttore a vista, a 375 la barra compatta", async ({ page }) => {
         await stubProdotti(page);
         await openBusinessPage(page, "products", "Prodotti");
+        // Nella D Prodotti ha la testata di Menù e vetrina: i filtri si stringono
+        // nel pulsante quando non c'è posto (FilterFit, prodotti.spec).
+        test.skip(await page.evaluate(() => document.documentElement.dataset.look === "d"), "nella D la testata è quella di Menù e vetrina");
         await page.setViewportSize({ width: 768, height: 900 });
         await expect(page.getByRole("radio", { name: /^Gruppi/ })).toBeVisible();
         await page.setViewportSize({ width: 375, height: 800 });
