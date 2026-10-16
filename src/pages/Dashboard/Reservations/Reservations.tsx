@@ -34,6 +34,7 @@ import { agendaVisible } from "./agendaVisible";
 import { useReservationDesk } from "./hooks/useReservationDesk";
 import styles from "./Reservations.module.scss";
 import { useInServizioSwitch } from "@/pages/Dashboard/Servizio/useInServizioSwitch";
+import { LOOK_D } from "@/styles/lookD";
 
 const SEARCH_PLACEHOLDER = "Cerca per nome o telefono…";
 const SEARCH_DEBOUNCE_MS = 300;
@@ -437,7 +438,7 @@ export function ReservationsAgendaPage() {
                             numero conta tutte le pending, scadute comprese. */}
                         {pendingInScope.length > 0 && (
                             <Card
-                                title="Richieste da gestire"
+                                title={LOOK_D ? "Da confermare" : "Richieste da gestire"}
                                 subtitle={todayLine}
                                 badge={<Badge variant="brand">{pendingInScope.length}</Badge>}
                                 flush

@@ -58,6 +58,7 @@ import { canDoOnActivity } from "@/lib/permissions";
 
 import { deriveTableStatus, type TableStatus } from "@/utils/tableState";
 
+import { LOOK_D } from "@styles/lookD";
 import styles from "./TableDetailDrawer.module.scss";
 
 interface Props {
@@ -119,6 +120,11 @@ interface Props {
      * il realtime su `orders` arriverebbe comunque ma con debounce.
      */
     onStornoCreated?: (tableId: string) => void;
+    /**
+     * Grafica D: «Crea ordine» nel piede, con il tavolo già scelto. Il
+     * parent apre il CreateOrderDrawer; gated da `orders.manage`.
+     */
+    onCreateOrder?: (tableId: string, tableLabel: string) => void;
 }
 
 type DrawerView = "conto" | "storna";
@@ -258,7 +264,8 @@ export function TableDetailDrawer({
     onMaintenanceChanged,
     onBillCleared,
     onWaiterCleared,
-    onStornoCreated
+    onStornoCreated,
+    onCreateOrder
 }: Props) {
     const [data, setData] = useState<DetailData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -654,14 +661,26 @@ export function TableDetailDrawer({
                                 Conferma storno
                             </Button>
                         </>
-                    ) : hasClosePermission && !nothingToClose && tableId ? (
-                        <Button variant="primary" onClick={() => onRequestClose!(tableId)}>
-                            Chiudi tavolo
-                        </Button>
                     ) : (
-                        <Button variant="secondary" onClick={onClose}>
-                            Fatto
-                        </Button>
+                        <>
+                            {LOOK_D && canManageOrders && onCreateOrder && tableId && data && (
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => onCreateOrder(tableId, tableLabel)}
+                                >
+                                    Crea ordine
+                                </Button>
+                            )}
+                            {hasClosePermission && !nothingToClose && tableId ? (
+                                <Button variant="primary" onClick={() => onRequestClose!(tableId)}>
+                                    Chiudi tavolo
+                                </Button>
+                            ) : (
+                                <Button variant="secondary" onClick={onClose}>
+                                    Fatto
+                                </Button>
+                            )}
+                        </>
                     )
                 }
             >

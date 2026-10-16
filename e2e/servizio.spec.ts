@@ -4,6 +4,9 @@ import { asBasePlan, asRole } from "./asRole";
 import { currentVoce, sidebarLink, sidebarLinkToRead, sediGriglia } from "./nav";
 import { stubReservations, type ReservationsStub } from "./reservationsStub";
 
+// D244: con la grafica D accesa le richieste si chiamano «da confermare».
+const D_ON = process.env.VITE_BACKOFFICE_D !== "false";
+
 const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
 /** I tavoli della Sala: la tabella, o nella D le card per zona (PR 11c). */
 const tavoli = (page: Page) => page.getByRole("main").getByRole("table", { name: "Tavoli" }).or(page.getByRole("main").getByRole("group", { name: "Tavoli" }));
@@ -434,7 +437,7 @@ test.describe("Elenco (lotto B-b)", () => {
         const m = main(page);
         await expect(m.getByRole("status", { name: "Oggi" })).toBeVisible({ timeout: 15_000 });
         await expect(m.getByRole("button", { name: "Senza prenotazione" })).toHaveCount(0);
-        const richieste = m.getByRole("link", { name: /richiest[ae] da gestire/ });
+        const richieste = m.getByRole("link", { name: D_ON ? /prenotazion[ei] da confermare/ : /richiest[ae] da gestire/ });
         if ((await richieste.count()) > 0) await expect(richieste).toHaveAttribute("href", /\/prenotazioni$/);
     });
 

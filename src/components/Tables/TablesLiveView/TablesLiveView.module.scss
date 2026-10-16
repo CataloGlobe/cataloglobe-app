@@ -189,9 +189,18 @@
     }
   }
 
-  .tile[data-tone="previous"],
-  .tile[data-tone="maintenance"] {
+  .tile[data-tone="previous"] {
     background: var(--d-s-old);
+  }
+
+  // fuori servizio: tratteggiata e a righe, come nella copia (v68)
+  .tile[data-tone="maintenance"] {
+    border: 1.5px dashed color-mix(in srgb, var(--d-muted) 30%, transparent);
+    background: repeating-linear-gradient(
+      135deg,
+      transparent 0 8px,
+      color-mix(in srgb, var(--d-muted) 7%, transparent) 8px 16px
+    );
   }
 
   .tile[data-tone="wait"] {

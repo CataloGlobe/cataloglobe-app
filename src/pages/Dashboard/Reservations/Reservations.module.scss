@@ -813,3 +813,156 @@
         }
     }
 }
+
+// ── Direzione D: la settimana e i segni della prenotazione (copia, v60 e v73) ──
+@include look-d {
+    .weekGrid {
+        gap: 6px;
+    }
+
+    // ogni giorno è una colonna tenue; oggi più viola
+    .weekCol {
+        gap: 5px;
+        min-height: 150px;
+        padding: 6px;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--d-brand) 3%, transparent);
+
+        &:has(.weekColHeaderToday) {
+            background: color-mix(in srgb, var(--d-brand) 10%, transparent);
+        }
+    }
+
+    .weekColHeader {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 2px 4px 4px;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        color: var(--d-muted);
+        @include d-type(small);
+    }
+
+    .weekColHeaderToday {
+        color: var(--d-brand-deep);
+    }
+
+    .weekColLabel {
+        text-transform: none;
+        letter-spacing: 0;
+        opacity: 1;
+    }
+
+    .weekColNum {
+        color: var(--d-text);
+        @include d-type(card-name);
+    }
+
+    .weekColBody {
+        gap: 5px;
+        min-height: 0;
+        padding: 0;
+    }
+
+    .weekColEmpty {
+        padding-top: 20px;
+        color: var(--d-muted);
+    }
+
+    // la pillola: bianca, col filo a sinistra del colore dello stato
+    .weekChip {
+        padding: 5px 7px;
+        border: 0;
+        border-left: 3px solid var(--d-muted);
+        border-radius: 9px;
+        background: var(--d-surface);
+        color: var(--d-text);
+        @include d-type(hint);
+
+        &[data-tone="success"] {
+            border-left-color: var(--d-s-ready-ink);
+            background: var(--d-surface);
+            color: var(--d-text);
+        }
+
+        &[data-tone="warning"] {
+            border-left-color: var(--d-warm);
+            background: var(--d-surface);
+            color: var(--d-text);
+        }
+
+        &[data-tone="neutral"] {
+            background: var(--d-surface);
+            color: var(--d-text);
+        }
+
+        &[data-dimmed] {
+            opacity: 0.55;
+        }
+
+        &[data-selected] {
+            border-color: var(--d-brand);
+            box-shadow: inset 0 0 0 1px var(--d-brand);
+        }
+    }
+
+    .weekChipConflict {
+        color: var(--d-warm);
+    }
+
+    // stretta: un giorno per riga, l'etichetta a sinistra
+    @container week (max-width: 760px) {
+        .weekGrid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .weekCol {
+            display: grid;
+            grid-template-columns: 52px 1fr;
+            align-items: start;
+            min-height: 0;
+        }
+
+        .weekColHeader {
+            flex-direction: column;
+            justify-content: start;
+            gap: 0;
+            padding: 4px 0;
+        }
+
+        .weekColEmpty {
+            padding: 4px 0;
+            text-align: left;
+        }
+    }
+
+    // segni: promemoria quieto, conferma del cliente in verde
+    .reminderMark {
+        gap: 6px;
+        color: var(--d-muted);
+        @include d-type(note);
+
+        svg {
+            width: 15px;
+            height: 15px;
+            stroke-width: 1.8;
+        }
+    }
+
+    .guestConfirmedMark,
+    .guestConfirmedLabelled {
+        gap: 6px;
+        color: var(--d-s-ready-ink);
+    }
+}
+
+// Grafica D: il cliente riconosciuto in un riquadro del brand all'8%.
+@include look-d {
+    .guestMatchBox {
+        background: color-mix(in srgb, var(--d-brand) 8%, var(--d-surface));
+        border-color: color-mix(in srgb, var(--d-brand) 20%, transparent);
+        border-radius: 12px;
+    }
+}

@@ -3,6 +3,8 @@ import { ShoppingCart, AlertCircle, ChevronUp, ChevronDown } from "lucide-react"
 
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
+import { LOOK_D } from "@/styles/lookD";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -107,6 +109,12 @@ export function CreateOrderDrawer({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [isStickyExpanded, setIsStickyExpanded] = useState<boolean>(false);
+    // nella D, col carrello pieno, chiudere chiede prima (copia, v61)
+    const [confirmingExit, setConfirmingExit] = useState(false);
+    const requestClose = () => {
+        if (LOOK_D && selection.length > 0 && !isSubmitting) setConfirmingExit(true);
+        else onClose();
+    };
 
     const loadAll = useCallback(async () => {
         if (!tenantId || !activityId) return;
@@ -151,6 +159,7 @@ export function CreateOrderDrawer({
     useEffect(() => {
         if (!open) {
             // Reset completo on close
+            setConfirmingExit(false);
             setSelectedTable(
                 initialTableId
                     ? { id: initialTableId, label: initialTableLabel ?? "Tavolo" }
@@ -312,7 +321,7 @@ export function CreateOrderDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} size="lg">
+        <SystemDrawer open={open} onClose={requestClose} size="lg">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
@@ -332,7 +341,7 @@ export function CreateOrderDrawer({
                         <div className={styles.drawerFooterActions}>
                             <Button
                                 variant="secondary"
-                                onClick={onClose}
+                                onClick={requestClose}
                                 disabled={isSubmitting}
                             >
                                 Annulla
@@ -438,6 +447,18 @@ export function CreateOrderDrawer({
                     </form>
                 )}
             </DrawerLayout>
+            <UnsavedChangesDialog
+                isOpen={confirmingExit}
+                title="Uscire senza inviare?"
+                message="La comanda non è stata inviata: i prodotti nel carrello andranno persi."
+                cancelLabel="Resta"
+                discardLabel="Esci senza inviare"
+                onCancel={() => setConfirmingExit(false)}
+                onDiscard={() => {
+                    setConfirmingExit(false);
+                    onClose();
+                }}
+            />
         </SystemDrawer>
     );
 }

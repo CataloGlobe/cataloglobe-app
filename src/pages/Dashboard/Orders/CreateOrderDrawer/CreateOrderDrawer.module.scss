@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 // Una colonna sola, a ogni larghezza: il drawer è `lg` (720) e al 100% sotto
 // i 768. Ricerca e prodotti sopra, carrello nella barra in fondo. Le due
 // colonne (pannello ordine a destra, container query ≥ 768) sono uscite con
@@ -164,4 +167,27 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+// Grafica D: la barra del carrello tinta del brand al 6%.
+@include look-d {
+    .stickyBar {
+        background: color-mix(in srgb, var(--d-brand) 6%, var(--d-surface));
+        border-top-color: var(--d-line);
+        box-shadow: none;
+    }
+
+    .stickyCount {
+        @include d-type(label);
+        color: var(--d-muted);
+    }
+
+    .stickyTotal {
+        @include d-type(fact-num);
+        color: var(--d-text);
+    }
+
+    .stickyExpansion {
+        border-top-color: var(--d-line);
+    }
 }

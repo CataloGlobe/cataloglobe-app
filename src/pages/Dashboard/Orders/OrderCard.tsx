@@ -252,6 +252,7 @@ export default function OrderCard({
                     <div className={styles.block}>
                         <InlineBanner
                             variant="error"
+                            className={styles.printKo}
                             icon={<Printer size={16} aria-hidden />}
                             action={
                                 onReprint ? (

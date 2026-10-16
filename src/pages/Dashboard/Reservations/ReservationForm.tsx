@@ -643,7 +643,7 @@ export function ReservationForm({
                 che serve mentre si prende la prenotazione — quante volte è
                 venuto, se non si è presentato, cosa il locale ha annotato. */}
             {guestMatch && (
-                <InlineBanner variant="info">
+                <InlineBanner variant="info" className={styles.guestMatchBox}>
                     <div className={styles.guestMatch}>
                         <Text as="p" variant="body-sm">
                             Già in rubrica: <strong>{guestMatch.display_name}</strong>

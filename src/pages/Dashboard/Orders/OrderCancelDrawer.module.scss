@@ -36,3 +36,12 @@
     }
     @include touch-input-font;
 }
+
+// Grafica D (copia, cp 7378-7541): riquadri con la linea della D.
+@include look-d {
+    .textarea {
+        border-color: var(--d-line);
+        border-radius: 10px;
+        background: var(--d-surface);
+    }
+}
