@@ -31,6 +31,8 @@
 //   4. Errore di configurazione del provider (categoria 'config'): il tick si
 //      ferma e rimette in coda i job rimasti restituendo il tentativo, invece
 //      di consumare i retry o mandare a failed job che non hanno colpa.
+//      Limite: se quell'UPDATE fallisce, il job torna pending dal finally (3)
+//      ma il tentativo preso dal claim resta consumato.
 //
 // Ref: docs/translations-architecture-v3.md sez. 6.3 + audit FASE 1/2.
 // =============================================================================
@@ -429,6 +431,12 @@ async function rollbackToPending(
  * gia' incrementato attempts (job.attempts e' il valore dopo il claim): qui lo
  * si riporta al valore di prima, cosi' una chiave mancante per ore non manda a
  * failed l'intera coda e i job ripartono da soli quando la chiave e' corretta.
+ *
+ * Limite voluto: se questo UPDATE fallisce il job resta unresolved e il finally
+ * lo rimette pending con resetOrphans, che cambia solo lo stato: il tentativo
+ * resta consumato. Ripristinarlo anche li' vorrebbe un UPDATE per job sul
+ * percorso di ripiego, che serve proprio quando il DB sta gia' rifiutando le
+ * scritture; nel caso peggiore il job arriva al cap prima del dovuto.
  */
 async function deferForConfig(
     job: PendingJob,

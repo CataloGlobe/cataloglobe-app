@@ -281,7 +281,7 @@ describe("runTranslationTick: errori di configurazione del provider", () => {
         expect(c.retried).toBe(0);
     });
 
-    it("UPDATE fallito durante il rinvio: conteggiato, il job torna pending dal finally", async () => {
+    it("UPDATE fallito durante il rinvio: conteggiato, torna pending dal finally col tentativo consumato (limite noto)", async () => {
         const job = makeJob({ attempts: 1 });
         const store = new FakeStore([job]);
         store.failUpdateFor.add(`${job.id}|pending`);
@@ -295,6 +295,9 @@ describe("runTranslationTick: errori di configurazione del provider", () => {
         expect(c.deferred).toBe(0);
         expect(store.resetOrphansCalledWith).toEqual([job.id]);
         expect(store.rows.get(job.id)!.status).toBe("pending");
+        // resetOrphans cambia solo lo stato: attempts resta quello del claim
+        // (FakeStore: job.attempts + 1), non viene restituito.
+        expect(store.rows.get(job.id)!.attempts).toBe(job.attempts + 1);
     });
 });
 
