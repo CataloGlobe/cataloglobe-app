@@ -33,6 +33,8 @@ import {
     type NavKey,
     type NavModel
 } from "@/utils/navModel";
+import { LOOK_D } from "@/styles/lookD";
+import { GROUP_ICONS_D } from "./groupIconsD";
 import type { SidebarNavGroup, SidebarNavItem } from "./sidebarItems";
 
 /**
@@ -76,7 +78,7 @@ const ICONS: Record<NavKey, ReactNode> = {
 };
 
 // Le sei sezioni, con le icone dell'artifact v4 (Alex, 2026-10-09).
-const GROUP_ICONS: Record<NavGroupKey, ReactNode> = {
+const GROUP_ICONS_V4: Record<NavGroupKey, ReactNode> = {
     overview: <LayoutDashboard size={20} />,
     crea: <Utensils size={20} />,
     calendario: <CalendarClock size={20} />,
@@ -84,6 +86,8 @@ const GROUP_ICONS: Record<NavGroupKey, ReactNode> = {
     numeri: <ChartColumn size={20} />,
     sedi: <Store size={20} />
 };
+
+const GROUP_ICONS = LOOK_D ? GROUP_ICONS_D : GROUP_ICONS_V4;
 
 export interface NavSidebarOptions {
     businessId: string;
@@ -135,7 +139,9 @@ function toItem(entry: NavEntry, options: NavSidebarOptions): SidebarNavItem {
         matchPrefixes: matchPrefixes.length ? matchPrefixes : undefined,
         showTranslationBadge: entry.signal === "translations",
         showImportBadge: entry.signal === "import",
-        showUnreadDot: entry.signal === "supportUnread"
+        showUnreadDot: entry.signal === "supportUnread",
+        countSignal:
+            entry.signal === "servizio" || entry.signal === "pendingReservations" ? entry.signal : undefined
     };
 }
 

@@ -161,6 +161,11 @@ export async function sidebarLink(page: Page, name: string | RegExp): Promise<Lo
  * parte dalla sidebar, poi il suo interruttore in testata (artifact v4).
  */
 export async function openInServizio(page: Page, name: "Elenco" | "Mappa" | "Prenotazioni" | "Comande"): Promise<void> {
+    // Nella D Prenotazioni è una voce di Servizio a sé (copia «Visual Redesign PR 3»).
+    if (name === "Prenotazioni" && (await page.evaluate(() => document.documentElement.dataset.look === "d"))) {
+        await (await sidebarLink(page, "Prenotazioni")).click();
+        return;
+    }
     await (await sidebarLink(page, "In servizio")).click();
     await page.getByRole("radiogroup", { name: "Parti di In servizio" }).getByRole("radio", { name, exact: true }).click({ timeout: 15_000 });
 }

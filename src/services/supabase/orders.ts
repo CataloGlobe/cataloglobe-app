@@ -1243,3 +1243,18 @@ export async function listOrdersHistoryToday(
     const { dayStart, dayEnd } = await getOperativeDayBounds();
     return listOrdersHistory(tenantId, activityId, dayStart, dayEnd);
 }
+
+/**
+ * Comande nuove (inviate, non ancora prese) di una sede: solo il numero, per
+ * il contatore della sidebar. RLS: `orders.read` sulla sede.
+ */
+export async function countSubmittedOrders(tenantId: string, activityId: string): Promise<number> {
+    const { count, error } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .eq("status", "submitted");
+    if (error) throw error;
+    return count ?? 0;
+}

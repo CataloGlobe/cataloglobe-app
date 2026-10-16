@@ -14,6 +14,8 @@ import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity, isOwnerOrAdmin } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { getActivityById } from "@/services/supabase/activities";
+import { countManualOverridesByActivity } from "@/services/supabase/activeCatalog";
+import { LOOK_D } from "@/styles/lookD";
 import type { V2Activity } from "@/types/activity";
 import { SERVIZIO_MODES, modeAccess, normalizeServizioMode, resolveServizioMode, type ServizioMode } from "@/utils/servizioModes";
 import { ServizioSala } from "./ServizioSala";
@@ -53,6 +55,7 @@ export default function Servizio() {
     const [isWalkinOpen, setIsWalkinOpen] = useState(false);
     const canReadReservations = permissions ? canDoOnActivity(permissions, "reservations.read", activityId) : false;
     const canWalkin = permissions ? canDoOnActivity(permissions, "seatings.manage", activityId) : false;
+    const canReadActivity = permissions ? canDoOnActivity(permissions, "activity.read", activityId) : false;
     const [loading, setLoading] = useState(true);
 
     // `getActivityById` non lancia: una lettura fallita è `null`, e la pagina
@@ -122,25 +125,72 @@ export default function Servizio() {
     );
 
     const showWalkin = mode === "elenco" && canWalkin;
+    // D (copia «Visual Redesign PR 3»): la disponibilità dei prodotti si
+    // raggiunge da qui, «Disponibilità · N» con le modifiche a mano della sede;
+    // la voce «Cosa vedono i clienti» non sta più nella sidebar, quindi il
+    // pulsante c'è in ogni parte e anche col piano Base (unica strada).
+    const showDisponibilita = LOOK_D && !!activity && canReadActivity;
+    const [fuori, setFuori] = useState<number | null>(null);
+    useEffect(() => {
+        setFuori(null);
+        if (!showDisponibilita) return;
+        let cancelled = false;
+        countManualOverridesByActivity([activityId])
+            .then(counts => {
+                if (!cancelled) setFuori(counts[activityId] ?? 0);
+            })
+            .catch(() => {
+                // Senza conteggio il pulsante resta, senza numero.
+                if (!cancelled) setFuori(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [showDisponibilita, activityId]);
     const actions = useMemo(
         () =>
-            showWalkin ? (
-                <Button variant="primary" leftIcon={<Plus size={16} />} onClick={() => setIsWalkinOpen(true)}>
-                    Senza prenotazione
-                </Button>
+            showWalkin || showDisponibilita ? (
+                <>
+                    {showDisponibilita && (
+                        <Button
+                            variant="secondary"
+                            onClick={() => navigate(`/business/${businessId}/locations/${activityId}/cosa-vedono`)}
+                        >
+                            Disponibilità{fuori ? ` · ${fuori}` : ""}
+                        </Button>
+                    )}
+                    {showWalkin && (
+                        <Button variant="primary" leftIcon={<Plus size={16} />} onClick={() => setIsWalkinOpen(true)}>
+                            Senza prenotazione
+                        </Button>
+                    )}
+                </>
             ) : undefined,
-        [showWalkin]
+        [showWalkin, showDisponibilita, fuori, navigate, businessId, activityId]
     );
     const compactWithWalkin = useMemo<PageHeaderCompactConfig | undefined>(
         () =>
-            compact && showWalkin
-                ? { ...compact, primaryAction: { label: "Senza prenotazione", onClick: () => setIsWalkinOpen(true) } }
+            compact && (showWalkin || showDisponibilita)
+                ? {
+                    ...compact,
+                    primaryAction: showWalkin
+                        ? { label: "Senza prenotazione", onClick: () => setIsWalkinOpen(true) }
+                        : undefined,
+                    secondaryActions: showDisponibilita
+                        ? [
+                            {
+                                label: `Disponibilità${fuori ? ` · ${fuori}` : ""}`,
+                                onClick: () => navigate(`/business/${businessId}/locations/${activityId}/cosa-vedono`)
+                            }
+                        ]
+                        : undefined
+                }
                 : compact,
-        [compact, showWalkin]
+        [compact, showWalkin, showDisponibilita, fuori, navigate, businessId, activityId]
     );
 
     const headerConfig = useMemo(
-        () => (leading ? { leading, actions, compact: compactWithWalkin } : null),
+        () => (leading || actions ? { leading, actions, compact: compactWithWalkin } : null),
         [leading, actions, compactWithWalkin]
     );
     usePageHeader(headerConfig);
