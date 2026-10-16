@@ -19,6 +19,9 @@ import type { ActivityDraftField } from "../useActivityDraft";
 import { isSchedaPart, PART_FIELDS, type SchedaPart } from "../scheda/schedaCopy";
 import { buildFacts, EARLY_CLOSE, isTodayOnly, makeNow, partTone, type Problem } from "../scheda/schedaModel";
 import { SchedaDashboard } from "../scheda/SchedaDashboard";
+import { schedaLead } from "../scheda/schedaLead";
+import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
+import { LOOK_D } from "@/styles/lookD";
 import { SchedaFocus } from "../scheda/SchedaFocus";
 import { ContattiEditor, ContoEditor, DoveEditor, LocaleEditor, OffriteEditor } from "../scheda/SchedaEditors";
 import { scrollParent } from "../scheda/useSchedaFollow";
@@ -90,6 +93,26 @@ export default function ActivitySchedaRoute() {
     // ── Chiusure e stampanti (azioni immediate, fuori dal draft) ────────────
     const orderingLocked = !hasFeature("table_ordering");
     const reservationsLocked = !hasFeature("table_reservation");
+    // Nella D la frase in cima dice anche il menù in onda (PR 11b).
+    const [onAir, setOnAir] = useState<string | null | undefined>(undefined);
+    useEffect(() => {
+        if (!LOOK_D) return;
+        let off = false;
+        // cambiando sede, niente menù della sede di prima finché non arriva il suo
+        setOnAir(undefined);
+        getActiveCatalogForActivities(tenantId, [activity.id])
+            .then(m => {
+                const c = m[activity.id];
+                if (!off) setOnAir(c?.hasActiveCatalog ? (c.catalogName ?? "Menù senza nome") : null);
+            })
+            .catch(() => {
+                if (!off) setOnAir(undefined);
+            });
+        return () => {
+            off = true;
+        };
+    }, [tenantId, activity.id]);
+
     const [closures, setClosures] = useState<V2ActivityClosure[]>([]);
     const [printers, setPrinters] = useState<Printer[]>([]);
     const [statuses, setStatuses] = useState<Record<string, boolean> | null>(null);
@@ -329,6 +352,7 @@ export default function ActivitySchedaRoute() {
             <span ref={anchorRef} hidden />
             <SchedaDashboard
                 facts={facts}
+                lead={LOOK_D ? schedaLead(facts, onAir) : null}
                 onCopyLink={() => void copyLink()}
                 tiles={{
                     canManage,

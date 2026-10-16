@@ -26,6 +26,7 @@ const PART = {
     ordini: "Ordini dal tavolo"
 };
 
+const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
 const tile = (page: Page, title: string) => page.getByRole("main").getByRole("button", { name: `${title}: apri` });
 const rail = (page: Page) => page.getByRole("navigation", { name: "Parti della scheda" });
 
@@ -47,12 +48,14 @@ const sedeBase = (page: Page) =>
 test.describe("Scheda della sede", () => {
     test("si apre dalla griglia: il cruscotto con le tessere e il telefono", async ({ page }) => {
         await openFirstLocation(page);
+        const d = await lookD(page);
         // Si torna all'elenco da «Sedi» nella sidebar (artifact v4: via «← Tutte le sedi»);
         // nella D «Tutte le sedi», nella sezione Sede.
         await expect(await sidebarLink(page, "Sedi")).toBeVisible();
         // Niente più tab nella testata: il nome della sede col suo stato.
         await expect(page.getByRole("tab")).toHaveCount(0);
-        await expect(page.getByText(/^(Online|Sospesa)/).first()).toBeVisible();
+        // Nella D lo stato lo dice la frase in cima (Visual Redesign 2, PR 11b).
+        await expect(page.getByText(d ? /^(Adesso|Oggi) / : /^(Online|Sospesa)/).first()).toBeVisible();
         for (const title of Object.values(PART)) {
             await expect(tile(page, title)).toBeVisible();
         }
@@ -137,7 +140,11 @@ test.describe("Scheda della sede", () => {
         await openFirstLocation(page);
         const main = page.getByRole("main");
         // L'indirizzo web sta nella parte «La vostra pagina e il QR».
-        await main.getByRole("button", { name: "QR e PDF", exact: true }).click();
+        // Nella D è «Modifica» nella card «La vostra pagina» (PR 11b).
+        await ((await lookD(page))
+            ? main.getByRole("region", { name: "La vostra pagina" }).getByRole("button", { name: /^(Modifica|Apri)$/ })
+            : main.getByRole("button", { name: "QR e PDF", exact: true })
+        ).click();
         await expect(page).toHaveURL(/\?parte=link$/);
         await main.getByRole("button", { name: /^(Modifica indirizzo web|Cambia indirizzo)/ }).first().click();
         const dialog = page.getByRole("dialog");

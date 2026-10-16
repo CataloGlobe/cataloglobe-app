@@ -1,10 +1,11 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { PART_ICON, PART_IMMEDIATE, PART_TITLE, PART_WHY, RAIL_GROUPS, type SchedaPart } from "./schedaCopy";
 import { TONE_LABEL, type SchedaFacts, type Tone } from "./schedaModel";
 import { SchedaPhone } from "./SchedaPhone";
 import { usePhoneFit } from "@/hooks/usePhoneFit";
+import { LOOK_D } from "@/styles/lookD";
 import styles from "./Scheda.module.scss";
 
 interface SchedaFocusProps {
@@ -38,6 +39,18 @@ export function SchedaFocus({ part, facts, tone, changed, otherChanges, editor, 
     const Icon = PART_ICON[part];
     const t = tone(part);
     const isChanged = changed(part);
+    const focusRef = useRef<HTMLDivElement>(null);
+
+    // Nella D, al computer, la pagina non scorre (v36): scorrono da sole le
+    // parti, il modulo e il telefono. Le colonne arrivano al fondo dello schermo.
+    useLayoutEffect(() => {
+        const el = focusRef.current;
+        if (!LOOK_D || !el) return;
+        const fit = () => el.style.setProperty("--focus-h", `${Math.max(360, Math.round(window.innerHeight - el.getBoundingClientRect().top - 18))}px`);
+        fit();
+        window.addEventListener("resize", fit);
+        return () => window.removeEventListener("resize", fit);
+    }, []);
 
     // Esc torna al cruscotto, se sopra non c'è un drawer, una conferma, un
     // menù o una tendina: quelli hanno il loro Esc. Livelli letti in cattura,
@@ -61,7 +74,7 @@ export function SchedaFocus({ part, facts, tone, changed, otherChanges, editor, 
 
     return (
         <div className={`${styles.root} ${styles.focusRoot}`}>
-            <div className={styles.focus} style={fit.vars}>
+            <div className={styles.focus} style={fit.vars} ref={focusRef}>
                 <nav className={styles.rail} aria-label="Parti della scheda">
                     {RAIL_GROUPS.map(g => (
                         <div key={g.title} className={styles.contents}>

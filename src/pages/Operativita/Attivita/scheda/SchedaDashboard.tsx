@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Copy, ExternalLink, Pencil, QrCode as QrIcon, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { QrCode } from "@/components/ui/QrCode/QrCode";
@@ -18,6 +18,10 @@ import { SchedaPhone } from "./SchedaPhone";
 import { SchedaTile, type TileActions } from "./SchedaTile";
 import { useSchedaFollow } from "./useSchedaFollow";
 import { usePhoneFit } from "@/hooks/usePhoneFit";
+import { LOOK_D } from "@/styles/lookD";
+import { Lead } from "@/pages/Dashboard/Vetrina/VetrinaHead";
+import type { LeadPart } from "@/pages/Dashboard/Vetrina/vetrinaModel";
+import { addressLine } from "./schedaModel";
 import styles from "./Scheda.module.scss";
 
 interface SchedaDashboardProps {
@@ -25,6 +29,8 @@ interface SchedaDashboardProps {
     tiles: TileActions;
     now: NowActions;
     onCopyLink: () => void;
+    /** Nella D: la frase in cima (Visual Redesign 2, PR 11b). */
+    lead?: LeadPart[] | null;
 }
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -40,7 +46,7 @@ function rich(text: string) {
  * insieme alla scheda. Passando su una tessera la sua parte si accende e la
  * card fissa sopra il telefono dice cos'è; il telefono non si muove.
  */
-export function SchedaDashboard({ facts, tiles, now, onCopyLink }: SchedaDashboardProps) {
+export function SchedaDashboard({ facts, tiles, now, onCopyLink, lead }: SchedaDashboardProps) {
     const { a } = facts;
     const rootRef = useRef<HTMLDivElement>(null);
     const colRef = useRef<HTMLDivElement>(null);
@@ -50,6 +56,18 @@ export function SchedaDashboard({ facts, tiles, now, onCopyLink }: SchedaDashboa
     const fit = usePhoneFit(sideRef, boxRef, true);
     const [hl, setHl] = useState<SchedaPart | null>(null);
     const zone = useSchedaFollow(rootRef, scrRef, hl !== null);
+    const topRef = useRef<HTMLDivElement>(null);
+
+    // Nella D (v33) la frase resta ferma in cima: il telefono e i pulsanti
+    // sopra di lui si fermano sotto di lei.
+    useEffect(() => {
+        const top = topRef.current;
+        const root = rootRef.current;
+        if (!LOOK_D || !top || !root) return;
+        const ro = new ResizeObserver(() => root.style.setProperty("--sch-top", `${top.offsetHeight}px`));
+        ro.observe(top);
+        return () => ro.disconnect();
+    }, []);
 
     // Come nel prototipo: sopra una tessera si accende la sua parte; negli
     // spazi fra le tessere resta l'ultima; sopra il telefono non cambia
@@ -74,6 +92,126 @@ export function SchedaDashboard({ facts, tiles, now, onCopyLink }: SchedaDashboa
         : ZONE_CARD[zone];
 
     const coverStyle = a.cover_image ? { backgroundImage: `url("${a.cover_image}")` } : undefined;
+
+    const side: ReactNode = (
+        <aside className={styles.side} ref={sideRef} aria-label="Sul telefono">
+            <div className={cx(styles.card, fit.slim && styles.cardSlim)} aria-live="polite">
+                <span className={styles.cardK}>
+                    <Smartphone size={13} strokeWidth={1.75} aria-hidden />
+                    Sul telefono
+                </span>
+                <b className={styles.cardTitle}>{cardTitle}</b>
+                <p className={styles.cardText}>{rich(cardText)}</p>
+            </div>
+            <div className={styles.phoneBox} ref={boxRef} style={fit.boxStyle}>
+                <SchedaPhone ref={scrRef} facts={facts} highlight={hl} />
+            </div>
+        </aside>
+    );
+
+    // Nella D (Visual Redesign 2, PR 11b; copia `pSch1`): la frase, la
+    // copertina con l'indirizzo, «Adesso» e «La vostra pagina» affiancate, i
+    // gruppi di tessere; «Copia il link» e «Apri la pagina» sopra il telefono.
+    if (LOOK_D) {
+        const edit = tiles.canManage ? "Modifica" : "Apri";
+        const acts = (
+            <>
+                <Button variant="secondary" size="sm" leftIcon={<Copy size={14} strokeWidth={1.75} aria-hidden />} onClick={onCopyLink}>
+                    Copia il link
+                </Button>
+                <Button
+                    as="a"
+                    variant="secondary"
+                    size="sm"
+                    href={publicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    leftIcon={<ExternalLink size={14} strokeWidth={1.75} aria-hidden />}
+                >
+                    Apri la pagina
+                </Button>
+            </>
+        );
+        return (
+            <div className={styles.root} ref={rootRef}>
+                <div className={styles.topD} ref={topRef}>
+                    {lead && <Lead parts={lead} family="menu" />}
+                    <div className={styles.barActs}>{acts}</div>
+                </div>
+                <div className={styles.dash} style={fit.vars}>
+                    <div className={styles.col} ref={colRef}>
+                        <section className={styles.heroD} data-k="locale" aria-label="Il locale">
+                            <button type="button" className={styles.identity} onClick={() => tiles.open("locale")} aria-label={`Apri Il locale di ${a.name}`}>
+                                <span className={cx(styles.identityCover, styles.cover, !a.cover_image && styles.coverNone)} style={coverStyle} />
+                                <span className={styles.overlay}>
+                                    <h3>{a.name}</h3>
+                                    {a.description ? <p>{a.description}</p> : <p><i>Manca la presentazione: due righe su cosa siete e perché venire.</i></p>}
+                                </span>
+                            </button>
+                            <div className={styles.heroFt}>
+                                <span>{addressLine(a)}</span>
+                                <i className={styles.fl} />
+                                <Button variant="secondary" size="sm" onClick={() => tiles.open("locale")}>
+                                    {tiles.canManage ? "Cambia foto, nome e presentazione" : "Apri"}
+                                </Button>
+                            </div>
+                        </section>
+                        <div className={styles.rowD}>
+                            <SchedaNow facts={facts} actions={now} />
+                            <section className={styles.pageD} data-k="link" aria-label="La vostra pagina">
+                                <div className={styles.hdD}>
+                                    <h3>La vostra pagina</h3>
+                                    <Button variant="ghost" size="sm" onClick={() => tiles.open("link")}>
+                                        {edit}
+                                    </Button>
+                                </div>
+                                <div className={styles.qrD}>
+                                    <span className={styles.qr}>
+                                        <QrCode
+                                            value={publicUrl}
+                                            fileName={`qr-${a.slug}`}
+                                            size={80}
+                                            level="M"
+                                            fgColor={a.qr_fg_color ?? QR_DEFAULT_FG}
+                                            bgColor={a.qr_bg_color ?? QR_DEFAULT_BG}
+                                            showActions={false}
+                                            status={a.status === "active" ? "ready" : "unavailable"}
+                                        />
+                                    </span>
+                                    <span className={styles.linkText}>
+                                        <b className={styles.urlD}>{publicUrl.replace(/^https?:\/\//, "")}</b>
+                                        <span className={styles.hint}>Il QR porta qui. Da stampare su tavoli, vetrina e volantini.</span>
+                                        <span className={styles.acts}>
+                                            <Button variant="secondary" size="sm" onClick={onCopyLink}>
+                                                Copia
+                                            </Button>
+                                            <Button as="a" variant="secondary" size="sm" href={publicUrl} target="_blank" rel="noopener noreferrer">
+                                                Apri
+                                            </Button>
+                                        </span>
+                                    </span>
+                                </div>
+                            </section>
+                        </div>
+                        {DASH_GROUPS.map((g, gi) => (
+                            <section key={g.title} aria-label={g.title} className={styles.groupD}>
+                                <h3 className={styles.groupT}>{g.title}</h3>
+                                <div className={cx(styles.tiles, gi < 2 && styles.tiles2, gi === 2 && styles.tiles3)}>
+                                    {g.parts.map(k => (
+                                        <SchedaTile key={k} part={k} facts={facts} actions={tiles} highlighted={hl === k} />
+                                    ))}
+                                </div>
+                            </section>
+                        ))}
+                    </div>
+                    <div className={styles.sideD}>
+                        <div className={styles.sideActs}>{acts}</div>
+                        {side}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.root} ref={rootRef}>
@@ -150,19 +288,7 @@ export function SchedaDashboard({ facts, tiles, now, onCopyLink }: SchedaDashboa
                     ))}
                 </div>
 
-                <aside className={styles.side} ref={sideRef} aria-label="Sul telefono">
-                    <div className={cx(styles.card, fit.slim && styles.cardSlim)} aria-live="polite">
-                        <span className={styles.cardK}>
-                            <Smartphone size={13} strokeWidth={1.75} aria-hidden />
-                            Sul telefono
-                        </span>
-                        <b className={styles.cardTitle}>{cardTitle}</b>
-                        <p className={styles.cardText}>{rich(cardText)}</p>
-                    </div>
-                    <div className={styles.phoneBox} ref={boxRef} style={fit.boxStyle}>
-                        <SchedaPhone ref={scrRef} facts={facts} highlight={hl} />
-                    </div>
-                </aside>
+                {side}
             </div>
         </div>
     );
