@@ -1,7 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { IconAlertCircle } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
-import { Button } from "@/components/ui";
+// Dal suo file e non da `@/components/ui`: NotFound sta nel pacchetto della pagina
+// pubblica, e il raccoglitore ci porterebbe tabelle, tendine e menù del back office.
+import { Button } from "@/components/ui/Button/Button";
 import styles from "./NotFound.module.scss";
 import { useEffect } from "react";
 
