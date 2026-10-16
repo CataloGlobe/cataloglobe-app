@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Lock, Plus, Store, Volume2, VolumeX } from "lucide-react";
 
@@ -22,15 +22,23 @@ import { SERVIZIO_MODES, modeAccess, normalizeServizioMode, resolveServizioMode,
 import { ServizioSala } from "./ServizioSala";
 import { useInServizioSwitch } from "./useInServizioSwitch";
 import { AdessoD, InServizioD } from "./InServizioD";
+import { useNextArrival } from "./useNextArrival";
 import { usePendingReservationsCount } from "./usePendingReservationsCount";
 import type { OrdersSummary } from "@/pages/Dashboard/Orders/Orders";
 import { getServerSnapshot, getSnapshot, setSoundEnabled, subscribe } from "@/hooks/notificationSoundStore";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
+import { DetailPane } from "@/components/layout/DetailPane/DetailPane";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { useDetailParam } from "@/hooks/useDetailParam";
+import { CosaVedonoContent } from "@/pages/Operativita/Attivita/routes/ActivityCosaVedonoRoute";
+
 import styles from "./Servizio.module.scss";
 
 /** I dettagli dal vivo dei modi (D131): `?tavolo=` della Mappa, `?prenotazione=` e `?tavolata=` dell'Elenco. */
 const DETAIL_PARAMS = ["tavolo", "prenotazione", "tavolata"] as const;
+/** Gli altri pannelli di lato di In servizio: aprendo la Disponibilità si chiudono. */
+const DISPONIBILITA_SIBLINGS = [...DETAIL_PARAMS, "ordine"] as const;
 
 /**
  * Servizio (§18.2, lotti B-a e B-b): la sala di una sede, in tre modi —
@@ -144,9 +152,15 @@ export default function Servizio() {
     const onPendingChange = useCallback(() => {
         window.setTimeout(reloadConf, 6_000);
     }, [reloadConf]);
+    const next = useNextArrival(businessId, activityId, pageD && canReadReservations);
+    // Sotto le due colonne «Adesso» non c'è: i numeri sono nel selettore delle parti.
+    const [narrow, setNarrow] = useState(false);
     const adesso = useMemo(
-        () => (pageD ? <AdessoD summary={showComandeD ? summary : { nuove: 0, pronte: 0, attese: 0 }} conf={conf} /> : undefined),
-        [pageD, showComandeD, summary, conf]
+        () =>
+            pageD && !narrow ? (
+                <AdessoD summary={showComandeD ? summary : { nuove: 0, pronte: 0, attese: 0 }} conf={conf} next={next} />
+            ) : undefined,
+        [pageD, narrow, showComandeD, summary, conf, next]
     );
     // «Senza prenotazione» apre il drawer dell'Elenco: dalla Mappa si passa
     // all'Elenco della sala, poi si apre.
@@ -179,8 +193,9 @@ export default function Servizio() {
     // D (copia «Visual Redesign PR 3»): la disponibilità dei prodotti si
     // raggiunge da qui, «Disponibilità · N» con le modifiche a mano della sede;
     // la voce «Cosa vedono i clienti» non sta più nella sidebar, quindi il
-    // pulsante c'è in ogni parte e anche col piano Base (unica strada).
-    const showDisponibilita = LOOK_D && !!activity && canReadActivity;
+    // pulsante c'è in ogni parte di In servizio, anche col piano Base (Mappa).
+    // Non in «Sale e tavoli» (`?modo=sala`): nella copia sta solo qui.
+    const showDisponibilita = pageD && !!activity && canReadActivity;
     const [fuori, setFuori] = useState<number | null>(null);
     useEffect(() => {
         setFuori(null);
@@ -198,10 +213,15 @@ export default function Servizio() {
             cancelled = true;
         };
     }, [showDisponibilita, activityId]);
-    const openDisponibilita = useCallback(
-        () => navigate(`/business/${businessId}/locations/${activityId}/cosa-vedono`),
-        [navigate, businessId, activityId]
-    );
+    // Il pannello di lato «Disponibilità dei prodotti» (copia, `pane menu`):
+    // in sola lettura per chi vede In servizio ma non può cambiarla (Alex,
+    // 2026-10-16); lo decide `CosaVedonoContent`, come nella pagina intera.
+    const [dispParam, openDispParam, closeDisponibilita] = useDetailParam("disponibilita", DISPONIBILITA_SIBLINGS);
+    const otherDetailOpen = DISPONIBILITA_SIBLINGS.some(key => searchParams.has(key));
+    const disponibilitaOpen = showDisponibilita && dispParam !== null && !otherDetailOpen;
+    const openDisponibilita = useCallback(() => openDispParam("1"), [openDispParam]);
+    const disponibilitaTitleId = useId();
+    const disponibilitaPageHref = `/business/${businessId}/locations/${activityId}/cosa-vedono`;
     const disponibilitaLabel = `Disponibilità${fuori ? ` · ${fuori}` : ""}`;
     const soundLabel = soundEnabled ? "Disattiva suoni notifiche" : "Attiva suoni notifiche";
     const actions = useMemo(
@@ -364,24 +384,46 @@ export default function Servizio() {
 
     if (pageD) {
         return (
-            <InServizioD
-                tenantId={businessId}
-                activityId={activity.id}
-                view={mode === "mappa" ? "mappa" : "elenco"}
-                onViewChange={changeMode}
-                showComande={showComandeD}
-                canMappa={canMappa}
-                canElenco={canElenco}
-                conf={conf}
-                prenotazioniHref={`/business/${businessId}/locations/${activity.id}/prenotazioni`}
-                onPendingChange={onPendingChange}
-                summary={summary}
-                onSummary={setSummary}
-                walkinOpen={isWalkinOpen}
-                onWalkinClose={() => setIsWalkinOpen(false)}
-                createOpen={isCreateOrderOpen}
-                onCreateClose={() => setIsCreateOrderOpen(false)}
-            />
+            <>
+                <InServizioD
+                    tenantId={businessId}
+                    activityId={activity.id}
+                    view={mode === "mappa" ? "mappa" : "elenco"}
+                    onViewChange={changeMode}
+                    showComande={showComandeD}
+                    canMappa={canMappa}
+                    canElenco={canElenco}
+                    conf={conf}
+                    prenotazioniHref={`/business/${businessId}/locations/${activity.id}/prenotazioni`}
+                    onPendingChange={onPendingChange}
+                    summary={summary}
+                    onSummary={setSummary}
+                    onNarrowChange={setNarrow}
+                    walkinOpen={isWalkinOpen}
+                    onWalkinClose={() => setIsWalkinOpen(false)}
+                    createOpen={isCreateOrderOpen}
+                    onCreateClose={() => setIsCreateOrderOpen(false)}
+                />
+                <DetailPane
+                    open={disponibilitaOpen}
+                    onClose={closeDisponibilita}
+                    aria-labelledby={disponibilitaTitleId}
+                    backLabel="In servizio"
+                >
+                    <DrawerLayout
+                        title="Disponibilità dei prodotti"
+                        titleId={disponibilitaTitleId}
+                        onClose={closeDisponibilita}
+                        footer={
+                            <Button variant="secondary" onClick={() => navigate(disponibilitaPageHref)}>
+                                Apri la pagina intera
+                            </Button>
+                        }
+                    >
+                        {disponibilitaOpen && <CosaVedonoContent activity={activity} tenantId={businessId} />}
+                    </DrawerLayout>
+                </DetailPane>
+            </>
         );
     }
 

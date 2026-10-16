@@ -735,7 +735,7 @@ export default function OverviewPage() {
             onClick: () => navigate(`${b}/locations/${activityId}/prenotazioni`)
         },
         {
-            label: "Cosa vedono i clienti",
+            label: LOOK_D ? "Disponibilità" : "Cosa vedono i clienti",
             hidden: !canDoOnActivity(permissions, "activity.read", activityId),
             onClick: () => navigate(`${b}/locations/${activityId}/cosa-vedono`)
         },

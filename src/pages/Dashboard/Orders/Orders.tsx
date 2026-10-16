@@ -9,6 +9,7 @@ import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Button } from "@/components/ui/Button/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { PageGate } from "@/components/PageGate/PageGate";
 
 import { useTenantId } from "@/context/useTenantId";
@@ -30,7 +31,8 @@ import {
     uncancelToSubmitted,
     uncancelToAcknowledged,
     uncancelToReady,
-    getOrderWithItems
+    getOrderWithItems,
+    getOperativeDayBounds
 } from "@/services/supabase/orders";
 import type { CancelOrderItemResult } from "@/services/supabase/orders";
 import type { V2OrderWithItems } from "@/types/orders";
@@ -55,6 +57,7 @@ import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 
 import { useDetailParam } from "@/hooks/useDetailParam";
+import { usePollingRefresh } from "@/hooks/usePollingRefresh";
 import styles from "./Orders.module.scss";
 import { LOOK_D } from "@/styles/lookD";
 import { useInServizioSwitch } from "@/pages/Dashboard/Servizio/useInServizioSwitch";
@@ -397,11 +400,79 @@ export function OrdersBoard({ embedded }: { embedded?: OrdersEmbed } = {}) {
     );
     usePageHeader(headerConfig, !embedded);
 
+    // ── Comande rimaste da servizi precedenti (D, dentro In servizio) ──
+    // Le comande aperte di giornate operative passate non si chiudono da
+    // sole: stanno in una riga a parte in fondo, con «Guarda» (le rimette
+    // sulla board) e «Chiudi tutte» (le segna servite con le transizioni di
+    // sempre). Copia «Visual Redesign PR 3».
+    const [dayStart, setDayStart] = useState<number | null>(null);
+    const isEmbedded = !!embedded;
+    // Finché non si sa dove comincia la giornata la board aspetta: senza, le
+    // rimaste comparirebbero un attimo nelle colonne.
+    const [dayKnown, setDayKnown] = useState(!isEmbedded);
+    // Riletto ogni minuto: a pagina aperta oltre il cambio di giornata le
+    // comande del servizio finito passano fra le rimaste. Un errore tiene
+    // l'inizio di prima (al primo giro, finché non arriva, nessuna è «rimasta»).
+    const loadDayStart = useCallback(() => {
+        if (!isEmbedded) return;
+        getOperativeDayBounds()
+            .then(bounds => setDayStart(Date.parse(bounds.dayStart)))
+            .catch((error: unknown) => console.warn("[OrdersBoard] day bounds", error))
+            .finally(() => setDayKnown(true));
+    }, [isEmbedded]);
+    useEffect(loadDayStart, [loadDayStart]);
+    usePollingRefresh(loadDayStart, { intervalMs: 60_000, enabled: isEmbedded });
+    const oldOrders = useMemo(
+        () => (dayStart === null ? [] : activeOrders.filter(o => Date.parse(o.submitted_at) < dayStart)),
+        [activeOrders, dayStart]
+    );
+    const oldIds = useMemo(() => new Set(oldOrders.map(o => o.id)), [oldOrders]);
+    const [showOld, setShowOld] = useState(false);
+    const [closeOldOpen, setCloseOldOpen] = useState(false);
+    const [closingOld, setClosingOld] = useState(false);
+    const [closeOldError, setCloseOldError] = useState<string | null>(null);
+    const boardOrders = useMemo(
+        () =>
+            !dayKnown ? [] : showOld || oldOrders.length === 0 ? activeOrders : activeOrders.filter(o => !oldIds.has(o.id)),
+        [activeOrders, oldOrders, oldIds, showOld, dayKnown]
+    );
+
+    async function handleCloseOld(): Promise<boolean> {
+        setClosingOld(true);
+        setCloseOldError(null);
+        let failed = 0;
+        for (const order of oldOrders) {
+            try {
+                let version = order.version;
+                if (order.status === "submitted") {
+                    const ack = await acknowledgeOrder(order.id, version);
+                    applyLocalPatch({ id: ack.order_id, status: ack.status, version: ack.version });
+                    version = ack.version;
+                }
+                const res = await deliverOrder(order.id, version);
+                applyLocalPatch({ id: res.order_id, status: res.status, version: res.version, delivered_at: res.delivered_at });
+            } catch (error) {
+                console.warn("[OrdersBoard] chiudi rimaste", error);
+                failed++;
+            }
+        }
+        setClosingOld(false);
+        if (failed > 0) {
+            setCloseOldError(
+                failed === 1 ? "Una comanda non si è chiusa. Riprova." : `${failed} comande non si sono chiuse. Riprova.`
+            );
+            void refetchOrders();
+            return false;
+        }
+        showToast({ message: "Comande rimaste chiuse", type: "success" });
+        return true;
+    }
+
     // ── Filtering (client-side: solo tableId) ──
     const filteredOrders = useMemo(() => {
-        if (tableFilter === "all") return activeOrders;
-        return activeOrders.filter(o => o.table_id === tableFilter);
-    }, [activeOrders, tableFilter]);
+        if (tableFilter === "all") return boardOrders;
+        return boardOrders.filter(o => o.table_id === tableFilter);
+    }, [boardOrders, tableFilter]);
 
     // L'ordine del dettaglio, dal vivo; e l'ordine della board (Nuove, In
     // lavorazione, Pronte, i più nuovi in cima) per ↑ ↓.
@@ -794,10 +865,13 @@ export function OrdersBoard({ embedded }: { embedded?: OrdersEmbed } = {}) {
 
     const readyCount = useMemo(() => activeOrders.filter(o => o.status === "ready").length, [activeOrders]);
     const waitingTables = useMemo(() => new Set(requests.map(r => r.tableId)).size, [requests]);
+    // «Adesso» conta le comande di oggi: le rimaste hanno la loro riga.
+    const oldSubmitted = oldOrders.filter(o => o.status === "submitted").length;
+    const oldReady = oldOrders.filter(o => o.status === "ready").length;
     const onSummary = embedded?.onSummary;
     useEffect(() => {
-        onSummary?.({ nuove: submittedCount, pronte: readyCount, attese: waitingTables });
-    }, [onSummary, submittedCount, readyCount, waitingTables]);
+        onSummary?.({ nuove: submittedCount - oldSubmitted, pronte: readyCount - oldReady, attese: waitingTables });
+    }, [onSummary, submittedCount, oldSubmitted, readyCount, oldReady, waitingTables]);
 
     return (
         <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
@@ -830,7 +904,7 @@ export function OrdersBoard({ embedded }: { embedded?: OrdersEmbed } = {}) {
                 comandaPrintStates={comandaPrintStates}
                 onReprint={handleReprint}
                 printersHref={printersHref}
-                isLoading={isLoadingOrders}
+                isLoading={isLoadingOrders || !dayKnown}
                 error={ordersError}
                 onRetry={() => void refetchOrders()}
                 onAcknowledge={handleAcknowledge}
@@ -847,6 +921,51 @@ export function OrdersBoard({ embedded }: { embedded?: OrdersEmbed } = {}) {
                 canEdit={canEdit}
                 embedded={!!embedded}
             />
+
+            {embedded && oldOrders.length > 0 && (
+                <div className={styles.oldBar}>
+                    <span className={styles.oldText}>
+                        {oldOrders.length === 1
+                            ? "1 comanda rimasta da servizi precedenti"
+                            : `${oldOrders.length} comande rimaste da servizi precedenti`}
+                    </span>
+                    <span className={styles.oldActions}>
+                        <Button variant="ghost" size="sm" aria-pressed={showOld} onClick={() => setShowOld(v => !v)}>
+                            {showOld ? "Nascondi" : "Guarda"}
+                        </Button>
+                        {canManage && canEdit && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                    setCloseOldError(null);
+                                    setCloseOldOpen(true);
+                                }}
+                            >
+                                Chiudi tutte
+                            </Button>
+                        )}
+                    </span>
+                </div>
+            )}
+
+            {embedded && (
+                <ConfirmDialog
+                    isOpen={closeOldOpen}
+                    onClose={() => setCloseOldOpen(false)}
+                    onConfirm={handleCloseOld}
+                    title="Chiudere le comande rimaste?"
+                    message={
+                        oldOrders.length === 1
+                            ? "La comanda rimasta da servizi precedenti viene segnata servita ed esce dalle Comande."
+                            : `Le ${oldOrders.length} comande rimaste da servizi precedenti vengono segnate servite ed escono dalle Comande.`
+                    }
+                    confirmLabel="Chiudi tutte"
+                    confirmVariant="primary"
+                    isLoading={closingOld}
+                    error={closeOldError}
+                />
+            )}
 
             {orderToPrint && (
                 <PrintReceipt

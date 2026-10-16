@@ -135,8 +135,11 @@ test.describe("Contesto di sede", () => {
         await (await sidebarLink(page, "In servizio")).click();
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/servizio(\?|$)/, { timeout: 15_000 });
 
-        if (await lookD(page)) await page.getByRole("button", { name: /^Disponibilità/ }).click();
-        else await (await sidebarLink(page, "Cosa vedono i clienti")).click();
+        // Nella D «Disponibilità» apre il pannello; la pagina intera è un passo dopo.
+        if (await lookD(page)) {
+            await page.getByRole("button", { name: /^Disponibilità/ }).first().click();
+            await page.getByRole("dialog", { name: "Disponibilità dei prodotti" }).getByRole("button", { name: "Apri la pagina intera" }).click();
+        } else await (await sidebarLink(page, "Cosa vedono i clienti")).click();
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/cosa-vedono$/, { timeout: 15_000 });
 
         await (await sidebarLink(page, "Regole")).click();

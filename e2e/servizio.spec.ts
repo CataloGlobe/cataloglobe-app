@@ -585,8 +585,12 @@ test.describe("Elenco (lotto B-b)", () => {
         for (const colonna of ["Nuove", "In lavorazione", "Pronte"]) {
             await expect(comande.getByRole("region", { name: colonna })).toBeVisible({ timeout: 15_000 });
         }
-        // La comanda della fixture è in Nuove: «Adesso» la conta.
-        await expect(m.getByRole("status", { name: "Adesso" })).toContainText(/comand[ae] nuov[ae]/, { timeout: 15_000 });
+        // La comanda della fixture è di un servizio precedente: sta nella riga
+        // delle rimaste e «Adesso» non la conta (copia, B2); «Guarda» la mostra.
+        await expect(comande.getByText(/rimast[ae] da servizi precedenti/)).toBeVisible({ timeout: 15_000 });
+        await expect(m.getByRole("status", { name: "Adesso" })).not.toContainText(/comand[ae] nuov[ae]/);
+        await comande.getByRole("button", { name: "Guarda", exact: true }).click();
+        await expect(comande.getByRole("article", { name: "T TEST", exact: true })).toBeVisible();
         await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
         // Affiancate: le Comande a sinistra, la sala a destra, sulla stessa riga.
         const [c, s] = [(await comande.boundingBox())!, (await sala.boundingBox())!];
@@ -608,6 +612,31 @@ test.describe("Elenco (lotto B-b)", () => {
         await expect(comande).toBeHidden();
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(overflow).toBeLessThanOrEqual(0);
+    });
+
+    test("D: «Disponibilità» apre il pannello dei prodotti, e da lì la pagina intera si chiama «Disponibilità»", async ({ page }) => {
+        test.skip(!D_ON, "la pagina In servizio della D");
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await openVoce(page, "In servizio");
+        await page.getByRole("button", { name: /^Disponibilità/ }).first().click();
+        await expect(page).toHaveURL(/[?&]disponibilita=1/);
+        const pane = page.getByRole("dialog", { name: "Disponibilità dei prodotti" });
+        await expect(pane).toBeVisible({ timeout: 15_000 });
+        // Il contenuto è quello della pagina: la banda dell'esito.
+        await expect(pane.getByRole("region", { name: "Cosa vedono i clienti" })).toBeVisible({ timeout: 15_000 });
+        await pane.getByRole("button", { name: "Apri la pagina intera" }).click();
+        await expect(page).toHaveURL(/\/cosa-vedono$/);
+        // Nella D le pagine della sede non hanno un h1: la nominano le briciole.
+        await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Disponibilità", { timeout: 15_000 });
+    });
+
+    test("D: il viewer apre la Disponibilità in sola lettura", async ({ page }) => {
+        test.skip(!D_ON, "la pagina In servizio della D");
+        const base = await sedePath(page);
+        await asRole(page, "viewer", base.split("/").pop()!, "pro");
+        await page.goto(`${base}/servizio?disponibilita=1`);
+        const pane = page.getByRole("dialog", { name: "Disponibilità dei prodotti" });
+        await expect(pane.getByText(/^Sola lettura/)).toBeVisible({ timeout: 15_000 });
     });
 
     test("D: «In arrivo» ha «Da confermare» con Conferma e Rifiuta, e rimanda a Prenotazioni per gli altri giorni", async ({ page }) => {

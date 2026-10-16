@@ -44,6 +44,11 @@ async function openComande(page: Page): Promise<void> {
     if (await lookD(page)) {
         await page.setViewportSize({ width: 1440, height: 900 });
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/servizio(\?|$)/, { timeout: 15_000 });
+        // La comanda della fixture è di un servizio precedente: nella D sta
+        // nella riga delle comande rimaste, e «Guarda» la rimette nelle colonne.
+        const guarda = page.getByRole("main").getByRole("button", { name: "Guarda", exact: true });
+        await expect(fixtureMenu(page).or(guarda).first()).toBeVisible({ timeout: 15_000 });
+        if (await guarda.isVisible()) await guarda.click();
     } else {
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
     }

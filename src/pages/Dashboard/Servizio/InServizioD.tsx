@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Maximize2, Minimize2 } from "lucide-react";
 
@@ -7,6 +7,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 import { OrdersBoard, type OrdersSummary } from "@/pages/Dashboard/Orders/Orders";
 import ServizioElenco from "./ServizioElenco";
+import type { NextArrival } from "./useNextArrival";
 
 import styles from "./InServizioD.module.scss";
 
@@ -44,6 +45,8 @@ type Props = {
     onWalkinClose: () => void;
     createOpen: boolean;
     onCreateClose: () => void;
+    /** Sotto i 700 px di pagina (una parte alla volta): la riga «Adesso» in testata non c'è. */
+    onNarrowChange: (narrow: boolean) => void;
 };
 
 const ZERO: OrdersSummary = { nuove: 0, pronte: 0, attese: 0 };
@@ -71,9 +74,19 @@ export function InServizioD({
     walkinOpen,
     onWalkinClose,
     createOpen,
-    onCreateClose
+    onCreateClose,
+    onNarrowChange
 }: Props) {
     const [searchParams, setSearchParams] = useSearchParams();
+    // La stessa soglia del container `srv` (700 px): sotto, i numeri stanno nel selettore.
+    const pageRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const el = pageRef.current;
+        if (!el) return;
+        const observer = new ResizeObserver(([entry]) => onNarrowChange(entry.contentRect.width < 700));
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [onNarrowChange]);
     const canSala = canMappa || canElenco;
     const available = PARTS.filter(p => (p === "comande" ? showComande : p === "sala" ? canSala : canElenco));
     const [wide, setWide] = useState<"comande" | "destra" | null>(null);
@@ -128,7 +141,7 @@ export function InServizioD({
     );
 
     return (
-        <div className={styles.page} data-part={part} data-right={right} data-wide={wide ?? undefined} data-comande={showComande || undefined}>
+        <div ref={pageRef} className={styles.page} data-part={part} data-right={right} data-wide={wide ?? undefined} data-comande={showComande || undefined}>
             {available.length > 1 && (
                 <div className={styles.partSwitch}>
                     <SegmentedControl<InServizioDPart> value={part} onChange={setPart} size="sm" label="Parti di In servizio" options={partOptions} />
@@ -201,16 +214,23 @@ export function InServizioD({
  * La riga «Adesso» (copia `.now`): una frase coi numeri del momento, in
  * testata accanto ai pulsanti. Sotto i 700 px non c'è: i numeri stanno nel
  * selettore delle parti. Non si legge a voce a ogni cambio (`aria-live="off"`):
- * i numeri cambiano col realtime e col conteggio ogni minuto.
+ * i numeri cambiano col realtime e col conteggio ogni minuto. Quando è tutto
+ * fermo dice il prossimo arrivo di oggi, se c'è.
  */
-export function AdessoD({ summary, conf }: { summary: OrdersSummary; conf: number }) {
+export function AdessoD({ summary, conf, next }: { summary: OrdersSummary; conf: number; next: NextArrival | null }) {
     const { nuove, pronte, attese } = summary;
     const calm = nuove + pronte + attese + conf === 0;
     return (
         <p className={styles.now} role="status" aria-live="off" aria-label="Adesso">
             <span className={styles.nowLabel}>Adesso</span>
             {calm ? (
-                <span className={styles.calm}>Niente da fare.</span>
+                <span className={styles.calm}>
+                    Niente da fare.
+                    {next &&
+                        ` Prossimo arrivo alle ${next.reservation_time.slice(0, 5)}: ${next.customer_name}, ${
+                            next.party_size === 1 ? "1 persona" : `${next.party_size} persone`
+                        }.`}
+                </span>
             ) : (
                 <>
                     {nuove > 0 && <NowItem tone="new" n={nuove} text={nuove === 1 ? "comanda nuova" : "comande nuove"} />}
