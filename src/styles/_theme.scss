@@ -212,6 +212,9 @@
   // Barra del CRM in /admin (grafica decisa il 2026-10-05, «7A2»): indaco
   // profondo, uguale nei due temi. Li legge solo AdminLayout.module.scss.
   --crm-nav-bg: #1b1a3d;
+  // Con la grafica D accesa la barra legge i token della D: fondo grigio scuro
+  // (deciso da Alex il 2026-10-16).
+  --crm-nav-bg-d: #30313c;
   --crm-nav-border: #2c2a5e;
   --crm-nav-hover: #23214d;
   --crm-nav-active: #312e6b;
