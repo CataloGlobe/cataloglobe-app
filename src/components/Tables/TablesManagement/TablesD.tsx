@@ -150,14 +150,16 @@ export function TablesD(p: Props) {
                             {z.list.map(t => (
                                 <div key={t.id} className={`${s.row}${p.canManage ? ` ${s.rowCk}` : ""}`} style={{ "--i": order++ } as CSSProperties}>
                                     {p.canManage && (
-                                        <label className={s.ck} title="Seleziona">
-                                            <input
-                                                type="checkbox"
-                                                aria-label={`Seleziona il tavolo ${t.label}`}
-                                                checked={p.selected.includes(t.id)}
-                                                onChange={e => p.onSelected(e.target.checked ? [...p.selected, t.id] : p.selected.filter(id => id !== t.id))}
-                                            />
-                                        </label>
+                                        <Tooltip content="Seleziona">
+                                            <label className={s.ck}>
+                                                <input
+                                                    type="checkbox"
+                                                    aria-label={`Seleziona il tavolo ${t.label}`}
+                                                    checked={p.selected.includes(t.id)}
+                                                    onChange={e => p.onSelected(e.target.checked ? [...p.selected, t.id] : p.selected.filter(id => id !== t.id))}
+                                                />
+                                            </label>
+                                        </Tooltip>
                                     )}
                                     <button
                                         type="button"
@@ -171,14 +173,11 @@ export function TablesD(p: Props) {
                                         <b>
                                             {t.label}
                                             {p.isExcluded(t) && (
-                                                <span
-                                                    className={s.tri}
-                                                    title="Capienza non dichiarata (né posti né capienza massima): il motore di assegnazione automatica non propone questo tavolo alle prenotazioni. Resta assegnabile a mano."
-                                                    aria-label="Escluso dall'assegnazione automatica"
-                                                    role="img"
-                                                >
-                                                    <TriangleAlert size={16} strokeWidth={1.9} aria-hidden />
-                                                </span>
+                                                <Tooltip content="Capienza non dichiarata (né posti né capienza massima): il motore di assegnazione automatica non propone questo tavolo alle prenotazioni. Resta assegnabile a mano.">
+                                                    <span className={s.tri} aria-label="Escluso dall'assegnazione automatica" role="img">
+                                                        <TriangleAlert size={16} strokeWidth={1.9} aria-hidden />
+                                                    </span>
+                                                </Tooltip>
                                             )}
                                         </b>
                                         <small>

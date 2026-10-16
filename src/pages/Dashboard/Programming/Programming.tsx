@@ -1036,7 +1036,8 @@ export default function Programming() {
         const fonts = typeof document === "undefined" ? undefined : document.fonts;
         if (!fonts) return;
         const bump = () => setFontsLoaded(n => n + 1);
-        void fonts.ready.then(bump);
+        // già caricati all'arrivo (D spenta, o si torna sulla pagina): niente rimisura in più (#526)
+        if (fonts.status !== "loaded") void fonts.ready.then(bump);
         fonts.addEventListener("loadingdone", bump);
         return () => fonts.removeEventListener("loadingdone", bump);
     }, []);

@@ -24,6 +24,19 @@ import styles from "./ActivityPubblicazioneRoute.module.scss";
 const QR_FG = ["#1d1840", "#6a5cf5", "#0e9488", "#b91c1c", QR_DEFAULT_FG];
 const QR_BG = [QR_DEFAULT_BG, "#fbf7ef", "#e8f4f1", "#f1efff"];
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+// il nome che legge il lettore di schermo, mai l'esadecimale (#544)
+const QR_COLOR_NAME: Record<string, string> = {
+    "#1d1840": "Blu notte",
+    "#6a5cf5": "Viola",
+    "#0e9488": "Verde acqua",
+    "#b91c1c": "Rosso",
+    "#000000": "Nero",
+    "#ffffff": "Bianco",
+    "#fbf7ef": "Panna",
+    "#e8f4f1": "Verde chiaro",
+    "#f1efff": "Lilla"
+};
+const qrColorName = (c: string) => QR_COLOR_NAME[c.toLowerCase()] ?? "Colore scelto";
 
 /**
  * Link e QR (Officina 3): come si raggiunge questo locale. In fondo al
@@ -166,7 +179,7 @@ export default function ActivityPubblicazioneRoute() {
                                                 type="button"
                                                 className={styles.qrSwc}
                                                 style={{ "--c": c } as CSSProperties}
-                                                aria-label={c}
+                                                aria-label={qrColorName(c)}
                                                 aria-pressed={same(c, cur)}
                                                 disabled={!canManage}
                                                 onClick={() => draft.set(key, c)}
@@ -250,20 +263,23 @@ export default function ActivityPubblicazioneRoute() {
                 onAliasRemoved={loadAliases}
                 canEdit={canManage}
             />
-            <ActivityQrDrawer
-                open={isQrDrawerOpen}
-                onClose={() => setIsQrDrawerOpen(false)}
-                value={publicUrl}
-                fileName={`qr-${activity.slug}`}
-                fgColor={fgColor}
-                bgColor={bgColor}
-                onFgColorChange={color => draft.set("qr_fg_color", color)}
-                onBgColorChange={color => draft.set("qr_bg_color", color)}
-                showLogo={showLogo}
-                onShowLogoChange={setShowLogo}
-                logoUrl={logoUrl}
-                canEdit={canManage}
-            />
+            {/* nella D i colori si scelgono in pagina: il pannello non si apre mai (#544) */}
+            {!LOOK_D && (
+                <ActivityQrDrawer
+                    open={isQrDrawerOpen}
+                    onClose={() => setIsQrDrawerOpen(false)}
+                    value={publicUrl}
+                    fileName={`qr-${activity.slug}`}
+                    fgColor={fgColor}
+                    bgColor={bgColor}
+                    onFgColorChange={color => draft.set("qr_fg_color", color)}
+                    onBgColorChange={color => draft.set("qr_bg_color", color)}
+                    showLogo={showLogo}
+                    onShowLogoChange={setShowLogo}
+                    logoUrl={logoUrl}
+                    canEdit={canManage}
+                />
+            )}
             <ExportCatalogDrawer
                 open={isExportOpen}
                 onClose={() => setIsExportOpen(false)}

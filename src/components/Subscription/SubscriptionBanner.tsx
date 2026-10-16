@@ -88,7 +88,7 @@ export function SubscriptionBanner() {
                         size="sm"
                         onClick={handlePortal}
                         disabled={loading || !selectedTenant.stripe_customer_id}
-                        leftIcon={LOOK_D ? undefined : <ExternalLink size={14} />}
+                        leftIcon={<ExternalLink size={14} />}
                     >
                         {loading ? "Apertura..." : "Aggiorna pagamento"}
                     </Button>

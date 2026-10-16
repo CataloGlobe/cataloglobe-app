@@ -5,7 +5,7 @@ import { currentVoce, sidebarLink, sidebarLinkToRead, sediGriglia } from "./nav"
 import { stubReservations, type ReservationsStub } from "./reservationsStub";
 
 // D244: con la grafica D accesa le richieste si chiamano «da confermare».
-const D_ON = process.env.VITE_BACKOFFICE_D !== "false";
+import { D_ON } from "./lookD";
 
 const lookD = (page: Page) => page.evaluate(() => document.documentElement.dataset.look === "d");
 /** I tavoli della Sala: la tabella, o nella D le card per zona (PR 11c). */

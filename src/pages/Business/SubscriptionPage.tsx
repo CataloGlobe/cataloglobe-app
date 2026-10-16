@@ -1107,7 +1107,7 @@ export default function SubscriptionPage() {
             value: stripFigures[0].value,
             label: allSeatsUsed
                 ? "Ogni sede in più si aggiunge al piano"
-                : `Ne puoi aprire ancora ${displaySeats - activityCount}`
+                : `Ne puoi aprire ancora ${Math.max(0, displaySeats - activityCount)}`
         },
         ...(subUnavailable
             ? []
