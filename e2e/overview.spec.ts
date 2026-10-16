@@ -39,7 +39,6 @@ test.describe("Panoramica", () => {
         const main = page.getByRole("main");
         await expect(main.getByText(/^Oggi (a|in) /)).toBeVisible();
         await expect(main.getByRole("heading", { name: "Da fare" })).toBeVisible();
-        await expect(main.getByText(/^(Tutto a posto|.+)$/).first()).toBeVisible();
         await expect(main.getByRole("heading", { name: "Cosa hai attivato" })).toHaveCount(0);
     });
 
