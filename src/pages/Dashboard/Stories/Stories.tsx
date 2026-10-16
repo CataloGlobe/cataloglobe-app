@@ -26,6 +26,13 @@ import { StoryBrandCard } from "./components/StoryBrandCard";
 import { StoryBrandDrawer } from "./components/StoryBrandDrawer";
 import { useBrandStoryDraft } from "./hooks/useBrandStoryDraft";
 import styles from "./Stories.module.scss";
+import { LOOK_D } from "@/styles/lookD";
+import { VetrinaHead, type VetrinaView } from "../Vetrina/VetrinaHead";
+import { VetrinaCrea } from "../Vetrina/VetrinaCrea";
+import { TilePreview, VetrinaCard, VetrinaNone } from "../Vetrina/VetrinaCard";
+import { useCompactHead } from "../Vetrina/useCompactHead";
+import { sortVetrina, storieLead, type OnAir, type VetrinaSort } from "../Vetrina/vetrinaModel";
+import vs from "../Vetrina/Vetrina.module.scss";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
@@ -45,6 +52,9 @@ import {
 import { arrayMove, SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 
 type StoryFilter = "all" | "drafts" | "sede" | "noCover";
+/** I filtri della D (`pStr`): Tutte, In onda, «Bozze e ferme», poi i due di oggi. */
+type StoryFilterD = "all" | "on" | "off";
+const OFF_AIR: OnAir = { state: "off", when: null, where: null };
 
 function reindexRows(rows: StoryWithProduct[]): StoryWithProduct[] {
     return rows.map((row, index) => ({ ...row, sort_order: index + 1 }));
@@ -71,6 +81,11 @@ export default function Stories() {
     const [activities, setActivities] = useState<AppearanceActivity[]>([]);
     // Sotto 768 «Dove appare» scende sotto il titolo (DataTable: due colonne).
     const isPhone = useMediaQuery("(max-width: 767px)");
+    // D (Visual Redesign 2): filtri, ordine, Fogli o Elenco e testata che si stringe.
+    const [filterD, setFilterD] = useState<StoryFilterD>("all");
+    const [sort, setSort] = useState<VetrinaSort>("onda");
+    const [viewD, setViewD] = useState<VetrinaView>("fogli");
+    const { compact, setTop } = useCompactHead();
 
     useEffect(() => {
         if (!tenantId || !canRead) return;
@@ -169,9 +184,9 @@ export default function Stories() {
 
     usePageHeader({
         title: "Storie",
-        subtitle: "Ogni storia sta con la cosa che racconta.",
-        actions,
-        compact: headerCompact
+        subtitle: LOOK_D ? undefined : "Ogni storia sta con la cosa che racconta.",
+        actions: LOOK_D ? undefined : actions,
+        compact: LOOK_D ? undefined : headerCompact
     });
 
     // L'ordine è quello in cui i clienti trovano le storie: si salva subito
@@ -217,7 +232,7 @@ export default function Stories() {
             matchesFilter(item, filter) &&
             (!normalizedQuery || `${item.title} ${item.eyebrow ?? ""}`.toLowerCase().includes(normalizedQuery))
     );
-    const isFiltered = filter !== "all" || normalizedQuery.length > 0;
+    const isFiltered = (LOOK_D ? filterD : filter) !== "all" || normalizedQuery.length > 0;
     const canReorder = canWrite && !isFiltered;
     const filterOptions = (
         [
@@ -242,7 +257,54 @@ export default function Stories() {
     };
     const onAirOf = (item: StoryWithProduct) =>
         describeStoryOnAir(item, activities, !canEdit, item.product_id && liveProducts ? liveProducts.has(item.product_id) : null);
+    // D: «In onda adesso» per le storie che i clienti vedono, le altre spente.
+    const onAirD = (item: StoryWithProduct): OnAir => {
+        if (onAirOf(item).state !== "on") return OFF_AIR;
+        const seat = item.activity_id && activities.length > 1 ? activities.find(a => a.id === item.activity_id)?.name : undefined;
+        return { state: "now", when: null, where: seat ?? null };
+    };
+    const matchesD = (item: StoryWithProduct, which: StoryFilterD) =>
+        which === "on" ? onAirD(item).state !== "off" : which === "off" ? onAirD(item).state === "off" : matchesFilter(item, which);
+    const filterOptionsD = (
+        [
+            { value: "all", label: "Tutte" },
+            { value: "on", label: "In onda" },
+            { value: "off", label: "Bozze e ferme" }
+        ] as const
+    ).map(option => ({ ...option, count: stories.filter(item => matchesD(item, option.value)).length }));
+    const visibleD = stories.filter(
+        item => matchesD(item, filterD) && (!normalizedQuery || `${item.title} ${item.eyebrow ?? ""}`.toLowerCase().includes(normalizedQuery))
+    );
+    const cardsD = sortVetrina(
+        visibleD.map(item => ({ ...item, name: item.title })),
+        sort,
+        onAirD
+    );
+    const leadD = storieLead(
+        stories.filter(item => onAirD(item).state !== "off").length,
+        stories.filter(item => item.status !== "published").length,
+        stories.filter(item => item.status === "published" && onAirD(item).state === "off").length
+    );
+    const clearD = () => {
+        setFilterD("all");
+        setSearchQuery("");
+    };
     const unseenProduct = stories.some(item => item.product_id !== null && liveProducts !== null && onAirOf(item).state === "unseen");
+
+    const rowActionsOf = (item: StoryWithProduct) => (
+        <TableRowActions
+            ariaLabel={`Azioni storia ${item.title}`}
+            actions={[
+                rowAction.edit(() => navigate(storyUrl(item)), { readOnly: !canWrite }),
+                rowAction.remove(
+                    () => {
+                        if (ensureActive()) setDeleteTarget(item);
+                    },
+                    { hidden: !canWrite }
+                )
+            ]}
+        />
+    );
 
     const columns: ColumnDefinition<StoryWithProduct>[] = [
         ...(canReorder
@@ -310,20 +372,7 @@ export default function Stories() {
             header: "",
             width: "56px",
             align: "right",
-            cell: (_value, item) => (
-                <TableRowActions
-                    ariaLabel={`Azioni storia ${item.title}`}
-                    actions={[
-                        rowAction.edit(() => navigate(storyUrl(item)), { readOnly: !canWrite }),
-                        rowAction.remove(
-                            () => {
-                                if (ensureActive()) setDeleteTarget(item);
-                            },
-                            { hidden: !canWrite }
-                        )
-                    ]}
-                />
-            )
+            cell: (_value, item) => rowActionsOf(item)
         }
     ];
 
@@ -358,9 +407,40 @@ export default function Stories() {
                 />
             );
         }
+        if (LOOK_D && !loading && visibleD.length === 0) return <VetrinaNone onClear={clearD} />;
+        // D: le card con occhiello e titolo sulla tinta (al telefono sempre Fogli).
+        if (LOOK_D && (viewD === "fogli" || isPhone)) {
+            return (
+                <div className={vs.grid}>
+                    <ul className={vs.cards} aria-label="Storie">
+                        {cardsD.map(item => (
+                            <li key={item.id}>
+                                <VetrinaCard
+                                    family="story"
+                                    to={storyUrl(item)}
+                                    preview={<TilePreview kind={item.eyebrow} title={item.title} />}
+                                    name={item.title}
+                                    nameInPreview
+                                    label={item.title}
+                                    meta={item.product_id ? `Prodotto collegato: ${storyAbout(item, activities).label}` : storyAbout(item, activities).label}
+                                    onAir={onAirD(item)}
+                                    onMetti={
+                                        canWrite && canEdit && item.status !== "published"
+                                            ? () => navigate(`/business/${tenantId}/crea/storia/${item.id}?da=storie&metti=1`)
+                                            : undefined
+                                    }
+                                    actions={rowActionsOf(item)}
+                                />
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            );
+        }
+        const rows = LOOK_D ? visibleD : visibleStories;
         return (
             <>
-                {!loading && (
+                {!loading && !LOOK_D && (
                     <ChipGroupSingle<StoryFilter>
                         ariaLabel="Filtra le storie"
                         layout="auto"
@@ -376,15 +456,15 @@ export default function Stories() {
                     </Text>
                 )}
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={visibleStories.map(story => story.id)} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={rows.map(story => story.id)} strategy={verticalListSortingStrategy}>
                         <DataTable<StoryWithProduct>
-                            data={visibleStories}
+                            data={rows}
                             columns={columns}
                             isLoading={loading}
                             isFiltered={isFiltered}
                             onClearFilters={() => {
                                 setFilter("all");
-                                setSearchQuery("");
+                                clearD();
                             }}
                             ariaLabel="Storie"
                             onRowClick={item => navigate(storyUrl(item))}
@@ -413,7 +493,26 @@ export default function Stories() {
         <PageGate readPermission="stories.read">
             {() => (
                 <>
-                    <div className={styles.wrapper}>
+                    <div className={LOOK_D ? `${styles.wrapper} ${vs.page}` : styles.wrapper}>
+                        {LOOK_D && stories.length > 0 && (
+                            <VetrinaHead<StoryFilterD>
+                                family="story"
+                                lead={leadD}
+                                filter={filterD}
+                                onFilter={setFilterD}
+                                filterOptions={filterOptionsD}
+                                filterAll="all"
+                                sort={sort}
+                                onSort={setSort}
+                                query={searchQuery}
+                                onQuery={setSearchQuery}
+                                placeholder="Cerca storie"
+                                view={{ value: viewD, onChange: setViewD }}
+                                crea={<VetrinaCrea da="storie" disabled={!canEdit} />}
+                                compact={compact}
+                                setTop={setTop}
+                            />
+                        )}
                         <StoryBrandCard
                             saved={brand.saved}
                             loadError={brand.loadError}

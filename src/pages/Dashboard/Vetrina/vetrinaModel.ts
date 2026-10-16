@@ -130,12 +130,14 @@ export function matchesOnAir(filter: OnAirFilter, onAir: OnAir): boolean {
 }
 
 /** Le pill Tutti, In onda, Non in onda coi loro numeri. */
-export function onAirOptions(counts: Record<OnAirFilter, number>) {
-    return [
+export function onAirOptions(counts: Record<OnAirFilter, number>, known = true) {
+    const options = [
         { value: "all" as const, label: "Tutti", count: counts.all },
         { value: "on" as const, label: "In onda", count: counts.on },
         { value: "off" as const, label: "Non in onda", count: counts.off }
     ];
+    // Finché lo stato delle regole non si legge, solo «Tutti»: niente conti a zero.
+    return known ? options : options.slice(0, 1);
 }
 
 /** «Ordina» di Menù, Stili, In evidenza e Storie (D209 chiusa). */
@@ -161,4 +163,18 @@ export function sortVetrina<T extends { name: string; created_at: string }>(
         if (sort === "onda") return RANK[onAir(a).state] - RANK[onAir(b).state] || byName(a, b);
         return byName(a, b);
     });
+}
+
+/**
+ * La frase in cima a Storie (`pStr`): «*2 storie* in onda, una in bozza.
+ * Stanno sotto il menù, negli approfondimenti.»
+ */
+export function storieLead(onAir: number, drafts: number, stopped = 0): LeadPart[] {
+    const count = onAir === 0 ? "Nessuna storia" : onAir === 1 ? "Una storia" : `${onAir} storie`;
+    // Bozze e ferme (pubblicate ma non viste) insieme fanno il filtro «Bozze e ferme».
+    const rest = [
+        ...(drafts ? [`${drafts === 1 ? "una" : drafts} in bozza`] : []),
+        ...(stopped ? [stopped === 1 ? "una ferma" : `${stopped} ferme`] : [])
+    ];
+    return [{ strong: count }, { text: ` in onda${rest.map(x => `, ${x}`).join("")}. Stanno sotto il menù, negli approfondimenti.` }];
 }
