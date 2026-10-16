@@ -1,6 +1,7 @@
 // «Categorie e piatti» nel tunnel del menù (D177, D180): le forme e le misure
 // dell'artifact «Il menù nel tunnel», ottava versione, coi token del back office.
 @use "@styles/calendario-type" as cal;
+@use "@styles/mixins" as *;
 
 .b2 {
     --k-surface: var(--surface);
@@ -904,5 +905,21 @@
     }
     .var {
         padding-left: 28px;
+    }
+}
+
+// nella D anche la testata del resoconto resta ferma, sotto la testata del tunnel (v46)
+@include look-d {
+    .rep {
+        overflow: clip;
+    }
+    .repH {
+        position: sticky;
+        top: calc(var(--ihdr, 0px) + 8px);
+        z-index: 2;
+        box-shadow: 0 8px 16px -12px color-mix(in srgb, var(--d-text) 35%, transparent);
+    }
+    .repF {
+        box-shadow: 0 -8px 16px -12px color-mix(in srgb, var(--d-text) 35%, transparent);
     }
 }

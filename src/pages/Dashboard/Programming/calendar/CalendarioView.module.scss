@@ -2773,3 +2773,107 @@ button.dqsedi {
         margin: 6px 0;
     }
 }
+
+/* «Aggiungi» e «Modifica» del Calendario nella D: la cornice dei tunnel
+   (Visual Redesign 2, PR 14; copia `.tu-head`, `.tu-rail`, `.tu-card`) */
+@include look-d {
+    .isec {
+        gap: var(--d-gap);
+        padding-top: 12px;
+    }
+    .ihdr {
+        margin: 0;
+        padding: 14px 16px;
+        gap: 12px;
+        background: var(--d-surface);
+        border: 1px solid var(--d-line);
+        border-radius: var(--d-r-card);
+        box-shadow: var(--d-shadow);
+    }
+    .icrumb {
+        @include d-type(small);
+        color: var(--d-muted);
+    }
+    .ihead h2 {
+        @include d-type(pane-title);
+        color: var(--d-text);
+    }
+    .istrow {
+        flex-wrap: nowrap;
+        padding-bottom: 0;
+    }
+    .isteps {
+        flex: 1;
+        min-width: 0;
+        flex-wrap: nowrap;
+        gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        li + li::before {
+            display: none;
+        }
+        button {
+            flex: none;
+            white-space: nowrap;
+            padding: 5px 12px 5px 5px;
+            border: 1px solid transparent;
+            border-radius: var(--d-r-pill);
+            @include d-type(control);
+            color: var(--d-muted);
+            &:disabled {
+                opacity: 0.6;
+            }
+            &:not(:disabled):hover {
+                background: color-mix(in srgb, var(--d-brand) 6%, transparent);
+                color: var(--d-text);
+            }
+            &.done {
+                color: var(--d-text);
+                .idot {
+                    background: var(--d-soft);
+                    color: var(--d-brand-deep);
+                }
+            }
+            &[aria-current="step"] {
+                color: var(--d-text);
+                background: var(--d-soft);
+                border-color: color-mix(in srgb, var(--d-brand) 30%, transparent);
+                .idot {
+                    background: var(--d-brand);
+                    color: var(--on-brand);
+                }
+            }
+        }
+    }
+    .idot {
+        border: 0;
+        background: color-mix(in srgb, var(--d-muted) 12%, transparent);
+        color: var(--d-muted);
+        @include d-type(hint);
+        font-weight: 700;
+    }
+    .iacts2 {
+        flex: none;
+    }
+    .iform {
+        gap: 18px;
+        padding: 20px 22px;
+        background: var(--d-surface);
+        border: 1px solid var(--d-line);
+        border-radius: var(--d-r-card);
+        box-shadow: var(--d-shadow);
+    }
+    .igrid {
+        gap: var(--d-gap);
+    }
+    @media (max-width: 640px) {
+        .ihdr {
+            padding: 12px 12px 10px;
+            gap: 10px;
+        }
+        .iform {
+            padding: 16px;
+            gap: 14px;
+        }
+    }
+}
