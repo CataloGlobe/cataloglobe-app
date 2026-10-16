@@ -16,14 +16,14 @@ import {
     formatEuroCents,
     monthlyEquivalentCents
 } from "@shared/crmExpenses";
-import { isJointAccount } from "@/utils/crm/expenseBalance";
-import { oneOffByMonth, renewalProgress } from "@/utils/crm/expenseCalendar";
+import { isJointAccount, settlementText } from "@/utils/crm/expenseBalance";
+import { historyByMonth, oneOffByMonth, renewalProgress } from "@/utils/crm/expenseCalendar";
 import { formatMonthIt, formatShortDateIt, type CrmExpenseMonth } from "@/utils/crm/expenses";
-import type { CrmExpense } from "@/types/crm";
+import type { CrmExpense, CrmExpenseCharge, CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import styles from "../Costs.module.scss";
 
-type ExpenseTab = "subscriptions" | "oneoff" | "months";
+type ExpenseTab = "subscriptions" | "oneoff" | "history" | "months";
 
 function capitalize(text: string): string {
     return text.charAt(0).toUpperCase() + text.slice(1);
@@ -47,7 +47,8 @@ function renewalText(expense: CrmExpense, next: string | undefined, today: strin
 /**
  * Le spese a schede (canvas K2, scelta da Alex il 2026-10-05): abbonamenti a
  * tessere con la barra verso il rinnovo, una tantum per mese, mese per mese.
- * Ogni tessera o riga apre la spesa; il «⋯» la elimina.
+ * Ogni tessera o riga apre la spesa; il «⋯» la elimina. Lo storico mette
+ * insieme addebiti e movimenti, così si vedono anche i soldi passati fra voi.
  */
 export function ExpenseTabs({
     expenses,
@@ -60,7 +61,10 @@ export function ExpenseTabs({
     onOpen,
     onDelete,
     onCreate,
-    accountLabel
+    accountLabel,
+    charges,
+    settlements,
+    onDeleteMove
 }: {
     expenses: CrmExpense[];
     nextCharges: Map<string, string>;
@@ -74,6 +78,10 @@ export function ExpenseTabs({
     onCreate: () => void;
     /** Il nome della carta o del conto (al prossimo addebito); null senza conto. */
     accountLabel?: (expense: CrmExpense) => string | null;
+    /** Addebiti caricati (lo storico tiene quelli fino a oggi). */
+    charges: CrmExpenseCharge[];
+    settlements: CrmExpenseSettlement[];
+    onDeleteMove: (move: CrmExpenseSettlement) => void;
 }) {
     const [tab, setTab] = useState<ExpenseTab>("subscriptions");
 
@@ -91,6 +99,7 @@ export function ExpenseTabs({
     }, [expenses, nextCharges]);
     const oneOffMonths = useMemo(() => oneOffByMonth(expenses), [expenses]);
     const oneOffCount = useMemo(() => expenses.filter(e => e.kind === "one_off").length, [expenses]);
+    const history = useMemo(() => historyByMonth(charges, expenses, settlements, today), [charges, expenses, settlements, today]);
 
     const actions = (expense: CrmExpense) => (
         <TableRowActions
@@ -129,6 +138,7 @@ export function ExpenseTabs({
                     <Tabs.Tab value="oneoff" badge={oneOffCount || undefined}>
                         Una tantum
                     </Tabs.Tab>
+                    <Tabs.Tab value="history">Storico</Tabs.Tab>
                     <Tabs.Tab value="months">Mese per mese</Tabs.Tab>
                 </Tabs.List>
 
@@ -227,6 +237,75 @@ export function ExpenseTabs({
                                                 {actions(e)}
                                             </li>
                                         ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </TileState>
+                </Tabs.Panel>
+
+                <Tabs.Panel value="history">
+                    <TileState
+                        loading={loading}
+                        error={error}
+                        onRetry={onRetry}
+                        empty={history.length === 0}
+                        emptyText="Lo storico compare con la prima spesa o il primo movimento."
+                    >
+                        <div className={styles.monthBlocks}>
+                            {history.map(m => (
+                                <div key={m.month} className={styles.monthBlock}>
+                                    <div className={styles.monthName}>
+                                        <Text as="span" variant="body-sm" weight={600}>
+                                            {capitalize(formatMonthIt(m.month))}
+                                        </Text>
+                                        <Text as="span" variant="caption" colorVariant="muted" className={styles.figureValue}>
+                                            {formatEuroCents(m.spentCents)} di spese
+                                        </Text>
+                                    </div>
+                                    <ul className={styles.oneOffRows}>
+                                        {m.rows.map(row =>
+                                            row.kind === "charge" ? (
+                                                <li key={`c-${row.expense.id}-${row.date}`} className={styles.oneOffRow}>
+                                                    <button type="button" className={styles.oneOffOpen} onClick={() => onOpen(row.expense)}>
+                                                        <Text as="span" variant="body-sm" className={styles.ellipsis}>
+                                                            {row.expense.name}
+                                                        </Text>
+                                                        <Text as="span" variant="caption" colorVariant="muted" className={styles.oneOffMeta}>
+                                                            {formatShortDateIt(row.date)}
+                                                            {accountLabel?.(row.expense)
+                                                                ? ` · ${accountLabel(row.expense)}`
+                                                                : row.expense.paid_by
+                                                                  ? ` · ${row.expense.paid_by}`
+                                                                  : ""}
+                                                        </Text>
+                                                        <Text as="span" variant="body-sm" weight={600} className={styles.figureValue}>
+                                                            {formatEuroCents(row.amountCents)}
+                                                        </Text>
+                                                    </button>
+                                                    {actions(row.expense)}
+                                                </li>
+                                            ) : (
+                                                <li key={`m-${row.settlement.id}`} className={styles.oneOffRow}>
+                                                    <div className={`${styles.oneOffOpen} ${styles.oneOffStill}`}>
+                                                        <Text as="span" variant="body-sm" className={styles.ellipsis}>
+                                                            {settlementText(row.settlement)}
+                                                        </Text>
+                                                        <Text as="span" variant="caption" colorVariant="muted" className={styles.oneOffMeta}>
+                                                            {formatShortDateIt(row.date)} · movimento
+                                                            {row.settlement.note ? ` · ${row.settlement.note}` : ""}
+                                                        </Text>
+                                                        <Text as="span" variant="body-sm" weight={600} className={styles.figureValue}>
+                                                            {formatEuroCents(row.amountCents)}
+                                                        </Text>
+                                                    </div>
+                                                    <TableRowActions
+                                                        ariaLabel={`Azioni: ${settlementText(row.settlement)}, ${formatEuroCents(row.amountCents)}`}
+                                                        actions={[rowAction.remove(() => onDeleteMove(row.settlement))]}
+                                                    />
+                                                </li>
+                                            )
+                                        )}
                                     </ul>
                                 </div>
                             ))}

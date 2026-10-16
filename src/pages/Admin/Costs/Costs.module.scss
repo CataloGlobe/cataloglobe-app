@@ -370,6 +370,15 @@
     white-space: nowrap;
 }
 
+/* Riga di un movimento nello storico: non apre niente. */
+.oneOffStill {
+    cursor: default;
+
+    &:hover {
+        background: none;
+    }
+}
+
 .monthsPanel {
     padding-top: var(--space-8);
 }

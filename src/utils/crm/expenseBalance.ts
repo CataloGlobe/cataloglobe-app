@@ -44,6 +44,12 @@ export function isJointAccount(name: string | null | undefined): boolean {
     return payerKey(name) === payerKey(JOINT_ACCOUNT);
 }
 
+/** Un movimento a parole: versamento su un conto comune o soldi da una persona all'altra. */
+export function settlementText(s: CrmExpenseSettlement): string {
+    if (s.account_id) return `${s.from_name} versa su ${s.to_name}`;
+    return isJointAccount(s.to_name) ? `${s.from_name} versa sul conto comune` : `${s.from_name} dà a ${s.to_name}`;
+}
+
 export interface PersonBalance {
     /** Il nome come lo si scrive (quello del team, se c'è). */
     name: string;

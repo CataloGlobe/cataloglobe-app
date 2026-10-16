@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { CrmExpense } from "@/types/crm";
+import type { CrmExpense, CrmExpenseSettlement } from "@/types/crm";
 import {
     calendarDays,
     chargesByDay,
+    historyByMonth,
     lastDayOfMonth,
     oneOffByMonth,
     previousChargeOn,
@@ -83,5 +84,47 @@ describe("una tantum per mese", () => {
             ["2026-10", 1400, ["c", "b"]],
             ["2026-09", 100, ["a"]]
         ]);
+    });
+});
+
+describe("storico", () => {
+    const move = (id: string, from: string, to: string, cents: number, on: string): CrmExpenseSettlement => ({
+        id,
+        from_name: from,
+        to_name: to,
+        amount_cents: cents,
+        settled_on: on,
+        note: null,
+        account_id: null,
+        created_by: null,
+        created_at: ""
+    });
+
+    it("mette spese e soldi passati fra voi nello stesso mese; i movimenti non contano come spesa", () => {
+        const fisco = oneOff("Fiscozen", 81130, "2026-04-20");
+        const history = historyByMonth(
+            [{ expenseId: "Fiscozen", chargedOn: "2026-04-20", amountCents: 81130 }],
+            [fisco],
+            [move("m1", "Lorenzo", "Alessandro", 40500, "2026-04-26")],
+            "2026-10-16"
+        );
+        expect(history).toHaveLength(1);
+        expect(history[0].spentCents).toBe(81130);
+        expect(history[0].rows.map(r => r.kind)).toEqual(["move", "charge"]);
+    });
+
+    it("dal mese più recente, e niente di quello che deve ancora arrivare", () => {
+        const a = oneOff("A", 100, "2026-01-05");
+        const b = oneOff("B", 200, "2026-11-02");
+        const history = historyByMonth(
+            [
+                { expenseId: "A", chargedOn: "2026-01-05", amountCents: 100 },
+                { expenseId: "B", chargedOn: "2026-11-02", amountCents: 200 }
+            ],
+            [a, b],
+            [move("m1", "Alessandro", "Lorenzo", 50, "2026-02-01"), move("m2", "Alessandro", "Lorenzo", 50, "2026-12-01")],
+            "2026-10-16"
+        );
+        expect(history.map(m => m.month)).toEqual(["2026-02", "2026-01"]);
     });
 });
