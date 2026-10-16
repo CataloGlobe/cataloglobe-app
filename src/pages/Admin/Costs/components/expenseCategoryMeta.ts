@@ -1,5 +1,5 @@
 import { Handshake, Laptop, Megaphone, Printer, Tag, type LucideIcon } from "lucide-react";
-import type { CrmExpenseCategory } from "@/types/crm";
+import type { CrmExpense, CrmExpenseCategory } from "@/types/crm";
 
 /**
  * Icona e nome corto di ogni tipo di spesa: gli stessi nel form, sulle righe
@@ -13,3 +13,11 @@ export const CATEGORY_META: Record<CrmExpenseCategory, { icon: LucideIcon; label
     hardware: { icon: Printer, label: "Attrezzatura" },
     other: { icon: Tag, label: "Altro" }
 };
+
+/** Che cosa è una riga: abbonamento mensile o annuale, una tantum, movimento fra voi. */
+export type RowKind = "month" | "year" | "one_off" | "move";
+
+export function expenseKind(expense: CrmExpense): RowKind {
+    if (expense.kind !== "subscription") return "one_off";
+    return expense.billing_interval === "year" ? "year" : "month";
+}

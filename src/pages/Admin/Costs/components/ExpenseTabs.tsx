@@ -21,6 +21,7 @@ import type { CrmExpense, CrmExpenseCharge, CrmExpenseSettlement } from "@/types
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import { ExpenseIcon } from "./ExpenseIcon";
 import { KindTag } from "./KindTag";
+import { expenseKind } from "./expenseCategoryMeta";
 import { MonthsByCategory } from "./MonthsByCategory";
 import styles from "../Costs.module.scss";
 
@@ -182,15 +183,18 @@ export function ExpenseTabs({
                                             </button>
                                             {actions(e)}
                                         </div>
-                                        <Text as="span" variant="body" weight={700} className={styles.figureValue}>
-                                            {formatEuroCents(e.amount_cents)}{" "}
-                                            <Text as="span" variant="caption" colorVariant="muted">
-                                                {CRM_BILLING_INTERVAL_LABEL[interval]}
-                                                {interval === "year"
-                                                    ? ` · ${formatEuroCents(monthlyEquivalentCents(e.amount_cents, "year"))} al mese`
-                                                    : ""}
+                                        <span className={styles.nameCell}>
+                                            <Text as="span" variant="body" weight={700} className={styles.figureValue}>
+                                                {formatEuroCents(e.amount_cents)}{" "}
+                                                <Text as="span" variant="caption" colorVariant="muted">
+                                                    {CRM_BILLING_INTERVAL_LABEL[interval]}
+                                                    {interval === "year"
+                                                        ? ` · ${formatEuroCents(monthlyEquivalentCents(e.amount_cents, "year"))} al mese`
+                                                        : ""}
+                                                </Text>
                                             </Text>
-                                        </Text>
+                                            <KindTag kind={expenseKind(e)} />
+                                        </span>
                                         <Text
                                             as="span"
                                             variant="caption"
@@ -280,7 +284,7 @@ export function ExpenseTabs({
                                                             <Text as="span" variant="body-sm" className={styles.ellipsis}>
                                                                 {row.expense.name}
                                                             </Text>
-                                                            <KindTag kind={row.expense.kind === "subscription" ? "subscription" : "one_off"} />
+                                                            <KindTag kind={expenseKind(row.expense)} />
                                                         </span>
                                                         <Text as="span" variant="caption" colorVariant="muted" className={styles.oneOffMeta}>
                                                             {formatShortDateIt(row.date)}

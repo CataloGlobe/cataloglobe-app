@@ -47,6 +47,10 @@ export function PayersCard({
     onRecord: () => void;
     onDeleteMove: (move: CrmExpenseSettlement) => void;
 }) {
+    // Versato sui conti comuni e quanto ne resta: spiega perché le barre superano lo speso (Alex, 2026-10-16).
+    const depositedCents = balance.jointAccounts.reduce((sum, j) => sum + j.depositedCents, 0);
+    const leftOnJointCents = balance.jointAccounts.reduce((sum, j) => sum + Math.max(0, j.balanceCents), 0);
+
     return (
         <Card
             title="Chi ha pagato"
@@ -71,9 +75,16 @@ export function PayersCard({
                             valueLabel: formatEuroCents(p.paidCents + p.settledCents)
                         }))}
                     />
-                    {balance.people.some(p => p.settledCents !== 0) && (
+                    {(depositedCents > 0 || balance.people.some(p => p.settledCents !== 0)) && (
                         <Text as="p" variant="caption" colorVariant="muted">
-                            Contati i soldi passati fra voi: quando siete in pari le barre sono uguali.
+                            {depositedCents > 0
+                                ? `Le barre contano anche i ${formatEuroCents(depositedCents)} versati sui conti comuni${
+                                      leftOnJointCents > 0
+                                          ? `: ${formatEuroCents(leftOnJointCents)} sono ancora lì, per questo insieme superano lo speso`
+                                          : ""
+                                  }. `
+                                : ""}
+                            Con i soldi passati fra voi: quando siete in pari le barre sono uguali.
                         </Text>
                     )}
 

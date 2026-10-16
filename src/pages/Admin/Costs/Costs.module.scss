@@ -7,6 +7,79 @@
     gap: var(--space-16);
 }
 
+// Il quadro a pulsantoni (D258): la riga dell'interruttore, le cifre, il dettaglio.
+.figuresCard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    overflow: hidden;
+
+    .figures {
+        border: 0;
+        border-radius: 0;
+    }
+}
+
+.figuresHead {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--space-8) var(--space-16);
+    border-bottom: 1px solid var(--border);
+}
+
+.inlineSwitch {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+    white-space: nowrap;
+
+    > :last-child {
+        flex: none;
+    }
+}
+
+.figureCell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+    padding: var(--space-12) var(--space-16);
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--brand-primary-soft);
+    }
+
+    &[aria-pressed="true"] {
+        box-shadow: inset 0 -3px 0 var(--brand-primary);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: -2px;
+    }
+
+    @media (max-width: 767px) {
+        padding: var(--space-10) var(--space-12);
+    }
+}
+
+.figureDetail {
+    padding: var(--space-12) var(--space-16) var(--space-16);
+    border-top: 1px solid var(--border);
+}
+
+.detailRows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
 // I tre totali in una riga sola, divisi da un filo (come i numeri della Home
 // e la riga di stato di Agenti). Al telefono restano in fila, più piccoli.
 .figures {
@@ -41,27 +114,9 @@
     }
 }
 
-.figure {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-12) var(--space-16);
-    min-width: 0;
-
-    @media (max-width: 767px) {
-        padding: var(--space-10) var(--space-12);
-    }
-}
-
 .figureValue {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-}
-
-.figureLabel {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-4);
 }
 
 // Più del mese prima è rosso, meno è verde: spendere meno è la buona notizia.
@@ -350,10 +405,16 @@
     color: var(--text-muted);
     white-space: nowrap;
 
-    &[data-kind="subscription"] {
+    &[data-kind="month"],
+    &[data-kind="year"] {
         border-color: transparent;
         background: var(--brand-primary-soft);
         color: var(--on-brand-soft);
+    }
+
+    &[data-kind="year"] {
+        background: var(--color-sky-100);
+        color: var(--color-sky-800);
     }
 }
 

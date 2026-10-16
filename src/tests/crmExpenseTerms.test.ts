@@ -272,6 +272,29 @@ describe("quadro", () => {
         expect(o.rechargePerPersonCents).toBe(6100);
     });
 
+    it("senza gli annuali: costo e ricarica coi soli mensili, l'annuale a parte", () => {
+        const claude = sub(10980, "2026-03-23", postepay.id);
+        const wispr = sub(14400, "2027-10-01", cointestato.id, "year");
+        const next = new Map([
+            [claude.id, "2026-10-23"],
+            [wispr.id, "2027-10-01"]
+        ]);
+        const o = buildCostsOverview({
+            expenses: [claude, wispr],
+            charges: [],
+            nextCharges: next,
+            terms: [],
+            accounts,
+            today: TODAY,
+            includeYearly: false
+        });
+        expect(o.monthlyFromNowCents).toBe(10980);
+        expect(o.monthlyOnJointCents).toBe(0);
+        expect(o.rechargePerPersonCents).toBe(5500);
+        expect(o.yearlyCents).toBe(14400);
+        expect(o.yearlyCount).toBe(1);
+    });
+
     it("speso finora: addebiti fino a oggi meno i rimborsi", () => {
         const e = expense({ account_id: postepay.id });
         const o = buildCostsOverview({

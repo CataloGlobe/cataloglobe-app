@@ -123,7 +123,7 @@ export function recurringMonthlyCents(
 export interface CostsOverview {
     /** Addebiti fino a oggi, meno i rimborsi. */
     spentSoFarCents: number;
-    /** Abbonamenti attivi al mese, da ora (annuali /12). */
+    /** Abbonamenti attivi al mese, da ora (annuali /12, se contati). */
     monthlyFromNowCents: number;
     /** La parte di `monthlyFromNowCents` che il prossimo addebito prende da un conto comune aperto. */
     monthlyOnJointCents: number;
@@ -131,6 +131,9 @@ export interface CostsOverview {
     rechargePerPersonCents: number;
     /** Abbonamenti attivi il cui prossimo addebito sta su un conto chiuso. */
     toMove: { expense: CrmExpense; accountName: string; nextChargeOn: string }[];
+    /** Gli annuali attivi: quanto l'anno e quanti, contati o no nel mensile. */
+    yearlyCents: number;
+    yearlyCount: number;
 }
 
 /**
@@ -145,7 +148,8 @@ export function buildCostsOverview({
     terms,
     accounts,
     today,
-    people = 2
+    people = 2,
+    includeYearly = true
 }: {
     expenses: CrmExpense[];
     /** Addebiti e rimborsi (negativi). */
@@ -155,31 +159,40 @@ export function buildCostsOverview({
     accounts: CrmExpenseAccount[];
     today: string;
     people?: number;
+    /** false: costo al mese e ricarica coi soli mensili (D258, Alex 2026-10-16). */
+    includeYearly?: boolean;
 }): CostsOverview {
     const accountById = new Map(accounts.map(a => [a.id, a]));
     const spentSoFarCents = charges.reduce((sum, c) => (c.chargedOn <= today ? sum + c.amountCents : sum), 0);
     let monthlyFromNowCents = 0;
     let monthlyOnJointCents = 0;
+    let yearlyCents = 0;
+    let yearlyCount = 0;
     const toMove: CostsOverview["toMove"] = [];
 
     for (const e of expenses) {
         const next = nextCharges.get(e.id);
         if (e.kind !== "subscription" || !e.billing_interval || !next) continue;
         const term = termAt(e, terms, next);
-        const monthly = monthlyEquivalentCents(term.amountCents, e.billing_interval);
+        if (e.billing_interval === "year") {
+            yearlyCents += term.amountCents;
+            yearlyCount += 1;
+        }
+        const counted = includeYearly || e.billing_interval !== "year";
+        const monthly = counted ? monthlyEquivalentCents(term.amountCents, e.billing_interval) : 0;
         monthlyFromNowCents += monthly;
         const account = term.accountId ? accountById.get(term.accountId) : undefined;
         if (!account) continue;
         if (account.closed_on && account.closed_on <= next) {
             toMove.push({ expense: e, accountName: account.name, nextChargeOn: next });
-        } else if (account.kind === "joint") {
+        } else if (account.kind === "joint" && counted) {
             monthlyOnJointCents += monthly;
         }
     }
 
     toMove.sort((a, b) => a.nextChargeOn.localeCompare(b.nextChargeOn));
     const rechargePerPersonCents = people > 0 ? Math.ceil(monthlyFromNowCents / people / 100) * 100 : 0;
-    return { spentSoFarCents, monthlyFromNowCents, monthlyOnJointCents, rechargePerPersonCents, toMove };
+    return { spentSoFarCents, monthlyFromNowCents, monthlyOnJointCents, rechargePerPersonCents, toMove, yearlyCents, yearlyCount };
 }
 
 export interface CrmUpcomingRenewal {

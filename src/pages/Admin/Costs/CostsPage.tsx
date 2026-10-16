@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarDays, List, TrendingDown, TrendingUp } from "lucide-react";
+import { CalendarDays, List } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
@@ -9,7 +9,6 @@ import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
-import { InfoTooltip } from "@/components/ui/Tooltip/InfoTooltip";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useAuth } from "@/context/useAuth";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -43,7 +42,6 @@ import { lastDayOfMonth, shiftDay, shiftMonth } from "@/utils/crm/expenseCalenda
 import {
     buildCostsOverview,
     expenseDraftFrom,
-    formatMonthIt,
     formatShortDateIt,
     romeTodayIso,
     summarizeCharges,
@@ -57,6 +55,7 @@ import { useCrmLoad } from "@/pages/Admin/Crm/hooks/useCrmLoad";
 import { CostsCalendar } from "./components/CostsCalendar";
 import { ExpenseTabs } from "./components/ExpenseTabs";
 import { BalanceBand } from "./components/BalanceBand";
+import { CostsFigures } from "./components/CostsFigures";
 import { ExpenseIcon } from "./components/ExpenseIcon";
 import { PayersCard } from "./components/PayersCard";
 import { AccountsDrawer } from "./AccountsDrawer";
@@ -89,16 +88,13 @@ function orMissing<T>(load: Promise<T>): Promise<T | null> {
     });
 }
 
-function signedDelta(cents: number, previousMonth: string): string {
-    if (cents === 0) return `come ${previousMonth}`;
-    return `${formatEuroCents(Math.abs(cents))} ${cents > 0 ? "più" : "meno"} di ${previousMonth}`;
-}
-
 export default function CostsPage() {
     usePageTitle("Costi");
     const { showToast } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
     const view: CostsView = searchParams.get("vista") === "calendario" ? "calendar" : "list";
+    // Gli annuali nel costo al mese solo a richiesta (D258, Alex 2026-10-16).
+    const includeYearly = searchParams.get("annuali") === "si";
     const [tick, setTick] = useState(0);
     const isPhone = useMediaQuery("(max-width: 767px)");
     const figureVariant = isPhone ? "title-sm" : "title-lg";
@@ -116,6 +112,7 @@ export default function CostsPage() {
     const [dialogError, setDialogError] = useState<string | null>(null);
 
     const today = useMemo(() => romeTodayIso(), [tick]); // eslint-disable-line react-hooks/exhaustive-deps
+    const currentMonth = today.slice(0, 7);
     const [calMonth, setCalMonth] = useState(() => today.slice(0, 7));
     const [calDay, setCalDay] = useState(today);
 
@@ -173,10 +170,20 @@ export default function CostsPage() {
 
     const summary = useMemo(() => summarizeCharges(chargesAndRefunds, expenses, today), [chargesAndRefunds, expenses, today]);
     const overview = useMemo(
-        () => buildCostsOverview({ expenses, charges: chargesAndRefunds, nextCharges, terms, accounts, today }),
-        [expenses, chargesAndRefunds, nextCharges, terms, accounts, today]
+        () => buildCostsOverview({ expenses, charges: chargesAndRefunds, nextCharges, terms, accounts, today, includeYearly }),
+        [includeYearly, expenses, chargesAndRefunds, nextCharges, terms, accounts, today]
     );
-    const activeCount = useMemo(() => upcomingRenewals(expenses, nextCharges).length, [expenses, nextCharges]);
+    const renewals = useMemo(() => upcomingRenewals(expenses, nextCharges), [expenses, nextCharges]);
+    const monthRows = useMemo(() => {
+        const byExpense = new Map(expenses.map(e => [e.id, e]));
+        return chargesAndRefunds
+            .filter(c => c.chargedOn.slice(0, 7) === currentMonth && c.chargedOn <= today)
+            .flatMap(c => {
+                const expense = byExpense.get(c.expenseId);
+                return expense ? [{ expense, date: c.chargedOn, amountCents: c.amountCents }] : [];
+            })
+            .sort((a, b) => (a.date < b.date ? 1 : -1));
+    }, [chargesAndRefunds, expenses, currentMonth, today]);
     const upcoming = useMemo(() => {
         const last = shiftDay(today, UPCOMING_DAYS);
         return allCharges.filter(c => c.chargedOn >= today && c.chargedOn <= last).sort((a, b) => (a.chargedOn < b.chargedOn ? -1 : 1));
@@ -238,7 +245,6 @@ export default function CostsPage() {
         return mine.length === 1 ? mine[0].id : "";
     }, [accounts, user?.id]);
 
-    const currentMonth = today.slice(0, 7);
     const firstMonth = summary.months.at(-1)?.month ?? currentMonth;
 
     const setView = useCallback(
@@ -344,9 +350,6 @@ export default function CostsPage() {
 
     usePageHeader({ title: "Costi", subtitle: "Spese inserite a mano, IVA inclusa.", actions: headerActions, compact: headerCompact });
 
-    const monthName = formatMonthIt(currentMonth).split(" ")[0];
-    const previousName = formatMonthIt(shiftMonth(currentMonth, -1)).split(" ")[0];
-    const delta = summary.thisMonthCents - (summary.months[1]?.totalCents ?? 0);
 
     return (
         <div className={styles.page}>
@@ -360,69 +363,32 @@ export default function CostsPage() {
                     }}
                 />
             )}
-            <section className={styles.figures} aria-label="Il quadro">
-                <TileState loading={figuresLoading} error={figuresError} onRetry={reload}>
-                    <div className={styles.figure}>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            {summary.months.length > 0 ? `Speso da ${formatMonthIt(firstMonth)}` : "Speso finora"}
-                        </Text>
-                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
-                            {formatEuroCents(overview.spentSoFarCents)}
-                        </Text>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            {summary.months.length > 0 ? "rimborsi tolti" : "ancora niente"}
-                        </Text>
-                    </div>
-                    <div className={styles.figure}>
-                        <span className={styles.figureLabel}>
-                            <Text as="span" variant="caption" colorVariant="muted">
-                                Costo al mese, da ora
-                            </Text>
-                            <InfoTooltip
-                                side="top"
-                                ariaLabel="Come si conta il costo al mese"
-                                content="Gli abbonamenti annuali contano 1/12 al mese; le spese una tantum non ci sono."
-                            />
-                        </span>
-                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
-                            {formatEuroCents(overview.monthlyFromNowCents)}
-                        </Text>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            {activeCount === 1 ? "1 abbonamento attivo" : `${activeCount} abbonamenti attivi`}
-                        </Text>
-                    </div>
-                    <div className={styles.figure}>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            Ricarica a testa
-                        </Text>
-                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
-                            {formatEuroCents(overview.rechargePerPersonCents)}
-                        </Text>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            {overview.monthlyOnJointCents > 0
-                                ? `di cui ${formatEuroCents(overview.monthlyOnJointCents)} al mese già sul conto comune`
-                                : "ogni mese, metà del costo all'euro in su"}
-                        </Text>
-                    </div>
-                    <div className={styles.figure}>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            Speso a {monthName}
-                        </Text>
-                        <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
-                            {formatEuroCents(summary.thisMonthCents)}
-                        </Text>
-                        {summary.months.length > 1 && (
-                            <span className={styles.figureDelta} data-trend={delta > 0 ? "up" : delta < 0 ? "down" : undefined}>
-                                {delta > 0 && <TrendingUp size={14} aria-hidden="true" />}
-                                {delta < 0 && <TrendingDown size={14} aria-hidden="true" />}
-                                <Text as="span" variant="caption" color="inherit">
-                                    {signedDelta(delta, previousName)}
-                                </Text>
-                            </span>
-                        )}
-                    </div>
-                </TileState>
-            </section>
+            <CostsFigures
+                loading={figuresLoading}
+                error={figuresError}
+                onRetry={reload}
+                overview={overview}
+                months={summary.months}
+                firstMonth={firstMonth}
+                currentMonth={currentMonth}
+                previousMonth={shiftMonth(currentMonth, -1)}
+                renewals={renewals}
+                monthRows={monthRows}
+                includeYearly={includeYearly}
+                onIncludeYearly={value =>
+                    setSearchParams(
+                        prev => {
+                            const next = new URLSearchParams(prev);
+                            if (value) next.set("annuali", "si");
+                            else next.delete("annuali");
+                            return next;
+                        },
+                        { replace: true }
+                    )
+                }
+                onOpen={openEdit}
+                figureVariant={figureVariant}
+            />
 
             {extrasError && (
                 <InlineBanner variant="warning">
