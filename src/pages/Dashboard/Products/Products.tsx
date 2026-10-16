@@ -519,8 +519,12 @@ export default function Products() {
     const dOther = LOOK_D && (activeTab === "groups" || activeTab === "ingredients");
     const [groupCounts, setGroupCounts] = useState<{ groups: number; subgroups: number } | null>(null);
     const [ingredientCounts, setIngredientCounts] = useState<{ total: number; unused: number } | null>(null);
+    // Nella D anche Prodotti · Gruppi · Ingredienti sta nella riga dei comandi,
+    // sotto la frase (copia «Visual Redesign PR 3», `v70-seg`), non in testata.
+    // Senza prodotti la riga dei comandi non c'è (né mentre si caricano): resta in testata.
+    const segInBar = (dProducts && allProducts.length > 0) || dOther;
     usePageHeader({
-        leading,
+        leading: segInBar ? undefined : leading,
         actions: dProducts || dOther ? undefined : headerActions,
         compact: dProducts || dOther ? undefined : headerCompact
     });
@@ -836,6 +840,7 @@ export default function Products() {
                                     query={searchQuery}
                                     onQuery={setSearchQuery}
                                     placeholder={`Cerca ${productPluralLower}`}
+                                    before={leading}
                                     crea={<VetrinaCrea da="prodotti" disabled={!canEdit} />}
                                     compact={compact}
                                     setTop={setTop}
@@ -1027,6 +1032,7 @@ export default function Products() {
                         onFilter={() => undefined}
                         filterOptions={[]}
                         filterAll="all"
+                        before={leading}
                         query={collectionSearch.value}
                         onQuery={collectionSearch.onChange}
                         placeholder={collectionSearch.placeholder}

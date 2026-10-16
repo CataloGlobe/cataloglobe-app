@@ -67,6 +67,8 @@ interface Props {
     pulseSubmittedToken?: number;
     canManage?: boolean;
     canEdit?: boolean;
+    /** Dentro In servizio della D: tre corsie fino a 600 px di board, non 720. */
+    embedded?: boolean;
 }
 
 const PULSE_DURATION_MS = 1500;
@@ -108,7 +110,8 @@ export default function OrdersKanban({
     onUnready,
     pulseSubmittedToken,
     canManage,
-    canEdit
+    canEdit,
+    embedded
 }: Props) {
     // Pulse header "Nuove" sul cambio di token. Token = 0 (default) NON
     // pulsa al mount. setTimeout cleared on next bump o unmount.
@@ -174,7 +177,7 @@ export default function OrdersKanban({
     }
 
     return (
-        <div className={styles.board} data-narrow-status={activeNarrow}>
+        <div className={styles.board} data-narrow-status={activeNarrow} data-embedded={embedded || undefined}>
             <div className={styles.stateTabs}>
                 <Tabs<ColumnDef["status"]> value={activeNarrow} onChange={setNarrowStatus} variant="line">
                     <Tabs.List aria-label="Stato delle comande">

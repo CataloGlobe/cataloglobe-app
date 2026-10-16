@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Lock, Plus, Store } from "lucide-react";
+import { Lock, Plus, Store, Volume2, VolumeX } from "lucide-react";
 
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
@@ -20,11 +21,24 @@ import type { V2Activity } from "@/types/activity";
 import { SERVIZIO_MODES, modeAccess, normalizeServizioMode, resolveServizioMode, type ServizioMode } from "@/utils/servizioModes";
 import { ServizioSala } from "./ServizioSala";
 import { useInServizioSwitch } from "./useInServizioSwitch";
+import { AdessoD, InServizioD } from "./InServizioD";
+import { useNextArrival } from "./useNextArrival";
+import { usePendingReservationsCount } from "./usePendingReservationsCount";
+import type { OrdersSummary } from "@/pages/Dashboard/Orders/Orders";
+import { getServerSnapshot, getSnapshot, setSoundEnabled, subscribe } from "@/hooks/notificationSoundStore";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+
+import { DetailPane } from "@/components/layout/DetailPane/DetailPane";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { useDetailParam } from "@/hooks/useDetailParam";
+import { CosaVedonoContent } from "@/pages/Operativita/Attivita/routes/ActivityCosaVedonoRoute";
 
 import styles from "./Servizio.module.scss";
 
 /** I dettagli dal vivo dei modi (D131): `?tavolo=` della Mappa, `?prenotazione=` e `?tavolata=` dell'Elenco. */
 const DETAIL_PARAMS = ["tavolo", "prenotazione", "tavolata"] as const;
+/** Gli altri pannelli di lato di In servizio: aprendo la Disponibilità si chiudono. */
+const DISPONIBILITA_SIBLINGS = [...DETAIL_PARAMS, "ordine"] as const;
 
 /**
  * Servizio (§18.2, lotti B-a e B-b): la sala di una sede, in tre modi —
@@ -70,7 +84,9 @@ export default function Servizio() {
         void load();
     }, [load]);
 
-    const requested = normalizeServizioMode(searchParams.get("modo"));
+    // Nella D la sala si apre sulla Mappa (copia «Visual Redesign PR 3»);
+    // senza i tavoli, il primo modo usabile come sempre.
+    const requested = normalizeServizioMode(searchParams.get("modo")) ?? (LOOK_D ? "mappa" : null);
     const mode = permissions ? resolveServizioMode(requested, permissions, hasFeature, activityId) : null;
 
     const modes = useMemo(
@@ -114,8 +130,57 @@ export default function Servizio() {
     // La Sala è una parte di Servizio (sidebar e tab in alto). «In servizio»
     // tiene insieme Elenco, Mappa, Prenotazioni e Comande con un interruttore
     // (artifact v4: un secondo livello è un interruttore, mai altre tab).
-    const inServizio = useInServizioSwitch(mode && mode !== "sala" ? mode : null, changeMode);
-    const leading = inServizio.leading;
+    // D (copia «Visual Redesign PR 3»): Elenco e Mappa sono In servizio con
+    // Comande e sala affiancate; niente interruttore in testata.
+    const pageD = LOOK_D && (mode === "elenco" || mode === "mappa");
+    const usable = (m: ServizioMode) => modes.some(e => e.mode === m && e.access === "usable");
+    const canMappa = usable("mappa");
+    const canElenco = usable("elenco");
+    const showComandeD =
+        pageD && hasFeature("table_ordering") && !!permissions && canDoOnActivity(permissions, "orders.read", activityId);
+    const canCreateOrder =
+        showComandeD && !!permissions && canDoOnActivity(permissions, "orders.manage", activityId);
+    const { canEdit } = useSubscriptionGuard();
+    // Solo lo stato del suono (lo stesso della campanella): l'audio lo
+    // preparano gli avvisi sempre montati al primo gesto, anche questo clic.
+    const soundEnabled = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+    const toggleSound = useCallback(() => setSoundEnabled(!getSnapshot()), []);
+    const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
+    const [summary, setSummary] = useState<OrdersSummary>({ nuove: 0, pronte: 0, attese: 0 });
+    const { count: conf, reload: reloadConf } = usePendingReservationsCount(businessId, activityId, pageD && canReadReservations);
+    // Conferma e Rifiuta partono dopo i 5 s di «Annulla» (gesto differito): si ricontano dopo.
+    const onPendingChange = useCallback(() => {
+        window.setTimeout(reloadConf, 6_000);
+    }, [reloadConf]);
+    const next = useNextArrival(businessId, activityId, pageD && canReadReservations);
+    // Sotto le due colonne «Adesso» non c'è: i numeri sono nel selettore delle parti.
+    const [narrow, setNarrow] = useState(false);
+    const adesso = useMemo(
+        () =>
+            pageD && !narrow ? (
+                <AdessoD summary={showComandeD ? summary : { nuove: 0, pronte: 0, attese: 0 }} conf={conf} next={next} />
+            ) : undefined,
+        [pageD, narrow, showComandeD, summary, conf, next]
+    );
+    // «Senza prenotazione» apre il drawer dell'Elenco: dalla Mappa si passa
+    // all'Elenco della sala, poi si apre.
+    const openWalkin = useCallback(() => {
+        if (pageD && searchParams.get("modo") !== "elenco") {
+            setSearchParams(
+                prev => {
+                    for (const key of DETAIL_PARAMS) prev.delete(key);
+                    prev.set("modo", "elenco");
+                    prev.set("parte", "sala");
+                    return prev;
+                },
+                { replace: true }
+            );
+        }
+        setIsWalkinOpen(true);
+    }, [pageD, searchParams, setSearchParams]);
+
+    const inServizio = useInServizioSwitch(mode && mode !== "sala" && !pageD ? mode : null, changeMode);
+    const leading = pageD ? adesso : inServizio.leading;
     const compact = useMemo<PageHeaderCompactConfig | undefined>(
         () =>
             inServizio.sections
@@ -124,12 +189,13 @@ export default function Servizio() {
         [inServizio.sections, inServizio.onSectionChange, mode]
     );
 
-    const showWalkin = mode === "elenco" && canWalkin;
+    const showWalkin = pageD ? canWalkin && canElenco : mode === "elenco" && canWalkin;
     // D (copia «Visual Redesign PR 3»): la disponibilità dei prodotti si
     // raggiunge da qui, «Disponibilità · N» con le modifiche a mano della sede;
     // la voce «Cosa vedono i clienti» non sta più nella sidebar, quindi il
-    // pulsante c'è in ogni parte e anche col piano Base (unica strada).
-    const showDisponibilita = LOOK_D && !!activity && canReadActivity;
+    // pulsante c'è in ogni parte di In servizio, anche col piano Base (Mappa).
+    // Non in «Sale e tavoli» (`?modo=sala`): nella copia sta solo qui.
+    const showDisponibilita = pageD && !!activity && canReadActivity;
     const [fuori, setFuori] = useState<number | null>(null);
     useEffect(() => {
         setFuori(null);
@@ -147,47 +213,111 @@ export default function Servizio() {
             cancelled = true;
         };
     }, [showDisponibilita, activityId]);
+    // Il pannello di lato «Disponibilità dei prodotti» (copia, `pane menu`):
+    // in sola lettura per chi vede In servizio ma non può cambiarla (Alex,
+    // 2026-10-16); lo decide `CosaVedonoContent`, come nella pagina intera.
+    const [dispParam, openDispParam, closeDisponibilita] = useDetailParam("disponibilita", DISPONIBILITA_SIBLINGS);
+    const otherDetailOpen = DISPONIBILITA_SIBLINGS.some(key => searchParams.has(key));
+    const disponibilitaOpen = showDisponibilita && dispParam !== null && !otherDetailOpen;
+    const openDisponibilita = useCallback(() => openDispParam("1"), [openDispParam]);
+    const disponibilitaTitleId = useId();
+    const disponibilitaPageHref = `/business/${businessId}/locations/${activityId}/cosa-vedono`;
+    const disponibilitaLabel = `Disponibilità${fuori ? ` · ${fuori}` : ""}`;
+    const soundLabel = soundEnabled ? "Disattiva suoni notifiche" : "Attiva suoni notifiche";
     const actions = useMemo(
         () =>
-            showWalkin || showDisponibilita ? (
+            showWalkin || showDisponibilita || canCreateOrder ? (
                 <>
                     {showDisponibilita && (
-                        <Button
-                            variant="secondary"
-                            onClick={() => navigate(`/business/${businessId}/locations/${activityId}/cosa-vedono`)}
-                        >
-                            Disponibilità{fuori ? ` · ${fuori}` : ""}
+                        <Button variant="secondary" onClick={openDisponibilita}>
+                            {disponibilitaLabel}
                         </Button>
                     )}
+                    {showComandeD && (
+                        <IconButton
+                            variant="ghost"
+                            icon={soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                            onClick={toggleSound}
+                            aria-pressed={soundEnabled}
+                            aria-label={soundLabel}
+                            title={soundEnabled ? "Suono acceso" : "Suono spento"}
+                        />
+                    )}
                     {showWalkin && (
-                        <Button variant="primary" leftIcon={<Plus size={16} />} onClick={() => setIsWalkinOpen(true)}>
+                        <Button
+                            variant={pageD ? "secondary" : "primary"}
+                            leftIcon={pageD ? undefined : <Plus size={16} />}
+                            onClick={openWalkin}
+                        >
                             Senza prenotazione
+                        </Button>
+                    )}
+                    {canCreateOrder && (
+                        <Button
+                            variant="primary"
+                            leftIcon={<Plus size={16} />}
+                            onClick={() => setIsCreateOrderOpen(true)}
+                            disabled={!canEdit}
+                        >
+                            Crea ordine
                         </Button>
                     )}
                 </>
             ) : undefined,
-        [showWalkin, showDisponibilita, fuori, navigate, businessId, activityId]
+        [
+            showWalkin,
+            showDisponibilita,
+            canCreateOrder,
+            showComandeD,
+            pageD,
+            disponibilitaLabel,
+            openDisponibilita,
+            openWalkin,
+            soundEnabled,
+            soundLabel,
+            toggleSound,
+            canEdit
+        ]
     );
-    const compactWithWalkin = useMemo<PageHeaderCompactConfig | undefined>(
-        () =>
-            compact && (showWalkin || showDisponibilita)
-                ? {
-                    ...compact,
-                    primaryAction: showWalkin
-                        ? { label: "Senza prenotazione", onClick: () => setIsWalkinOpen(true) }
-                        : undefined,
-                    secondaryActions: showDisponibilita
-                        ? [
-                            {
-                                label: `Disponibilità${fuori ? ` · ${fuori}` : ""}`,
-                                onClick: () => navigate(`/business/${businessId}/locations/${activityId}/cosa-vedono`)
-                            }
-                        ]
-                        : undefined
-                }
-                : compact,
-        [compact, showWalkin, showDisponibilita, fuori, navigate, businessId, activityId]
-    );
+    const compactWithWalkin = useMemo<PageHeaderCompactConfig | undefined>(() => {
+        if (pageD) {
+            return {
+                persistentIcons: showComandeD
+                    ? [{ icon: soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />, label: soundLabel, onClick: toggleSound }]
+                    : undefined,
+                primaryAction: canCreateOrder
+                    ? { label: "Crea ordine", onClick: () => setIsCreateOrderOpen(true), disabled: !canEdit }
+                    : showWalkin
+                      ? { label: "Senza prenotazione", onClick: openWalkin }
+                      : undefined,
+                secondaryActions: [
+                    ...(showDisponibilita ? [{ label: disponibilitaLabel, onClick: openDisponibilita }] : []),
+                    ...(canCreateOrder && showWalkin ? [{ label: "Senza prenotazione", onClick: openWalkin }] : [])
+                ]
+            };
+        }
+        return compact && (showWalkin || showDisponibilita)
+            ? {
+                ...compact,
+                primaryAction: showWalkin ? { label: "Senza prenotazione", onClick: openWalkin } : undefined,
+                secondaryActions: showDisponibilita ? [{ label: disponibilitaLabel, onClick: openDisponibilita }] : undefined
+            }
+            : compact;
+    }, [
+        pageD,
+        compact,
+        showWalkin,
+        showDisponibilita,
+        showComandeD,
+        canCreateOrder,
+        canEdit,
+        soundEnabled,
+        soundLabel,
+        toggleSound,
+        disponibilitaLabel,
+        openDisponibilita,
+        openWalkin
+    ]);
 
     const headerConfig = useMemo(
         () => (leading || actions ? { leading, actions, compact: compactWithWalkin } : null),
@@ -249,6 +379,51 @@ export default function Servizio() {
                 title="Non hai accesso a questa sezione"
                 description="Contatta il proprietario o un amministratore per ottenere l'accesso."
             />
+        );
+    }
+
+    if (pageD) {
+        return (
+            <>
+                <InServizioD
+                    tenantId={businessId}
+                    activityId={activity.id}
+                    view={mode === "mappa" ? "mappa" : "elenco"}
+                    onViewChange={changeMode}
+                    showComande={showComandeD}
+                    canMappa={canMappa}
+                    canElenco={canElenco}
+                    conf={conf}
+                    prenotazioniHref={`/business/${businessId}/locations/${activity.id}/prenotazioni`}
+                    onPendingChange={onPendingChange}
+                    summary={summary}
+                    onSummary={setSummary}
+                    onNarrowChange={setNarrow}
+                    walkinOpen={isWalkinOpen}
+                    onWalkinClose={() => setIsWalkinOpen(false)}
+                    createOpen={isCreateOrderOpen}
+                    onCreateClose={() => setIsCreateOrderOpen(false)}
+                />
+                <DetailPane
+                    open={disponibilitaOpen}
+                    onClose={closeDisponibilita}
+                    aria-labelledby={disponibilitaTitleId}
+                    backLabel="In servizio"
+                >
+                    <DrawerLayout
+                        title="Disponibilità dei prodotti"
+                        titleId={disponibilitaTitleId}
+                        onClose={closeDisponibilita}
+                        footer={
+                            <Button variant="secondary" onClick={() => navigate(disponibilitaPageHref)}>
+                                Apri la pagina intera
+                            </Button>
+                        }
+                    >
+                        {disponibilitaOpen && <CosaVedonoContent activity={activity} tenantId={businessId} />}
+                    </DrawerLayout>
+                </DetailPane>
+            </>
         );
     }
 

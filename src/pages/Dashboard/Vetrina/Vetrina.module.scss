@@ -7,6 +7,11 @@
 
 .page {
     display: grid;
+    // Una colonna che può stringersi e righe in cima: in una finestra grande
+    // e alta (Menù a 2000 px con pochi menù) lo spazio in più non si
+    // spartisce fra testata e contenuto, e la riga dei comandi non esce a destra.
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
     gap: var(--d-gap);
     min-width: 0;
 }

@@ -128,6 +128,24 @@
   gap: var(--space-8);
 }
 
+// `stacked`: la riga sta in un riquadro stretto anche su schermo largo
+// (In servizio della D): i badge vanno sotto, come al telefono.
+.row.stacked {
+  flex-wrap: wrap;
+
+  .meta {
+    order: 3;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    padding-bottom: var(--space-8);
+    padding-left: calc(20px + var(--space-12));
+  }
+
+  .body:first-child ~ .meta {
+    padding-left: 0;
+  }
+}
+
 @include phone {
   .row {
     flex-wrap: wrap;

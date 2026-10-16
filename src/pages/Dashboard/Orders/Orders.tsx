@@ -9,6 +9,7 @@ import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Button } from "@/components/ui/Button/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { PageGate } from "@/components/PageGate/PageGate";
 
 import { useTenantId } from "@/context/useTenantId";
@@ -30,7 +31,8 @@ import {
     uncancelToSubmitted,
     uncancelToAcknowledged,
     uncancelToReady,
-    getOrderWithItems
+    getOrderWithItems,
+    getOperativeDayBounds
 } from "@/services/supabase/orders";
 import type { CancelOrderItemResult } from "@/services/supabase/orders";
 import type { V2OrderWithItems } from "@/types/orders";
@@ -55,8 +57,11 @@ import { usePermissions } from "@/context/usePermissions";
 import { canDoOnActivity } from "@/lib/permissions";
 
 import { useDetailParam } from "@/hooks/useDetailParam";
+import { usePollingRefresh } from "@/hooks/usePollingRefresh";
 import styles from "./Orders.module.scss";
+import { LOOK_D } from "@/styles/lookD";
 import { useInServizioSwitch } from "@/pages/Dashboard/Servizio/useInServizioSwitch";
+import { resolveServizioMode } from "@/utils/servizioModes";
 import { useTablesLiveRealtime } from "@/components/Tables/TablesLiveView/useTablesLiveRealtime";
 import { openRequests, openRequestsText } from "@/utils/tableRequests";
 import { alertTarget } from "@/utils/operationalAlertRoutes";
@@ -68,13 +73,48 @@ import { alertTarget } from "@/utils/operationalAlertRoutes";
  */
 export default function Orders() {
     const [searchParams] = useSearchParams();
+    const { activityId = "" } = useParams<{ activityId: string }>();
+    const { permissions } = usePermissions();
+    const { hasFeature } = usePlanFeatures();
     const tab = searchParams.get("tab");
     if (tab === "storico") return <Navigate to="../storico" relative="path" replace />;
     if (tab === "tavoli") return <Navigate to="../servizio?modo=mappa" relative="path" replace />;
+    // Nella D le Comande stanno dentro In servizio (copia «Visual Redesign PR 3»,
+    // Alex 2026-10-16): l'indirizzo porta lì, con la comanda aperta se c'era.
+    // Solo se In servizio si apre (Mappa o Elenco usabili): chi ha soltanto
+    // le comande resta sulla board di sempre.
+    const inServizio = permissions ? resolveServizioMode("mappa", permissions, hasFeature, activityId) : null;
+    // Con la D, finché i permessi non arrivano non si monta la board: si saprà dove andare.
+    if (LOOK_D && !permissions) return null;
+    if (LOOK_D && (inServizio === "mappa" || inServizio === "elenco")) {
+        const next = new URLSearchParams(searchParams);
+        next.delete("tab");
+        next.set("parte", "comande");
+        return <Navigate to={`../servizio?${next.toString()}`} relative="path" replace />;
+    }
     return <OrdersBoard />;
 }
 
-function OrdersBoard() {
+/** Ciò che serve alla riga «Adesso» di In servizio (D). */
+export interface OrdersSummary {
+    nuove: number;
+    pronte: number;
+    /** Tavoli con il cameriere chiamato o il conto richiesto. */
+    attese: number;
+}
+
+/**
+ * Comande dentro In servizio (D, copia «Visual Redesign PR 3»): la board e i
+ * suoi pannelli, senza testata (la tiene In servizio, con «Crea ordine») e
+ * senza la riga della chiamata (la dice «Adesso»).
+ */
+export interface OrdersEmbed {
+    createOpen: boolean;
+    onCreateClose: () => void;
+    onSummary: (summary: OrdersSummary) => void;
+}
+
+export function OrdersBoard({ embedded }: { embedded?: OrdersEmbed } = {}) {
     const tenantId = useTenantId();
     const { showToast } = useToast();
     const { hasFeature } = usePlanFeatures();
@@ -358,13 +398,81 @@ function OrdersBoard() {
             : { leading: headerLeading, actions: headerActions, compact: headerCompact },
         [isLocked, headerLeading, headerActions, headerCompact]
     );
-    usePageHeader(headerConfig);
+    usePageHeader(headerConfig, !embedded);
+
+    // ── Comande rimaste da servizi precedenti (D, dentro In servizio) ──
+    // Le comande aperte di giornate operative passate non si chiudono da
+    // sole: stanno in una riga a parte in fondo, con «Guarda» (le rimette
+    // sulla board) e «Chiudi tutte» (le segna servite con le transizioni di
+    // sempre). Copia «Visual Redesign PR 3».
+    const [dayStart, setDayStart] = useState<number | null>(null);
+    const isEmbedded = !!embedded;
+    // Finché non si sa dove comincia la giornata la board aspetta: senza, le
+    // rimaste comparirebbero un attimo nelle colonne.
+    const [dayKnown, setDayKnown] = useState(!isEmbedded);
+    // Riletto ogni minuto: a pagina aperta oltre il cambio di giornata le
+    // comande del servizio finito passano fra le rimaste. Un errore tiene
+    // l'inizio di prima (al primo giro, finché non arriva, nessuna è «rimasta»).
+    const loadDayStart = useCallback(() => {
+        if (!isEmbedded) return;
+        getOperativeDayBounds()
+            .then(bounds => setDayStart(Date.parse(bounds.dayStart)))
+            .catch((error: unknown) => console.warn("[OrdersBoard] day bounds", error))
+            .finally(() => setDayKnown(true));
+    }, [isEmbedded]);
+    useEffect(loadDayStart, [loadDayStart]);
+    usePollingRefresh(loadDayStart, { intervalMs: 60_000, enabled: isEmbedded });
+    const oldOrders = useMemo(
+        () => (dayStart === null ? [] : activeOrders.filter(o => Date.parse(o.submitted_at) < dayStart)),
+        [activeOrders, dayStart]
+    );
+    const oldIds = useMemo(() => new Set(oldOrders.map(o => o.id)), [oldOrders]);
+    const [showOld, setShowOld] = useState(false);
+    const [closeOldOpen, setCloseOldOpen] = useState(false);
+    const [closingOld, setClosingOld] = useState(false);
+    const [closeOldError, setCloseOldError] = useState<string | null>(null);
+    const boardOrders = useMemo(
+        () =>
+            !dayKnown ? [] : showOld || oldOrders.length === 0 ? activeOrders : activeOrders.filter(o => !oldIds.has(o.id)),
+        [activeOrders, oldOrders, oldIds, showOld, dayKnown]
+    );
+
+    async function handleCloseOld(): Promise<boolean> {
+        setClosingOld(true);
+        setCloseOldError(null);
+        let failed = 0;
+        for (const order of oldOrders) {
+            try {
+                let version = order.version;
+                if (order.status === "submitted") {
+                    const ack = await acknowledgeOrder(order.id, version);
+                    applyLocalPatch({ id: ack.order_id, status: ack.status, version: ack.version });
+                    version = ack.version;
+                }
+                const res = await deliverOrder(order.id, version);
+                applyLocalPatch({ id: res.order_id, status: res.status, version: res.version, delivered_at: res.delivered_at });
+            } catch (error) {
+                console.warn("[OrdersBoard] chiudi rimaste", error);
+                failed++;
+            }
+        }
+        setClosingOld(false);
+        if (failed > 0) {
+            setCloseOldError(
+                failed === 1 ? "Una comanda non si è chiusa. Riprova." : `${failed} comande non si sono chiuse. Riprova.`
+            );
+            void refetchOrders();
+            return false;
+        }
+        showToast({ message: "Comande rimaste chiuse", type: "success" });
+        return true;
+    }
 
     // ── Filtering (client-side: solo tableId) ──
     const filteredOrders = useMemo(() => {
-        if (tableFilter === "all") return activeOrders;
-        return activeOrders.filter(o => o.table_id === tableFilter);
-    }, [activeOrders, tableFilter]);
+        if (tableFilter === "all") return boardOrders;
+        return boardOrders.filter(o => o.table_id === tableFilter);
+    }, [boardOrders, tableFilter]);
 
     // L'ordine del dettaglio, dal vivo; e l'ordine della board (Nuove, In
     // lavorazione, Pronte, i più nuovi in cima) per ↑ ↓.
@@ -755,6 +863,16 @@ function OrdersBoard() {
         return tableIds.size === 1 ? `${base}&tavolo=${requests[0].tableId}` : base;
     }, [businessId, selectedActivityId, requests]);
 
+    const readyCount = useMemo(() => activeOrders.filter(o => o.status === "ready").length, [activeOrders]);
+    const waitingTables = useMemo(() => new Set(requests.map(r => r.tableId)).size, [requests]);
+    // «Adesso» conta le comande di oggi: le rimaste hanno la loro riga.
+    const oldSubmitted = oldOrders.filter(o => o.status === "submitted").length;
+    const oldReady = oldOrders.filter(o => o.status === "ready").length;
+    const onSummary = embedded?.onSummary;
+    useEffect(() => {
+        onSummary?.({ nuove: submittedCount - oldSubmitted, pronte: readyCount - oldReady, attese: waitingTables });
+    }, [onSummary, submittedCount, oldSubmitted, readyCount, oldReady, waitingTables]);
+
     return (
         <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
         {() => (
@@ -769,7 +887,7 @@ function OrdersBoard() {
                 </InlineBanner>
             )}
 
-            {requestsHref && (
+            {requestsHref && !embedded && (
                 <InlineBanner
                     variant="warning"
                     icon={<Bell size={16} strokeWidth={2} aria-hidden />}
@@ -786,7 +904,7 @@ function OrdersBoard() {
                 comandaPrintStates={comandaPrintStates}
                 onReprint={handleReprint}
                 printersHref={printersHref}
-                isLoading={isLoadingOrders}
+                isLoading={isLoadingOrders || !dayKnown}
                 error={ordersError}
                 onRetry={() => void refetchOrders()}
                 onAcknowledge={handleAcknowledge}
@@ -801,7 +919,53 @@ function OrdersBoard() {
                 pulseSubmittedToken={pulseToken}
                 canManage={canManage}
                 canEdit={canEdit}
+                embedded={!!embedded}
             />
+
+            {embedded && oldOrders.length > 0 && (
+                <div className={styles.oldBar}>
+                    <span className={styles.oldText}>
+                        {oldOrders.length === 1
+                            ? "1 comanda rimasta da servizi precedenti"
+                            : `${oldOrders.length} comande rimaste da servizi precedenti`}
+                    </span>
+                    <span className={styles.oldActions}>
+                        <Button variant="ghost" size="sm" aria-pressed={showOld} onClick={() => setShowOld(v => !v)}>
+                            {showOld ? "Nascondi" : "Guarda"}
+                        </Button>
+                        {canManage && canEdit && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                    setCloseOldError(null);
+                                    setCloseOldOpen(true);
+                                }}
+                            >
+                                Chiudi tutte
+                            </Button>
+                        )}
+                    </span>
+                </div>
+            )}
+
+            {embedded && (
+                <ConfirmDialog
+                    isOpen={closeOldOpen}
+                    onClose={() => setCloseOldOpen(false)}
+                    onConfirm={handleCloseOld}
+                    title="Chiudere le comande rimaste?"
+                    message={
+                        oldOrders.length === 1
+                            ? "La comanda rimasta da servizi precedenti viene segnata servita ed esce dalle Comande."
+                            : `Le ${oldOrders.length} comande rimaste da servizi precedenti vengono segnate servite ed escono dalle Comande.`
+                    }
+                    confirmLabel="Chiudi tutte"
+                    confirmVariant="primary"
+                    isLoading={closingOld}
+                    error={closeOldError}
+                />
+            )}
 
             {orderToPrint && (
                 <PrintReceipt
@@ -873,10 +1037,10 @@ function OrdersBoard() {
             />
 
             <CreateOrderDrawer
-                open={isCreateOrderOpen}
+                open={embedded ? embedded.createOpen : isCreateOrderOpen}
                 tenantId={tenantId}
                 activityId={selectedActivityId}
-                onClose={() => setIsCreateOrderOpen(false)}
+                onClose={embedded ? embedded.onCreateClose : () => setIsCreateOrderOpen(false)}
                 onSubmitted={refreshAll}
             />
         </section>

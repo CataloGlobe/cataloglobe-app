@@ -76,6 +76,8 @@ import {
 import s from "./CalendarioView.module.scss";
 import { LOOK_D } from "@/styles/lookD";
 import { Lead } from "@/pages/Dashboard/Vetrina/VetrinaHead";
+import { useCompactHead } from "@/pages/Dashboard/Vetrina/useCompactHead";
+import vs from "@/pages/Dashboard/Vetrina/Vetrina.module.scss";
 import { calLead, inOndaOra } from "./calendarLead";
 import { CalendarioAgenda, type AgendaItem } from "./CalendarioAgenda";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -279,6 +281,8 @@ export default function CalendarioView({
     anteprima
 }: CalendarioViewProps) {
     const [nowDate, setNowDate] = useState(() => new Date());
+    // D: la testata si stringe scorrendo (copia, punto 7): resta ferma la barra
+    const { compact: headCompact, setTop: setHeadTop } = useCompactHead();
     useEffect(() => {
         const t = window.setInterval(() => setNowDate(new Date()), 60_000);
         return () => window.clearInterval(t);
@@ -1702,8 +1706,11 @@ export default function CalendarioView({
     if (LOOK_D)
         return (
             <div className={`${s.root} ${s.dpage}`} onPointerMove={onPointerMove} onPointerLeave={hide}>
-                {leadD && <Lead parts={leadD} family="menu" />}
-                {bar}
+                {!anteprima && <div ref={setHeadTop} className={vs.top} aria-hidden />}
+                <div className={anteprima ? s.dhead : `${vs.head} ${s.dhead}`} data-compact={headCompact ? "" : undefined}>
+                    {leadD && <Lead parts={leadD} family="menu" />}
+                    {bar}
+                </div>
                 {noteNode}
                 {summary}
                 <div className={gcls}>
