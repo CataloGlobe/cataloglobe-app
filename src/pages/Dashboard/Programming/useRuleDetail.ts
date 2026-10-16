@@ -245,6 +245,11 @@ export function useRuleDetail({
     const remove = async (): Promise<boolean> => {
         if (!rule) return false;
         try {
+            // la sola regola di base non si elimina, come non si spegne (#537)
+            if (tenantId && lastBaseMenu(await listLayoutRules(tenantId), rule.id)) {
+                showToast({ type: "error", message: LAST_BASE_TIP, duration: 6000 });
+                return false;
+            }
             await deleteLayoutRule(rule.id);
             // Niente più da salvare: l'uscita non deve chiedere.
             if (savedSnapshot) setForm(JSON.parse(savedSnapshot) as RuleDetailForm);

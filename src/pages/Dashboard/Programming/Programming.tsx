@@ -69,7 +69,7 @@ import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { VetrinaHead } from "../Vetrina/VetrinaHead";
 import { useCompactHead } from "../Vetrina/useCompactHead";
 import type { LeadPart } from "../Vetrina/vetrinaModel";
-import { LAST_BASE_TIP, lastBaseMenu } from "./calendar/baseRule";
+import { LAST_BASE_TIP, LastBaseError, lastBaseMenu, removesLastBase } from "./calendar/baseRule";
 
 type RuleTypeFilter = RuleType | "all";
 
@@ -713,6 +713,13 @@ export default function Programming() {
 
     const handleDeleteConfirm = async () => {
         if (!ruleToDelete) return;
+        // la sola regola di base non si elimina, come non si spegne (#537)
+        if (lastBaseMenu(rules, ruleToDelete)) {
+            showToast({ type: "error", message: LAST_BASE_TIP, duration: 6000 });
+            setIsDeleteModalOpen(false);
+            setRuleToDelete(null);
+            return;
+        }
 
         try {
             await deleteLayoutRule(ruleToDelete);
@@ -758,6 +765,10 @@ export default function Programming() {
     const handleBulkDelete = async (): Promise<boolean> => {
         const ids = Array.from(selectedRuleIds);
         if (ids.length === 0) return true;
+        if (removesLastBase(rules, ids)) {
+            showToast({ type: "error", message: LAST_BASE_TIP, duration: 6000 });
+            return false;
+        }
         const results = await Promise.allSettled(ids.map(id => deleteLayoutRule(id)));
         const failedIds = ids.filter((_, i) => results[i].status === "rejected");
         const deleted = ids.length - failedIds.length;
@@ -1239,6 +1250,7 @@ export default function Programming() {
                     isWritable={canWrite && canEdit ? isRuleWritable : undefined}
                     onOpenRule={rule => navigate(ruleHref(rule))}
                     onDrop={async (rule, item) => {
+                        if (!item && lastBaseMenu(rules, rule.id)) throw new LastBaseError();
                         await (item ? dropItem(rule, item) : dropRule(rule));
                         await loadRules();
                     }}
@@ -1272,6 +1284,7 @@ export default function Programming() {
                             }
                         },
                         onDrop: async draft => {
+                            if (!draft.only && lastBaseMenu(rules, draft.rule?.id)) throw new LastBaseError();
                             await dropDraft(draft);
                             await loadRules();
                         },
