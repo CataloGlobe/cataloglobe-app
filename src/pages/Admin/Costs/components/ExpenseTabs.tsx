@@ -21,6 +21,7 @@ import { historyByMonth, oneOffByMonth, renewalProgress } from "@/utils/crm/expe
 import { formatMonthIt, formatShortDateIt, type CrmExpenseMonth } from "@/utils/crm/expenses";
 import type { CrmExpense, CrmExpenseCharge, CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
+import { ExpenseIcon } from "./ExpenseIcon";
 import styles from "../Costs.module.scss";
 
 type ExpenseTab = "subscriptions" | "oneoff" | "history" | "months";
@@ -47,6 +48,7 @@ function renewalText(expense: CrmExpense, next: string | undefined, today: strin
 /**
  * Le spese a schede (canvas K2, scelta da Alex il 2026-10-05): abbonamenti a
  * tessere con la barra verso il rinnovo, una tantum per mese, mese per mese.
+ * Lo storico è la scheda di base (Alex, 2026-10-16).
  * Ogni tessera o riga apre la spesa; il «⋯» la elimina. Lo storico mette
  * insieme addebiti e movimenti, così si vedono anche i soldi passati fra voi.
  */
@@ -83,7 +85,7 @@ export function ExpenseTabs({
     settlements: CrmExpenseSettlement[];
     onDeleteMove: (move: CrmExpenseSettlement) => void;
 }) {
-    const [tab, setTab] = useState<ExpenseTab>("subscriptions");
+    const [tab, setTab] = useState<ExpenseTab>("history");
 
     const subscriptions = useMemo(() => {
         const subs = expenses.filter(e => e.kind === "subscription");
@@ -132,13 +134,13 @@ export function ExpenseTabs({
         <section className={styles.tabsBox} aria-label="Le spese">
             <Tabs value={tab} onChange={setTab} variant="line">
                 <Tabs.List aria-label="Le spese">
+                    <Tabs.Tab value="history">Storico</Tabs.Tab>
                     <Tabs.Tab value="subscriptions" badge={subscriptions.length || undefined}>
                         Abbonamenti
                     </Tabs.Tab>
                     <Tabs.Tab value="oneoff" badge={oneOffCount || undefined}>
                         Una tantum
                     </Tabs.Tab>
-                    <Tabs.Tab value="history">Storico</Tabs.Tab>
                     <Tabs.Tab value="months">Mese per mese</Tabs.Tab>
                 </Tabs.List>
 
@@ -159,9 +161,7 @@ export function ExpenseTabs({
                                 return (
                                     <li key={e.id} className={styles.tile} data-ended={next === undefined || undefined}>
                                         <div className={styles.tileHead}>
-                                            <span className={styles.mark} aria-hidden="true">
-                                                {e.name.trim().charAt(0).toUpperCase()}
-                                            </span>
+                                            <ExpenseIcon category={e.category} />
                                             <button type="button" className={styles.tileOpen} onClick={() => onOpen(e)}>
                                                 <Text as="span" variant="body-sm" weight={600} className={styles.ellipsis}>
                                                     {e.name}
@@ -223,6 +223,7 @@ export function ExpenseTabs({
                                         {m.expenses.map(e => (
                                             <li key={e.id} className={styles.oneOffRow}>
                                                 <button type="button" className={styles.oneOffOpen} onClick={() => onOpen(e)}>
+                                                    <ExpenseIcon category={e.category} />
                                                     <Text as="span" variant="body-sm" className={styles.ellipsis}>
                                                         {e.name}
                                                     </Text>
@@ -268,6 +269,7 @@ export function ExpenseTabs({
                                             row.kind === "charge" ? (
                                                 <li key={`c-${row.expense.id}-${row.date}`} className={styles.oneOffRow}>
                                                     <button type="button" className={styles.oneOffOpen} onClick={() => onOpen(row.expense)}>
+                                                        <ExpenseIcon category={row.expense.category} />
                                                         <Text as="span" variant="body-sm" className={styles.ellipsis}>
                                                             {row.expense.name}
                                                         </Text>
@@ -288,6 +290,7 @@ export function ExpenseTabs({
                                             ) : (
                                                 <li key={`m-${row.settlement.id}`} className={styles.oneOffRow}>
                                                     <div className={`${styles.oneOffOpen} ${styles.oneOffStill}`}>
+                                                        <ExpenseIcon move />
                                                         <Text as="span" variant="body-sm" className={styles.ellipsis}>
                                                             {settlementText(row.settlement)}
                                                         </Text>

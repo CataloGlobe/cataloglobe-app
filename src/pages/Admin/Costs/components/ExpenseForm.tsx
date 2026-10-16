@@ -6,7 +6,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { DateInput } from "@/components/ui/Input/DateInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import Text from "@/components/ui/Text/Text";
-import { CRM_EXPENSE_CATEGORIES, CRM_EXPENSE_CATEGORY_LABEL, type CrmExpenseCategory } from "@shared/crmExpenses";
+import { CRM_EXPENSE_CATEGORIES, type CrmExpenseCategory } from "@shared/crmExpenses";
 import {
     CRM_EXPENSE_FREQUENCY_OPTIONS,
     expenseDateOf,
@@ -29,13 +29,20 @@ import styles from "../Costs.module.scss";
  *
  * Proposta 1 di D38 (scelta da Alex il 2026-10-05): cinque campi a vista
  * (Cosa, Importo, Quanto spesso, Data, Pagata da), il resto in «Altre
- * opzioni», «Disdetto» solo su una spesa che c'è già.
+ * opzioni», «Disdetto» solo su una spesa che c'è già. La categoria a vista
+ * sotto «Cosa» (Alex, 2026-10-16: l'icona della riga viene da lì).
  */
 
-const CATEGORY_OPTIONS = CRM_EXPENSE_CATEGORIES.map(value => ({
-    value,
-    label: CRM_EXPENSE_CATEGORY_LABEL[value]
-}));
+/** Nomi corti per la fila di scelte; quello intero resta nelle liste. */
+const CATEGORY_SHORT: Record<CrmExpenseCategory, string> = {
+    software: "Software",
+    advertising: "Pubblicità",
+    services: "Servizi",
+    hardware: "Attrezzatura",
+    other: "Altro"
+};
+
+const CATEGORY_OPTIONS = CRM_EXPENSE_CATEGORIES.map(value => ({ value, label: CATEGORY_SHORT[value] }));
 
 type Props = {
     formId: string;
@@ -113,6 +120,14 @@ export function ExpenseForm({
                 onChange={e => patch({ name: e.target.value })}
                 error={errors.name}
                 disabled={disabled}
+            />
+            <ChipGroupSingle
+                label="Tipo di spesa"
+                options={CATEGORY_OPTIONS.map(o => ({ ...o, disabled }))}
+                value={draft.category}
+                onChange={category => patch({ category })}
+                ariaLabel="Tipo di spesa"
+                layout="auto"
             />
             <div className={styles.fieldRow}>
                 <TextInput
@@ -215,13 +230,6 @@ export function ExpenseForm({
             )}
             <CollapsibleSection label="Altre opzioni" defaultOpen={Boolean(draft.notes.trim() || errors.remindDaysBefore)}>
                 <div className={styles.form}>
-                    <Select
-                        label="Categoria"
-                        value={draft.category}
-                        onChange={e => patch({ category: e.target.value as CrmExpenseCategory })}
-                        options={CATEGORY_OPTIONS}
-                        disabled={disabled}
-                    />
                     {isSubscription && (
                         <>
                             <Switch

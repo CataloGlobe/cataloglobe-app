@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarDays, List } from "lucide-react";
+import { CalendarDays, List, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
@@ -9,6 +9,7 @@ import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
+import { InfoTooltip } from "@/components/ui/Tooltip/InfoTooltip";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useAuth } from "@/context/useAuth";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -31,7 +32,6 @@ import {
 import { CRM_BILLING_INTERVAL_LABEL, daysBetween, formatDaysLeft, formatEuroCents } from "@shared/crmExpenses";
 import {
     computeExpenseBalance,
-    evenByDeposit,
     isJointAccount,
     JOINT_ACCOUNT,
     payerSuggestions,
@@ -42,6 +42,7 @@ import { refundsAsCharges, termAt } from "@/utils/crm/expenseTerms";
 import { lastDayOfMonth, shiftDay, shiftMonth } from "@/utils/crm/expenseCalendar";
 import {
     buildCostsOverview,
+    expenseDraftFrom,
     formatMonthIt,
     formatShortDateIt,
     romeTodayIso,
@@ -55,8 +56,9 @@ import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import { useCrmLoad } from "@/pages/Admin/Crm/hooks/useCrmLoad";
 import { CostsCalendar } from "./components/CostsCalendar";
 import { ExpenseTabs } from "./components/ExpenseTabs";
+import { BalanceBand } from "./components/BalanceBand";
+import { ExpenseIcon } from "./components/ExpenseIcon";
 import { PayersCard } from "./components/PayersCard";
-import { QuickExpenseRow } from "./components/QuickExpenseRow";
 import { AccountsDrawer } from "./AccountsDrawer";
 import { ExpenseDrawer } from "./ExpenseDrawer";
 import { SettlementDrawer } from "./SettlementDrawer";
@@ -87,13 +89,9 @@ function orMissing<T>(load: Promise<T>): Promise<T | null> {
     });
 }
 
-function centsToInput(cents: number): string {
-    return (cents / 100).toFixed(2).replace(".", ",");
-}
-
 function signedDelta(cents: number, previousMonth: string): string {
     if (cents === 0) return `come ${previousMonth}`;
-    return `${cents > 0 ? "+" : "−"}${formatEuroCents(Math.abs(cents))} su ${previousMonth}`;
+    return `${formatEuroCents(Math.abs(cents))} ${cents > 0 ? "più" : "meno"} di ${previousMonth}`;
 }
 
 export default function CostsPage() {
@@ -107,7 +105,6 @@ export default function CostsPage() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selected, setSelected] = useState<CrmExpense | null>(null);
     const [drawerDraft, setDrawerDraft] = useState<CrmExpenseDraft | null>(null);
-    const quickNameRef = useRef<HTMLInputElement>(null);
     const { user } = useAuth();
     const [toDelete, setToDelete] = useState<CrmExpense | null>(null);
     const [moveToDelete, setMoveToDelete] = useState<CrmExpenseSettlement | null>(null);
@@ -185,6 +182,8 @@ export default function CostsPage() {
         return allCharges.filter(c => c.chargedOn >= today && c.chargedOn <= last).sort((a, b) => (a.chargedOn < b.chargedOn ? -1 : 1));
     }, [allCharges, today]);
     const upcomingTotal = upcoming.reduce((sum, c) => sum + c.amountCents, 0);
+    const todayCharges = upcoming.filter(c => c.chargedOn === today);
+    const laterCharges = upcoming.filter(c => c.chargedOn !== today);
     const byId = useMemo(() => new Map(expenses.map(e => [e.id, e])), [expenses]);
     const accountById = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
     /** Su che conto sta la spesa quel giorno (con i «Cambia da…»); null senza conto. */
@@ -200,18 +199,40 @@ export default function CostsPage() {
         () => computeExpenseBalance({ charges: chargesAndRefunds, expenses, settlements, team, today, accounts, terms, memberNames }),
         [chargesAndRefunds, expenses, settlements, team, today, accounts, terms, memberNames]
     );
-    const depositHint = useMemo(() => {
-        const hint = evenByDeposit(balance);
-        const target = openJoint[0];
-        return hint && target ? { ...hint, accountName: target.name, accountId: target.id } : null;
-    }, [balance, openJoint]);
+    // I conti comuni tutti, anche senza movimenti (Qonto, D256), quelli chiusi in fondo;
+    // per gli aperti il prossimo addebito da domani, per dire quando il saldo non basta.
+    const jointRows = useMemo(() => {
+        const byAccount = new Map(balance.jointAccounts.map(j => [j.accountId, j]));
+        const expenseById = new Map(expenses.map(e => [e.id, e]));
+        const nextCharge = (accountId: string) =>
+            allCharges
+                .filter(c => {
+                    // Gli addebiti di oggi sono già nello «spesi» del conto.
+                    if (c.chargedOn <= today) return false;
+                    const expense = expenseById.get(c.expenseId);
+                    return expense ? termAt(expense, terms, c.chargedOn).accountId === accountId : false;
+                })
+                .reduce<(typeof allCharges)[number] | null>((first, c) => (!first || c.chargedOn < first.chargedOn ? c : first), null);
+        const rows = accounts
+            .filter(a => a.kind === "joint")
+            .map(a => ({
+                key: a.id,
+                name: a.name,
+                closedOn: a.closed_on,
+                totals: byAccount.get(a.id) ?? null,
+                next: a.closed_on ? null : nextCharge(a.id)
+            }));
+        const manual = byAccount.get(null);
+        if (manual) rows.push({ key: "manual", name: JOINT_ACCOUNT, closedOn: null, totals: manual, next: null });
+        return rows.sort((a, b) => Number(Boolean(a.closedOn)) - Number(Boolean(b.closedOn)));
+    }, [accounts, balance.jointAccounts, expenses, allCharges, terms, today]);
     const payers = useMemo(() => payerSuggestions(team), [team]);
     const myName = useMemo(
         () => (teamLoad.data ?? []).find(m => m.user_id === user?.id)?.display_name ?? "",
         [teamLoad.data, user?.id]
     );
     const people = useMemo(() => balance.people.map(p => p.name), [balance.people]);
-    /** Il conto personale aperto di chi è entrato, se ne ha uno solo: la riga veloce parte da lì. */
+    /** Il conto personale aperto di chi è entrato, se ne ha uno solo: la spesa nuova parte da lì. */
     const myAccountId = useMemo(() => {
         const mine = accounts.filter(a => a.kind === "personal" && !a.closed_on && a.owner_member_id === user?.id);
         return mine.length === 1 ? mine[0].id : "";
@@ -235,43 +256,19 @@ export default function CostsPage() {
         [setSearchParams]
     );
 
-    // «Aggiungi spesa»: nell'elenco porta alla riga veloce, nel calendario
-    // (dove la riga non c'è) apre il drawer.
+    // «Aggiungi spesa» apre il drawer, già con chi è entrato e la sua carta
+    // (la riga veloce sempre aperta è uscita, proposta 4 del 2026-10-16).
     const openCreate = useCallback(() => {
-        if (view === "list" && quickNameRef.current) {
-            quickNameRef.current.scrollIntoView({ block: "center", behavior: "smooth" });
-            quickNameRef.current.focus({ preventScroll: true });
-            return;
-        }
         setSelected(null);
-        setDrawerDraft(null);
+        setDrawerDraft({ ...expenseDraftFrom(null, today), paidBy: myName, accountId: myAccountId });
         setIsDrawerOpen(true);
-    }, [view]);
-
-    const openDetails = useCallback((draft: CrmExpenseDraft) => {
-        setSelected(null);
-        setDrawerDraft(draft);
-        setIsDrawerOpen(true);
-    }, []);
+    }, [today, myName, myAccountId]);
 
     const openEdit = useCallback((expense: CrmExpense) => {
         setSelected(expense);
         setDrawerDraft(null);
         setIsDrawerOpen(true);
     }, []);
-
-    const handleQuickAdded = useCallback(
-        (summary: string, expense: CrmExpense) => {
-            reload();
-            showToast({
-                message: `Aggiunta: ${summary}.`,
-                type: "success",
-                actionLabel: "Dettagli",
-                onAction: () => openEdit(expense)
-            });
-        },
-        [reload, showToast, openEdit]
-    );
 
     const askDelete = useCallback((expense: CrmExpense) => {
         setDialogError(null);
@@ -353,23 +350,40 @@ export default function CostsPage() {
 
     return (
         <div className={styles.page}>
+            {!figuresLoading && !figuresError && !settlementsLoad.error && balance.people.length > 0 && (
+                <BalanceBand
+                    balance={balance}
+                    disabled={settlementsMissing}
+                    onSettle={() => {
+                        setDialogError(null);
+                        setIsSettleOpen(true);
+                    }}
+                />
+            )}
             <section className={styles.figures} aria-label="Il quadro">
                 <TileState loading={figuresLoading} error={figuresError} onRetry={reload}>
                     <div className={styles.figure}>
                         <Text as="span" variant="caption" colorVariant="muted">
-                            Speso finora
+                            {summary.months.length > 0 ? `Speso da ${formatMonthIt(firstMonth)}` : "Speso finora"}
                         </Text>
                         <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
                             {formatEuroCents(overview.spentSoFarCents)}
                         </Text>
                         <Text as="span" variant="caption" colorVariant="muted">
-                            {summary.months.length > 0 ? `da ${formatMonthIt(firstMonth)}, rimborsi tolti` : "ancora niente"}
+                            {summary.months.length > 0 ? "rimborsi tolti" : "ancora niente"}
                         </Text>
                     </div>
                     <div className={styles.figure}>
-                        <Text as="span" variant="caption" colorVariant="muted">
-                            Costo al mese, da ora
-                        </Text>
+                        <span className={styles.figureLabel}>
+                            <Text as="span" variant="caption" colorVariant="muted">
+                                Costo al mese, da ora
+                            </Text>
+                            <InfoTooltip
+                                side="top"
+                                ariaLabel="Come si conta il costo al mese"
+                                content="Gli abbonamenti annuali contano 1/12 al mese; le spese una tantum non ci sono."
+                            />
+                        </span>
                         <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
                             {formatEuroCents(overview.monthlyFromNowCents)}
                         </Text>
@@ -379,7 +393,7 @@ export default function CostsPage() {
                     </div>
                     <div className={styles.figure}>
                         <Text as="span" variant="caption" colorVariant="muted">
-                            Ricarica a testa, al mese
+                            Ricarica a testa
                         </Text>
                         <Text as="span" variant={figureVariant} weight={700} className={styles.figureValue}>
                             {formatEuroCents(overview.rechargePerPersonCents)}
@@ -387,7 +401,7 @@ export default function CostsPage() {
                         <Text as="span" variant="caption" colorVariant="muted">
                             {overview.monthlyOnJointCents > 0
                                 ? `di cui ${formatEuroCents(overview.monthlyOnJointCents)} al mese già sul conto comune`
-                                : "metà del costo al mese, all'euro in su"}
+                                : "ogni mese, metà del costo all'euro in su"}
                         </Text>
                     </div>
                     <div className={styles.figure}>
@@ -398,16 +412,17 @@ export default function CostsPage() {
                             {formatEuroCents(summary.thisMonthCents)}
                         </Text>
                         {summary.months.length > 1 && (
-                            <Text as="span" variant="caption" colorVariant="muted">
-                                {signedDelta(delta, previousName)}
-                            </Text>
+                            <span className={styles.figureDelta} data-trend={delta > 0 ? "up" : delta < 0 ? "down" : undefined}>
+                                {delta > 0 && <TrendingUp size={14} aria-hidden="true" />}
+                                {delta < 0 && <TrendingDown size={14} aria-hidden="true" />}
+                                <Text as="span" variant="caption" color="inherit">
+                                    {signedDelta(delta, previousName)}
+                                </Text>
+                            </span>
                         )}
                     </div>
                 </TileState>
             </section>
-            <Text as="p" variant="caption" colorVariant="muted">
-                Gli abbonamenti annuali contano 1/12 al mese; le spese una tantum non sono nella ricarica.
-            </Text>
 
             {extrasError && (
                 <InlineBanner variant="warning">
@@ -431,7 +446,7 @@ export default function CostsPage() {
                             Carte e conti
                         </Button>
                     }
-                    flush={balance.jointAccounts.length > 0}
+                    flush={jointRows.length > 0 || overview.toMove.length > 0}
                 >
                     {overview.toMove.length > 0 && (
                         <div className={styles.toMove}>
@@ -450,18 +465,37 @@ export default function CostsPage() {
                             trailing={`prossimo ${formatShortDateIt(m.nextChargeOn)}`}
                         />
                     ))}
-                    {balance.jointAccounts.map(j => (
-                        <ListRow
-                            key={j.accountId ?? "manual"}
-                            title={j.accountId ? (accountById.get(j.accountId)?.name ?? JOINT_ACCOUNT) : JOINT_ACCOUNT}
-                            subtitle={`Versati ${formatEuroCents(j.depositedCents)} · spesi ${formatEuroCents(j.spentCents)}`}
-                            trailing={
-                                <span className={styles.figureValue} data-negative={j.balanceCents < 0 || undefined}>
-                                    {formatEuroCents(j.balanceCents)}
-                                </span>
-                            }
-                        />
-                    ))}
+                    {jointRows.map(row => {
+                        const left = row.totals?.balanceCents ?? 0;
+                        const short = row.next && left < row.next.amountCents ? row.next.amountCents - left : 0;
+                        const parts = [
+                            row.closedOn && `Chiuso il ${formatShortDateIt(row.closedOn)}`,
+                            row.totals
+                                ? `Versati ${formatEuroCents(row.totals.depositedCents)} · spesi ${formatEuroCents(row.totals.spentCents)}`
+                                : "Nessun movimento",
+                            short > 0 && row.next
+                                ? `mancano ${formatEuroCents(short)} per il ${formatShortDateIt(row.next.chargedOn)}`
+                                : row.next && `prossimo ${formatEuroCents(row.next.amountCents)} il ${formatShortDateIt(row.next.chargedOn)}`
+                        ];
+                        return (
+                            <ListRow
+                                key={row.key}
+                                title={row.name}
+                                subtitle={parts.filter(Boolean).join(" · ")}
+                                wrapSubtitle
+                                muted={Boolean(row.closedOn)}
+                                trailing={
+                                    <span
+                                        className={styles.figureValue}
+                                        data-negative={left < 0 || undefined}
+                                        data-short={short > 0 || undefined}
+                                    >
+                                        {formatEuroCents(left)}
+                                    </span>
+                                }
+                            />
+                        );
+                    })}
                 </Card>
             )}
 
@@ -487,17 +521,6 @@ export default function CostsPage() {
                 />
             ) : (
                 <>
-                    <QuickExpenseRow
-                        ref={quickNameRef}
-                        expenses={expenses}
-                        today={today}
-                        defaultPayer={myName}
-                        defaultAccountId={myAccountId}
-                        isAccountOpen={id => accountById.get(id)?.closed_on == null}
-                        onAdded={handleQuickAdded}
-                        onDetails={openDetails}
-                    />
-
                     <div className={styles.duo}>
                         <PayersCard
                             balance={balance}
@@ -506,10 +529,6 @@ export default function CostsPage() {
                             settlements={settlements}
                             settlementsMissing={settlementsMissing}
                             onRetry={reload}
-                            onSettle={() => {
-                                setDialogError(null);
-                                setIsSettleOpen(true);
-                            }}
                             onRecord={() => {
                                 setMoveDraft(null);
                                 setIsMoveOpen(true);
@@ -518,21 +537,6 @@ export default function CostsPage() {
                                 setDialogError(null);
                                 setMoveToDelete(move);
                             }}
-                            depositHint={depositHint}
-                            onDeposit={
-                                depositHint
-                                    ? () => {
-                                          setMoveDraft({
-                                              fromName: depositHint.from,
-                                              toName: depositHint.accountName,
-                                              accountId: depositHint.accountId,
-                                              amount: centsToInput(depositHint.amountCents),
-                                              note: "Pareggio"
-                                          });
-                                          setIsMoveOpen(true);
-                                      }
-                                    : undefined
-                            }
                         />
 
                         <Card
@@ -547,7 +551,15 @@ export default function CostsPage() {
                                 empty={upcoming.length === 0}
                                 emptyText="Nessun addebito nei prossimi 30 giorni."
                             >
-                                {upcoming.map((c, i) => {
+                                {[todayCharges, laterCharges].map((group, g) =>
+                                    group.length === 0 ? null : (
+                                        <div key={g} role="group" aria-label={g === 0 ? "Oggi" : "Prossimi"}>
+                                            {todayCharges.length > 0 && (
+                                                <Text as="p" variant="caption" colorVariant="muted" className={styles.groupLabel}>
+                                                    {g === 0 ? "Oggi" : "Prossimi"}
+                                                </Text>
+                                            )}
+                                {group.map((c, i) => {
                                     const expense = byId.get(c.expenseId);
                                     const daysLeft = daysBetween(today, c.chargedOn);
                                     const soon = expense?.remind_days_before != null && daysLeft <= expense.remind_days_before;
@@ -555,6 +567,7 @@ export default function CostsPage() {
                                     return (
                                         <ListRow
                                             key={`${c.expenseId}-${c.chargedOn}-${i}`}
+                                            leading={<ExpenseIcon category={expense?.category} />}
                                             title={expense?.name ?? "Spesa"}
                                             subtitle={[
                                                 `${formatEuroCents(c.amountCents)}${interval ? ` ${CRM_BILLING_INTERVAL_LABEL[interval]}` : ""}`,
@@ -567,7 +580,9 @@ export default function CostsPage() {
                                                 .join(" · ")}
                                             onClick={expense ? () => openEdit(expense) : undefined}
                                             trailing={
-                                                soon ? (
+                                                g === 0 ? (
+                                                    <StatusBadge variant="info" label="Oggi" />
+                                                ) : soon ? (
                                                     <StatusBadge variant="warning" label={formatDaysLeft(daysLeft)} />
                                                 ) : (
                                                     formatShortDateIt(c.chargedOn)
@@ -576,6 +591,9 @@ export default function CostsPage() {
                                         />
                                     );
                                 })}
+                                        </div>
+                                    )
+                                )}
                             </TileState>
                         </Card>
                     </div>
