@@ -2,6 +2,8 @@
 // piano di cosa viene creato. Niente rete, niente env letti qui: si prova con
 // vitest (src/tests/fastAccess.test.ts).
 
+import { createHash } from "node:crypto";
+
 export const PLANS = ["base", "pro"] as const;
 export type Plan = (typeof PLANS)[number];
 
@@ -146,13 +148,27 @@ export type StagingGuardInput = {
     serviceKey: string | undefined;
     /** STAGING_PROJECT_REF: il ref atteso, mai scritto nel codice. */
     stagingRef: string | undefined;
-    /** PRODUCTION_PROJECT_REF, facoltativo: se c'è, un secondo no esplicito. */
+    /** PRODUCTION_PROJECT_REF: obbligatorio con `requireProductionRef` (--execute). */
     productionRef: string | undefined;
     /** Contenuto di supabase/.temp/project-ref, se il file c'è. */
     linkedRef: string | undefined;
+    /** Con --execute: senza PRODUCTION_PROJECT_REF non si scrive. */
+    requireProductionRef: boolean;
 };
 
 export type StagingGuardResult = { ok: true; ref: string } | { ok: false; reasons: string[] };
+
+/** Il ref di `https://<ref>.supabase.co`, o null per ogni altro URL. */
+export function projectRefFromUrl(url: string): string | null {
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== "https:" || parsed.port || parsed.pathname.replace(/\/+$/, "") !== "") return null;
+        const match = /^([a-z0-9]+)\.supabase\.co$/.exec(parsed.hostname);
+        return match ? match[1] : null;
+    } catch {
+        return null;
+    }
+}
 
 /** Payload di una chiave JWT (chiavi legacy), o null se non è un JWT. */
 export function decodeJwtPayload(token: string): Record<string, unknown> | null {
@@ -170,7 +186,8 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
 /**
  * Si scrive solo se tutto dice staging: l'host dell'URL è `<STAGING_PROJECT_REF>.supabase.co`,
  * la chiave (se è un JWT) è service_role dello stesso ref, il ref non è quello di
- * produzione e la cartella, se collegata, è collegata a quel ref.
+ * produzione (PRODUCTION_PROJECT_REF obbligatorio con --execute) e la cartella, se
+ * collegata, è collegata a quel ref.
  */
 export function checkStaging(input: StagingGuardInput): StagingGuardResult {
     const reasons: string[] = [];
@@ -178,25 +195,19 @@ export function checkStaging(input: StagingGuardInput): StagingGuardResult {
     const productionRef = input.productionRef?.trim();
 
     if (!stagingRef) reasons.push("manca STAGING_PROJECT_REF");
+    if (input.requireProductionRef && !productionRef) reasons.push("manca PRODUCTION_PROJECT_REF");
     if (!input.url) reasons.push("manca SUPABASE_URL");
     if (!input.serviceKey) reasons.push("manca SUPABASE_SERVICE_ROLE_KEY");
     if (reasons.length > 0 || !stagingRef || !input.url || !input.serviceKey) return { ok: false, reasons };
+    const urlRef = projectRefFromUrl(input.url);
 
     if (productionRef && productionRef === stagingRef) {
         reasons.push("STAGING_PROJECT_REF è uguale a PRODUCTION_PROJECT_REF");
     }
-    if (productionRef && input.url.includes(productionRef)) {
+    if (productionRef && (input.url.includes(productionRef) || urlRef === productionRef)) {
         reasons.push("SUPABASE_URL punta a produzione");
     }
-
-    let host: string | null = null;
-    try {
-        const parsed = new URL(input.url);
-        host = parsed.protocol === "https:" ? parsed.host : null;
-    } catch {
-        host = null;
-    }
-    if (host !== `${stagingRef}.supabase.co`) {
+    if (urlRef !== stagingRef) {
         reasons.push("SUPABASE_URL non è https://<STAGING_PROJECT_REF>.supabase.co");
     }
 
@@ -212,6 +223,38 @@ export function checkStaging(input: StagingGuardInput): StagingGuardResult {
     }
 
     return reasons.length > 0 ? { ok: false, reasons } : { ok: true, ref: stagingRef };
+}
+
+// Spazio dei nomi fisso delle chiavi di fast-access (non è un segreto).
+const FAST_ACCESS_NAMESPACE = "6f1c2b8e-4a7d-4f0e-9c3b-2d5e8a1f7b40";
+
+/** UUID v5 (RFC 4122, SHA-1) di `name` nello spazio `namespace`. */
+export function uuidV5(name: string, namespace: string): string {
+    const ns = Buffer.from(namespace.replace(/-/g, ""), "hex");
+    const hash = createHash("sha1").update(ns).update(name, "utf8").digest();
+    const bytes = hash.subarray(0, 16);
+    bytes[6] = (bytes[6] & 0x0f) | 0x50;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = bytes.toString("hex");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * `tenants.creation_idempotency_key` è uuid con indice unico globale: stesso
+ * slug, stessa chiave, quindi un secondo giro riprende l'azienda invece di
+ * crearne un'altra.
+ */
+export function idempotencyKeyForSlug(slug: string): string {
+    return uuidV5(`fast-access:${slug}`, FAST_ACCESS_NAMESPACE);
+}
+
+/** Verifica OTP di 30 giorni, scritta a ogni giro (upsert): idempotente. */
+export function otpVerificationRow(userId: string, now: Date) {
+    return {
+        user_id: userId,
+        verified_at: now.toISOString(),
+        expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    };
 }
 
 export type PlannedRows = {
@@ -245,7 +288,7 @@ export function plannedRows(options: FastAccessOptions, now: Date): PlannedRows 
             name: options.name,
             vertical_type: "food_beverage",
             business_subtype: options.subtype,
-            creation_idempotency_key: `fast-access:${options.slug}`,
+            creation_idempotency_key: idempotencyKeyForSlug(options.slug),
             plan: options.plan,
             paid_seats: options.seats,
             billing_interval: "month",
@@ -263,9 +306,40 @@ export function plannedRows(options: FastAccessOptions, now: Date): PlannedRows 
 /** Il riepilogo che il dry-run stampa (e l'esecuzione prima di scrivere). */
 export function describePlan(options: FastAccessOptions, rows: PlannedRows): string[] {
     return [
-        `utente     ${options.email} (creato confermato se non esiste, verifica OTP di 30 giorni; se esiste si riusa)`,
+        `utente     ${options.email} (creato confermato se non esiste, se esiste si riusa; verifica OTP di 30 giorni)`,
         `azienda    «${rows.tenant.name}», ${rows.tenant.business_subtype}, owner l'utente sopra`,
         `prova      piano ${rows.tenant.plan}, ${rows.tenant.paid_seats} sede/i, trialing fino al ${rows.tenant.trial_until.slice(0, 10)}, senza Stripe`,
         `sede       «${rows.activity.name}», slug ${rows.activity.slug}, online`
     ];
+}
+
+export type OtpRow = ReturnType<typeof otpVerificationRow>;
+
+/** Le scritture vere, passate dal CLI: qui solo l'ordine, provato coi finti. */
+export type FastAccessPorts = {
+    ensureUser(email: string, password: string): Promise<{ id: string; created: boolean }>;
+    upsertOtp(row: OtpRow): Promise<void>;
+    ensureTenant(ownerId: string, tenant: PlannedRows["tenant"]): Promise<string>;
+    ensureActivity(tenantId: string, activity: PlannedRows["activity"]): Promise<string>;
+};
+
+export type FastAccessResult = { userId: string; userCreated: boolean; tenantId: string; activityId: string };
+
+/**
+ * Utente, verifica OTP, azienda, sede. L'OTP si scrive a ogni giro, utente
+ * nuovo o no: se un giro cade dopo la creazione dell'utente, il successivo la
+ * scrive comunque.
+ */
+export async function runFastAccess(
+    ports: FastAccessPorts,
+    options: FastAccessOptions,
+    rows: PlannedRows,
+    password: string,
+    now: Date
+): Promise<FastAccessResult> {
+    const user = await ports.ensureUser(options.email, password);
+    await ports.upsertOtp(otpVerificationRow(user.id, now));
+    const tenantId = await ports.ensureTenant(user.id, rows.tenant);
+    const activityId = await ports.ensureActivity(tenantId, rows.activity);
+    return { userId: user.id, userCreated: user.created, tenantId, activityId };
 }

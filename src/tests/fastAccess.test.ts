@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
     checkStaging,
     defaultSlug,
+    idempotencyKeyForSlug,
+    otpVerificationRow,
+    runFastAccess,
+    uuidV5,
+    type FastAccessPorts,
     describePlan,
     isValidSlug,
     parseArgs,
@@ -26,6 +31,7 @@ function guardInput(overrides: Partial<StagingGuardInput> = {}): StagingGuardInp
         stagingRef: STAGING,
         productionRef: PROD,
         linkedRef: undefined,
+        requireProductionRef: true,
         ...overrides
     };
 }
@@ -69,6 +75,22 @@ describe("fast-access: guardia solo staging", () => {
         const anon = checkStaging(guardInput({ serviceKey: fakeJwt({ ref: STAGING, role: "anon" }) }));
         expect(anon.ok).toBe(false);
         if (!anon.ok) expect(anon.reasons).toEqual(["la chiave non è service_role"]);
+    });
+
+    it("con --execute PRODUCTION_PROJECT_REF è obbligatorio; in dry-run no", () => {
+        const missing = checkStaging(guardInput({ productionRef: undefined }));
+        expect(missing).toEqual({ ok: false, reasons: ["manca PRODUCTION_PROJECT_REF"] });
+        expect(checkStaging(guardInput({ productionRef: undefined, requireProductionRef: false })).ok).toBe(true);
+    });
+
+    it("STAGING_PROJECT_REF diverso dal ref dell'URL: no", () => {
+        const result = checkStaging(guardInput({ stagingRef: "altroref" }));
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.reasons).toContain("SUPABASE_URL non è https://<STAGING_PROJECT_REF>.supabase.co");
+        // Con percorso o porta non è più l'URL del progetto.
+        expect(checkStaging(guardInput({ url: `https://${STAGING}.supabase.co/rest/v1` })).ok).toBe(false);
+        expect(checkStaging(guardInput({ url: `https://${STAGING}.supabase.co:8443` })).ok).toBe(false);
+        expect(checkStaging(guardInput({ url: `https://${STAGING}.supabase.co/` })).ok).toBe(true);
     });
 
     it("ref di staging uguale a produzione, o cartella collegata ad altro: no", () => {
@@ -146,7 +168,7 @@ describe("fast-access: righe pianificate", () => {
                 name: "Da Nino",
                 vertical_type: "food_beverage",
                 business_subtype: "restaurant",
-                creation_idempotency_key: "fast-access:da-nino-prova",
+                creation_idempotency_key: idempotencyKeyForSlug("da-nino-prova"),
                 plan: "base",
                 paid_seats: 2,
                 billing_interval: "month",
@@ -158,5 +180,62 @@ describe("fast-access: righe pianificate", () => {
         // Nessuna colonna di Stripe tra quelle scritte.
         expect(Object.keys(rows.tenant).some(key => key.startsWith("stripe_"))).toBe(false);
         expect(describePlan(parsed.options, rows)).toHaveLength(4);
+    });
+});
+
+const UUID_V5 = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+describe("fast-access: chiave di idempotenza uuid", () => {
+    it("UUID v5 conforme all'RFC (vettore noto: python uuid.uuid5(NAMESPACE_DNS, 'python.org'))", () => {
+        expect(uuidV5("python.org", "6ba7b810-9dad-11d1-80b4-00c04fd430c8")).toBe("886313e1-3b8a-5372-9b90-0c9aee199e5d");
+    });
+
+    it("formato uuid, stesso slug stessa chiave, slug diversi chiavi diverse", () => {
+        const key = idempotencyKeyForSlug("prova-da-nino");
+        expect(key).toMatch(UUID_V5);
+        expect(idempotencyKeyForSlug("prova-da-nino")).toBe(key);
+        expect(idempotencyKeyForSlug("prova-da-nina")).not.toBe(key);
+    });
+});
+
+describe("fast-access: ordine delle scritture", () => {
+    function fakePorts(created: boolean) {
+        const calls: string[] = [];
+        const otpRows: unknown[] = [];
+        const ports: FastAccessPorts = {
+            ensureUser: async () => {
+                calls.push("user");
+                return { id: "user-1", created };
+            },
+            upsertOtp: async row => {
+                calls.push("otp");
+                otpRows.push(row);
+            },
+            ensureTenant: async () => {
+                calls.push("tenant");
+                return "tenant-1";
+            },
+            ensureActivity: async () => {
+                calls.push("activity");
+                return "activity-1";
+            }
+        };
+        return { ports, calls, otpRows };
+    }
+
+    it.each([true, false])("utente nuovo=%s: la verifica OTP si scrive comunque", async created => {
+        const parsed = parseArgs(["--email", "a@b.it", "--slug", "prova-ripresa"], "x");
+        if (!parsed.ok) throw new Error(parsed.error);
+        const now = new Date("2026-10-16T10:00:00.000Z");
+        const { ports, calls, otpRows } = fakePorts(created);
+        const result = await runFastAccess(ports, parsed.options, plannedRows(parsed.options, now), "pw", now);
+        expect(calls).toEqual(["user", "otp", "tenant", "activity"]);
+        expect(otpRows).toEqual([otpVerificationRow("user-1", now)]);
+        expect(otpRows[0]).toEqual({
+            user_id: "user-1",
+            verified_at: "2026-10-16T10:00:00.000Z",
+            expires_at: "2026-11-15T10:00:00.000Z"
+        });
+        expect(result).toEqual({ userId: "user-1", userCreated: created, tenantId: "tenant-1", activityId: "activity-1" });
     });
 });

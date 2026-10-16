@@ -5,9 +5,9 @@
  * Stripe a mano.
  *
  * Cosa fa, con `--execute`:
- *   1. utente: lo crea già confermato (Auth admin) con la verifica OTP di 30
- *      giorni, come la conferma della registrazione; se l'email esiste lo riusa
- *      e non tocca la sua verifica;
+ *   1. utente: lo crea già confermato (Auth admin); se l'email esiste lo riusa.
+ *      A ogni giro (upsert) la verifica OTP di 30 giorni, come la conferma
+ *      della registrazione: un giro caduto a metà non lascia l'utente senza;
  *   2. azienda: insert su `tenants` come `createTenant` del wizard, owner
  *      l'utente (l'owner non ha riga in tenant_memberships: è `owner_user_id`);
  *   3. abbonamento di prova SENZA Stripe: `subscription_status = 'trialing'`,
@@ -22,7 +22,8 @@
  * credenziali. `--execute` scrive davvero, e solo se tutto dice staging:
  *   - SUPABASE_URL deve essere https://<STAGING_PROJECT_REF>.supabase.co;
  *   - la chiave, se è un JWT, deve essere service_role di quel ref;
- *   - PRODUCTION_PROJECT_REF (facoltativo) non deve comparire;
+ *   - PRODUCTION_PROJECT_REF è obbligatorio e non deve comparire nell'URL né
+ *     coincidere con STAGING_PROJECT_REF;
  *   - supabase/.temp/project-ref, se c'è, deve essere STAGING_PROJECT_REF.
  * I ref NON sono nel codice: arrivano dall'ambiente.
  *
@@ -46,14 +47,23 @@
  *   --execute                scrive (senza: dry-run)
  *
  * Ripetibile: con lo stesso --slug e la stessa email riprende l'azienda e la
- * sede già create (chiave di idempotenza `fast-access:<slug>`).
+ * sede già create (chiave di idempotenza: UUID v5 dello slug). Uno slug già
+ * usato da un'altra email si ferma con un errore.
  * Per togliere tutto: eliminare l'azienda dal Workspace come owner.
  */
 
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { checkStaging, describePlan, parseArgs, plannedRows, type PlannedRows } from "./model";
+import {
+    checkStaging,
+    describePlan,
+    parseArgs,
+    plannedRows,
+    runFastAccess,
+    type OtpRow,
+    type PlannedRows
+} from "./model";
 
 const suffix = randomBytes(2).toString("hex");
 const parsed = parseArgs(process.argv.slice(2), suffix);
@@ -70,7 +80,8 @@ const guard = checkStaging({
     serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     stagingRef: process.env.STAGING_PROJECT_REF,
     productionRef: process.env.PRODUCTION_PROJECT_REF,
-    linkedRef: existsSync(LINK_FILE) ? readFileSync(LINK_FILE, "utf8") : undefined
+    linkedRef: existsSync(LINK_FILE) ? readFileSync(LINK_FILE, "utf8") : undefined,
+    requireProductionRef: options.execute
 });
 
 console.log(options.execute ? "fast-access (esecuzione)" : "fast-access (dry-run: nessuna scrittura)");
@@ -132,13 +143,16 @@ async function ensureTenant(client: SupabaseClient, ownerId: string, tenant: Pla
     if (!error) return data.id;
     if (error.code !== "23505") fail("creazione dell'azienda", error);
 
+    // Indice unico globale sulla chiave: si cerca solo per chiave.
     const { data: existing, error: lookupError } = await client
         .from("tenants")
-        .select("id")
+        .select("id, owner_user_id")
         .eq("creation_idempotency_key", tenant.creation_idempotency_key)
-        .eq("owner_user_id", ownerId)
-        .single<{ id: string }>();
+        .single<{ id: string; owner_user_id: string }>();
     if (lookupError) fail("ripresa dell'azienda", lookupError);
+    if (existing.owner_user_id !== ownerId) {
+        fail("creazione dell'azienda", { code: "23505", message: "slug già usato da un'altra email: scegli un altro --slug" });
+    }
     return existing.id;
 }
 
@@ -171,25 +185,28 @@ const client = createClient(process.env.SUPABASE_URL as string, process.env.SUPA
     auth: { persistSession: false, autoRefreshToken: false }
 });
 
-const generatedPassword = process.env.FAST_ACCESS_PASSWORD ? null : randomBytes(12).toString("base64url");
-const user = await ensureUser(client, options.email, process.env.FAST_ACCESS_PASSWORD ?? (generatedPassword as string));
-
-if (user.created) {
-    const now = Date.now();
-    const { error } = await client.from("otp_user_verifications").upsert({
-        user_id: user.id,
-        verified_at: new Date(now).toISOString(),
-        expires_at: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString()
-    });
+async function upsertOtp(client: SupabaseClient, row: OtpRow): Promise<void> {
+    const { error } = await client.from("otp_user_verifications").upsert(row);
     if (error) fail("verifica OTP", error);
 }
 
-const tenantId = await ensureTenant(client, user.id, rows.tenant);
-const activityId = await ensureActivity(client, tenantId, rows.activity);
+const generatedPassword = process.env.FAST_ACCESS_PASSWORD ? null : randomBytes(12).toString("base64url");
+const result = await runFastAccess(
+    {
+        ensureUser: (email, password) => ensureUser(client, email, password),
+        upsertOtp: row => upsertOtp(client, row),
+        ensureTenant: (ownerId, tenant) => ensureTenant(client, ownerId, tenant),
+        ensureActivity: (tenantId, activity) => ensureActivity(client, tenantId, activity)
+    },
+    options,
+    rows,
+    process.env.FAST_ACCESS_PASSWORD ?? (generatedPassword as string),
+    new Date()
+);
 
 console.log("fatto:");
-console.log(`  utente   ${options.email} ${user.created ? "(nuovo)" : "(esistente)"}`);
-if (user.created && generatedPassword) console.log(`  password ${generatedPassword}`);
-console.log(`  azienda  ${tenantId}`);
-console.log(`  sede     ${activityId} (/${rows.activity.slug})`);
+console.log(`  utente   ${options.email} ${result.userCreated ? "(nuovo)" : "(esistente)"}`);
+if (result.userCreated && generatedPassword) console.log(`  password ${generatedPassword}`);
+console.log(`  azienda  ${result.tenantId}`);
+console.log(`  sede     ${result.activityId} (/${rows.activity.slug})`);
 console.log(`  prova    fino al ${rows.tenant.trial_until.slice(0, 10)}`);
