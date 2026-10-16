@@ -44,23 +44,44 @@ const W = 320;
  */
 export function FilterFit<T extends string>({ children, active, onClear, aside, panelExtra, sort, short, className }: FilterFitProps<T>) {
     const rowRef = useRef<HTMLDivElement>(null);
+    const pillsRef = useRef<HTMLDivElement>(null);
+    const asideRef = useRef<HTMLDivElement>(null);
     const [zip, setZip] = useState(false);
+    const zipRef = useRef(false);
+    // La larghezza che serviva alla riga intera l'ultima volta che non ci stava.
+    const needRef = useRef(0);
 
     // Si toglie il segno, si misura la riga intera e lo si rimette se non ci
-    // sta: tutto prima del disegno, quindi senza sfarfallio.
+    // sta: tutto prima del disegno, quindi senza sfarfallio. Chiusa, la riga ha
+    // il pulsante e l'ordine a icona, più stretti: misurarla così la farebbe
+    // riaprire e richiudere di continuo. Si riapre solo quando c'è lo spazio
+    // che serviva alla riga intera.
     const fit = useCallback(() => {
         const row = rowRef.current;
         if (!row) return;
+        if (zipRef.current && row.clientWidth < needRef.current) return;
         row.removeAttribute("data-zip");
         const tooWide = row.scrollWidth > row.clientWidth + 1;
-        if (tooWide) row.setAttribute("data-zip", "");
+        if (tooWide) {
+            needRef.current = row.scrollWidth;
+            row.setAttribute("data-zip", "");
+        }
+        zipRef.current = tooWide;
         setZip(tooWide);
     }, []);
+
+    // Quando cambia il contenuto la soglia vecchia non vale più: una riga
+    // accorciata (un filtro tolto, numeri più corti, `short`) si deve poter
+    // riaprire anche senza che la pagina si allarghi.
+    const refit = useCallback(() => {
+        needRef.current = 0;
+        fit();
+    }, [fit]);
 
     // Prima del disegno solo quando cambia ciò che decide la riga; i numeri
     // nelle pill e il resto del contenuto li segue il MutationObserver qui sotto.
     const sortValue = sort?.value;
-    useLayoutEffect(fit, [fit, active, short, sortValue]);
+    useLayoutEffect(refit, [refit, active, short, sortValue]);
 
     useEffect(() => {
         const row = rowRef.current;
@@ -73,23 +94,25 @@ export function FilterFit<T extends string>({ children, active, onClear, aside, 
         const ro = new ResizeObserver(later);
         ro.observe(row);
         if (row.parentElement) ro.observe(row.parentElement);
-        // testi e figli, non gli attributi: `data-zip` lo scrive `fit` stesso
-        const mo = new MutationObserver(fit);
-        mo.observe(row, { childList: true, subtree: true, characterData: true });
+        // testi e figli delle pill e di `aside`, non della riga intera: il
+        // pulsante coi cursori e «Ordina» a icona li cambia `fit` stesso, e
+        // guardarli lo farebbe ripartire senza fine (la riga si apre e si chiude)
+        const mo = new MutationObserver(refit);
+        for (const el of [pillsRef.current, asideRef.current]) if (el) mo.observe(el, { childList: true, subtree: true, characterData: true });
         return () => {
             cancelAnimationFrame(raf);
             ro.disconnect();
             mo.disconnect();
         };
-    }, [fit]);
+    }, [fit, refit]);
 
     return (
         <div ref={rowRef} className={`${s.row} ${className ?? ""}`} data-zip={zip ? "" : undefined}>
-            <div className={s.pills} aria-hidden={zip || undefined} inert={zip || undefined}>
+            <div ref={pillsRef} className={s.pills} aria-hidden={zip || undefined} inert={zip || undefined}>
                 {children}
             </div>
             {aside && (
-                <div className={s.aside} aria-hidden={zip || undefined} inert={zip || undefined}>
+                <div ref={asideRef} className={s.aside} aria-hidden={zip || undefined} inert={zip || undefined}>
                     {aside}
                 </div>
             )}

@@ -34,6 +34,7 @@ const ORIGIN: Record<string, [string, string]> = {
     stili: ["Stili", "styles"],
     evidenza: ["In evidenza", "featured"],
     storie: ["Storie", "stories"],
+    prodotti: ["Prodotti", "products"],
     calendario: ["Calendario", "scheduling?vista=calendario"]
 };
 

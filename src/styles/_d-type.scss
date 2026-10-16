@@ -79,7 +79,10 @@ $d-type: (
   tile-title: (family: display, size: 17px, weight: 700, tracking: -0.01em),
   tile-kind: (size: 11.5px, weight: 700),
   az-sub: (size: 11.5px, weight: 500),
-  az-logo: (family: display, size: 11px, weight: 700)
+  az-logo: (family: display, size: 11px, weight: 700),
+  // Prodotti: il prezzo nella tabella e i menù come etichette (`.mv-pr .pz`, `.tag`).
+  price: (family: num, size: 13.5px, weight: 700),
+  tag: (size: 11.5px, weight: 600)
 );
 
 @mixin d-type($role) {

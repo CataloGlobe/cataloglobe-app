@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LOOK_D } from "@/styles/lookD";
 import { usePageHeader } from "@/context/usePageHeader";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
@@ -33,6 +32,20 @@ import { ProductRowMeta, ProductPriceCell, ProductMenusCell } from "./components
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./components/productImageFraming";
 import { describeFormats, describeMenus, describePrice } from "./productRowSummary";
 import styles from "./Products.module.scss";
+import { LOOK_D } from "@/styles/lookD";
+import { Chip } from "@/components/ui/Chip/Chip";
+import { FilterFitSection } from "@/components/ui/FilterFit/FilterFit";
+import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
+import { Select } from "@/components/ui/Select/Select";
+import { VetrinaHead } from "../Vetrina/VetrinaHead";
+import { VetrinaCrea } from "../Vetrina/VetrinaCrea";
+import { VetrinaNone } from "../Vetrina/VetrinaCard";
+import { ProdottiTabella, type ProdottoRiga } from "../Vetrina/ProdottiTabella";
+import { PRODOTTI_SORT, prodottiLead, sortProdotti, type ProdottiSort } from "../Vetrina/prodottiModel";
+import { useCompactHead } from "../Vetrina/useCompactHead";
+import vs from "../Vetrina/Vetrina.module.scss";
+import { getProductGroups, listProductGroupLinks, type ProductGroup } from "@/services/supabase/productGroups";
+import { listCatalogs } from "@/services/supabase/catalogs";
 
 import {
     listBaseProductsWithVariants,
@@ -478,7 +491,54 @@ export default function Products() {
         [activeTab, visibleTabs, handleTabChange, collectionSearch, viewMode, handleViewChange, ctaAction]
     );
 
-    usePageHeader({ leading, actions: headerActions, compact: headerCompact });
+    // Nella D i comandi dei prodotti stanno nella pagina, sotto la frase;
+    // Gruppi e Ingredienti restano come oggi.
+    const dProducts = LOOK_D && activeTab === "products";
+    usePageHeader({
+        leading,
+        actions: dProducts ? undefined : headerActions,
+        compact: dProducts ? undefined : headerCompact
+    });
+
+    // ── D (Visual Redesign 2, `pPrd`): gruppi, menù per nome, frase, ordine ──
+    const [dGroups, setDGroups] = useState<ProductGroup[]>([]);
+    const [dGroupOf, setDGroupOf] = useState<Record<string, string[]>>({});
+    const [dCatalogNames, setDCatalogNames] = useState<Record<string, string>>({});
+    // gruppi, legami e menù: finché non arrivano la tabella aspetta, se non arrivano lo dice
+    const [dMeta, setDMeta] = useState<"loading" | "ok" | "error">("loading");
+    const [dTry, setDTry] = useState(0);
+    const [groupFilter, setGroupFilter] = useState("");
+    const [sortD, setSortD] = useState<ProdottiSort>("gruppo");
+    const { compact, setTop } = useCompactHead();
+    // Si rilegge entrando nella scheda Prodotti (i gruppi si cambiano nella loro scheda)
+    // e dopo un cambio fatto da qui, non a ogni ricarica dei prodotti.
+    const onProductsTab = activeTab === "products";
+    useEffect(() => {
+        if (!LOOK_D || !currentTenantId || !onProductsTab) return;
+        let alive = true;
+        // La frase, il gruppo e i nomi dei menù: senza, ogni riga direbbe «Senza gruppo» e «In nessun menù».
+        Promise.all([getProductGroups(currentTenantId), listProductGroupLinks(currentTenantId), listCatalogs(currentTenantId)])
+            .then(([groups, links, catalogs]) => {
+                if (!alive) return;
+                const of: Record<string, string[]> = {};
+                for (const l of links) (of[l.product_id] ??= []).push(l.group_id);
+                setDGroups(groups);
+                setDGroupOf(of);
+                setDCatalogNames(Object.fromEntries(catalogs.map(c => [c.id, c.name])));
+                setDMeta("ok");
+            })
+            // dopo la prima lettura buona, una ricarica fallita lascia i dati di prima
+            .catch(() => alive && setDMeta(m => (m === "ok" ? "ok" : "error")));
+        return () => {
+            alive = false;
+        };
+    }, [currentTenantId, onProductsTab, dTry]);
+    // creare, duplicare o eliminare cambia anche gruppi e menù dei prodotti
+    const reloadAfterChange = useCallback(() => {
+        void loadData();
+        if (LOOK_D) setDTry(n => n + 1);
+    }, [loadData]);
+
 
     const handleCreateVariant = (baseProduct: V2Product) => {
         if (!ensureActive()) return;
@@ -501,7 +561,7 @@ export default function Products() {
         try {
             await duplicateProduct(product.id, currentTenantId!);
             showToast({ message: "Prodotto duplicato con successo.", type: "success" });
-            loadData();
+            reloadAfterChange();
         } catch {
             showToast({ message: "Errore durante la duplicazione del prodotto.", type: "error" });
         }
@@ -516,7 +576,7 @@ export default function Products() {
     const productPluralLower = verticalConfig.productLabelPlural.toLowerCase();
     const bulk = useBulkDelete({
         deleteOne: id => deleteProduct(id, currentTenantId!),
-        onDone: loadData,
+        onDone: reloadAfterChange,
         nouns: { one: productLower, many: productPluralLower, deletedOne: "eliminato", deletedMany: "eliminati" }
     });
 
@@ -570,6 +630,45 @@ export default function Products() {
             ]}
         />
     );
+
+    // Le righe della tabella D: i prodotti base, con il loro primo gruppo e i menù per nome.
+    const groupRankOf = new Map(dGroups.map((g, i) => [g.id, i]));
+    const groupNameOf = new Map(dGroups.map(g => [g.id, g.name]));
+    const firstGroup = (productId: string) =>
+        (dGroupOf[productId] ?? []).filter(id => groupRankOf.has(id)).sort((a, b) => groupRankOf.get(a)! - groupRankOf.get(b)!)[0];
+    const dRows: ProdottoRiga[] = !LOOK_D
+        ? []
+        : sortProdotti(
+              filteredProducts
+                  .filter(product => !groupFilter || (dGroupOf[product.id] ?? []).includes(groupFilter))
+                  .map(product => {
+                      const meta = productMetadata[product.id] ?? EMPTY_PRODUCT_METADATA;
+                      const price = describePrice(product, meta);
+                      const missing = getProductIssues(factsFor(product)).missingPrice || price.kind === "none";
+                      const group = firstGroup(product.id);
+                      return {
+                          id: product.id,
+                          to: productUrl(product.id),
+                          name: product.name,
+                          group: group ? groupNameOf.get(group)! : null,
+                          groupRank: group ? groupRankOf.get(group)! : dGroups.length,
+                          price: missing ? null : (meta.fromPrice ?? product.base_price),
+                          priceText: !missing && price.kind === "price" ? price.text : null,
+                          menus: (meta.catalogIds ?? []).map(id => dCatalogNames[id]).filter((n): n is string => !!n),
+                          createdAt: product.created_at,
+                          actions: canWriteProduct ? rowActions(product, "base") : undefined
+                      };
+                  }),
+              sortD
+          );
+    const dGroupsUsed = new Set(Object.values(dGroupOf).flat()).size;
+    const clearD = () => {
+        setSearchQuery("");
+        setIssueFilter("all");
+        setGroupFilter("");
+    };
+    const groupOptions = [{ value: "", label: "Tutti i gruppi" }, ...dGroups.map(g => ({ value: g.id, label: g.name }))];
+    const noneLabel = `In nessun ${verticalConfig.catalogLabel.toLowerCase()}`;
 
     // Una colonna sola a due righe (§50.9/1): nome con i badge, poi «prezzo ·
     // in N {menù}». Il prezzo non ha più una colonna sua: a 375 la colonna
@@ -657,6 +756,114 @@ export default function Products() {
         <section className={styles.container}>
             {activeTab === "products" && (
                 <>
+                    {dProducts ? (
+                        <div className={vs.page}>
+                            {allProducts.length > 0 && (
+                                <VetrinaHead<IssueFilter, ProdottiSort>
+                                    family="price"
+                                    lead={prodottiLead(
+                                        allProducts.length,
+                                        dGroupsUsed,
+                                        issueCounts.missingPrice,
+                                        productPluralLower,
+                                        verticalConfig.catalogLabel.toLowerCase()
+                                    )}
+                                    filter={issueFilter}
+                                    onFilter={setIssueFilter}
+                                    filterOptions={issueFilterOptions.map(o =>
+                                        o.value === "out-of-catalog" ? { ...o, label: noneLabel, tone: undefined } : o
+                                    )}
+                                    filterAll="all"
+                                    filterMore={groupFilter ? 1 : 0}
+                                    onClear={() => {
+                                        setIssueFilter("all");
+                                        setGroupFilter("");
+                                    }}
+                                    aside={
+                                        dGroups.length > 0 && (
+                                            <Select
+                                                aria-label="Gruppo"
+                                                containerClassName={vs.groupBox}
+                                                selectClassName={vs.group}
+                                                value={groupFilter}
+                                                onChange={e => setGroupFilter(e.target.value)}
+                                                options={groupOptions}
+                                            />
+                                        )
+                                    }
+                                    panelExtra={
+                                        dGroups.length > 0 && (
+                                            <FilterFitSection title="Gruppo">
+                                                {groupOptions.map(g => (
+                                                    <Chip
+                                                        key={g.value}
+                                                        label={g.label}
+                                                        selected={groupFilter === g.value}
+                                                        onClick={() => setGroupFilter(g.value)}
+                                                    />
+                                                ))}
+                                            </FilterFitSection>
+                                        )
+                                    }
+                                    sort={sortD}
+                                    sortOptions={PRODOTTI_SORT}
+                                    onSort={setSortD}
+                                    query={searchQuery}
+                                    onQuery={setSearchQuery}
+                                    placeholder={`Cerca ${productPluralLower}`}
+                                    crea={<VetrinaCrea da="prodotti" disabled={!canEdit} />}
+                                    compact={compact}
+                                    setTop={setTop}
+                                />
+                            )}
+                            {loadError || dMeta === "error" ? (
+                                <EmptyState
+                                    icon={<Package size={40} strokeWidth={1.5} />}
+                                    title={`Non è stato possibile caricare i ${productPluralLower}`}
+                                    description="Controlla la connessione e riprova."
+                                    action={
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => {
+                                                if (loadError) void loadData();
+                                                if (dMeta === "error") {
+                                                    setDMeta("loading");
+                                                    setDTry(n => n + 1);
+                                                }
+                                            }}
+                                        >
+                                            Riprova
+                                        </Button>
+                                    }
+                                />
+                            ) : isLoading || dMeta === "loading" ? (
+                                <LoadingState />
+                            ) : allProducts.length === 0 ? (
+                                <EmptyState
+                                    icon={<Package size={40} strokeWidth={1.5} />}
+                                    title={`Crei un ${productLower} una volta, lo usi in ogni ${verticalConfig.catalogLabel.toLowerCase()}`}
+                                    description="Nome, prezzo, foto, allergeni: li imposti qui e restano aggiornati ovunque compaia."
+                                    action={
+                                        canWriteProduct ? (
+                                            <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit}>
+                                                {`Crea il primo ${productLower}`}
+                                            </Button>
+                                        ) : undefined
+                                    }
+                                />
+                            ) : dRows.length === 0 ? (
+                                <VetrinaNone onClear={clearD} />
+                            ) : (
+                                <ProdottiTabella
+                                    rows={dRows}
+                                    ariaLabel={verticalConfig.productLabelPlural}
+                                    productLabel={verticalConfig.productLabel}
+                                    catalogLabelPlural={verticalConfig.catalogLabelPlural}
+                                    noneLabel={noneLabel}
+                                />
+                            )}
+                        </div>
+                    ) : (
                     <div className={styles.content} data-view-mode={viewMode}>
                         {!isLoading && allProducts.length > 0 && (
                             <ChipGroupSingle<IssueFilter>
@@ -762,13 +969,14 @@ export default function Products() {
                             </CardGrid>
                         )}
                     </div>
+                    )}
 
                     <ProductCreateEditDrawer
                         open={isCreateEditOpen}
                         onClose={() => setIsCreateEditOpen(false)}
                         mode={createEditMode}
                         parentProduct={parentForVariant}
-                        onSuccess={loadData}
+                        onSuccess={reloadAfterChange}
                         tenantId={currentTenantId ?? undefined}
                     />
 
@@ -781,7 +989,7 @@ export default function Products() {
                         open={isDeleteOpen}
                         onClose={() => setIsDeleteOpen(false)}
                         productData={productToDelete}
-                        onSuccess={loadData}
+                        onSuccess={reloadAfterChange}
                     />
                 </>
             )}
