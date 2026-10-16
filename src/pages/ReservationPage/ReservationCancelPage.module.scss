@@ -119,3 +119,43 @@
         color: var(--pub-text);
     }
 }
+
+/* Riquadro «Togli le mie allergie», sotto la card principale. Più piccolo e
+   separato: è un'altra cosa rispetto ad annullare la prenotazione. */
+.allergies {
+    margin-top: 16px;
+    background: var(--pub-surface);
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-radius, 16px);
+    padding: 20px;
+    color: var(--pub-text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+
+    /* `.secondaryCta` nasce per i link: qui è un bottone. */
+    button.secondaryCta {
+        background: none;
+        border: 0;
+        font: inherit;
+        font-size: 14px;
+        cursor: pointer;
+    }
+}
+
+.allergiesTitle {
+    margin: 0;
+    outline: none; /* riceve il focus solo da codice, tra un passo e l'altro */
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--pub-text);
+}
+
+.allergiesText {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--pub-text-secondary);
+}

@@ -5,15 +5,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * Foglio unico del locale nel redesign della pagina pubblica (PR 3): ⋯,
  * Informazioni, Orari e Lingua sono pagine della stessa pila, a spinta.
  * Pagina servita da stub (`publicPageStub.ts`, `venueInfo`), senza login.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/foglio-locale.spec.ts`. Il server di Vite eredita la variabile; se ne
- * gira già uno sulla 5174 senza il flag, Playwright riusa quello e la spec
- * si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 test.beforeEach(async ({ page }) => {
     // Mercoledì a mezzogiorno e mezzo: con gli orari dello stub la sede è aperta.
@@ -21,8 +15,6 @@ test.beforeEach(async ({ page }) => {
     await stubPublicPage(page, { ordering: false, venueInfo: true });
     await page.goto(`/${SLUG}`);
     await page.getByText("Antipasti 1", { exact: true }).waitFor();
-    const island = page.getByRole("button", { name: "Altre opzioni" });
-    test.skip((await island.count()) === 0, "pagina senza redesign (server riusato senza il flag)");
 });
 
 test("⋯ spinge Info e orari e poi gli Orari, Esc torna indietro e il fuoco torna al ⋯", async ({ page }) => {

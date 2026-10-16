@@ -160,7 +160,7 @@ export default function Styles() {
         return leadOf(
             allStyles.map(st => ({ name: st.name, appearance: appearanceOf(index, { kind: "style", id: st.id }) })),
             appearance.activities,
-            { none: "nessuno stile", lead: "Adesso la pagina si veste con" }
+            { none: "nessuno stile", lead: "Adesso la pagina si veste con", one: "Adesso la pagina si veste con" }
         );
     }, [appearance.index, appearance.activities, allStyles]);
     const onAirCounts = {

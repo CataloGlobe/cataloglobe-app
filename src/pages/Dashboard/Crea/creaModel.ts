@@ -126,6 +126,8 @@ export type Edit = {
     ruleId: string | null;
     /** In quante regole del Calendario compare. */
     rules: number;
+    /** La sua regola è la sola di base: spenta, il locale resterebbe senza menù (D238). */
+    base?: boolean;
     /** Aperto dal Calendario: si cambiano solo il dove e il quando, il resto si modifica dalla sua pagina. */
     cal?: boolean;
     /** Dal Calendario, da «Aggiungi»: una cosa che c'è già e non ha ancora la sua voce. */
@@ -692,10 +694,10 @@ export function stepFrom(t: Tunnel, c: Ctx, i: number, dir: 1 | -1): number {
 }
 
 /** Mette in piedi la modifica: `t` è la cosa com'è oggi, letta dal database. */
-export function asEdit(t: Tunnel, id: string, rule: { id: string | null; count: number; live: boolean }): Tunnel {
+export function asEdit(t: Tunnel, id: string, rule: { id: string | null; count: number; live: boolean; base?: boolean }): Tunnel {
     // in modifica «L'ordine» parte da quello salvato di ogni sede: «Ogni sede tiene il suo ordine»
     const orig: Tunnel = { ...t, i: 0, seen: 0, edit: null, onda: rule.live ? "on" : "off", ...(t.kind === "evid" ? { ordSame: false } : {}) };
-    return { ...structuredClone(orig), seen: 99, edit: { id, picked: [], orig, ruleId: rule.id, rules: rule.count } };
+    return { ...structuredClone(orig), seen: 99, edit: { id, picked: [], orig, ruleId: rule.id, rules: rule.count, ...(rule.base ? { base: true } : {}) } };
 }
 
 /**
@@ -707,7 +709,7 @@ export function rebase(t: Tunnel, fresh: Tunnel): Tunnel {
     if (!t.edit || !fresh.edit) return t;
     const sections = structuredClone(t.sections);
     adopt(sections, fresh.edit.orig.sections);
-    return { ...t, sections, edit: { ...t.edit, orig: fresh.edit.orig, ruleId: fresh.edit.ruleId, rules: fresh.edit.rules } };
+    return { ...t, sections, edit: { ...t.edit, orig: fresh.edit.orig, ruleId: fresh.edit.ruleId, rules: fresh.edit.rules, base: fresh.edit.base } };
 }
 
 /** Il clic sulla riga: lo stesso tunnel, già dentro al primo passo, senza niente di scelto. */

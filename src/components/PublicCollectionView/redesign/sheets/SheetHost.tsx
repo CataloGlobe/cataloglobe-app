@@ -6,6 +6,7 @@ import {
     useRef,
     useState,
     useSyncExternalStore,
+    type CSSProperties,
     type PointerEvent as ReactPointerEvent,
     type ReactNode,
     type RefObject
@@ -227,6 +228,8 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
     }, []);
 
     const index = Math.max(0, shown.length - 1);
+    // Pagine sulla pista: quelle in pila più quella che esce con «‹».
+    const pageCount = shown.length + leaving.length;
     const activePage = shown[index];
     const parentPage = index > 0 ? shown[index - 1] : undefined;
 
@@ -382,13 +385,13 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
             duration
         );
         const fading = play(backdrop, [{ opacity: backdropOpacity(backdrop) }, { opacity: 0 }], duration);
-        // Chiusura da ×, Esc o velo: la pagina sotto si sblocca nello stesso frame
-        // (vedi startAfterHeavyFrame). Dopo un trascinamento no: il foglio deve
-        // seguire il dito senza fermarsi.
-        const stopWaiting =
-            exiting && offset === 0 && velocity === 0
-                ? startAfterHeavyFrame([exiting, fading].filter((a): a is Animation => !!a))
-                : undefined;
+        // La pagina sotto si sblocca nello stesso frame (vedi startAfterHeavyFrame):
+        // vale anche dopo un trascinamento. Partendo subito, su iPhone il foglio
+        // lasciato dal dito spariva senza la corsa; fermo al primo fotogramma resta
+        // dove il dito l'ha lasciato per quei due frame e poi scende.
+        const stopWaiting = exiting
+            ? startAfterHeavyFrame([exiting, fading].filter((a): a is Animation => !!a))
+            : undefined;
         if (!exiting) {
             finish();
         } else {
@@ -436,8 +439,8 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
     useLayoutEffect(() => {
         const track = trackRef.current;
         if (!present || !track) return;
-        const from = trackOffsetPercent(prevIndex.current);
-        const to = trackOffsetPercent(index);
+        const from = trackOffsetPercent(prevIndex.current, pageCount);
+        const to = trackOffsetPercent(index, pageCount);
         track.style.transform = `translateX(${to}%)`;
         if (from !== to && (state.move === "push" || state.move === "pop")) {
             animateHeight.current = true;
@@ -477,7 +480,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
             }
         }
         prevIndex.current = index;
-    }, [present, index, state.move, play, clearLeaving]);
+    }, [present, index, pageCount, state.move, play, clearLeaving]);
 
     // Altezza: segue il contenuto della pagina attiva (ResizeObserver); nella
     // spinta passa da un'altezza all'altra in animazione, altrimenti si imposta.
@@ -556,7 +559,8 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
 
     // ── Trascinamento per chiudere (solo mobile, maniglia e testata) ─────────
     const onDragStart = (event: ReactPointerEvent<HTMLElement>) => {
-        if (!env.current.isMobile || (event.target as HTMLElement).closest("button, input, textarea, select, a")) return;
+        // Foglio già in uscita: riprenderlo annullerebbe la corsa e resterebbe a schermo.
+        if (!isOpen || !env.current.isMobile || (event.target as HTMLElement).closest("button, input, textarea, select, a")) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         cancelAnimations();
         drag.current = {
@@ -697,7 +701,7 @@ export default function SheetHost({ renderPage, renderFooter, renderHeader, rend
                     )}
                 </div>
                 <div ref={viewportRef} className={styles.viewport}>
-                    <div ref={trackRef} className={styles.track}>
+                    <div ref={trackRef} className={styles.track} style={{ "--pages": pageCount } as CSSProperties}>
                         {[...shown, ...leaving].map((page, i) => (
                             <div
                                 key={page.key}

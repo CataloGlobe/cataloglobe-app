@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { createStripeClient, reactivateStripeSubIfScheduled } from "../_shared/stripe-helpers.ts";
 import { withAppCors } from "../_shared/cors.ts";
 
@@ -163,6 +163,19 @@ async function handle(req: Request): Promise<Response> {
         }
 
         console.log(`restore-tenant: Tenant ${tenantId} restored by user ${userId}`);
+
+        // Avviso ai membri (motore notifiche). Mai bloccante.
+        try {
+            const { error: notifyError } = await supabaseAdmin.rpc("notify_tenant_restored", {
+                p_tenant_id: tenantId,
+                p_actor: userId
+            });
+            if (notifyError) {
+                console.error("restore-tenant: notify failed:", notifyError.message);
+            }
+        } catch (notifyErr) {
+            console.error("restore-tenant: notify threw:", notifyErr);
+        }
 
         supabaseAdmin
             .from("audit_logs")

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { deleteStripeCustomer, stripeClientOptions } from "../_shared/stripe-helpers.ts";
 import {

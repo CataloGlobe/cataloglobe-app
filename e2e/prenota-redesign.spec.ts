@@ -7,13 +7,9 @@ import { SLUG, featured, stubPublicPage } from "./publicPageStub";
  * persone con − e +, orari a vista per fascia; giorno già scelto, ora mai; il
  * pulsante del primo passo porta il riepilogo; le note nel Riepilogo. Pagina servita da stub, orologio fisso (mercoledì
  * 14/10/2026 12:30), `reservation-availability` e `submit-reservation` finti.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/prenota-redesign.spec.ts`.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 type Submitted = Record<string, unknown>;
 

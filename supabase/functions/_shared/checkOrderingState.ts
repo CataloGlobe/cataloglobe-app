@@ -23,7 +23,7 @@
 // Caller decide se mostrare catalog read-only (ordering_disabled /
 // table_maintenance) o full-page error (gli altri reason).
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 
 export type OrderingStateReason =
     | "subscription_inactive"

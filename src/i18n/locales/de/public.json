@@ -447,7 +447,19 @@
         "video_play": "Video ansehen",
         "video_play_aria": "Story-Video abspielen",
         "discover_label": "Geschichte entdecken",
-        "image_alt_fallback": "Bild der Geschichte"
+        "image_alt_fallback": "Bild der Geschichte",
+        "count_one": "{{count}} Geschichte",
+        "count_other": "{{count}} Geschichten",
+        "read_more": "Weiterlesen",
+        "read_less": "Weniger anzeigen",
+        "reading_time_one": "{{count}} Min. Lesezeit",
+        "reading_time_other": "{{count}} Min. Lesezeit",
+        "try_with": "Dazu probieren",
+        "error_title": "Die Geschichten können nicht geladen werden",
+        "error_body": "Prüfe die Verbindung und versuche es erneut: Die Speisekarte bleibt verfügbar.",
+        "loading_aria": "Geschichten werden geladen",
+        "back_aria": "Zurück zur Geschichte",
+        "cap_aria": "Über das Lokal"
     },
     "reviews": {
         "rating_labels": {
@@ -619,7 +631,15 @@
             "closed_call": "Rufen Sie den Standort an, um zu stornieren.",
             "closed_contact": "Kontaktieren Sie den Standort direkt, um zu stornieren.",
             "not_cancellable_title": "Reservierung nicht stornierbar",
-            "not_cancellable_text": "Diese Reservierung kann hier nicht storniert werden."
+            "not_cancellable_text": "Diese Reservierung kann hier nicht storniert werden.",
+            "allergies_title": "Allergien",
+            "allergies_text": "Du hast für diese Reservierung Allergien angegeben. Wenn das Lokal sie nicht mehr sehen soll, kannst du sie entfernen.",
+            "allergies_button": "Meine Allergien entfernen",
+            "allergies_confirm_text": "Deine Allergien werden gelöscht und das Lokal sieht sie nicht mehr. Das kann nicht rückgängig gemacht werden.",
+            "allergies_confirm_button": "Ja, Allergien entfernen",
+            "allergies_removing": "Wird entfernt…",
+            "allergies_keep_button": "Nein, behalten",
+            "allergies_removed": "Allergien entfernt. Das Lokal sieht sie nicht mehr."
         },
         "confirm": {
             "doc_title": "{{brand}} · Reservierung bestätigen",
@@ -685,6 +705,7 @@
         "order_note_aria": "Hinweise für die Küche, für die ganze Bestellung",
         "order_title": "Bestellung {{number}}",
         "sent_ok": "An die Küche gesendet",
+        "cancelled_title": "Bestellung storniert",
         "sent_summary_one": "{{count}} Gericht · {{total}}",
         "sent_summary_other": "{{count}} Gerichte · {{total}}",
         "add_more": "Mehr hinzufügen",

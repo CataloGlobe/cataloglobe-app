@@ -173,8 +173,13 @@ function FilterPanel({ active, onClear, children }: { active: number; onClear?: 
             const t = ev.target as Node;
             if (popRef.current?.contains(t) || btnRef.current?.contains(t)) return;
             setOpen(false);
-            // il fuoco torna al pulsante; se il clic cade su un altro comando, il fuoco va lì
-            btnRef.current?.focus({ preventScroll: true });
+            // il fuoco torna al pulsante dopo il clic: se cade su un altro comando il fuoco
+            // resta lì, se cade dove il fuoco non va (il velo del foglio) il browser lo
+            // porterebbe su `body`
+            requestAnimationFrame(() => {
+                const a = document.activeElement;
+                if (!a || a === document.body) btnRef.current?.focus({ preventScroll: true });
+            });
         };
         const esc = (ev: KeyboardEvent) => {
             if (ev.key !== "Escape") return;
@@ -288,8 +293,14 @@ function SortMenu<T extends string>({ sort, icon, short }: { sort: FilterFitSort
  * da icona il nome lo dice il Tooltip, che si aggancia allo stesso pulsante.
  */
 function SortTrigger({ tip, ...props }: ComponentProps<"button"> & { tip: boolean }) {
-    const btn = <button {...props} />;
-    return tip ? <Tooltip content="Ordina">{btn}</Tooltip> : btn;
+    // il Tooltip c'è sempre, spento quando il nome si legge: il pulsante non
+    // rinasce e il fuoco che Radix gli restituisce non si perde
+    const [open, setOpen] = useState(false);
+    return (
+        <Tooltip content="Ordina" open={tip && open} onOpenChange={setOpen}>
+            <button {...props} />
+        </Tooltip>
+    );
 }
 
 /** Un gruppo in più nel pannello «Mostra solo», col suo titolo (es. «Passati da»). */

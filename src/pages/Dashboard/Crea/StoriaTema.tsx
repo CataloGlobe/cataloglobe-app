@@ -15,7 +15,7 @@ const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 /** Un menù in onda che contiene il prodotto: la storia si vede lì, nelle sue sedi e ore. */
 export type OnAir = { menu: string; where: CalWhere; when: CalWhen };
 
-export function StoriaTema({ t, u, L, pick, menusOf, sedi, business }: { t: Tunnel; u: U; L: DraftLookups; pick: readonly PickProduct[]; menusOf: ReadonlyMap<string, string[]>; sedi: readonly { id: string; name: string }[]; business: string }) {
+export function StoriaTema({ t, u, L, pick, menusOf, menusReady, sedi, business }: { t: Tunnel; u: U; L: DraftLookups; pick: readonly PickProduct[]; menusOf: ReadonlyMap<string, string[]>; menusReady: boolean; sedi: readonly { id: string; name: string }[]; business: string }) {
     const [find, setFind] = useState("");
     const fid = useId();
     const f = norm(find.trim());
@@ -43,8 +43,8 @@ export function StoriaTema({ t, u, L, pick, menusOf, sedi, business }: { t: Tunn
                                     <span className={cx(s.box, s.radio, on && s.on)} />
                                     <span className={s.lpn}>{p.name}</span>
                                     <span className={s.sub}>
-                                        {ms.length ? ms.join(", ") : "In nessun menù"}
-                                        {p.listPrice != null && ` · ${euro(p.listPrice)}`}
+                                        {/* finché i menù non sono arrivati, niente «In nessun menù» */}
+                                        {[ms.length ? ms.join(", ") : menusReady ? "In nessun menù" : null, p.listPrice != null ? euro(p.listPrice) : null].filter(Boolean).join(" · ")}
                                     </span>
                                 </button>
                             );

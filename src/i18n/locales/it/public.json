@@ -446,7 +446,19 @@
         "video_play": "Guarda il video",
         "video_play_aria": "Riproduci il video della storia",
         "discover_label": "Scopri la storia",
-        "image_alt_fallback": "Immagine della storia"
+        "image_alt_fallback": "Immagine della storia",
+        "count_one": "{{count}} storia",
+        "count_other": "{{count}} storie",
+        "read_more": "Continua a leggere",
+        "read_less": "Mostra meno",
+        "reading_time_one": "{{count}} min di lettura",
+        "reading_time_other": "{{count}} min di lettura",
+        "try_with": "Da provare con questa storia",
+        "error_title": "Non riusciamo a caricare le storie",
+        "error_body": "Controlla la connessione e riprova: il menu resta disponibile.",
+        "loading_aria": "Caricamento delle storie",
+        "back_aria": "Torna alla Storia",
+        "cap_aria": "Il locale"
     },
     "reviews": {
         "rating_labels": {
@@ -618,7 +630,15 @@
             "closed_call": "Chiama il locale per annullare.",
             "closed_contact": "Contatta direttamente il locale per annullare.",
             "not_cancellable_title": "Prenotazione non annullabile",
-            "not_cancellable_text": "Questa prenotazione non può essere annullata da qui."
+            "not_cancellable_text": "Questa prenotazione non può essere annullata da qui.",
+            "allergies_title": "Allergie",
+            "allergies_text": "Per questa prenotazione hai indicato delle allergie. Se non vuoi più che il locale le veda, puoi toglierle.",
+            "allergies_button": "Togli le mie allergie",
+            "allergies_confirm_text": "Le allergie verranno cancellate e il locale non le vedrà più. Non si possono recuperare.",
+            "allergies_confirm_button": "Sì, togli le allergie",
+            "allergies_removing": "Rimozione in corso…",
+            "allergies_keep_button": "No, lasciale",
+            "allergies_removed": "Allergie tolte. Il locale non le vede più."
         },
         "confirm": {
             "doc_title": "{{brand}} · Conferma la presenza",
@@ -684,6 +704,7 @@
         "order_note_aria": "Note per la cucina, per tutto l'ordine",
         "order_title": "Ordine {{number}}",
         "sent_ok": "Inviato alla cucina",
+        "cancelled_title": "Ordine annullato",
         "sent_summary_one": "{{count}} piatto · {{total}}",
         "sent_summary_other": "{{count}} piatti · {{total}}",
         "add_more": "Aggiungi altro",

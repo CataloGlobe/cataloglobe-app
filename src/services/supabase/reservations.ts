@@ -568,10 +568,19 @@ export interface ReservationCancellationSummary {
     cutoff_minutes: number;
     /** Popolato solo quando `can_cancel` è false E la sede pubblica il numero. */
     venue_phone: string | null;
+    /** Se la prenotazione ha allergie. Il testo non arriva mai al cliente. */
+    has_allergies: boolean;
 }
 
 export interface ReadReservationCancellationResult {
     success: true;
+    reservation: ReservationCancellationSummary;
+}
+
+export interface RemoveReservationAllergiesResult {
+    success: true;
+    /** true quando non c'erano allergie da togliere: esito idempotente, non errore. */
+    already_removed: boolean;
     reservation: ReservationCancellationSummary;
 }
 
@@ -624,9 +633,28 @@ export async function cancelReservationByCustomer(
     return await invokeReservationCancellation<CancelReservationByCustomerResult>(token, "cancel");
 }
 
+/**
+ * Toglie le allergie della prenotazione dal link firmato: è il ritiro del
+ * consenso (art. 7(3) GDPR). Vale in ogni stato e a ogni ora, anche dopo il
+ * limite per annullare.
+ *
+ * Errori (`.code` su Error):
+ *   INVALID_LINK  → 404, come sopra
+ *   RATE_LIMITED  → 429
+ *   SERVER_ERROR  → 500 / rete / fallback
+ */
+export async function removeReservationAllergies(
+    token: string
+): Promise<RemoveReservationAllergiesResult> {
+    return await invokeReservationCancellation<RemoveReservationAllergiesResult>(
+        token,
+        "remove_allergies"
+    );
+}
+
 async function invokeReservationCancellation<T>(
     token: string,
-    action: "read" | "cancel"
+    action: "read" | "cancel" | "remove_allergies"
 ): Promise<T> {
     const { data, error } = await supabase.functions.invoke<T>("cancel-reservation-public", {
         body: { token, action }

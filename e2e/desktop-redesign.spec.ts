@@ -12,13 +12,9 @@ const box = async (locator: Locator) => {
  * Isola desktop del redesign (spec §13, mockup v38): estesa su due righe, col
  * campo di ricerca e «Filtri» nella prima e le sole categorie nella seconda;
  * scorrendo una riga sola con la lente. La Storia si apre dal ⋯.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/desktop-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ viewport: { width: 1440, height: 900 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 test.beforeEach(async ({ page }) => {
     await stubPublicPage(page, { ordering: false, allergens: true, venueInfo: true, story: true });

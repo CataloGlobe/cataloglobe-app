@@ -1,10 +1,11 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { Resend } from "npm:resend@4";
 import { COMPANY } from "../_shared/company-config.ts";
 import { formatDateIt, formatTimeIt } from "../_shared/emailFormat.ts";
 import { buildReservationsDashboardUrl } from "../_shared/publicSiteUrl.ts";
 import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts";
+import { notify } from "../_shared/notify.ts";
 import { buildReservationCancelledByCustomerEmail } from "../_shared/reservationEmails.ts";
 import {
     checkRateLimit,
@@ -29,19 +30,30 @@ import { ACTION_EXPECTS, ACTION_TO_STATUS } from "../_shared/reservationTransiti
 // anon RLS policy on `reservations` and there must not be one, so that what a
 // customer may do lives in exactly one place.
 //
-// ── One function, two actions ───────────────────────────────────────────────
-// `{ token, action: "read" | "cancel" }`. Two separate functions were the
+// ── One function, three actions ─────────────────────────────────────────────
+// `{ token, action: "read" | "cancel" | "remove_allergies" }`. Two separate
+// functions for read and cancel were the
 // alternative and were rejected: read and cancel share the whole preamble —
 // token verification, row fetch, activity resolution, cutoff evaluation — and
 // the only difference is the final UPDATE. Splitting them would duplicate the
 // cutoff computation across two deployables, and the cutoff is precisely the
 // check that must never drift between the page and the write.
 //
+// ── Ritiro del consenso alle allergie ───────────────────────────────────────
+// `remove_allergies` azzera le allergie della prenotazione: l'art. 7(3) GDPR
+// vuole che ritirare il consenso sia facile quanto darlo, e il cliente lo ha
+// dato senza scrivere a nessuno. Vale in ogni stato e a ogni ora, anche dopo
+// la cena: non c'è finestra per ritirare un consenso. Ora e versione del
+// consenso restano, come nella purge: dicono che il consenso c'è stato, non
+// cosa diceva. Anche l'annullamento azzera le allergie: senza prenotazione il
+// locale non ne ha più bisogno.
+//
 // ── read never writes ───────────────────────────────────────────────────────
 // Email clients pre-fetch links to build previews, so a `read` MUST be
 // side-effect free on the reservation: no counter, no last-seen timestamp,
-// nothing. The single UPDATE in this file lives after `action === "cancel"`,
-// and a test asserts there is exactly one and that it sits after that branch.
+// nothing. The two UPDATEs in this file live after the `read` return, one in
+// the `remove_allergies` branch and one in the `cancel` branch, and a test
+// asserts exactly that.
 // (The one write a `read` does cause is the shared rate-limit bucket, which
 // counts requests rather than reservation state. Its limits are set high
 // enough that a preview fetch cannot lock the real diner out.)
@@ -53,7 +65,7 @@ import { ACTION_EXPECTS, ACTION_TO_STATUS } from "../_shared/reservationTransiti
 // =============================================================================
 
 // Generous on read (mail previews, refreshes, someone re-opening the link),
-// tight on cancel (a diner cancels a given booking once).
+// tight on cancel and remove_allergies (each happens once per booking).
 const RATE_LIMIT_READ_PER_TOKEN = 20;
 const RATE_LIMIT_READ_WINDOW_SECONDS = 60;
 const RATE_LIMIT_CANCEL_PER_TOKEN = 5;
@@ -215,77 +227,39 @@ async function notifyVenueOfCancellation(
         console.error("[cancel-reservation-public] venue email step failed:", mailErr);
     }
 
-    // Notifica in-app: stessa risoluzione destinatari di submit-reservation.
+    // Notifica in-app dal motore (`_shared/notify.ts`): stessi destinatari di
+    // submit-reservation (`reservations.manage` sulla sede). Tipo `warning`
+    // nel catalogo: un tavolo che si libera durante il servizio è qualcosa su
+    // cui la sala deve agire, non una riga da leggere con calma.
     try {
-        const { data: recipientIds, error: rpcError } = await supabase.rpc(
-            "get_users_with_activity_permission",
-            { p_permission_id: "reservations.manage", p_activity_id: activity.id }
+        await notify(
+            supabase,
+            {
+                eventType: "reservation.cancelled_by_customer",
+                recipients: {
+                    activityPermission: {
+                        permission: "reservations.manage",
+                        activityId: activity.id
+                    }
+                },
+                tenantId: activity.tenant_id,
+                data: {
+                    reservation_id: reservationId,
+                    activity_id: activity.id,
+                    activity_name: activity.name,
+                    customer_name: customerName,
+                    reservation_date: reservationDate,
+                    reservation_time: reservationTime,
+                    party_size: partySize,
+                    cancelled_by: "customer",
+                    date_label: formatDateIt(reservationDate),
+                    time_label: formatTimeIt(reservationTime)
+                }
+            },
+            `[cancel-reservation-public] reservation_id=${reservationId}`
         );
-
-        if (rpcError) {
-            console.error(
-                "[cancel-reservation-public] notification recipient lookup failed:",
-                rpcError
-            );
-            return;
-        }
-
-        const userIds: string[] = Array.isArray(recipientIds)
-            ? (recipientIds as unknown[])
-                  .map(v =>
-                      typeof v === "string"
-                          ? v
-                          : v && typeof v === "object" && "user_id" in v
-                              ? String((v as { user_id: unknown }).user_id)
-                              : ""
-                  )
-                  .filter(v => v.length > 0)
-            : [];
-
-        if (userIds.length === 0) {
-            console.log(
-                `[cancel-reservation-public] no notification recipients (reservation_id=${reservationId}, activity_id=${activity.id}).`
-            );
-            return;
-        }
-
-        const dateIt = formatDateIt(reservationDate);
-        const timeIt = formatTimeIt(reservationTime);
-        const rows = userIds.map(uid => ({
-            user_id: uid,
-            tenant_id: activity.tenant_id,
-            event_type: "reservation.cancelled_by_customer",
-            // `warning`, non `info`: un tavolo che si libera durante il
-            // servizio è qualcosa su cui la sala deve agire, non una riga
-            // da leggere con calma.
-            type: "warning",
-            title: "Prenotazione annullata dal cliente",
-            message: `${customerName} · ${dateIt} ${timeIt} · ${partySize} p.`,
-            data: {
-                reservation_id: reservationId,
-                activity_id: activity.id,
-                activity_name: activity.name,
-                customer_name: customerName,
-                reservation_date: reservationDate,
-                reservation_time: reservationTime,
-                party_size: partySize,
-                cancelled_by: "customer"
-            }
-        }));
-
-        const { error: insertNotifError } = await supabase.from("notifications").insert(rows);
-        if (insertNotifError) {
-            console.error(
-                "[cancel-reservation-public] notification fan-out insert failed:",
-                insertNotifError
-            );
-        } else {
-            console.log(
-                `[cancel-reservation-public] notification fan-out (reservation_id=${reservationId}, count=${rows.length}).`
-            );
-        }
     } catch (notifErr) {
-        console.error("[cancel-reservation-public] notification fan-out failed:", notifErr);
+        console.error("[cancel-reservation-public] notification failed:", notifErr);
     }
 }
 
@@ -306,7 +280,14 @@ Deno.serve(async (req: Request) => {
         }
 
         const rawToken = typeof body.token === "string" ? body.token.trim() : "";
-        const action = body.action === "cancel" ? "cancel" : body.action === "read" ? "read" : null;
+        const action =
+            body.action === "cancel"
+                ? "cancel"
+                : body.action === "read"
+                  ? "read"
+                  : body.action === "remove_allergies"
+                    ? "remove_allergies"
+                    : null;
         if (action === null) {
             return errorResponse("INVALID_PAYLOAD", 400, { field: "action" });
         }
@@ -336,11 +317,11 @@ Deno.serve(async (req: Request) => {
             });
             await checkRateLimit(supabase, {
                 key: `cancel-reservation-public:${action}:token:${tokenHash}`,
-                limit: action === "cancel" ? RATE_LIMIT_CANCEL_PER_TOKEN : RATE_LIMIT_READ_PER_TOKEN,
+                limit: action === "read" ? RATE_LIMIT_READ_PER_TOKEN : RATE_LIMIT_CANCEL_PER_TOKEN,
                 windowSeconds:
-                    action === "cancel"
-                        ? RATE_LIMIT_CANCEL_WINDOW_SECONDS
-                        : RATE_LIMIT_READ_WINDOW_SECONDS
+                    action === "read"
+                        ? RATE_LIMIT_READ_WINDOW_SECONDS
+                        : RATE_LIMIT_CANCEL_WINDOW_SECONDS
             });
         } catch (rlErr) {
             if (rlErr instanceof RateLimitExceededError) {
@@ -376,7 +357,7 @@ Deno.serve(async (req: Request) => {
         const { data: reservation, error: selectErr } = await supabase
             .from("reservations")
             .select(
-                "id, status, reservation_date, reservation_time, party_size, customer_name, " +
+                "id, status, reservation_date, reservation_time, party_size, customer_name, allergies, " +
                 "activity:activities!inner(id, tenant_id, name, slug, phone, phone_public, " +
                 "reservation_cancellation_cutoff_minutes, reservation_notification_emails)"
             )
@@ -424,7 +405,9 @@ Deno.serve(async (req: Request) => {
 
         // The summary shown to the diner. Deliberately narrow: no notes (they
         // may carry the venue's internal remarks), no email or phone of the
-        // customer, no tenant_id / activity_id / table_id, no timestamps.
+        // customer, no tenant_id / activity_id / table_id, no timestamps. Of the
+        // allergies only whether there are any: the text is health data, and
+        // whoever finds a forwarded link must not read it.
         const summary = {
             venue_name: activity.name,
             reservation_date: reservation.reservation_date,
@@ -437,11 +420,47 @@ Deno.serve(async (req: Request) => {
             // Only when the diner cannot self-serve: that is the one moment
             // the number is actionable, and it keeps the payload minimal
             // otherwise.
-            venue_phone: canCancel ? null : venuePhone
+            venue_phone: canCancel ? null : venuePhone,
+            has_allergies: typeof reservation.allergies === "string" && reservation.allergies.length > 0
         };
 
         if (action === "read") {
             return jsonResponse({ success: true, reservation: summary }, 200);
+        }
+
+        // ── action === "remove_allergies" ──────────────────────────────
+        if (action === "remove_allergies") {
+            // Niente da togliere: successo idempotente, come un secondo tocco
+            // sul tasto o una pagina riaperta.
+            if (!summary.has_allergies) {
+                return jsonResponse(
+                    { success: true, already_removed: true, reservation: summary },
+                    200
+                );
+            }
+
+            const { error: allergiesErr } = await supabase
+                .from("reservations")
+                .update({ allergies: null })
+                .eq("id", reservationId);
+
+            if (allergiesErr) {
+                console.error("[cancel-reservation-public] remove allergies error:", allergiesErr);
+                return errorResponse("SERVER_ERROR", 500);
+            }
+
+            console.log(
+                `[cancel-reservation-public] allergies removed by customer on reservation ${reservationId}.`
+            );
+
+            return jsonResponse(
+                {
+                    success: true,
+                    already_removed: false,
+                    reservation: { ...summary, has_allergies: false }
+                },
+                200
+            );
         }
 
         // ── action === "cancel" ────────────────────────────────────────
@@ -471,9 +490,11 @@ Deno.serve(async (req: Request) => {
 
         // Compare-and-set on the accepted source states: a venue confirming or
         // declining at the same moment must not be overwritten silently.
+        // Allergie azzerate nella stessa scrittura: senza prenotazione il
+        // locale non ne ha più bisogno.
         const { data: updated, error: updateErr } = await supabase
             .from("reservations")
-            .update({ status: ACTION_TO_STATUS.cancel_by_customer })
+            .update({ status: ACTION_TO_STATUS.cancel_by_customer, allergies: null })
             .eq("id", reservationId)
             .in("status", ACTION_EXPECTS.cancel_by_customer)
             .select("id, status")
@@ -516,7 +537,12 @@ Deno.serve(async (req: Request) => {
                 success: true,
                 status: updated.status,
                 already_cancelled: false,
-                reservation: { ...summary, status: updated.status, can_cancel: false }
+                reservation: {
+                    ...summary,
+                    status: updated.status,
+                    can_cancel: false,
+                    has_allergies: false
+                }
             },
             200
         );

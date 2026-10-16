@@ -18,7 +18,7 @@
 // is REVOKE PUBLIC / GRANT TO service_role, so authenticated / anon callers
 // cannot bypass it.
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 
 export interface CheckRateLimitOptions {
     key: string;

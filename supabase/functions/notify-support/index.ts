@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { sendEmail } from "../_shared/sendEmail.ts";
 import {
     buildSupportCustomerReplyEmail,
@@ -10,6 +10,7 @@ import {
     buildSupportTicketUrl
 } from "../_shared/publicSiteUrl.ts";
 import { appCorsHeaders } from "../_shared/cors.ts";
+import { notify } from "../_shared/notify.ts";
 
 // =============================================================================
 // notify-support
@@ -274,30 +275,25 @@ Deno.serve(async (req: Request) => {
             // and "fix" it by nulling the tenant: a null `tenant_id` means
             // account-level and would move the notification into the workspace
             // bell, away from the company the ticket belongs to.
+            //
+            // Righe scritte dal motore (`_shared/notify.ts`), testo dal
+            // catalogo (`support.reply`); chi ha spento la categoria
+            // «assistenza» in campanella riceve comunque l'email qui sotto.
             if (recipients.length > 0) {
-                const rows = recipients.map(uid => ({
-                    user_id: uid,
-                    tenant_id: ticket.tenant_id,
-                    event_type: "support.reply",
-                    type: "info",
-                    title: "Risposta dal supporto",
-                    message: ticket.subject,
-                    data: {
-                        ticket_id: ticketId,
-                        message_id: message.id,
-                        subject: ticket.subject
-                    }
-                }));
-
-                const { error: insertErr } = await supabaseService
-                    .from("notifications")
-                    .insert(rows);
-
-                if (insertErr) {
-                    console.error("[notify-support] notification insert failed:", insertErr);
-                } else {
-                    inAppSent = rows.length;
-                }
+                inAppSent = await notify(
+                    supabaseService,
+                    {
+                        eventType: "support.reply",
+                        recipients: { users: recipients },
+                        tenantId: ticket.tenant_id,
+                        data: {
+                            ticket_id: ticketId,
+                            message_id: message.id,
+                            subject: ticket.subject
+                        }
+                    },
+                    `[notify-support] ticket_id=${ticketId}`
+                );
             }
 
             // ── Emails ───────────────────────────────────────────────────

@@ -220,10 +220,16 @@ export function Voices({ rows, series, compare, selected, onSelect }: VoicesProp
                         {/* tablet e telefono: solo il numero (Visual Redesign 2, `.vk`) */}
                         <span className={styles.vk}>
                             {comparing ? (
-                                lead && (
+                                lead ? (
                                     <>
                                         <b>{lead.label}</b>
                                         <small>{lead.name} in testa</small>
+                                    </>
+                                ) : (
+                                    // a zero o alla pari: un trattino, la riga non resta vuota
+                                    <>
+                                        <b>—</b>
+                                        <small>nessuno in testa</small>
                                     </>
                                 )
                             ) : (

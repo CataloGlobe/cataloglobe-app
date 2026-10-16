@@ -288,3 +288,16 @@ export type FooterSlotContext = {
 };
 
 export type FooterSlot = (context: FooterSlotContext) => ReactNode;
+
+/** Dati della pagina Storia (spec §15, mockup v38). Il lettore aperto vive in `CollectionView`: la scheda lo apre anche da «La storia». */
+/** Stesse props di `StoryView`: CollectionView le passa uguali all'una o all'altra. */
+export type StorySlotContext = {
+    slug: string;
+    selectedStoryId: string | null;
+    onSelectStory: (storyId: string | null) => void;
+    /** «Da provare con questa storia»: chiude il lettore e apre la scheda nel menu. */
+    onOpenProduct: (productId: string) => void;
+    resolveProduct: (productId: string) => CollectionViewSectionItem | null;
+};
+
+export type StorySlot = (context: StorySlotContext) => ReactNode;

@@ -447,7 +447,19 @@
     "video_play": "Regarder la vidéo",
     "video_play_aria": "Lire la vidéo de l'histoire",
     "discover_label": "Découvrir l'histoire",
-    "image_alt_fallback": "Image de l'histoire"
+    "image_alt_fallback": "Image de l'histoire",
+    "count_one": "{{count}} histoire",
+    "count_other": "{{count}} histoires",
+    "read_more": "Lire la suite",
+    "read_less": "Afficher moins",
+    "reading_time_one": "{{count}} min de lecture",
+    "reading_time_other": "{{count}} min de lecture",
+    "try_with": "À goûter avec cette histoire",
+    "error_title": "Impossible de charger les histoires",
+    "error_body": "Vérifiez la connexion et réessayez : le menu reste disponible.",
+    "loading_aria": "Chargement des histoires",
+    "back_aria": "Retour à l'Histoire",
+    "cap_aria": "L'établissement"
   },
   "reviews": {
     "rating_labels": {
@@ -619,7 +631,15 @@
       "closed_call": "Appelez l'établissement pour annuler.",
       "closed_contact": "Contactez directement l'établissement pour annuler.",
       "not_cancellable_title": "Réservation non annulable",
-      "not_cancellable_text": "Cette réservation ne peut pas être annulée ici."
+      "not_cancellable_text": "Cette réservation ne peut pas être annulée ici.",
+      "allergies_title": "Allergies",
+      "allergies_text": "Vous avez indiqué des allergies pour cette réservation. Si vous ne voulez plus que l'établissement les voie, vous pouvez les retirer.",
+      "allergies_button": "Retirer mes allergies",
+      "allergies_confirm_text": "Vos allergies seront supprimées et l'établissement ne les verra plus. Impossible de revenir en arrière.",
+      "allergies_confirm_button": "Oui, retirer les allergies",
+      "allergies_removing": "Suppression en cours…",
+      "allergies_keep_button": "Non, les garder",
+      "allergies_removed": "Allergies retirées. L'établissement ne les voit plus."
     },
     "confirm": {
       "doc_title": "{{brand}} · Confirmer votre présence",
@@ -685,6 +705,7 @@
     "order_note_aria": "Notes pour la cuisine, pour toute la commande",
     "order_title": "Commande {{number}}",
     "sent_ok": "Envoyée en cuisine",
+    "cancelled_title": "Commande annulée",
     "sent_summary_one": "{{count}} plat · {{total}}",
     "sent_summary_other": "{{count}} plats · {{total}}",
     "add_more": "Ajouter autre chose",

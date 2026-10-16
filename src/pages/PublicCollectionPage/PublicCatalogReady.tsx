@@ -6,10 +6,7 @@ import CollectionView, {
     type CollectionViewSectionGroup,
     type CollectionViewSectionItem
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
-import {
-    PUBLIC_REDESIGN_ENABLED,
-    RedesignCollectionView
-} from "@/components/PublicCollectionView/redesign";
+import { RedesignCollectionView } from "@/components/PublicCollectionView/redesign";
 import type { CatalogViewProps, MenuSource } from "@/components/PublicCollectionView/redesign/menus/menuSource";
 import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
 import LanguageFallbackBanner from "@/components/PublicCollectionView/LanguageFallbackBanner/LanguageFallbackBanner";
@@ -315,12 +312,7 @@ function CollectionViewWithCustomerSession({
     menus: MenuSource;
 }) {
     const { isActive } = useCustomerSession();
-    // Redesign (VITE_PUBLIC_REDESIGN): costante di build, il ramo spento sparisce.
-    return PUBLIC_REDESIGN_ENABLED ? (
-        <RedesignCollectionView {...props} orderingActive={isActive} booking={booking} menus={menus} />
-    ) : (
-        <CollectionView {...props} orderingActive={isActive} />
-    );
+    return <RedesignCollectionView {...props} orderingActive={isActive} booking={booking} menus={menus} />;
 }
 
 /* ===============================================

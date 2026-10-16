@@ -136,24 +136,26 @@ export default function WorkspacePage() {
             );
         };
 
+        // Solo `ownership_received`, mostrata come toast e segnata letta qui.
+        // Le altre restano alla campanella: prima questa query le segnava
+        // lette tutte, e il pallino spariva appena si apriva il Workspace.
         const fetchNotifications = async () => {
             const { data: notifications } = await supabase
                 .from("notifications")
                 .select("*")
+                .eq("event_type", "ownership_received")
                 .is("read_at", null)
                 .order("created_at", { ascending: false });
 
             if (!notifications || notifications.length === 0) return;
 
             notifications.forEach(n => {
-                if (n.event_type === "ownership_received") {
-                    if (shownNotificationIdsRef.current.has(n.id)) return;
-                    shownNotificationIdsRef.current.add(n.id);
-                    showToast({
-                        type: "info",
-                        message: `Sei diventato proprietario di ${(n.data as { tenant_name?: string })?.tenant_name ?? "un tenant"}`
-                    });
-                }
+                if (shownNotificationIdsRef.current.has(n.id)) return;
+                shownNotificationIdsRef.current.add(n.id);
+                showToast({
+                    type: "info",
+                    message: `Sei diventato proprietario di ${(n.data as { tenant_name?: string })?.tenant_name ?? "un tenant"}`
+                });
             });
 
             const ids = notifications.map(n => n.id);
