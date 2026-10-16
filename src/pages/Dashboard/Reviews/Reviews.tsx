@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   useEffect,
   useState,
@@ -145,7 +145,9 @@ export default function Reviews() {
 
   const [period, setPeriod] = usePeriodParam();
   const [filterStars, setFilterStars] = useState<number | null>(null);
-  const [listFilter, setListFilter] = useState<ListFilter>("all");
+  // `?filtro=basse` (dalla Home, «recensioni basse nel periodo») apre già filtrato.
+  const [searchParams] = useSearchParams();
+  const [listFilter, setListFilter] = useState<ListFilter>(() => (searchParams.get("filtro") === "basse" ? "low" : "all"));
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
