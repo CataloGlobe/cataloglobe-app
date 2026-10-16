@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { asRole } from "./asRole";
-import { asSingleSede, currentVoce, menuRows, openInServizio, sedeSwitcher, sidebarLink, sidebarVoci } from "./nav";
+import { asSingleSede, currentVoce, menuRows, openInServizio, sedeSwitcher, sidebarLink, sidebarVoci, sediGriglia } from "./nav";
 
 /**
  * Il contesto di sede (lotto `ds-5-sede-nav`, §46.1): entrando in un locale la
@@ -26,6 +26,11 @@ import { asSingleSede, currentVoce, menuRows, openInServizio, sedeSwitcher, side
 
 // Le parti che dentro una sede portano alle sue rotte (artifact v4).
 const SEDE_VOCI = ["Calendario", "Regole", "In servizio", "Cosa vedono i clienti", "Sala", "Storico", "Andamento", "Recensioni"] as const;
+/** Nella D la Sala è «Sale e tavoli», nella sezione Sede (PR 11a). */
+async function sedeVoci(page: Page): Promise<string[]> {
+    const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
+    return SEDE_VOCI.map(v => (d && v === "Sala" ? "Sale e tavoli" : v));
+}
 
 function nav(page: Page) {
     return page.getByRole("navigation", { name: "Menu principale" });
@@ -34,23 +39,26 @@ function nav(page: Page) {
 /** Gli indirizzi delle sedi della griglia, nell'ordine in cui compaiono. */
 async function locationPaths(page: Page): Promise<string[]> {
     await openBusinessPage(page, "locations", "Sedi");
-    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    await sediGriglia(page);
     const cards = page.getByRole("main").getByRole("list", { name: "Sedi" }).getByRole("listitem");
     await expect(cards.first()).toBeVisible({ timeout: 15_000 });
     const hrefs = await cards.locator("a").evaluateAll(links =>
         links.map(l => (l as HTMLAnchorElement).getAttribute("href") ?? "").filter(h => h.includes("/locations/"))
     );
-    return [...new Set(hrefs.map(h => h.replace(/[?#].*$/, "")))];
+    // Nella D la card porta alla Scheda (`/locations/:id/anagrafica`): si tiene solo la sede.
+    return [...new Set(hrefs.map(h => h.replace(/[?#].*$/, "").replace(/(\/locations\/[0-9a-f-]+).*$/, "$1")))];
 }
 
 /** Apre la prima sede della griglia e ritorna il suo nome. */
 async function openFirstLocation(page: Page): Promise<string> {
     await openBusinessPage(page, "locations", "Sedi");
-    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    await sediGriglia(page);
     const firstCard = page.getByRole("main").getByRole("list", { name: "Sedi" }).getByRole("listitem").first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     const link = firstCard.getByRole("link").first();
-    const name = (await link.innerText()).split("\n")[0].trim();
+    // Nella D la copertina dice lo stato: il nome sta nell'etichetta «Apri la scheda di …».
+    const label = await link.getAttribute("aria-label");
+    const name = label?.startsWith("Apri la scheda di ") ? label.slice("Apri la scheda di ".length) : (await link.innerText()).split("\n")[0].trim();
     await link.click();
     await page.waitForURL(/\/locations\/[0-9a-f-]+/);
     return name;
@@ -63,13 +71,14 @@ test.describe("Contesto di sede", () => {
         await page.goto(`${paths[0]}/anagrafica`);
         // Le voci stanno nelle sezioni: si leggono aprendole.
         await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(fuori);
-        expect(fuori).toEqual(expect.arrayContaining([...SEDE_VOCI]));
+        expect(fuori).toEqual(expect.arrayContaining(await sedeVoci(page)));
     });
 
     test("tutte le voci sono navigabili", async ({ page }) => {
         await openFirstLocation(page);
         // `sidebarVoci` legge solo i link: una voce spenta non ci sarebbe.
-        await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(expect.arrayContaining([...SEDE_VOCI]));
+        const voci = await sedeVoci(page);
+        await expect.poll(() => sidebarVoci(page), { timeout: 15_000 }).toEqual(expect.arrayContaining(voci));
         await expect(nav(page).locator('[aria-disabled="true"]')).toHaveCount(0);
     });
 
@@ -98,7 +107,8 @@ test.describe("Contesto di sede", () => {
         await openFirstLocation(page);
         // Prima l'atterraggio sulla Scheda: il redirect vincerebbe sul clic.
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/anagrafica$/, { timeout: 15_000 });
-        await menuRows(page).getByRole("link", { name: "Sedi", exact: true }).click();
+        // Nella D è «Tutte le sedi», nella sezione Sede (PR 11a).
+        await (await sidebarLink(page, "Sedi")).click();
         await expect(page).toHaveURL(/\/locations$/, { timeout: 15_000 });
         await expect(nav(page).getByRole("link", { name: /^(Panoramica|Home)$/ })).toBeVisible();
     });
@@ -167,7 +177,8 @@ test.describe("Contesto di sede", () => {
             await expect(sidebar.getByRole("link", { name: "Servizio", exact: true })).toHaveAttribute("aria-current", "page", {
                 timeout: 15_000
             });
-            await expect(sidebar.getByRole("link", { name: "Sedi", exact: true })).toBeAttached();
+            // Dalla PR 11a l'ultima sezione è «Sede».
+            await expect(sidebar.getByRole("link", { name: /^(Sedi|Sede)$/ })).toBeAttached();
             await expect(page.getByRole("navigation", { name: /^Parti di/ }).getByRole("link", { name: "In servizio" })).toBeVisible();
             return;
         }
@@ -242,7 +253,8 @@ test.describe("Atterraggio per ruolo", () => {
             await expect(page).toHaveURL(new RegExp(`/locations/${id}/`), { timeout: 15_000 });
             await expectUsableLanding(page, segment);
             // Una sede sola: «Il locale» al posto di Sedi (§51.3).
-            await expect(menuRows(page).getByRole("link", { name: "Il locale", exact: true })).toBeVisible();
+            const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
+            await expect(menuRows(page).getByRole(d ? "button" : "link", { name: "Il locale", exact: true })).toBeVisible();
         });
     }
 });

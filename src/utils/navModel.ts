@@ -8,6 +8,7 @@ import {
 import { passesPlanGate, type PlanFeature, type PlanGate } from "@/lib/planFeatures";
 import { ROUTE_LABELS } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { canSeeServizio, resolveServizioMode } from "@/utils/servizioModes";
+import { LOOK_D } from "@/styles/lookD";
 
 /**
  * Il modello della navigazione (§51). Puro: niente router, niente React,
@@ -105,6 +106,8 @@ export interface NavEntry {
     usable?: (permissions: UserPermissions, hasFeature: HasFeature, activityId: string) => boolean;
     /** Altri segmenti (stesso livello) che tengono accesa la voce: la Scheda, quattro pagine. */
     matchSegments?: string[];
+    /** La parte non si accende con questa query: «In servizio» quando la Sala sta nella Sede (D). */
+    exceptSearch?: string;
     /** `NavLink end`: la voce si accende solo sul suo indirizzo esatto. */
     end?: boolean;
     signal?: NavSignal;
@@ -447,11 +450,31 @@ const IL_LOCALE: NavGroup = { key: "sedi", title: "Il locale", seat: "none", ent
 
 const SECTIONS = [PANORAMICA, CREA, CALENDARIO_SEZIONE, IN_SALA, NUMERI];
 
-export const NAV_MODELS: Record<NavContext, NavModel> = {
-    unica: { groups: [...SECTIONS, IL_LOCALE] },
-    azienda: { groups: [...SECTIONS, SEDI] },
-    sede: { groups: [...SECTIONS, SEDI] }
+// Nella D (Visual Redesign 2, PR 11a; regola di Alex del 14 ottobre) l'ultima
+// sezione è «Sede»: Scheda e Sale e tavoli della sede scelta in alto, poi
+// «Tutte le sedi» con le card. Con una sede sola è «Il locale», senza la
+// terza. La Sala esce da Servizio: si fa una volta, per questo sta qui.
+const SALE_D: NavEntry = { ...SALA, label: "Sale e tavoli" };
+const IN_SALA_D: NavGroup = {
+    ...IN_SALA,
+    entries: [{ ...SERVIZIO, exceptSearch: SALA.search }, COSA_VEDONO, STORICO]
 };
+const TUTTE_D: NavEntry = { ...LOCATIONS, label: "Tutte le sedi", seat: "list", matchSegments: undefined };
+const SEDE_D: NavGroup = { key: "sedi", title: "Sede", seat: "one", entries: [SCHEDA, SALE_D, TUTTE_D] };
+const IL_LOCALE_D: NavGroup = { key: "sedi", title: "Il locale", seat: "none", entries: [SCHEDA, SALE_D] };
+const SECTIONS_D = [PANORAMICA, CREA, CALENDARIO_SEZIONE, IN_SALA_D, NUMERI];
+
+export const NAV_MODELS: Record<NavContext, NavModel> = LOOK_D
+    ? {
+          unica: { groups: [...SECTIONS_D, IL_LOCALE_D] },
+          azienda: { groups: [...SECTIONS_D, SEDE_D] },
+          sede: { groups: [...SECTIONS_D, SEDE_D] }
+      }
+    : {
+          unica: { groups: [...SECTIONS, IL_LOCALE] },
+          azienda: { groups: [...SECTIONS, SEDI] },
+          sede: { groups: [...SECTIONS, SEDI] }
+      };
 
 /**
  * Il menù dell'account, in fondo alla sidebar (Officina, come in Claude):

@@ -28,9 +28,12 @@ type Props<F extends string = OnAirFilter, S extends string = VetrinaSort> = {
     /** Una tendina in più nella riga, pill nel pannello (es. «Tutti i gruppi»). */
     aside?: ReactNode;
     panelExtra?: ReactNode;
-    sort: S;
+    /** Senza, niente «Ordina» (Tutte le sedi). */
+    sort?: S;
     sortOptions?: readonly { value: S; label: string }[];
-    onSort: (v: S) => void;
+    onSort?: (v: S) => void;
+    /** Prima dei filtri: l'interruttore «Sedi · Gruppi di sedi». */
+    before?: ReactNode;
     query: string;
     onQuery: (q: string) => void;
     placeholder: string;
@@ -118,23 +121,30 @@ export function VetrinaHead<F extends string = OnAirFilter, S extends string = V
             <div ref={headRef} className={s.head} data-compact={p.compact ? "" : undefined}>
                 {p.lead && <Lead parts={p.lead} family={p.family} />}
                 <div className={s.bar}>
-                    <div className={s.filters}>
-                        <FilterFit
-                            active={(p.filter !== p.filterAll ? 1 : 0) + (p.filterMore ?? 0)}
-                            onClear={p.onClear ?? (() => p.onFilter(p.filterAll))}
-                            aside={p.aside}
-                            panelExtra={p.panelExtra}
-                            short={p.compact}
-                            sort={{
-                                label: "Ordina",
-                                value: p.sort,
-                                options: p.sortOptions ?? (VETRINA_SORT as unknown as readonly { value: S; label: string }[]),
-                                onChange: p.onSort
-                            }}
-                        >
-                            <ChipGroupSingle<F> ariaLabel="Quali mostrare" layout="auto" value={p.filter} onChange={p.onFilter} options={p.filterOptions} />
-                        </FilterFit>
-                    </div>
+                    {p.before}
+                    {p.filterOptions.length > 0 && (
+                        <div className={s.filters}>
+                            <FilterFit
+                                active={(p.filter !== p.filterAll ? 1 : 0) + (p.filterMore ?? 0)}
+                                onClear={p.onClear ?? (() => p.onFilter(p.filterAll))}
+                                aside={p.aside}
+                                panelExtra={p.panelExtra}
+                                short={p.compact}
+                                sort={
+                                    p.sort !== undefined && p.onSort
+                                        ? {
+                                              label: "Ordina",
+                                              value: p.sort,
+                                              options: p.sortOptions ?? (VETRINA_SORT as unknown as readonly { value: S; label: string }[]),
+                                              onChange: p.onSort
+                                          }
+                                        : undefined
+                                }
+                            >
+                                <ChipGroupSingle<F> ariaLabel="Quali mostrare" layout="auto" value={p.filter} onChange={p.onFilter} options={p.filterOptions} />
+                            </FilterFit>
+                        </div>
+                    )}
                     {search}
                     {p.view && (
                         <div className={s.view}>

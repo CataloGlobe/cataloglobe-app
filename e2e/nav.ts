@@ -16,7 +16,8 @@ export function nav(page: Page): Locator {
  * Non c'è dove non si sceglie (Menù e vetrina, Sedi, una sede sola).
  */
 export function sedeSwitcher(page: Page): Locator {
-    return page.getByRole("button", { name: /^Sede(?!i)/ });
+    // Dopo «Sede» c'è il nome: la riga «Sede» della sidebar D (PR 11a) no.
+    return page.getByRole("button", { name: /^Sede(?!i)./ });
 }
 
 /** «Confronta con», accanto a «Sede» dove il confronto vale (Calendario, Clienti e numeri). */
@@ -84,8 +85,15 @@ const SECTION_OF: Record<string, string> = {
     Storico: "Servizio",
     Andamento: "Clienti e numeri",
     Recensioni: "Clienti e numeri",
-    Clienti: "Clienti e numeri"
+    Clienti: "Clienti e numeri",
+    // nella D (PR 11a) l'ultima sezione è «Sede»
+    Scheda: "Sede",
+    "Sale e tavoli": "Sede",
+    "Tutte le sedi": "Sede"
 };
+
+/** Nella D «Sedi» è «Tutte le sedi» e la Sala è «Sale e tavoli», nella sezione Sede (PR 11a). */
+const D_NAME: Record<string, string> = { Sedi: "Tutte le sedi", Sala: "Sale e tavoli" };
 
 /**
  * Apre una sezione col clic (sotto la riga o nel pannello) e ne ritorna le
@@ -122,6 +130,9 @@ async function sectionTitles(page: Page): Promise<string[]> {
  * sua sezione (che resta aperto). Se non c'è, un locator senza risultati.
  */
 export async function sidebarLink(page: Page, name: string | RegExp): Promise<Locator> {
+    if (typeof name === "string" && D_NAME[name] && (await page.evaluate(() => document.documentElement.dataset.look === "d"))) {
+        name = D_NAME[name];
+    }
     const exact = typeof name === "string";
     await settledMenu(page);
     const direct = menuRows(page).getByRole("link", { name, exact });
@@ -133,7 +144,9 @@ export async function sidebarLink(page: Page, name: string | RegExp): Promise<Lo
     if (section && (await sectionRow(page, section).first().waitFor({ timeout: 10_000 }).then(() => true, () => false))) {
         if ((await direct.count()) > 0) return direct;
         const link = (await openSection(page, section)).getByRole("link", { name, exact });
-        if ((await link.count()) > 0) return link;
+        // Il clic sulla sezione può cambiare pagina (la sua ultima parte, nella D
+        // la Scheda): la sidebar si ridisegna, si aspetta la voce.
+        if (await link.first().waitFor({ timeout: 5_000 }).then(() => true, () => false)) return link;
     }
     for (const title of await sectionTitles(page)) {
         const link = (await openSection(page, title)).getByRole("link", { name, exact });
@@ -155,10 +168,16 @@ export async function openInServizio(page: Page, name: "Elenco" | "Mappa" | "Pre
 /** Una riga della sidebar come si legge: una voce diretta o `[sezione, voci del pannello]`. */
 export type SidebarRow = string | [string, string[]];
 
+/** Tutte le sedi in griglia. Nella D c'è solo la griglia (Visual Redesign 2, PR 11a). */
+export async function sediGriglia(page: Page): Promise<void> {
+    if (await page.evaluate(() => document.documentElement.dataset.look === "d")) return;
+    await page.getByRole("radio", { name: "Vista griglia" }).click();
+}
+
 /** Gli indirizzi delle sedi (owner, più sedi), nell'ordine della griglia. */
 export async function locationPaths(page: Page): Promise<string[]> {
     await openBusinessPage(page, "locations", "Sedi");
-    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    await sediGriglia(page);
     // Solo i link delle card: anche il percorso in cima alla pagina è un elenco.
     const cards = page.getByRole("main").locator('[role="listitem"] a[href*="/locations/"], li a[href*="/locations/"]');
     await expect(cards.first()).toBeVisible({ timeout: 15_000 });
@@ -265,6 +284,18 @@ export async function sidebarVoci(page: Page): Promise<string[]> {
 }
 
 /**
+ * La voce anche dentro una sezione chiusa: nella D le liste chiuse restano
+ * nella pagina, nascoste. Per leggerla (es. il lucchetto), non per cliccarla.
+ */
+export async function sidebarLinkToRead(page: Page, name: RegExp): Promise<Locator> {
+    if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+        await settledMenu(page);
+        return menuRows(page).getByRole("link", { name, includeHidden: true });
+    }
+    return sidebarLink(page, name);
+}
+
+/**
  * La voce della pagina in cui sei: diretta nel menu o, se sta in una sezione,
  * nel suo pannello (la riga della sezione ha `aria-current="true"`).
  */
@@ -272,7 +303,9 @@ export async function currentVoce(page: Page): Promise<Locator> {
     await settledMenu(page);
     await expect(menuRows(page).locator("[aria-current]")).toHaveCount(1, { timeout: 15_000 });
     const direct = menuRows(page).locator('a[aria-current="page"]');
-    if ((await direct.count()) > 0) return direct;
+    // Nella D la sezione della pagina si apre da sola dopo l'atterraggio: la
+    // riga perde `aria-current` e la voce lo prende. Si aspetta un attimo.
+    if (await direct.first().waitFor({ state: "attached", timeout: 2_000 }).then(() => true, () => false)) return direct;
     const title = ((await menuRows(page).locator("button[aria-current]").textContent()) ?? "").trim();
     return (await openSection(page, title)).locator('a[aria-current="page"]');
 }

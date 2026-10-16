@@ -125,6 +125,7 @@ function toItem(entry: NavEntry, options: NavSidebarOptions): SidebarNavItem {
     return {
         id: entry.key,
         search: entry.search,
+        exceptSearch: entry.exceptSearch,
         to: entryPath(entry, businessId, activityId),
         label: entry.verticalLabel ? catalogLabel : entry.label,
         icon: ICONS[entry.key],

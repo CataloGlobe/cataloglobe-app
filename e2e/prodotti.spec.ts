@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { sidebarLink } from "./nav";
+import { sidebarLink, sediGriglia } from "./nav";
 import {
     GROUP,
     INGREDIENT,
@@ -433,7 +433,7 @@ test.describe("Prodotti — elenco", () => {
                 await expect(page.getByRole("menu")).toHaveCount(0);
             }
         } else {
-            await page.getByRole("radio", { name: "Vista griglia" }).click();
+            await sediGriglia(page);
             await expect(product(page, "Hamburger")).toBeVisible();
             await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
         }

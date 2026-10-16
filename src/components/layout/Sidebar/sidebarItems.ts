@@ -17,6 +17,8 @@ export interface SidebarNavItem {
     to: string;
     /** La query della parte (`vista=calendario`): due parti sulla stessa pagina. */
     search?: string;
+    /** Con questa query la parte non si accende: «In servizio» quando la Sala sta nella Sede (D). */
+    exceptSearch?: string;
     label: string;
     icon: ReactNode;
     end?: boolean;
@@ -118,6 +120,7 @@ export function buildSidebarGroups(
                         id: item.id,
                         to: item.to,
                         search: item.search,
+                        exceptSearch: item.exceptSearch,
                         label: item.label,
                         icon: item.icon,
                         end: item.end,
