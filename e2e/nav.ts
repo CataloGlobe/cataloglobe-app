@@ -167,6 +167,15 @@ export async function openInServizio(page: Page, name: "Elenco" | "Mappa" | "Pre
         return;
     }
     await (await sidebarLink(page, "In servizio")).click();
+    if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
+        // Nella D le Comande e la sala stanno nella stessa pagina; il selettore
+        // delle parti c'è solo quando la pagina è stretta (sotto 700 px).
+        await expect(page.getByRole("main").getByRole("region", { name: "Comande" }).or(page.getByRole("main").getByRole("region", { name: /^In (sala|arrivo)$/ })).first()).toBeAttached({ timeout: 15_000 });
+        const parti = page.getByRole("radiogroup", { name: "Parti di In servizio" });
+        if (await parti.isVisible()) await parti.getByRole("radio", { name: new RegExp(`^${name === "Comande" ? "Comande" : "In sala"}`) }).click();
+        if (name !== "Comande") await page.getByRole("radiogroup", { name: "Vista della sala" }).getByRole("radio", { name, exact: true }).click({ timeout: 15_000 });
+        return;
+    }
     await page.getByRole("radiogroup", { name: "Parti di In servizio" }).getByRole("radio", { name, exact: true }).click({ timeout: 15_000 });
 }
 

@@ -393,7 +393,7 @@ test.describe("Sede in alto a destra (D152)", () => {
         for (const p of ["products", "styles", "locations"]) {
             await page.goto(`${root}/${p}`);
             await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
-            await expect(page.getByRole("button", { name: "Notifiche" })).toBeVisible();
+            await expect(page.getByRole("button", { name: "Notifiche", exact: true })).toBeVisible();
             await expect(sedeSwitcher(page)).toHaveCount(0);
         }
     });
@@ -409,7 +409,9 @@ test.describe("Sede in alto a destra (D152)", () => {
         await expect(sedePicker(page)).toBeVisible();
         await expect(sedePicker(page).getByRole("radio", { name: /^Tutte le sedi/ })).toHaveCount(0);
         await sedePicker(page).getByRole("radio", { name: new RegExp(`^${escapeRe(name)}`) }).click();
-        await expect(page).toHaveURL(`${paths[1]}/comande`, { timeout: 15_000 });
+        // Nella D /comande porta a In servizio, dove stanno le Comande: si resta lì.
+        if (await lookD(page)) await expect(page).toHaveURL(new RegExp(`${escapeRe(paths[1])}/servizio(\\?|$)`), { timeout: 15_000 });
+        else await expect(page).toHaveURL(`${paths[1]}/comande`, { timeout: 15_000 });
         await expect(sedeSwitcher(page)).toContainText(name);
         expect(await sedeSwitcher(page).textContent()).not.toBe(before);
     });
@@ -438,7 +440,7 @@ test.describe("Sede in alto a destra (D152)", () => {
         await asRole(page, "manager", activityIdOf(paths[0]), "pro");
         await page.goto(`${paths[0]}/servizio`);
         await expect(sectionRow(page, SERVIZIO[0])).toHaveAttribute("aria-expanded", "true", { timeout: 15_000 });
-        await expect(page.getByRole("button", { name: "Notifiche" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Notifiche", exact: true })).toBeVisible();
         await expect(sedeSwitcher(page)).toHaveCount(0);
     });
 
@@ -499,7 +501,7 @@ test.describe("Sede in alto a destra (D152)", () => {
         await asSingleSede(page);
         await page.goto(`${paths[0]}/servizio`);
         await expect(sectionRow(page, SERVIZIO[0])).toHaveAttribute("aria-expanded", "true", { timeout: 15_000 });
-        await expect(page.getByRole("button", { name: "Notifiche" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Notifiche", exact: true })).toBeVisible();
         await expect(sedeSwitcher(page)).toHaveCount(0);
     });
 
@@ -613,7 +615,9 @@ test.describe("Atterraggio (§51.6) e indirizzi (§51.14)", () => {
                 .poll(() => page.evaluate(() => window.localStorage.getItem("cataloglobe:orders:lastActivityId")))
                 .toBe(activityIdOf(sede));
             await page.goto(`${root}/${legacy}`);
-            await expect(page).toHaveURL(new RegExp(`${sede}/${segment}`), { timeout: 15_000 });
+            // Nella D /comande porta a In servizio, parte Comande.
+            const atteso = segment === "comande" && (await lookD(page)) ? "servizio\\?parte=comande" : segment;
+            await expect(page).toHaveURL(new RegExp(`${sede}/${atteso}`), { timeout: 15_000 });
         }
     });
 

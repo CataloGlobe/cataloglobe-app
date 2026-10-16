@@ -68,7 +68,8 @@ export function PageTitleBar({ actions, actionsHost = null, groups = [], account
     for (const group of groups) {
         if (group.items.length < 2) continue;
         const current = currentItem(group.items, pathname, search);
-        if (current && isItemRoot(current, pathname)) {
+        // «Disponibilità» sta sotto In servizio ma è una pagina sua: le briciole la nominano.
+        if (current && isItemRoot(current, pathname) && !(LOOK_D && pathname.endsWith("/cosa-vedono"))) {
             section = { group, current };
             break;
         }

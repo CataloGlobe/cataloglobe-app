@@ -156,6 +156,24 @@
   font-variant-numeric: tabular-nums;
 }
 
+// Rifiuta e Conferma sulla riga da confermare (In arrivo della D).
+.pendingActions {
+  display: inline-flex;
+  gap: var(--space-8);
+}
+
+.pendingMore {
+  display: block;
+  padding: var(--space-12) var(--space-16);
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 /* Barra dell'Agenda: la settimana (‹ intervallo › [Oggi]) a destra, il
    filtro delle annullate in coda. Bottoni e interruttore sono di sistema. */
 .agendaNav {
@@ -965,4 +983,14 @@
         border-color: color-mix(in srgb, var(--d-brand) 20%, transparent);
         border-radius: 12px;
     }
+}
+
+// In servizio della D: le sezioni stanno già nel riquadro della sala, quindi
+// niente seconda carta, e il bordo resta quello del riquadro.
+@include look-d {
+  .panelCard {
+    margin-inline: calc(var(--d-pad) * -1);
+    background: transparent;
+    box-shadow: none;
+  }
 }
