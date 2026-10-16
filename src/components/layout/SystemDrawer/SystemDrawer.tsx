@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { resolveDrawerSize, SYSTEM_DRAWER_MOTION_MS, type SystemDrawerSize } from "./drawerSize";
+import { closeDrawerLayer, isTopDrawer, openDrawerLayer } from "./drawerStack";
 import { D_EASE_MOVE, LOOK_D } from "@styles/lookD";
 import styles from "./SystemDrawer.module.scss";
 
@@ -151,23 +152,32 @@ export const SystemDrawer = ({
     // leggerebbe già «closed». La chiusura avviene su window, come sempre: se
     // `onClose` apre una conferma (bozza sporca), il listener Esc che lei
     // aggiunge a window durante questo stesso evento non lo riceve.
+    // Con due drawer impilati Esc è solo di quello sopra (`drawerStack`): il
+    // posto nella pila si prende all'apertura, per questo `onClose` sta in un ref
+    // e non rifà l'effetto.
+    const onCloseRef = useRef(onClose);
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
     useEffect(() => {
         if (!open) return;
+        const me = openDrawerLayer();
         let layerAbove = false;
         const readLayers = (e: KeyboardEvent) => {
-            if (e.key === "Escape") layerAbove = document.querySelector(LAYER_ABOVE_SELECTOR) !== null;
+            if (e.key === "Escape") layerAbove = !isTopDrawer(me) || document.querySelector(LAYER_ABOVE_SELECTOR) !== null;
         };
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key !== "Escape" || layerAbove) return;
-            onClose();
+            onCloseRef.current();
         };
         document.addEventListener("keydown", readLayers, { capture: true });
         window.addEventListener("keydown", handleEsc);
         return () => {
+            closeDrawerLayer(me);
             document.removeEventListener("keydown", readLayers, { capture: true });
             window.removeEventListener("keydown", handleEsc);
         };
-    }, [open, onClose]);
+    }, [open]);
 
     // motion-base (200 ms, easing-surface) su transform e opacity; con
     // prefers-reduced-motion nessuna animazione.

@@ -1,3 +1,5 @@
+import { lookDFromEnv } from "./lookDFromEnv";
+
 /**
  * Interruttore della grafica nuova del back office, direzione D (VITE_BACKOFFICE_D).
  *
@@ -10,10 +12,7 @@
  */
 export const LOOK_D = lookDFromEnv(import.meta.env.VITE_BACKOFFICE_D);
 
-/** Spenta con `false`, `0`, `off` o `no`, senza badare a maiuscole e spazi; acceso tutto il resto, anche niente. */
-export function lookDFromEnv(value: string | undefined): boolean {
-    return !/^(false|0|off|no)$/i.test((value ?? "").trim());
-}
+export { lookDFromEnv };
 
 /**
  * Le pagine del back office, le sole con la grafica D. Le pagine dei clienti

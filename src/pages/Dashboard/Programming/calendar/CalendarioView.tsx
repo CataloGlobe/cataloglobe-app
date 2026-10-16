@@ -80,7 +80,7 @@ import { calLead, inOndaOra } from "./calendarLead";
 import { CalendarioAgenda, type AgendaItem } from "./CalendarioAgenda";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { PartialSaveError } from "./calendarSave";
-import { lastBaseMenu } from "./baseRule";
+import { LastBaseError, lastBaseMenu } from "./baseRule";
 
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const DAYS_L = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -1074,8 +1074,8 @@ export default function CalendarioView({
             await section.onDrop(draft);
             setNote({ text: "Tolto dal calendario: " + draftLabel(draft, L) + "." });
             closeSec(true, false);
-        } catch {
-            setNote({ text: "Non siamo riusciti a toglierlo. Riprova.", error: true });
+        } catch (err) {
+            setNote({ text: err instanceof LastBaseError ? err.message : "Non siamo riusciti a toglierlo. Riprova.", error: true });
         } finally {
             setBusy(false);
         }
@@ -1339,8 +1339,8 @@ export default function CalendarioView({
                             setNote({ text: "Tolto dal calendario." });
                             const left = entry.kind === "price" ? entry.rule.price_overrides.length : entry.kind === "visibility" ? entry.rule.visibility_overrides.length : 1;
                             if (!item || entry.kind === "featured" || left <= 1) closePick();
-                        } catch {
-                            setNote({ text: "Non siamo riusciti a toglierlo. Riprova.", error: true });
+                        } catch (err) {
+                            setNote({ text: err instanceof LastBaseError ? err.message : "Non siamo riusciti a toglierlo. Riprova.", error: true });
                         }
                     }}
                 />

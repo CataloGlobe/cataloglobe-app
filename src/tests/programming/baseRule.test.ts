@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
-import { lastBaseMenu } from "@/pages/Dashboard/Programming/calendar/baseRule";
+import { lastBaseMenu, removesLastBase } from "@/pages/Dashboard/Programming/calendar/baseRule";
 
 // «Spegni» e «tieni pronto» sulla regola di base: il locale resterebbe senza menù (D238).
 
@@ -35,5 +35,19 @@ describe("la sola regola di base non si spegne", () => {
         expect(lastBaseMenu([rule("1", { enabled: false })], "1")).toBe(false);
         expect(lastBaseMenu([rule("1", { rule_type: "featured", layout: null })], "1")).toBe(false);
         expect(lastBaseMenu([rule("1")], "x")).toBe(false);
+    });
+});
+
+// Eliminare la regola (una o più insieme) è come spegnerla (#537).
+describe("la sola regola di base non si elimina", () => {
+    it("eliminarla da sola, o con le altre di base: bloccata", () => {
+        expect(removesLastBase([rule("1"), rule("2", { time_mode: "window" })], ["1"])).toBe(true);
+        expect(removesLastBase([rule("1"), rule("2")], ["1", "2"])).toBe(true);
+    });
+
+    it("ne resta un'altra di base, o non se ne tocca nessuna: libera", () => {
+        expect(removesLastBase([rule("1"), rule("2"), rule("3")], ["1", "2"])).toBe(false);
+        expect(removesLastBase([rule("1"), rule("2", { time_mode: "window" })], ["2"])).toBe(false);
+        expect(removesLastBase([rule("1")], [])).toBe(false);
     });
 });

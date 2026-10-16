@@ -4,7 +4,7 @@ import { openInServizio, sediGriglia } from "./nav";
 import { NOW, stubReservations, type ReservationsStub } from "./reservationsStub";
 
 // D244: con la grafica D accesa le richieste si chiamano «da confermare».
-const D_ON = process.env.VITE_BACKOFFICE_D !== "false";
+import { D_ON } from "./lookD";
 
 /**
  * Prenotazioni (lotto `ds-5-prenotazioni`, passo 2 P0). Scritto sulla pagina

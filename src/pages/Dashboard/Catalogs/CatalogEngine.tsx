@@ -1403,6 +1403,9 @@ export default function CatalogEngine() {
         // le categorie già spostate nel database prima di un eventuale errore
         const movedIds = new Set<string>();
         const realId = (id: string | null) => (id ? (idMap.get(id) ?? id) : null);
+        // una scrittura è già passata: un errore dopo lascia il menù salvato a metà (#545)
+        let wrote = false;
+        const mark = <T,>(p: Promise<T>) => p.then(v => ((wrote = true), v));
         try {
             const originalCatMap = new Map(originalCategories.map(c => [c.id, c]));
             // 0. Struttura (D): categorie nuove e spostate, dal primo livello in giù, così
@@ -1417,16 +1420,18 @@ export default function CatalogEngine() {
             const structuralIds = new Set(structural.map(c => c.id));
             for (const c of structural) {
                 if (c.id.startsWith(LOCAL_CAT_PREFIX)) {
-                    const created = await createCategory(currentTenantId, catalogId, c.name, c.level, realId(c.parent_category_id), c.sort_order);
+                    const created = await mark(createCategory(currentTenantId, catalogId, c.name, c.level, realId(c.parent_category_id), c.sort_order));
                     idMap.set(c.id, created.id);
                 } else {
                     const orig = originalCatMap.get(c.id)!;
-                    await updateCategory(c.id, currentTenantId, {
-                        parent_category_id: realId(c.parent_category_id),
-                        level: c.level,
-                        sort_order: c.sort_order,
-                        ...(orig.name !== c.name ? { name: c.name } : {})
-                    });
+                    await mark(
+                        updateCategory(c.id, currentTenantId, {
+                            parent_category_id: realId(c.parent_category_id),
+                            level: c.level,
+                            sort_order: c.sort_order,
+                            ...(orig.name !== c.name ? { name: c.name } : {})
+                        })
+                    );
                     movedIds.add(c.id);
                 }
             }
@@ -1466,23 +1471,25 @@ export default function CatalogEngine() {
             // Execute in parallel where safe
             await Promise.all([
                 ...categoryUpdates.map(({ id, updates }) =>
-                    updateCategory(id, currentTenantId, updates)
+                    mark(updateCategory(id, currentTenantId, updates))
                 ),
-                ...removedLinkIds.map(linkId => removeProductFromCategory(currentTenantId, linkId)),
+                ...removedLinkIds.map(linkId => mark(removeProductFromCategory(currentTenantId, linkId))),
                 ...reorderedLinks.map(link =>
-                    updateProductSortOrder(link.id, currentTenantId, link.sort_order)
+                    mark(updateProductSortOrder(link.id, currentTenantId, link.sort_order))
                 )
             ]);
 
             // Add new links sequentially (respects anti-duplication on DB side)
             for (const link of addedLinks) {
-                await addProductToCategory(
-                    currentTenantId,
-                    catalogId,
-                    realId(link.category_id)!,
-                    link.product_id,
-                    link.sort_order,
-                    link.variant_product_id
+                await mark(
+                    addProductToCategory(
+                        currentTenantId,
+                        catalogId,
+                        realId(link.category_id)!,
+                        link.product_id,
+                        link.sort_order,
+                        link.variant_product_id
+                    )
                 );
             }
 
@@ -1510,7 +1517,9 @@ export default function CatalogEngine() {
                 if (selectedCategoryId && idMap.has(selectedCategoryId)) setSelectedCategoryInUrl(idMap.get(selectedCategoryId)!, true);
             }
             showToast({
-                message: getErrorMessage(error, "Errore durante il salvataggio delle modifiche."),
+                message: wrote
+                    ? "Salvato solo in parte: il menù non è ancora come nella bozza. Premi di nuovo Salva per finire."
+                    : getErrorMessage(error, "Errore durante il salvataggio delle modifiche."),
                 type: "error"
             });
         } finally {

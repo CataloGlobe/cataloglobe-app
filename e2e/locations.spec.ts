@@ -3,7 +3,7 @@ import { openBusinessPage } from "./business";
 import { GARBAGNATE_ID, stubReservations } from "./reservationsStub";
 
 // D244: con la grafica D accesa le richieste si chiamano «da confermare».
-const D_ON = process.env.VITE_BACKOFFICE_D !== "false";
+import { D_ON } from "./lookD";
 const DA = D_ON ? "confermare" : "gestire";
 
 /**
