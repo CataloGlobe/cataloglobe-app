@@ -17,6 +17,7 @@ import { IngredientCombobox } from "../components/IngredientCombobox";
 import ProductNotesSection from "../components/ProductNotesSection/ProductNotesSection";
 import { DESCRIPTION_FIELD_ID, joinNames } from "./prodottoModel";
 import styles from "./Prodotto.module.scss";
+import { LOOK_D } from "@styles/lookD";
 
 interface PiattoEditorProps {
     draft: SchedaDraft;
@@ -63,7 +64,7 @@ export function PiattoEditor({
                     compressLongEdge={1280}
                     hideHeader
                     controlRef={imageEditor}
-                    drawerTitle="Modifica immagine"
+                    drawerTitle={LOOK_D ? "Inquadra immagine" : "Modifica immagine"}
                     requiresConfirm={false}
                     initialSource={image.removeImage ? null : image.visibleImageUrl}
                     initialFraming={image.savedFraming ?? undefined}

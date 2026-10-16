@@ -1,3 +1,4 @@
+@use "@styles/mixins" as *;
 .tabContent {
   display: flex;
   flex-direction: column;
@@ -78,3 +79,22 @@
 
 // ── Delete drawer ──────────────────────────────────────────
 
+// Grafica D (copia v70): il sottogruppo rientra con l'angolo della linea.
+@include look-d {
+  .groupName[data-depth="1"] {
+    position: relative;
+    padding-left: 30px;
+
+    &::before {
+      content: "";
+      position: absolute;
+      left: 12px;
+      top: -2px;
+      width: 10px;
+      height: 12px;
+      border-left: 1.5px solid var(--d-line);
+      border-bottom: 1.5px solid var(--d-line);
+      border-bottom-left-radius: 4px;
+    }
+  }
+}

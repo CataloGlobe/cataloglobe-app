@@ -1,4 +1,5 @@
 @use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
 /* ═══════════════════════════════════════════════════════════
    AI Menu Import — Wizard UI
    ═══════════════════════════════════════════════════════════ */
@@ -1099,3 +1100,79 @@
   font-size: 13px;
   color: #94a3b8;
 }
+
+/* ═══ Grafica D (copia v72): passi a pillole, riquadri della D ═══ */
+@include look-d {
+  .stepIndicator {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .stepLine {
+    display: none;
+  }
+
+  .stepItem {
+    padding: 4px 12px 4px 4px;
+    border-radius: var(--d-r-pill);
+  }
+
+  .stepItem:has(.stepCircleActive) {
+    background: var(--d-soft);
+  }
+
+  .stepCircle {
+    width: 22px;
+    height: 22px;
+    border: 0;
+    background: var(--d-line);
+    color: var(--d-muted);
+    @include d-type(micro);
+  }
+
+  .stepCircleActive {
+    background: var(--d-brand);
+    color: var(--d-surface);
+    box-shadow: none;
+  }
+
+  .stepCircleComplete {
+    background: var(--d-s-ready);
+    color: var(--d-surface);
+  }
+
+  .stepLabel {
+    @include d-type(control);
+    color: var(--d-muted);
+  }
+
+  .stepLabelActive {
+    color: var(--d-text);
+  }
+
+  .stepLabelComplete {
+    color: var(--d-s-ready-ink);
+  }
+
+  .dropzone {
+    border: 1.5px dashed color-mix(in srgb, var(--d-brand) 35%, var(--d-line));
+    border-radius: var(--d-r-card);
+    background: color-mix(in srgb, var(--d-brand) 3%, var(--d-surface));
+
+    &:hover {
+      border-color: var(--d-brand);
+      background: color-mix(in srgb, var(--d-brand) 6%, var(--d-surface));
+    }
+  }
+
+  .dropzoneDragging {
+    border-color: var(--d-brand);
+    background: var(--d-soft);
+  }
+
+  .infoBox {
+    background: color-mix(in srgb, var(--d-brand) 8%, var(--d-surface));
+    border-color: color-mix(in srgb, var(--d-brand) 20%, transparent);
+  }
+}
+

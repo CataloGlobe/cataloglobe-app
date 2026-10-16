@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Il dettaglio sono due card affiancate: le categorie e la categoria scelta
 // (passo 2 P3). La pagina scorre e la tabella con lei, 25 righe come ogni
 // tabella (T1); la colonna delle categorie resta ferma (correzioni UI MD3):
@@ -498,5 +500,25 @@
   .treeHandle,
   .treeActions {
     opacity: 1;
+  }
+}
+
+// D (copia v59, cp 4839-4846): la colonna delle categorie fra 220 e 300, la
+// riga scelta sul viola al 12%, il passaggio al 6%.
+@include look-d {
+  @media (min-width: 1024px) {
+    .layout {
+      grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+    }
+  }
+
+  .treeRow:hover:not(.treeRowSelected) {
+    background: color-mix(in srgb, var(--d-brand) 6%, transparent);
+  }
+
+  .treeRowSelected,
+  .treeRowSelected:hover {
+    background: color-mix(in srgb, var(--d-brand) 12%, transparent);
+    color: var(--d-brand-deep);
   }
 }

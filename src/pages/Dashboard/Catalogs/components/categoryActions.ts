@@ -1,6 +1,7 @@
 import { FolderInput, FolderPlus, TextCursorInput } from "lucide-react";
 import type { TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
+import { LOOK_D } from "@/styles/lookD";
 
 /** Il tetto dei livelli (L1–L3): lo applicano i drawer e il trascinamento; qui lo si dice. */
 export const MAX_CATEGORY_LEVEL = 3;
@@ -33,21 +34,24 @@ export function categoryActions({
     onDelete
 }: CategoryActionsArgs): TableRowAction[] {
     const atMaxLevel = level >= MAX_CATEGORY_LEVEL;
+    // Nella D (copia v59) spostare e creare vanno in bozza come rinominare:
+    // con la bozza aperta resta spento solo eliminare.
+    const draftLock = LOOK_D ? undefined : structureLockReason;
     return [
         { label: "Rinomina", icon: TextCursorInput, onClick: onRename },
         {
             label: "Sposta in…",
             icon: FolderInput,
             onClick: onMove,
-            disabled: Boolean(structureLockReason),
-            description: structureLockReason
+            disabled: Boolean(draftLock),
+            description: draftLock
         },
         {
             label: `Crea sotto-${categoryLabel}`,
             icon: FolderPlus,
             onClick: onCreateSub,
-            disabled: atMaxLevel || Boolean(structureLockReason),
-            description: atMaxLevel ? "Massimo tre livelli." : structureLockReason
+            disabled: atMaxLevel || Boolean(draftLock),
+            description: atMaxLevel ? "Massimo tre livelli." : draftLock
         },
         rowAction.remove(onDelete, {
             disabled: Boolean(structureLockReason),

@@ -59,6 +59,7 @@ import { getDisplayPrice } from "@/utils/priceDisplay";
 import { hasConfiguredEffectivePrice } from "@/utils/productCompleteness";
 import { getProductGroups, listProductGroupLinks, ProductGroup } from "@/services/supabase/productGroups";
 import { listAttributeDefinitions, listAttributeValuesForDefinitions } from "@/services/supabase/attributes";
+import { LOOK_D } from "@/styles/lookD";
 import { CatalogTree } from "./components/CatalogTree";
 import { categoryActions } from "./components/categoryActions";
 import { CatalogTreeNodeData } from "./components/CatalogTree.types";
@@ -84,6 +85,8 @@ import styles from "./CatalogEngine.module.scss";
 type CreateIntent = "associate" | "configure";
 
 const LOCAL_LINK_PREFIX = "loc_";
+/** Nella D (copia v59) la sotto-categoria nuova vive in bozza fino a Salva, con un id provvisorio. */
+const LOCAL_CAT_PREFIX = "loc_cat_";
 
 type ProductRow = {
     id: string;
@@ -359,6 +362,12 @@ export default function CatalogEngine() {
         () => buildCategoryTree(categories, categoryProducts),
         [categories, categoryProducts]
     );
+
+    // Una categoria nuova della bozza (D) non ha ancora traduzioni: si resta sui prodotti.
+    const selectedIsDraft = Boolean(selectedCategoryId?.startsWith(LOCAL_CAT_PREFIX));
+    useEffect(() => {
+        if (selectedIsDraft) setRightPaneTab("products");
+    }, [selectedIsDraft]);
 
     const selectedCategory = useMemo(() => {
         if (!selectedCategoryId) return null;
@@ -775,7 +784,8 @@ export default function CatalogEngine() {
 
     const openCreateSubCategoryDrawer = useCallback(
         (parentCategoryId: string) => {
-            if (isDirty) return;
+            // nella D creare una sotto-categoria va in bozza: si può anche con la bozza aperta
+            if (isDirty && !LOOK_D) return;
             const parent = categoriesById.get(parentCategoryId);
             if (!parent || parent.level >= 3) return;
             setEditingCategory(null);
@@ -800,7 +810,8 @@ export default function CatalogEngine() {
 
     const openMoveCategoryDrawer = useCallback(
         (categoryId: string) => {
-            if (isDirty) return;
+            // nella D spostare va in bozza: si può anche con la bozza aperta
+            if (isDirty && !LOOK_D) return;
             const category = categoriesById.get(categoryId);
             if (!category) return;
             setEditingCategory(category);
@@ -841,6 +852,56 @@ export default function CatalogEngine() {
                 );
                 setIsDirty(true);
                 setCategoryDrawer(null);
+                return;
+            }
+
+            // Nella D (copia v59) spostare e creare una sotto-categoria vanno in
+            // bozza, come rinominare e riordinare: si pubblicano con Salva.
+            if (LOOK_D && categoryDrawer === "move" && editingCategory) {
+                const newParentId = categoryParentId || null;
+                if (newParentId === (editingCategory.parent_category_id ?? null)) {
+                    setCategoryDrawer(null);
+                    return;
+                }
+                const parentCategory = newParentId ? (categoriesById.get(newParentId) ?? null) : null;
+                const newLevel = parentCategory ? ((parentCategory.level + 1) as 1 | 2 | 3) : 1;
+                const levelDiff = newLevel - editingCategory.level;
+                const below = new Set(collectDescendantIds(editingCategory.id, buildChildrenMap(categories)));
+                const newSortOrder = getNextSortOrder(newParentId);
+                setCategories(prev =>
+                    prev.map(c =>
+                        c.id === editingCategory.id
+                            ? { ...c, parent_category_id: newParentId, level: newLevel, sort_order: newSortOrder }
+                            : below.has(c.id)
+                            ? { ...c, level: (c.level + levelDiff) as 1 | 2 | 3 }
+                            : c
+                    )
+                );
+                if (newParentId) setExpandedCategoryIds(prev => new Set(prev).add(newParentId));
+                setIsDirty(true);
+                setCategoryDrawer(null);
+                showToast({ message: `${categoryLabel} spostata. Si pubblica con Salva.`, type: "success" });
+                return;
+            }
+            if (LOOK_D && categoryDrawer === "create" && categoryParentId) {
+                const parentCategory = categoriesById.get(categoryParentId);
+                if (!parentCategory || parentCategory.level >= 3) return;
+                const draftCategory: V2CatalogCategory = {
+                    id: `${LOCAL_CAT_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+                    tenant_id: currentTenantId,
+                    catalog_id: catalogId,
+                    parent_category_id: parentCategory.id,
+                    name: categoryName.trim(),
+                    sort_order: getNextSortOrder(parentCategory.id),
+                    level: (parentCategory.level + 1) as 1 | 2 | 3,
+                    created_at: new Date().toISOString()
+                };
+                setCategories(prev => [...prev, draftCategory]);
+                setExpandedCategoryIds(prev => new Set(prev).add(parentCategory.id));
+                setIsDirty(true);
+                setCategoryDrawer(null);
+                setSelectedCategoryInUrl(draftCategory.id);
+                showToast({ message: `${categoryLabel} creata. Si pubblica con Salva.`, type: "success" });
                 return;
             }
 
@@ -1337,16 +1398,47 @@ export default function CatalogEngine() {
         if (!currentTenantId || !catalogId) return;
         setIsSavingChanges(true);
 
+        // le categorie nuove della bozza (D): id provvisorio -> id vero, man mano che si creano
+        const idMap = new Map<string, string>();
+        // le categorie già spostate nel database prima di un eventuale errore
+        const movedIds = new Set<string>();
+        const realId = (id: string | null) => (id ? (idMap.get(id) ?? id) : null);
         try {
-            // 1. Category name + sort_order changes
             const originalCatMap = new Map(originalCategories.map(c => [c.id, c]));
+            // 0. Struttura (D): categorie nuove e spostate, dal primo livello in giù, così
+            //    il genitore è già al suo posto quando si scrive il figlio.
+            const structural = categories
+                .filter(c => {
+                    if (c.id.startsWith(LOCAL_CAT_PREFIX)) return true;
+                    const orig = originalCatMap.get(c.id);
+                    return !!orig && (orig.parent_category_id !== c.parent_category_id || orig.level !== c.level);
+                })
+                .sort((a, b) => a.level - b.level);
+            const structuralIds = new Set(structural.map(c => c.id));
+            for (const c of structural) {
+                if (c.id.startsWith(LOCAL_CAT_PREFIX)) {
+                    const created = await createCategory(currentTenantId, catalogId, c.name, c.level, realId(c.parent_category_id), c.sort_order);
+                    idMap.set(c.id, created.id);
+                } else {
+                    const orig = originalCatMap.get(c.id)!;
+                    await updateCategory(c.id, currentTenantId, {
+                        parent_category_id: realId(c.parent_category_id),
+                        level: c.level,
+                        sort_order: c.sort_order,
+                        ...(orig.name !== c.name ? { name: c.name } : {})
+                    });
+                    movedIds.add(c.id);
+                }
+            }
+
+            // 1. Category name + sort_order changes
             const categoryUpdates: Array<{
                 id: string;
                 updates: { name?: string; sort_order?: number };
             }> = [];
             for (const cat of categories) {
                 const orig = originalCatMap.get(cat.id);
-                if (!orig) continue;
+                if (!orig || structuralIds.has(cat.id)) continue;
                 const updates: { name?: string; sort_order?: number } = {};
                 if (orig.name !== cat.name) updates.name = cat.name;
                 if (orig.sort_order !== cat.sort_order) updates.sort_order = cat.sort_order;
@@ -1387,7 +1479,7 @@ export default function CatalogEngine() {
                 await addProductToCategory(
                     currentTenantId,
                     catalogId,
-                    link.category_id,
+                    realId(link.category_id)!,
                     link.product_id,
                     link.sort_order,
                     link.variant_product_id
@@ -1395,9 +1487,28 @@ export default function CatalogEngine() {
             }
 
             showToast({ message: "Modifiche salvate con successo.", type: "success" });
+            if (selectedCategoryId && idMap.has(selectedCategoryId)) setSelectedCategoryInUrl(idMap.get(selectedCategoryId)!, true);
             await loadData();
         } catch (error) {
             console.error(error);
+            // Le categorie già create restano: nella bozza prendono l'id vero, così
+            // «Salva» di nuovo non le crea due volte.
+            // Anche gli spostamenti già scritti diventano il nuovo «salvato», così
+            // «Annulla» non rimostra una posizione che nel database non c'è più.
+            if (idMap.size > 0 || movedIds.size > 0) {
+                const written = new Map(
+                    categories
+                        .filter(c => idMap.has(c.id) || movedIds.has(c.id))
+                        .map(c => [realId(c.id)!, { ...c, id: realId(c.id)!, parent_category_id: realId(c.parent_category_id) }])
+                );
+                setCategories(prev => prev.map(c => ({ ...c, id: realId(c.id)!, parent_category_id: realId(c.parent_category_id) })));
+                setCategoryProducts(prev => prev.map(l => ({ ...l, category_id: realId(l.category_id)! })));
+                setOriginalCategories(prev => [
+                    ...prev.map(c => (written.get(c.id) ?? c)),
+                    ...[...written.values()].filter(c => !movedIds.has(c.id))
+                ]);
+                if (selectedCategoryId && idMap.has(selectedCategoryId)) setSelectedCategoryInUrl(idMap.get(selectedCategoryId)!, true);
+            }
             showToast({
                 message: getErrorMessage(error, "Errore durante il salvataggio delle modifiche."),
                 type: "error"
@@ -1413,6 +1524,8 @@ export default function CatalogEngine() {
         loadData,
         originalCategories,
         originalCategoryProducts,
+        selectedCategoryId,
+        setSelectedCategoryInUrl,
         showToast
     ]);
 
@@ -1745,7 +1858,7 @@ export default function CatalogEngine() {
                 }
             >
 
-                {rightPaneTab === "products" || !canWrite ? (
+                {rightPaneTab === "products" || !canWrite || selectedCategory.id.startsWith(LOCAL_CAT_PREFIX) ? (
                     <>
                         <SearchInput
                             value={productSearch}
@@ -1868,7 +1981,13 @@ export default function CatalogEngine() {
             title={categoryLabelPlural}
             // Con la bozza aperta l'albero lo dice: si rinomina e si riordina,
             // il resto aspetta il salvataggio (§49.1/2).
-            subtitle={canWrite && structureLockReason ? "Con modifiche da salvare si rinomina e si riordina soltanto." : undefined}
+            subtitle={
+                canWrite && structureLockReason
+                    ? LOOK_D
+                        ? "Con modifiche da salvare non si elimina e non si crea al primo livello."
+                        : "Con modifiche da salvare si rinomina e si riordina soltanto."
+                    : undefined
+            }
             actions={canWrite ? newRootCategoryButton : undefined}
         >
             <CatalogTree
