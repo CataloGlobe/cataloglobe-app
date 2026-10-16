@@ -1,3 +1,4 @@
+import { Select } from "@/components/ui/Select/Select";
 // «Categorie e piatti» del tunnel del menù (D177, D180), uguale creando e
 // modificando: a sinistra l'albero, a destra il menù nell'ordine del cliente.
 // Si trascina prima, dopo o dentro; l'import apre un resoconto e il menù non
@@ -916,13 +917,13 @@ export function MenuCategorie({ t, u, pick, onRead }: Props) {
                                                 {x.st === "chk" && x.why ? `: ${x.why}` : ""}
                                             </span>
                                             <span>va in</span>
-                                            <select aria-label={`Categoria di ${x.name}`} value={x.to} onChange={e => item(k, y => void (y.to = e.target.value))}>
+                                            <Select aria-label={`Categoria di ${x.name}`} value={x.to} onChange={e => item(k, y => void (y.to = e.target.value))}>
                                                 {nodes.map(o => (
                                                     <option key={o.sec.key} value={o.sec.key}>
                                                         {o.name}
                                                     </option>
                                                 ))}
-                                            </select>
+                                            </Select>
                                         </span>
                                     </div>
                                 ))}

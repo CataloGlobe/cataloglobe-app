@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { openInServizio, sediGriglia } from "./nav";
@@ -249,13 +250,13 @@ test.describe("Comande", () => {
             t => t !== "Tutti i tavoli" && t !== TAVOLO
         );
         test.skip(altri.length === 0, "serve un secondo tavolo");
-        await filtro.selectOption({ label: altri[0] });
+        await scegli(filtro, { label: altri[0] });
         await expect(fixtureMenu(page)).toHaveCount(0);
 
-        await filtro.selectOption({ label: TAVOLO });
+        await scegli(filtro, { label: TAVOLO });
         await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
 
-        await filtro.selectOption({ label: "Tutti i tavoli" });
+        await scegli(filtro, { label: "Tutti i tavoli" });
         await expect(fixtureMenu(page)).toBeVisible();
     });
 

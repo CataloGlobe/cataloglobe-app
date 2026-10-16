@@ -355,6 +355,11 @@
     }
 }
 
+// Nella D «Per pagina» è il Select comune, stretto quanto il suo testo.
+.pageSizeField {
+    width: auto;
+}
+
 .paginationControls {
     display: flex;
     align-items: center;

@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { sidebarLink } from "./nav";
@@ -665,7 +666,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         await selectCategory(page, "Rossi");
         await categoryMenu(page, /^Sposta in/);
-        await dialog(page).getByRole("combobox", { name: "Dentro" }).selectOption({ label: "Nessuna (categoria principale)" });
+        await scegli(dialog(page).getByRole("combobox", { name: "Dentro" }), { label: "Nessuna (categoria principale)" });
         await dialog(page).getByRole("button", { name: "Sposta" }).click();
         // Nella D lo spostamento va in bozza e si scrive con «Salva».
         if (await lookD(page)) {
