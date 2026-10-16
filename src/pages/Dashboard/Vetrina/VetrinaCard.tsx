@@ -14,13 +14,20 @@ export function OnAirLine({ onAir, onMetti, name }: { onAir: OnAir; onMetti?: ()
             <div className={s.on}>
                 <span className={s.ln} data-now={onAir.state === "now" ? "" : undefined}>
                     <i aria-hidden />
-                    <b>{onAir.state === "now" ? "In onda adesso" : "In onda"}</b>
-                    {bits.map(t => (
-                        <span key={t}>
-                            {" · "}
-                            <span className={s.nb}>{t}</span>
+                    {/* Il «·» sta davanti a ogni pezzo e quello di inizio riga
+                        esce dal bordo: non resta mai in fondo o in cima a una
+                        riga (v55). */}
+                    <span className={s.dots}>
+                        <span>
+                            <b className={s.nb}>{onAir.state === "now" ? "In onda adesso" : "In onda"}</b>
+                            {bits.map(t => (
+                                <span key={t} className={s.nb}>
+                                    <span className={s.sr}> · </span>
+                                    {t}
+                                </span>
+                            ))}
                         </span>
-                    ))}
+                    </span>
                 </span>
             </div>
         );

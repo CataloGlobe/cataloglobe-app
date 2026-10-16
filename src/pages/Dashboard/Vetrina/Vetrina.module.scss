@@ -376,6 +376,38 @@
     white-space: nowrap;
 }
 
+// Il «·» non resta mai in fondo o in cima a una riga: ogni pezzo lo porta
+// davanti a sé e quello di inizio riga esce dal bordo (v55).
+.on .ln {
+    display: flex;
+    align-items: baseline;
+
+    > i {
+        flex: none;
+    }
+}
+
+.dots {
+    display: block;
+    overflow: hidden;
+    min-width: 0;
+
+    > span {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: -1.1em;
+    }
+
+    .nb::before {
+        content: "·";
+        display: inline-block;
+        width: 1.1em;
+        text-align: center;
+        font-weight: 400;
+        color: var(--d-muted);
+    }
+}
+
 // Spento: l'anteprima si sbiadisce un poco.
 .card[data-off] :is(.paper, .phone) {
     opacity: 0.72;
