@@ -229,7 +229,8 @@ function useHourStep(axis: Axis) {
         if (!el) return;
         const fit = () => {
             const px = el.clientWidth / ((axis.to - axis.from) / 60);
-            setStep(px >= 30 ? 1 : px >= 17 ? 2 : 3);
+            // nella D, nel riquadro stretto dei tunnel, le ore ogni 4 (v55)
+            setStep(px >= 30 ? 1 : px >= 17 ? 2 : px >= 12 || !LOOK_D ? 3 : 4);
         };
         fit();
         const ro = new ResizeObserver(fit);
@@ -878,7 +879,7 @@ export default function CalendarioView({
         const out: ReactNode[] = [];
         for (let m = Math.ceil(ax.from / 60) * 60 + 60; m < ax.to; m += 60) {
             const h = (m - ax.from) / 60;
-            const hidden = st === 1 ? false : st === 2 ? h % 2 !== 0 : (h - 1) % 3 !== 0;
+            const hidden = st === 1 ? false : st === 2 ? h % 2 !== 0 : st === 4 ? h % 4 !== 0 : (h - 1) % 3 !== 0;
             out.push(
                 <span key={m} hidden={hidden} style={{ left: ((m - ax.from) / (ax.to - ax.from)) * 100 + "%" }}>
                     {(m / 60) % 24}
@@ -1358,13 +1359,20 @@ export default function CalendarioView({
             {pvOne && (
                 <div className={s.wsel}>
                     <IconButton size="sm" icon={<ChevronLeft size={14} />} aria-label={`Sede precedente: ${pvStep(-1).name}`} onClick={() => anteprima?.onSede?.(pvStep(-1).id)} />
-                    <Select
-                        aria-label="Sede da guardare"
-                        containerClassName={s.wsl}
-                        value={pvOne.id}
-                        onChange={e => anteprima?.onSede?.(e.target.value)}
-                        options={pvAll.map(x => ({ value: x.id, label: x.name + (pvDays(x.id) ? " · " + giorni(pvDays(x.id)) : "") }))}
-                    />
+                    {/* nella D il nome della sede tra le frecce, senza tendina (v55) */}
+                    {LOOK_D ? (
+                        <output className={s.wsname} aria-label="Sede da guardare" aria-live="polite">
+                            {pvOne.name}
+                        </output>
+                    ) : (
+                        <Select
+                            aria-label="Sede da guardare"
+                            containerClassName={s.wsl}
+                            value={pvOne.id}
+                            onChange={e => anteprima?.onSede?.(e.target.value)}
+                            options={pvAll.map(x => ({ value: x.id, label: x.name + (pvDays(x.id) ? " · " + giorni(pvDays(x.id)) : "") }))}
+                        />
+                    )}
                     <IconButton size="sm" icon={<ChevronRight size={14} />} aria-label={`Sede successiva: ${pvStep(1).name}`} onClick={() => anteprima?.onSede?.(pvStep(1).id)} />
                     <span className={s.wsn}>
                         {pvAll.indexOf(pvOne) + 1} di {pvAll.length}

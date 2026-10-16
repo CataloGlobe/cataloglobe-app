@@ -15,6 +15,8 @@ import {
     Trash2,
     Utensils
 } from "lucide-react";
+import { LOOK_D } from "@/styles/lookD";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Button } from "@/components/ui/Button/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import {
@@ -219,6 +221,8 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         </div>
     );
 
+    // al telefono i comandi stanno solo nella barra in basso: una volta sola nella pagina
+    const phone = useMediaQuery("(max-width: 640px)") && LOOK_D;
     if (!D)
         return (
             <div className={s.isec}>
@@ -286,6 +290,40 @@ export function CalendarioSection(p: CalendarioSectionProps) {
         if (!blocked) p.onSave();
     };
 
+    const acts = (
+        <>
+            {last && blocked && <span className={s.muted}>{blocked}</span>}
+            {stop && <span className={s.muted}>{stop}</span>}
+            <Button size="sm" variant="ghost" onClick={exit}>
+                Annulla
+            </Button>
+            {D.step > 0 && (
+                <Button size="sm" variant="secondary" leftIcon={<ArrowLeft size={16} />} onClick={() => upd(d => void (d.step = Math.max(0, d.step - 1)))}>
+                    Indietro
+                </Button>
+            )}
+            {!last && (
+                <Button
+                    size="sm"
+                    variant={edit ? "secondary" : "primary"}
+                    rightIcon={<ArrowRight size={16} />}
+                    disabled={!!stop}
+                    onClick={() => {
+                        next();
+                        if (viaTunnel && !miss && !stop && D.thing) p.onTunnel(D.kind, D.thing, true);
+                    }}
+                >
+                    Avanti
+                </Button>
+            )}
+            {(edit || last) && (
+                <Button size="sm" variant="primary" loading={p.busy} disabled={!!blocked} onClick={save}>
+                    {edit ? "Salva modifiche" : "Aggiungi al calendario"}
+                </Button>
+            )}
+        </>
+    );
+
     return (
         <div className={s.isec} style={{ "--ihdr": hdrH + "px" } as CSSProperties}>
             <div className={s.ihdr} ref={hdr}>
@@ -313,37 +351,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                             );
                         })}
                     </ol>
-                    <span className={`${s.hfa} ${s.iacts2}`}>
-                        {last && blocked && <span className={s.muted}>{blocked}</span>}
-                        {stop && <span className={s.muted}>{stop}</span>}
-                        <Button size="sm" variant="ghost" onClick={exit}>
-                            Annulla
-                        </Button>
-                        {D.step > 0 && (
-                            <Button size="sm" variant="secondary" leftIcon={<ArrowLeft size={16} />} onClick={() => upd(d => void (d.step = Math.max(0, d.step - 1)))}>
-                                Indietro
-                            </Button>
-                        )}
-                        {!last && (
-                            <Button
-                                size="sm"
-                                variant={edit ? "secondary" : "primary"}
-                                rightIcon={<ArrowRight size={16} />}
-                                disabled={!!stop}
-                                onClick={() => {
-                                    next();
-                                    if (viaTunnel && !miss && !stop && D.thing) p.onTunnel(D.kind, D.thing, true);
-                                }}
-                            >
-                                Avanti
-                            </Button>
-                        )}
-                        {(edit || last) && (
-                            <Button size="sm" variant="primary" loading={p.busy} disabled={!!blocked} onClick={save}>
-                                {edit ? "Salva modifiche" : "Aggiungi al calendario"}
-                            </Button>
-                        )}
-                    </span>
+                    {!phone && <span className={`${s.hfa} ${s.iacts2}`}>{acts}</span>}
                 </div>
             </div>
             <div className={s.igrid}>
@@ -359,6 +367,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                 </div>
                 {p.preview}
             </div>
+            {phone && <div className={s.dock}>{acts}</div>}
             {leave && dialog(leave)}
         </div>
     );

@@ -19,6 +19,7 @@ import cal from "@/pages/Dashboard/Programming/calendar/CalendarioView.module.sc
 import { qautoNote } from "./evidData";
 import { KIND, ONDA, inhAsk, bundleTotal, changed, cloneWhen, effWhen, euro, firstBlock, goesLive, keepReady, nTutte, offLater, ondaChange, oreSummary, priceText, sentence, skipped, stepLabel, stepSummary, steps, strays, thingName, type Ctx, type StepId, type Tunnel, type CreaKind } from "./creaModel";
 import { hidFeatured } from "./stileLook";
+import { Destra } from "./Destra";
 import s from "./Crea.module.scss";
 import { Box, Chip, Field, Opt, Pick, Sh, Toggle } from "./CreaUi";
 import { ImagePick } from "./ImagePick";
@@ -147,12 +148,18 @@ export function Serve({ t, example, business }: { t: Tunnel; example: string | n
             <Sh title="Dagli i tuoi colori">
                 Colori, caratteri e forma delle schede dei piatti: la pagina pubblica sembra il tuo locale, non un modulo. Uno stile vale per tutta la pagina, qualunque menù sia in onda.
             </Sh>
-            <p className={s.hint}>{example ? `L'esempio è nel telefono a destra: lo stile ${q(example)} su ${business || "il tuo locale"}.` : "Nel telefono a destra vedi la tua pagina com'è oggi."}</p>
+            <p className={s.hint}>{example ? (
+                    <>
+                        L'esempio è <Destra wide="nel telefono a destra" narrow="in «Anteprima»" />: lo stile {q(example)} su {business || "il tuo locale"}.
+                    </>
+                ) : (
+                    <Destra wide="Nel telefono a destra vedi la tua pagina com'è oggi." narrow="In «Anteprima» vedi la tua pagina com'è oggi." />
+                )}</p>
         </>
     ) : (
         <>
             <Sh title="Racconta una storia">Chi siete, da dove viene un ingrediente, il piatto del mese. La storia sta con la cosa che racconta: in fondo alla scheda di un prodotto, oppure nella pagina del locale.</Sh>
-            <p className={s.hint}>Nel passo dopo scegli di cosa parla. Il telefono a destra ti mostra dove compare.</p>
+            <p className={s.hint}>Nel passo dopo scegli di cosa parla. <Destra wide="Il telefono a destra" narrow="«Anteprima»" /> ti mostra dove compare.</p>
         </>
     );
 }
@@ -569,7 +576,15 @@ export function QuandoOre({
     const head = (
         <>
             <Sh title="Quando">
-                {t.per ? "Le ore di ogni sede: la settimana a destra segue la sede che scegli sopra." : `Le ore in cui i clienti ${ONDA[t.kind].lo} vedono. A destra la settimana della sede che scegli sopra.`}
+                {t.per ? (
+                    <>
+                        Le ore di ogni sede: la settimana <Destra wide="a destra" narrow="in «Anteprima»" /> segue la sede che scegli sopra.
+                    </>
+                ) : (
+                    <>
+                        Le ore in cui i clienti {ONDA[t.kind].lo} vedono. <Destra wide="A destra" narrow="In «Anteprima»" /> la settimana della sede che scegli sopra.
+                    </>
+                )}
             </Sh>
             {clash && (
                 <nav className={s.qst} aria-label="Parti del Quando">

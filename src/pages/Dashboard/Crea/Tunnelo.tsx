@@ -2,7 +2,7 @@
 // salvataggio e «E adesso?».
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Megaphone, Palette, Pencil, ScrollText, Smartphone, Sparkles, Store, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Eye, EyeOff, Megaphone, Palette, Pencil, ScrollText, Smartphone, Sparkles, Store, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { LOOK_D } from "@/styles/lookD";
 import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
@@ -10,6 +10,7 @@ import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUns
 import { useToast } from "@/context/Toast/ToastContext";
 import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePhoneFit } from "@/hooks/usePhoneFit";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { listBaseProductsForPicker } from "@/services/supabase/products";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { analyzeMenuFiles } from "@/pages/Dashboard/Catalogs/AiMenuImport/analyzeMenu";
@@ -106,6 +107,12 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     const showAfter = !!after && t === after.t;
     const [saving, setSaving] = useState(false);
     const [leave, setLeave] = useState(false);
+    // tablet e telefono nella D (v55): niente colonna a destra, «Anteprima» la apre sopra il passo
+    const narrow = useMediaQuery("(max-width: 1100px)") && LOOK_D;
+    // al telefono i comandi stanno solo nella barra in basso: una volta sola nella pagina
+    const phone = useMediaQuery("(max-width: 640px)") && LOOK_D;
+    const [prev, setPrev] = useState(false);
+    const railRef = useRef<HTMLOListElement>(null);
     const [going, setGoing] = useState<string | null>(null);
     const [effect, setEffect] = useState<Impatto>(NO_IMPATTO);
     const [wkSede, setWkSede] = useState<string | null>(null);
@@ -680,11 +687,32 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
     /* ---------- la testa ---------- */
     const pubLabel = t.edit?.add ? (t.onda === "off" ? `Salva e tieni ${ONDA[t.kind].pronto}` : "Metti in onda") : t.edit ? "Salva le modifiche" : goesLive(t, c) ? KIND[t.kind].pub : `Salva e tieni ${ONDA[t.kind].pronto}`;
     const title = showAfter && after ? after.saved.name : tunnelTitle(t);
-    const sub = showAfter ? "Vuoi aggiungere qualcosa?" : t.edit ? "Scegli cosa cambiare: il resto resta com'è." : `${st.length} passi. A destra vedi già com'è.`;
+    const sub = showAfter ? "Vuoi aggiungere qualcosa?" : t.edit ? "Scegli cosa cambiare: il resto resta com'è." : `${st.length} passi. ${narrow ? "Con «Anteprima» vedi già com'è." : "A destra vedi già com'è."}`;
     // «E adesso?» chiude ogni creazione, mai una modifica (D194)
     const creating = !t.edit;
     const KindIcon = KIND_ICON[t.kind];
     const rootStyle = { "--stick": `${hdr.h + 12 - hdr.pad}px`, "--ihdr": `${hdr.h - hdr.pad}px` } as CSSProperties;
+
+    // i passi scorrono fino a quello di adesso (v55)
+    useEffect(() => {
+        const rail = railRef.current;
+        const cur = rail?.querySelector<HTMLElement>('[aria-current="step"]');
+        if (LOOK_D && rail && cur && rail.scrollWidth > rail.clientWidth) rail.scrollLeft = cur.offsetLeft - rail.offsetLeft - 12;
+    }, [i, showAfter]);
+
+    const acts = (
+        <>
+            {why && <span className={s.why}>{why}</span>}
+            {i > 0 && (
+                <Button variant="secondary" size={LOOK_D ? "md" : "sm"} leftIcon={LOOK_D ? undefined : <ArrowLeft size={14} />} onClick={back}>
+                    Indietro
+                </Button>
+            )}
+            <Button variant="primary" size={LOOK_D ? "md" : "sm"} rightIcon={last ? undefined : <ArrowRight size={14} />} onClick={next} disabled={!!why || saving} loading={saving && last}>
+                {last ? pubLabel : "Avanti"}
+            </Button>
+        </>
+    );
 
     const crumb = (
         <nav className={s.icrumb} aria-label="Percorso">
@@ -719,14 +747,19 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                         <h2>{title}</h2>
                         <p className={cx(s.small, s.muted)}>{sub}</p>
                     </div>
+                    {narrow && !full && (
+                        <Button variant="secondary" size="sm" leftIcon={prev ? <EyeOff size={14} /> : <Eye size={14} />} aria-pressed={prev} onClick={() => setPrev(v => !v)} className={s.ipeek}>
+                            {prev ? "Nascondi" : "Anteprima"}
+                        </Button>
+                    )}
                     {LOOK_D && (
-                        <Button variant="ghost" size="sm" leftIcon={<X size={14} />} onClick={exit} className={s.iexit}>
-                            Esci
+                        <Button variant="ghost" size="sm" leftIcon={<X size={14} />} onClick={exit} className={s.iexit} aria-label="Esci">
+                            <span className={s.iexitT}>Esci</span>
                         </Button>
                     )}
                 </div>
                 <div className={s.istrow}>
-                    <ol className={cx(s.isteps, t.edit && s.editing)}>
+                    <ol className={cx(s.isteps, t.edit && s.editing)} ref={railRef}>
                         {st.map((n, j) => {
                             // modificando ci si sposta dove si vuole: viola i passi scelti o toccati, grigi gli altri (D140)
                             const part = !!t.edit && n !== "modifica" && n !== "controlla";
@@ -762,27 +795,17 @@ export function Tunnelo({ kind, aside, edit, fromStyle, data, tenantId, owner, o
                             </li>
                         )}
                     </ol>
-                    {!showAfter && (
-                        <span className={s.iacts}>
-                            {why && <span className={s.why}>{why}</span>}
-                            {i > 0 && (
-                                <Button variant="secondary" size={LOOK_D ? "md" : "sm"} leftIcon={LOOK_D ? undefined : <ArrowLeft size={14} />} onClick={back}>
-                                    Indietro
-                                </Button>
-                            )}
-                            <Button variant="primary" size={LOOK_D ? "md" : "sm"} rightIcon={last ? undefined : <ArrowRight size={14} />} onClick={next} disabled={!!why || saving} loading={saving && last}>
-                                {last ? pubLabel : "Avanti"}
-                            </Button>
-                        </span>
-                    )}
+                    {!showAfter && !phone && <span className={s.iacts}>{acts}</span>}
                 </div>
             </div>
-            <div className={cx(s.igrid, week && s.wide, full && s.full)}>
+            <div className={cx(s.igrid, week && s.wide, full && s.full, narrow && prev && s.peek)}>
                 <div className={s.iform} ref={formRef}>
                     {body}
                 </div>
                 {!full && right}
             </div>
+            {/* al telefono nella D Indietro e Avanti stanno in una barra ferma in basso (copia `.tu-dock`) */}
+            {phone && !showAfter && <div className={s.dock}>{acts}</div>}
             {/* in «Controlla» le righe di cosa cambia: la settimana c'è, non si vede */}
             {!week && step === "controlla" && owner && calKind && <div hidden>{preview}</div>}
             <UnsavedChangesDialog
