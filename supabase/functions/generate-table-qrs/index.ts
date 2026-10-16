@@ -29,7 +29,7 @@
 //      generated via qrcode npm package, embedded as PNG.
 //   8. Reply 200 with PDF bytes + Content-Disposition attachment.
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno";
 import QRCode from "https://esm.sh/qrcode@1.5.3?target=deno";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";

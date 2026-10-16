@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/subscriptionStatus.ts";
 

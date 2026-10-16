@@ -33,7 +33,7 @@
 // See docs/orders-architecture.md v1.2 §8 (state transitions), §14 (Edge
 // Function contracts).
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { verifyCustomerJwt } from "../_shared/customerJwt.ts";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";

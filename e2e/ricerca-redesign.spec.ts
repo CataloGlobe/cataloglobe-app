@@ -6,13 +6,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * col campo già attivo; i risultati evidenziano il testo trovato e il tocco porta
  * al piatto; la ricerca fatta torna fra le recenti; «Filtri» si spinge dalla
  * ricerca e dal ⋯, filtra dal vivo e accende il pallino della lente. Stub senza login.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/ricerca-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 test.beforeEach(async ({ page }) => {
     await stubPublicPage(page, { ordering: false, allergens: true });

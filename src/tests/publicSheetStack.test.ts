@@ -128,9 +128,11 @@ describe("sheetMotion", () => {
         expect(exitDuration(300, 0.1)).toBe(EXIT_DURATION_MS);
     });
 
-    it("sposta la pista di una larghezza per pagina", () => {
-        expect(trackOffsetPercent(0)).toBe(-0);
-        expect(trackOffsetPercent(2)).toBe(-200);
-        expect(trackOffsetPercent(-1)).toBe(-0);
+    it("sposta la pista di una pagina, in % della pista larga quanto tutte le pagine", () => {
+        expect(trackOffsetPercent(0, 1)).toBe(-0);
+        expect(trackOffsetPercent(1, 2)).toBe(-50);
+        expect(trackOffsetPercent(3, 4)).toBe(-75);
+        expect(trackOffsetPercent(-1, 2)).toBe(-0);
+        expect(trackOffsetPercent(1, 0)).toBe(-100);
     });
 });

@@ -40,7 +40,7 @@
 //   8. Reply 200 con { table_id, resolved_action, resolved_orders_count,
 //      closed_groups_count, closed_orders_count, cleared_bill_count }.
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { withAppCors } from "../_shared/cors.ts";
 import { hasActivityPermission } from "../_shared/membershipCheck.ts";

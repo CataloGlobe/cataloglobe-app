@@ -30,7 +30,7 @@ import { clearPreferences, keepPreferencesFor, matchesPreferences, usePreference
 import type { BookingConfig } from "./booking/bookingForm";
 import AddedNotice from "./order/AddedNotice";
 import { showAdded } from "./order/addedNoticeStore";
-import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext } from "./slots";
+import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, SheetsSlotContext, StorySlot } from "./slots";
 import type { MenuSource } from "./menus/menuSource";
 import { useMenuChoice } from "./menus/useMenuChoice";
 import { animateBrowserBack, passageRunning, runMenuPassage } from "./menus/menuPassage";
@@ -41,21 +41,21 @@ import { findInMenus, otherNowCatalogs } from "./menus/menuProducts";
 import type { PublicMenu } from "@/types/resolvedCollections";
 
 /**
- * Radice del redesign della pagina pubblica, scelta da `PublicCatalogReady`
- * solo con `PUBLIC_REDESIGN_ENABLED`. Per ora è uno scheletro: rende la pagina
- * di oggi. Le PR successive sostituiscono i pezzi uno alla volta (isola, barra,
- * fogli...) senza toccare `CollectionView.tsx`, che si spegne alla fine.
+ * Radice della pagina pubblica, montata sempre da `PublicCatalogReady` (dalla
+ * PR 13). Monta `CollectionView` e le passa gli slot del redesign (isola, barra,
+ * fogli, In evidenza, fondo); la pagina vecchia si toglie con la PR di pulizia.
  *
  * Nei file di questa cartella non importare `.scss` finché serve: un modulo con
- * effetti di bordo non si elimina col flag spento e pesa nel bundle di tutti.
+ * effetti di bordo entra nel bundle iniziale e pesa al primo caricamento.
  */
-// /*#__PURE__*/: senza, `lazy()` è un effetto di bordo e il chunk entra nel bundle anche col flag spento.
+// /*#__PURE__*/: senza, `lazy()` è un effetto di bordo e non si elimina dove non serve.
 const ProvaTecnica = /*#__PURE__*/ lazy(() => import("./prova/ProvaTecnica"));
 
 // Il foglio del locale arriva dopo il primo disegno: chunk a parte, scaldato
 // quando il telefono è libero e comunque caricato al primo tocco che lo apre.
 const loadVenueSheets = () => import("./sheets/VenueSheets");
 const VenueSheets = /*#__PURE__*/ lazy(loadVenueSheets);
+const StoryTab = /*#__PURE__*/ lazy(() => import("./story/StoryTab"));
 
 // «Scegli il menu»: chunk a parte, serve solo alle sedi con più menu adesso.
 const loadMenuChooser = () => import("./menus/MenuChooser");
@@ -243,6 +243,12 @@ export default function RedesignCollectionView({
         return { position: index + 1, total: menuSheet.menus.length, name: currentMenu?.name ?? null };
     }, [menuSheet, currentMenu]);
     const renderIsland = useCallback<HeaderSlot>(context => <Island {...context} menuSwitch={menuSwitch} />, [menuSwitch]);
+    // Il locale ha la copertina: la foto del cappello la sostituisce nell'isola invece di stare nel cappello.
+    const hasVenueCover = !!(props.style.showCoverImage && props.businessImage);
+    const renderStory = useCallback<StorySlot>(
+        context => <StoryTab {...context} activityName={props.businessName} hasVenueCover={hasVenueCover} />,
+        [props.businessName, hasVenueCover]
+    );
     // Le card salgono in cascata solo la prima volta; tornando alla scelta restano ferme.
     // Dall'indietro del browser la scelta rientra da sinistra (vedi `animateBrowserBack`).
     // Si decide quando la scelta compare e poi resta: un nuovo render non la ricalcola.
@@ -256,6 +262,18 @@ export default function RedesignCollectionView({
     }
     const chooserEntrance = entranceRef.current;
     useEffect(() => keepPreferencesFor(props.activityId), [props.activityId]);
+    // Storia (v38): quando il menu è pronto, in sottofondo, il chunk e l'elenco; il primo tocco non aspetta.
+    const storySlug = props.mode === "public" && props.hasStory ? props.slug : undefined;
+    useEffect(() => {
+        if (!storySlug) return;
+        const warm = () => void import("./story/storyStore").then(store => store.prefetchStories(storySlug));
+        if (typeof window.requestIdleCallback === "function") {
+            const id = window.requestIdleCallback(warm, { timeout: 3000 });
+            return () => window.cancelIdleCallback(id);
+        }
+        const id = window.setTimeout(warm, 1500);
+        return () => window.clearTimeout(id);
+    }, [storySlug]);
     // «Prenota un tavolo» nella scelta: i passi nel foglio se la sede prenota lì,
     // altrimenti la pagina /prenota, come il ⋯ e il fondo pagina.
     const navigate = useNavigate();
@@ -335,6 +353,7 @@ export default function RedesignCollectionView({
                     sheetsSlot={sheetsSlot}
                     featuredSlot={renderFeatured}
                     footerSlot={renderFooter}
+                    storySlot={renderStory}
                 />
             </div>
         </>

@@ -16,7 +16,7 @@
 // `leads_retention_secret` (letto dal cron).
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { LEAD_KEPT_STATUS, leadRetentionCutoff } from "../_shared/leadRetention.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

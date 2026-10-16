@@ -30,7 +30,7 @@ import { FeaturedCtaFooter } from "../FeaturedBlock/FeaturedContentDetail";
 import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
-import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot } from "../redesign/slots";
+import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, StorySlot } from "../redesign/slots";
 import { addLine, lineQty, replaceLine, undoLine } from "../redesign/order/orderDraft";
 import { orderRequest, sendFailure, type SendResult } from "../redesign/order/orderSend";
 import { hasOpenSheet } from "../hooks/openSheets";
@@ -871,6 +871,8 @@ type Props = {
     featuredSlot?: FeaturedSlot;
     /** Redesign: fondo pagina al posto di `PublicFooter` (solo modo pubblico). */
     footerSlot?: FooterSlot;
+    /** Redesign: pagina Storia al posto di `StoryView` (solo modo pubblico). */
+    storySlot?: StorySlot;
 };
 
 export default function CollectionView({
@@ -911,7 +913,8 @@ export default function CollectionView({
     bottomBarSlot,
     sheetsSlot,
     featuredSlot,
-    footerSlot
+    footerSlot,
+    storySlot
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -3555,24 +3558,30 @@ export default function CollectionView({
                 />
             )}
 
-            {activeTab === "storia" && slug && (
-                <Suspense fallback={null}>
-                    {/* Stesso meccanismo di Eventi: superficie a pattern che taglia l'hero + .frame
-                        per il cap desktop (1280px). A differenza di Recensioni, Storie ha bisogno del
-                        cap perché il feed/lettore non hanno un contenitore proprio con max-width. */}
-                    <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
-                        <div className={styles.frame}>
-                            <StoryView
-                                slug={slug}
-                                selectedStoryId={selectedStoryId}
-                                onSelectStory={setSelectedStoryId}
-                                onOpenProduct={openProductFromStory}
-                                resolveProduct={findProductById}
-                            />
-                        </div>
-                    </div>
-                </Suspense>
-            )}
+            {activeTab === "storia" && slug && (() => {
+                const storyProps = {
+                    slug,
+                    selectedStoryId,
+                    onSelectStory: setSelectedStoryId,
+                    onOpenProduct: openProductFromStory,
+                    resolveProduct: findProductById
+                };
+                return (
+                    <Suspense fallback={null}>
+                        {/* Redesign: la pagina Storia nuova porta il suo contenitore. */}
+                        {mode === "public" && storySlot ? storySlot(storyProps) : (
+                            /* Stesso meccanismo di Eventi: superficie a pattern che taglia l'hero + .frame
+                               per il cap desktop (1280px). A differenza di Recensioni, Storie ha bisogno del
+                               cap perché il feed/lettore non hanno un contenitore proprio con max-width. */
+                            <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
+                                <div className={styles.frame}>
+                                    <StoryView {...storyProps} />
+                                </div>
+                            </div>
+                        )}
+                    </Suspense>
+                );
+            })()}
 
             {/* ── BOTTOM NAV BAR pubblica — public + mobile. Sostituisce tab header + azioni desktop ≤640px. ── */}
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}

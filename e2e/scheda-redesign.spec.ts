@@ -7,13 +7,9 @@ import { SLUG, stubPublicPage } from "./publicPageStub";
  * «12,00 €», regola nel titolo del gruppo, «Mostra tutti» oltre cinque voci,
  * ingredienti in testo (D70), «Perfetto con» a spinta con
  * «‹ Nome», link diretto `?prodotto=`. Stub senza login.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/scheda-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 test.beforeEach(async ({ page }) => {
     await stubPublicPage(page, { ordering: false, details: true, allergens: true });

@@ -27,3 +27,45 @@ describe("resolveTargetPath — prenotazioni", () => {
         );
     });
 });
+
+describe("resolveTargetPath — attività in eliminazione", () => {
+    it("eliminazione e promemoria aprono il Workspace, dove c'è Ripristina", () => {
+        for (const event_type of ["tenant.deletion_scheduled", "tenant.deletion_reminder"]) {
+            expect(resolveTargetPath(notification({ event_type, tenant_id: null, data: { tenant_id: "t1" } }), null)).toBe(
+                "/workspace"
+            );
+        }
+    });
+
+    it("ripristinata apre l'attività, o il Workspace se manca", () => {
+        expect(
+            resolveTargetPath(notification({ event_type: "tenant.restored", tenant_id: null, data: { tenant_id: "t7" } }), null)
+        ).toBe("/business/t7");
+        expect(resolveTargetPath(notification({ event_type: "tenant.restored", tenant_id: null, data: {} }), null)).toBe(
+            "/workspace"
+        );
+    });
+});
+
+describe("resolveTargetPath — team", () => {
+    it("invito ricevuto apre il Workspace", () => {
+        expect(resolveTargetPath(notification({ event_type: "team.invite_received", tenant_id: null }), null)).toBe(
+            "/workspace"
+        );
+    });
+
+    it("accettato e scaduto aprono il Team dell'azienda", () => {
+        for (const event_type of ["team.invite_accepted", "team.invite_expired"]) {
+            expect(resolveTargetPath(notification({ event_type }), null)).toBe("/business/t1/settings/team");
+            expect(resolveTargetPath(notification({ event_type, tenant_id: null }), null)).toBeNull();
+        }
+    });
+});
+
+describe("resolveTargetPath — abbonamento", () => {
+    it("pagamento fallito e fine prova aprono Abbonamento", () => {
+        for (const event_type of ["billing.payment_failed", "billing.trial_ending"]) {
+            expect(resolveTargetPath(notification({ event_type }), null)).toBe("/business/t1/settings/abbonamento");
+        }
+    });
+});

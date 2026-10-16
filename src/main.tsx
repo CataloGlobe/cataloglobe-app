@@ -15,9 +15,13 @@ import App from "./App";
 import MotionProvider from "@/components/motion/MotionProvider";
 import { lookDOn } from "@styles/lookD";
 import { LookDScope } from "@styles/LookDScope";
+import { installStaleChunkReload } from "@/utils/reloadOnStaleChunk";
 import "@styles/global.scss";
 import "@styles/kinds.scss";
 import "./i18n";
+
+// Dopo un deploy i pezzi della versione di prima spariscono: si ricarica la pagina.
+installStaleChunkReload();
 
 // Grafica nuova del back office (direzione D) dietro l'interruttore: la radice
 // porta `data-look="d"` prima del primo render, così non c'è un lampo dello stile vecchio.

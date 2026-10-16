@@ -20,7 +20,7 @@
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRM_JOB_SECRET.
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { timingSafeEqualStr } from "../_shared/timingSafeEqual.ts";
 import { leadRetentionCutoff } from "../_shared/leadRetention.ts";
 

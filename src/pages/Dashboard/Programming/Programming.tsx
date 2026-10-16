@@ -65,6 +65,7 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { ruleTypeLabel } from "./ruleTypeLabel";
 import { withPluralArticle } from "@/utils/ruleDetailForm";
 import styles from "./Programming.module.scss";
+import { LAST_BASE_TIP, lastBaseMenu } from "./calendar/baseRule";
 
 type RuleTypeFilter = RuleType | "all";
 
@@ -639,6 +640,11 @@ export default function Programming() {
     };
 
     const handleToggleEnabled = async (ruleId: string, enabled: boolean) => {
+        // la sola regola di base non si spegne: il locale resterebbe senza menù (D238)
+        if (!enabled && lastBaseMenu(rules, ruleId)) {
+            showToast({ type: "error", message: LAST_BASE_TIP, duration: 6000 });
+            return;
+        }
         // Optimistic update
         setRules(prev => prev.map(r => (r.id === ruleId ? { ...r, enabled } : r)));
         setUpdatingRules(prev => {

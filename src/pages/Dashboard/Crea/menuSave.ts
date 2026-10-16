@@ -168,12 +168,18 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
                 idOf.set(sec, (m.get(key) as CatW).id);
             } else {
                 idOf.set(sec, sec.id);
-                const o = was.get(sec.id);
+                // al «Riprova» conta quello già scritto: spostata dentro una categoria nuova e poi rimessa
+                // a posto, torna fuori prima che la nuova si cancelli e se la porti via (review del punto 1)
+                const o = was.get(sec.id), key = `sez-old:${sec.id}`;
+                const w = (m.get(key) as Omit<CatW, "id"> | undefined) ?? (o && { name: o.sec.name.trim(), sort: o.sec.sort!, parent: o.parent, level: o.level });
                 const upd: Parameters<typeof updateCategory>[2] = {};
-                if (o?.sec.name.trim() !== name) upd.name = name;
-                if (o?.sec.sort !== sort[i]) upd.sort_order = sort[i];
-                if (o?.parent !== parent || o?.level !== level) Object.assign(upd, { parent_category_id: parent, level });
-                if (Object.keys(upd).length) await updateCategory(sec.id, tenantId, upd);
+                if (w?.name !== name) upd.name = name;
+                if (w?.sort !== sort[i]) upd.sort_order = sort[i];
+                if (w?.parent !== parent || w?.level !== level) Object.assign(upd, { parent_category_id: parent, level });
+                if (Object.keys(upd).length) {
+                    await updateCategory(sec.id, tenantId, upd);
+                    m.set(key, { name, sort: sort[i], parent, level });
+                }
             }
             if (level < MAX_LEVEL) await cats(sec.subs, idOf.get(sec)!, (level + 1) as 2 | 3);
         }
@@ -187,7 +193,26 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
     // le categorie tolte se ne vanno subito, dal livello più profondo, coi loro piatti: un piatto
     // spostato da lì a un'altra del ramo troverebbe ancora il suo vecchio posto (review #388.1)
     const gone = [...was].filter(([id]) => !kept.has(id)).sort((a, b) => b[1].level - a[1].level);
+    // anche quelle nate al tentativo prima e tolte prima del «Riprova», come in writeSections (review #472, punto 1)
+    const newKeys = new Set(now.filter(x => !x.id).map(x => "sez-cat:" + x.key));
+    const goneNew = [...m].filter(([k]) => k.startsWith("sez-cat:") && !newKeys.has(k)).map(([k, w]) => [k, w as CatW] as const);
+    for (const [k, w] of goneNew.sort((a, b) => b[1].level - a[1].level)) {
+        await deleteCategory(w.id, tenantId);
+        m.delete(k);
+    }
     for (const [id] of gone) await deleteCategory(id, tenantId);
+    // i piatti nuovi del tentativo prima: con la loro categoria se ne sono già andati, tolti lasciano il posto
+    const goneIds = new Set([...goneNew.map(([, w]) => w.id), ...gone.map(([id]) => id)]);
+    const dishKeys = new Set(now.flatMap(sec => sec.dishes.filter(d => !stays(d, sec)).map(d => "sez-link:" + d.key)));
+    for (const [k, v] of [...m]) {
+        if (!k.startsWith("sez-link:")) continue;
+        const w = v as LinkW;
+        if (goneIds.has(w.catId)) m.delete(k);
+        else if (!dishKeys.has(k)) {
+            if (w.id) await removeProductFromCategory(tenantId, w.id);
+            m.delete(k);
+        }
+    }
     // i piatti tolti o spostati lasciano il posto
     for (const [linkId, catId] of wasIn) if (!here.has(linkId) && kept.has(catId)) await removeProductFromCategory(tenantId, linkId);
     for (const sec of now) {
@@ -201,8 +226,8 @@ export async function saveSezioni(sections: readonly Section[], origSections: re
             const productId = await productOf(d, tenantId, m);
             // una variante sta nel menù col suo prodotto e sé stessa accanto
             const key = `sez-link:${d.key}`, catId = idOf.get(sec)!, w = m.get(key) as LinkW | undefined;
-            if (w && w.catId !== catId) {
-                // spostato in un'altra categoria prima del «Riprova»: lascia il posto del primo tentativo
+            if (w && (w.catId !== catId || w.productId !== productId)) {
+                // spostato in un'altra categoria, o un altro prodotto, prima del «Riprova»: lascia il posto del primo tentativo (review #472, punto 2)
                 if (w.id) await removeProductFromCategory(tenantId, w.id);
                 m.delete(key);
             }

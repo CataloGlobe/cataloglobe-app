@@ -17,7 +17,7 @@
 // APP_URL (per il rimando alla scheda).
 // =============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { getPublicSiteUrl } from "../_shared/publicSiteUrl.ts";
 import { fillWhatsappTemplate, verifyWaLink, whatsappUrl } from "../_shared/crmWhatsapp.ts";
 

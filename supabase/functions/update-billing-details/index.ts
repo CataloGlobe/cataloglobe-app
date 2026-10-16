@@ -18,7 +18,7 @@
 // Stripe NON fa fallire la richiesta (200 + `stripe_sync`). Il prossimo
 // salvataggio o checkout riallinea.
 // ---------------------------------------------------------------------------
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { createStripeClient } from "../_shared/stripe-helpers.ts";
 import { syncStripeCustomerProfile, TENANT_FISCAL_COLUMNS } from "../_shared/stripeCustomerProfile.ts";
 import { appCorsHeaders } from "../_shared/cors.ts";

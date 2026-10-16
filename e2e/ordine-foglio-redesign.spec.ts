@@ -8,13 +8,9 @@ import { ACTIVITY_ID, SLUG, stubPublicPage } from "./publicPageStub";
  * Inviato. Un piatto che il menu non ha più resta marcato e non parte.
  * Stub senza login: `submit-order`, `cancel-order` e `get-orders-for-session`
  * finti, con gli ordini tenuti nel test.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/ordine-foglio-redesign.spec.ts`; senza il flag la spec si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 type Order = { id: string; status: string; items: { name: string; qty: number }[]; total: number };
 
@@ -215,6 +211,23 @@ test("Modifica una riga dalla scheda e torna all'ordine con Aggiorna", async ({ 
     await expect(cart(page)).toHaveAccessibleName("Il tuo ordine (1)");
 });
 
+test("annullato dalla conferma: X grigia e «Ordine annullato», non più «Inviato alla cucina»", async ({ page }) => {
+    await openPage(page);
+    await page.getByRole("button", { name: "Aggiungi alla selezione" }).first().click();
+    await cart(page).click();
+    await page.getByRole("button", { name: "Invia alla cucina" }).click();
+    const confirm = page.getByRole("dialog", { name: "Ordine 1 · Tavolo 4" });
+    await expect(confirm.getByRole("status").filter({ hasText: "Inviato alla cucina" })).toBeVisible();
+
+    await confirm.getByRole("button", { name: "Annulla ordine" }).click();
+    await expect(confirm.getByRole("group", { name: "Vuoi davvero annullare?" })).toBeVisible();
+    await expect(confirm.getByRole("button", { name: "No" })).toBeFocused();
+    await confirm.getByRole("button", { name: "Sì, annulla" }).click();
+    await expect(confirm.getByRole("status").filter({ hasText: "Ordine annullato" })).toBeVisible();
+    await expect(confirm.getByText("Inviato alla cucina")).toHaveCount(0);
+    await expect(confirm.getByText("Ordine annullato: non arriva in cucina.")).toBeVisible();
+});
+
 test("un piatto che il menu non ha più resta marcato e va tolto prima dell'invio; gli ordini mostrano il passo", async ({ page }) => {
     const gone = { id: "prod-gone", name: "Piatto ritirato", basePrice: 7, qty: 1, selectedFormat: null, selectedAddons: [], unitPrice: 7, note: null };
     const kept = { id: "prod-0-1", name: "Antipasti 2", basePrice: 10, qty: 1, selectedFormat: null, selectedAddons: [], unitPrice: 10, note: null };
@@ -226,11 +239,10 @@ test("un piatto che il menu non ha più resta marcato e va tolto prima dell'invi
     const dialog = sheet(page);
 
     await expect(dialog.getByText("Non più disponibile")).toBeVisible();
+    // Il pulsante toglie davvero i piatti che mancano; gli altri restano.
     await page.getByRole("button", { name: "Togli i piatti non più disponibili" }).click();
-    const remove = dialog.getByRole("button", { name: "Rimuovi Piatto ritirato" });
-    await expect(remove).toBeFocused();
-    await remove.click();
     await expect(dialog.getByText("Piatto ritirato")).toHaveCount(0);
+    await expect(dialog.getByText("Antipasti 2")).toBeVisible();
     await expect(page.getByRole("button", { name: "Invia alla cucina" })).toBeVisible();
 
     await expect(dialog.getByRole("heading", { name: "Inviati · Tavolo 4 · 1 ordine" })).toBeVisible();
@@ -264,7 +276,6 @@ test("un piatto spento dopo l'apertura: il server lo rifiuta e la riga dice qual
     await expect(dialog.getByRole("listitem").filter({ hasText: "Antipasti 2" }).getByText("Non più disponibile")).toBeVisible();
     await expect(dialog.getByRole("listitem").filter({ hasText: "Antipasti 3" }).getByText("Non più disponibile")).toHaveCount(0);
     await page.getByRole("button", { name: "Togli i piatti non più disponibili" }).click();
-    await dialog.getByRole("button", { name: "Rimuovi Antipasti 2" }).click();
     await expect(page.getByRole("button", { name: /^Invia alla cucina · 10,00/ })).toBeVisible();
     await expect(dialog.getByRole("alert")).toHaveCount(0);
 });

@@ -22,7 +22,7 @@
 //   8. Map the RPC's prefixed RAISE messages to HTTP responses.
 //   9. Reply 200 with { order_id, item_id, new_order_total, order_cancelled }.
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { withAppCors } from "../_shared/cors.ts";
 import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";

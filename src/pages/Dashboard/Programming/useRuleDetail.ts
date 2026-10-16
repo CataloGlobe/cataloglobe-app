@@ -5,6 +5,7 @@ import {
     duplicateRule,
     getLayoutRuleById,
     listLayoutRuleOptions,
+    listLayoutRules,
     updateRule,
     updateScheduleEnabled,
     type LayoutRule,
@@ -27,6 +28,7 @@ import {
     type RuleFormErrors,
     type RuleFormField
 } from "@/utils/ruleDetailForm";
+import { LAST_BASE_TIP, lastBaseMenu } from "./calendar/baseRule";
 
 export type RuleDetailStatus = "loading" | "ready" | "notFound" | "error";
 
@@ -204,6 +206,11 @@ export function useRuleDetail({
         if (!rule) return;
         setIsToggling(true);
         try {
+            // la sola regola di base non si spegne: il locale resterebbe senza menù (D238)
+            if (!next && tenantId && lastBaseMenu(await listLayoutRules(tenantId), rule.id)) {
+                showToast({ type: "error", message: LAST_BASE_TIP, duration: 6000 });
+                return;
+            }
             await updateScheduleEnabled(rule.id, next);
             setRule(prev => (prev ? { ...prev, enabled: next } : prev));
             setForm(prev => (prev ? { ...prev, enabled: next } : prev));

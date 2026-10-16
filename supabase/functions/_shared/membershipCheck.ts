@@ -17,7 +17,7 @@
  * non passano anche quelle di qui.
  */
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.117.3";
 
 export async function isMemberOfTenant(
     supabaseUser: SupabaseClient,

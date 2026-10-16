@@ -5,14 +5,9 @@ import { SLUG, featured, stubPublicPage } from "./publicPageStub";
  * «In evidenza» nel redesign della pagina pubblica (PR 7, spec §9): carosello C
  * nella pagina, elenco e dettaglio nel foglio unico. Pagina servita da stub,
  * senza login.
- *
- * Solo col redesign acceso: `VITE_PUBLIC_REDESIGN=true bash scripts/e2e.sh
- * e2e/evidenza-redesign.spec.ts`. Con un server sulla 5174 riusato senza il flag la
- * spec si salta da sola.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, storageState: { cookies: [], origins: [] } });
-test.skip(process.env.VITE_PUBLIC_REDESIGN !== "true", "solo con VITE_PUBLIC_REDESIGN=true");
 
 const contents = (n: number) =>
     Array.from({ length: n }, (_, i) =>

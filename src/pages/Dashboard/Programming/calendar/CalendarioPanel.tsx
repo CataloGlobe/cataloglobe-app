@@ -5,6 +5,7 @@ import { IconButton } from "@/components/ui/Button/IconButton";
 import { KIND_LABEL, durLabel, eur, hhmm, q, why, type CalEntry, type CalKind, type CalSeat, type Line, type LineSeg } from "./calendarModel";
 import type { DropItem } from "./calendarWrites";
 import { DB_LATER, NEW_MODEL } from "./calendarFlags";
+import { LAST_BASE_TIP } from "./baseRule";
 import s from "./CalendarioView.module.scss";
 
 export type ProductInfo = { category: string | null; listPrice: number | null };
@@ -26,6 +27,8 @@ export type CalendarioPanelProps = {
     formatNames: ReadonlyMap<string, string>;
     /** Lo stile che oggi sta nella stessa regola del menù (e viceversa). */
     pairedName: string | null;
+    /** La sua regola è la sola di base: spenta, il locale resterebbe senza menù (D238). */
+    lastBase?: boolean;
     writable: boolean;
     onClose: () => void;
     /** La sezione intera; `only` = il piatto toccato, da modificare da solo. */
@@ -48,6 +51,8 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
     const spento = !!e.spento;
     // lo stile sta nella regola del menù: spegnerlo da solo spegnerebbe anche il menù
     const offLater = k === "style" && !!p.pairedName && !spento;
+    const noOff = offLater || (!!p.lastBase && !spento);
+    const offTip = offLater ? `Arriva col database nuovo\n~Oggi lo stile sta nella stessa regola di «${p.pairedName}»: spegnerlo spegnerebbe anche il menù.` : LAST_BASE_TIP;
     const enable = async (on: boolean) => {
         if (!p.onEnable) return;
         setBusy(true);
@@ -280,8 +285,8 @@ export function CalendarioPanel(p: CalendarioPanelProps) {
                     <>
                         {p.writable && p.onEnable && !spento && (
                             // un pulsante spento non riceve il mouse: il perché sta sul suo involucro (difetto 10)
-                            <span data-tip={offLater ? `Arriva col database nuovo\n~Oggi lo stile sta nella stessa regola di «${p.pairedName}»: spegnerlo spegnerebbe anche il menù.` : undefined} style={offLater ? { display: "inline-flex", cursor: "not-allowed" } : { display: "contents" }}>
-                                <Button size="sm" variant="secondary" leftIcon={<Power size={16} />} disabled={offLater} style={offLater ? { pointerEvents: "none" } : undefined} aria-label={offLater ? `Spegni: ${DB_LATER}` : undefined} onClick={() => setConfirm("off")}>
+                            <span data-tip={noOff ? offTip : undefined} style={noOff ? { display: "inline-flex", cursor: "not-allowed" } : { display: "contents" }}>
+                                <Button size="sm" variant="secondary" leftIcon={<Power size={16} />} disabled={noOff} style={noOff ? { pointerEvents: "none" } : undefined} aria-label={offLater ? `Spegni: ${DB_LATER}` : noOff ? "Spegni: è il menù di base" : undefined} onClick={() => setConfirm("off")}>
                                     Spegni
                                 </Button>
                             </span>
