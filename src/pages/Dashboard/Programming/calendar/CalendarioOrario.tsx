@@ -114,6 +114,8 @@ export function Band({ w, axis, upd }: { w: CalWhen; axis: Axis; upd: (fn: (d: D
     const rs = w.ranges ?? [[A0, A1] as [number, number]];
     const drag = !!w.ranges;
     const bd = useRef<{ j: number; mode: "l" | "r" | "m"; x0: number; w: number; orig: [number, number] } | null>(null);
+    // la fascia presa, per il bagliore della D (v49)
+    const [held, setHeld] = useState<number | null>(null);
     const ticks: number[] = [];
     for (let m = A0; m <= A1; m += 120) ticks.push(m);
     const down = (j: number, mode: "l" | "r" | "m") => (ev: RPointerEvent<HTMLElement>) => {
@@ -122,6 +124,7 @@ export function Band({ w, axis, upd }: { w: CalWhen; axis: Axis; upd: (fn: (d: D
         const track = (ev.currentTarget.closest("[data-band]") as HTMLElement).getBoundingClientRect();
         bd.current = { j, mode, x0: ev.clientX, w: track.width, orig: [rs[j][0], rs[j][1]] };
         document.body.classList.add(s.ibdrag);
+        setHeld(j);
         const move = (e: PointerEvent) => {
             const b = bd.current;
             if (!b) return;
@@ -139,13 +142,17 @@ export function Band({ w, axis, upd }: { w: CalWhen; axis: Axis; upd: (fn: (d: D
         };
         const up = () => {
             bd.current = null;
+            setHeld(null);
             document.body.classList.remove(s.ibdrag);
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
+            window.removeEventListener("pointercancel", up);
             upd(dd => dd.when.ranges && normRanges(dd.when.ranges));
         };
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", up);
+        // il sistema può togliere il dito (scroll, gesto): la fascia non resta presa
+        window.addEventListener("pointercancel", up);
     };
     return (
         <div className={`${s.iband} ${drag ? s.drag : ""}`} aria-hidden="true">
@@ -153,7 +160,7 @@ export function Band({ w, axis, upd }: { w: CalWhen; axis: Axis; upd: (fn: (d: D
                 {drag && A1 > 1440 && <span className={s.ibnd} style={{ left: X(1440) + "%" }} data-tip="Dopo mezzanotte: giorno dopo" />}
                 {rs.map(([a, b], j) =>
                     drag ? (
-                        <i key={j} data-tip={`${hhmm(a)}–${b === 1440 ? "24:00" : hhmm(b)}\n~Trascina per spostarla, dai bordi per allungarla o accorciarla. A passi di 15 minuti.`} style={{ left: X(a) + "%", width: X(b) - X(a) + "%" }} onPointerDown={down(j, "m")}>
+                        <i key={j} className={held === j ? s.on : undefined} data-tip={`${hhmm(a)}–${b === 1440 ? "24:00" : hhmm(b)}\n~Trascina per spostarla, dai bordi per allungarla o accorciarla. A passi di 15 minuti.`} style={{ left: X(a) + "%", width: X(b) - X(a) + "%" }} onPointerDown={down(j, "m")}>
                             <b className={`${s.ibh} ${s.l}`} onPointerDown={down(j, "l")} />
                             <b className={`${s.ibh} ${s.r}`} onPointerDown={down(j, "r")} />
                         </i>

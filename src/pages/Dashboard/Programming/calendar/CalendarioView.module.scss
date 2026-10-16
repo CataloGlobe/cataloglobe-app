@@ -2925,3 +2925,56 @@ button.dqsedi {
         color: var(--d-text);
     }
 }
+
+// «Quando» nella D (copia `.tu-band`, `.tu-tin`, `.tu-tpop`; v49): barra un po' più alta,
+// maniglie più larghe, bagliore sulla fascia presa, orologio che si apre scendendo
+@include look-d {
+    .ibt {
+        border: 0;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--d-muted) 26%, transparent);
+    }
+    .iband.drag .ibt {
+        height: 22px;
+        border-radius: 8px;
+        i {
+            border-radius: 6px;
+            transition:
+                filter var(--d-dur) var(--d-ease-move),
+                box-shadow var(--d-dur) var(--d-ease-move);
+            &.on {
+                box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--k, var(--d-brand)) 70%, transparent);
+            }
+        }
+    }
+    .ibnd {
+        border-radius: 0 8px 8px 0;
+    }
+    .ibh {
+        width: 9px;
+        &::after {
+            top: 4px;
+            bottom: 4px;
+            left: 3.5px;
+        }
+    }
+    .hin.tin {
+        width: 92px;
+        padding-right: 32px;
+    }
+    .tpop {
+        width: 252px;
+        border: 0;
+        border-radius: var(--d-r-card);
+        box-shadow: var(--d-shadow-pop);
+        animation: tpopIn 0.16s var(--d-ease-move);
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+        }
+    }
+    @keyframes tpopIn {
+        from {
+            opacity: 0;
+            transform: translateY(-4px);
+        }
+    }
+}
