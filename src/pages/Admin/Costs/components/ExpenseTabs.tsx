@@ -87,6 +87,7 @@ export function ExpenseTabs({
     expenses,
     nextCharges,
     months,
+    futureMonths,
     today,
     loading,
     error,
@@ -107,6 +108,8 @@ export function ExpenseTabs({
     expenses: CrmExpense[];
     nextCharges: Map<string, string>;
     months: CrmExpenseMonth[];
+    /** Da pagare, dal mese più lontano. */
+    futureMonths: CrmExpenseMonth[];
     today: string;
     loading: boolean;
     error: string | null;
@@ -150,6 +153,8 @@ export function ExpenseTabs({
     );
     const oneOffMonths = useMemo(() => oneOffByMonth(expenses), [expenses]);
     const oneOffCount = useMemo(() => expenses.filter(e => e.kind === "one_off").length, [expenses]);
+    // Una scala sola per pagato e da pagare: le barre si confrontano.
+    const scaleMax = Math.max(1, ...months.map(m => m.totalCents), ...futureMonths.map(m => m.totalCents));
     const fullHistory = useMemo(
         () => historyByMonth(charges, expenses, settlements, today),
         [charges, expenses, settlements, today]
@@ -428,7 +433,23 @@ export function ExpenseTabs({
                         emptyText="I mesi compaiono con la prima spesa."
                     >
                         <div className={styles.monthsPanel}>
-                            <MonthsByCategory months={months} />
+                            {futureMonths.length > 0 && (
+                                <>
+                                    <Text as="h3" variant="body-sm" weight={600}>
+                                        Da pagare
+                                    </Text>
+                                    <MonthsByCategory
+                                        months={futureMonths}
+                                        legendMonths={[...futureMonths, ...months]}
+                                        scaleMax={scaleMax}
+                                        future
+                                    />
+                                    <Text as="h3" variant="body-sm" weight={600}>
+                                        Pagato
+                                    </Text>
+                                </>
+                            )}
+                            <MonthsByCategory months={months} scaleMax={scaleMax} legend={futureMonths.length === 0} />
                         </div>
                     </TileState>
                 </Tabs.Panel>

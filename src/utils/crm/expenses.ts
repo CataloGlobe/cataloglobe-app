@@ -105,6 +105,40 @@ export function summarizeCharges(
 }
 
 /**
+ * Gli addebiti ancora da pagare, mese per mese (proposta 16): da domani fino
+ * all'ultimo addebito letto, dal più lontano. Il mese corrente c'è con la
+ * sola parte che manca; i mesi vuoti in mezzo restano, a zero.
+ */
+export function futureMonths(charges: CrmExpenseCharge[], expenses: CrmExpense[], today: string): CrmExpenseMonth[] {
+    const kindOf = new Map(expenses.map(e => [e.id, e.kind]));
+    const categoryOf = new Map(expenses.map(e => [e.id, e.category]));
+    const byMonth = new Map<string, CrmExpenseMonth>();
+    let lastMonth: string | null = null;
+
+    for (const charge of charges) {
+        if (charge.chargedOn <= today) continue;
+        const month = charge.chargedOn.slice(0, 7);
+        const row = byMonth.get(month) ?? { month, totalCents: 0, oneOffCents: 0, subscriptionCents: 0, byCategory: {} };
+        row.totalCents += charge.amountCents;
+        const category = categoryOf.get(charge.expenseId) ?? "other";
+        row.byCategory[category] = (row.byCategory[category] ?? 0) + charge.amountCents;
+        if (kindOf.get(charge.expenseId) === "subscription") row.subscriptionCents += charge.amountCents;
+        else row.oneOffCents += charge.amountCents;
+        byMonth.set(month, row);
+        if (!lastMonth || month > lastMonth) lastMonth = month;
+    }
+
+    const months: CrmExpenseMonth[] = [];
+    const firstMonth = [...byMonth.keys()].sort()[0];
+    if (lastMonth && firstMonth) {
+        for (let m = lastMonth; m >= firstMonth; m = previousMonth(m)) {
+            months.push(byMonth.get(m) ?? { month: m, totalCents: 0, oneOffCents: 0, subscriptionCents: 0, byCategory: {} });
+        }
+    }
+    return months;
+}
+
+/**
  * Quanto pesano al mese gli abbonamenti ancora attivi (l'annuale diviso 12),
  * al prezzo del prossimo addebito: un «Cambia da…» già deciso conta.
  */

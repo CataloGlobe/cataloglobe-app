@@ -3,6 +3,7 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
+import { InfoTooltip } from "@/components/ui/Tooltip/InfoTooltip";
 import { CRM_BILLING_INTERVAL_LABEL, formatEuroCents } from "@shared/crmExpenses";
 import { formatMonthIt, formatShortDateIt, type CostsOverview, type CrmExpenseMonth } from "@/utils/crm/expenses";
 import type { CrmExpense } from "@/types/crm";
@@ -72,7 +73,8 @@ export function CostsFigures({
     const monthlyCount = renewals.filter(r => r.expense.billing_interval !== "year").length;
     const counted = includeYearly ? renewals.length : monthlyCount;
 
-    const cell = (key: FigureKey, label: string, value: string, caption: ReactNode) => (
+    const cell = (key: FigureKey, label: string, value: string, caption: ReactNode, extra?: ReactNode) => {
+        const button = (
         <button
             type="button"
             className={styles.figureCell}
@@ -88,7 +90,16 @@ export function CostsFigures({
             </Text>
             {caption}
         </button>
-    );
+        );
+        if (!extra) return button;
+        // L'interruttore sta fuori dal pulsante: niente controlli annidati.
+        return (
+            <div key={key} className={styles.figureSlot}>
+                {button}
+                <div className={styles.figureExtra}>{extra}</div>
+            </div>
+        );
+    };
 
     const caption = (text: string) => (
         <Text as="span" variant="caption" colorVariant="muted">
@@ -98,20 +109,6 @@ export function CostsFigures({
 
     return (
         <section className={styles.figuresCard} aria-label="Il quadro">
-            <div className={styles.figuresHead}>
-                <div className={styles.inlineSwitch}>
-                    <Text as="span" variant="body-sm" aria-hidden="true">
-                        Conta anche gli annuali
-                    </Text>
-                    <Switch
-                        size="sm"
-                        ariaLabel="Conta anche gli annuali nel costo al mese"
-                        checked={includeYearly}
-                        onChange={onIncludeYearly}
-                        disabled={overview.yearlyCount === 0}
-                    />
-                </div>
-            </div>
             <div className={styles.figures}>
                 <TileState loading={loading} error={error} onRetry={onRetry}>
                     {cell(
@@ -128,7 +125,24 @@ export function CostsFigures({
                             includeYearly
                                 ? `${counted} abbonamenti, annuali a 1/12`
                                 : `${counted === 1 ? "1 mensile" : `${counted} mensili`}${overview.yearlyCount > 0 ? ", annuali a parte" : ""}`
-                        )
+                        ),
+                        <span className={styles.inlineSwitch}>
+                            <Switch
+                                size="sm"
+                                ariaLabel="Conta anche gli annuali nel costo al mese"
+                                checked={includeYearly}
+                                onChange={onIncludeYearly}
+                                disabled={overview.yearlyCount === 0}
+                            />
+                            <Text as="span" variant="caption" aria-hidden="true">
+                                Annuali
+                            </Text>
+                            <InfoTooltip
+                                withSpacing={false}
+                                ariaLabel="Cosa vuol dire Annuali"
+                                content="Acceso: gli abbonamenti annuali entrano nel costo al mese, divisi per 12. Spento: restano fuori, e si coprono a parte prima del rinnovo."
+                            />
+                        </span>
                     )}
                     {cell(
                         "recharge",

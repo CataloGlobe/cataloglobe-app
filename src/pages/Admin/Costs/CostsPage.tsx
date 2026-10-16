@@ -44,6 +44,7 @@ import {
     expenseDraftFrom,
     formatShortDateIt,
     romeTodayIso,
+    futureMonths,
     summarizeCharges,
     upcomingRenewals,
     type CrmExpenseDraft
@@ -74,6 +75,8 @@ type CostsView = "list" | "calendar";
 
 /** Quanti giorni guarda «In arrivo». */
 const UPCOMING_DAYS = 30;
+/** Quanti mesi avanti si vedono nel calendario e in «Mese per mese». */
+const MONTHS_AHEAD = 12;
 
 const VIEW_OPTIONS = [
     { value: "list" as const, label: "Elenco", icon: <List size={16} aria-hidden="true" /> },
@@ -131,10 +134,10 @@ export default function CostsPage() {
     const [calMonth, setCalMonth] = useState(() => today.slice(0, 7));
     const [calDay, setCalDay] = useState(today);
 
-    // Gli addebiti arrivano fino alla fine del mese prossimo: servono al
-    // calendario e a «In arrivo» (oggi + 30 giorni, se va oltre).
+    // Gli addebiti arrivano fino a un anno avanti (proposta 16): servono al
+    // calendario, a «Mese per mese» e a «In arrivo» (oggi + 30 giorni).
     const until = useMemo(() => {
-        const endNext = lastDayOfMonth(shiftMonth(today.slice(0, 7), 1));
+        const endNext = lastDayOfMonth(shiftMonth(today.slice(0, 7), MONTHS_AHEAD));
         const in30 = shiftDay(today, UPCOMING_DAYS);
         return in30 > endNext ? in30 : endNext;
     }, [today]);
@@ -184,6 +187,7 @@ export default function CostsPage() {
     const extrasError = accountsLoad.error ?? termsLoad.error ?? refundsLoad.error;
 
     const summary = useMemo(() => summarizeCharges(chargesAndRefunds, expenses, today), [chargesAndRefunds, expenses, today]);
+    const toPay = useMemo(() => futureMonths(allCharges, expenses, today), [allCharges, expenses, today]);
     const overview = useMemo(
         () => buildCostsOverview({ expenses, charges: chargesAndRefunds, nextCharges, terms, accounts, today, includeYearly }),
         [includeYearly, expenses, chargesAndRefunds, nextCharges, terms, accounts, today]
@@ -488,7 +492,7 @@ export default function CostsPage() {
                 <CostsCalendar
                     month={calMonth}
                     minMonth={firstMonth < currentMonth ? firstMonth : shiftMonth(currentMonth, -1)}
-                    maxMonth={shiftMonth(currentMonth, 1)}
+                    maxMonth={shiftMonth(currentMonth, MONTHS_AHEAD)}
                     selectedDay={calDay}
                     today={today}
                     charges={allCharges}
@@ -587,6 +591,7 @@ export default function CostsPage() {
                         expenses={expenses}
                         nextCharges={nextCharges}
                         months={summary.months}
+                        futureMonths={toPay}
                         today={today}
                         loading={figuresLoading}
                         error={figuresError}

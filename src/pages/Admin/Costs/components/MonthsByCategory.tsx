@@ -13,14 +13,32 @@ function capitalize(text: string): string {
  * barra a pezzi per mese, la legenda con le stesse icone delle righe. SVG con
  * le misure negli attributi, i colori dal CSS.
  */
-export function MonthsByCategory({ months }: { months: CrmExpenseMonth[] }) {
-    const max = Math.max(1, ...months.map(m => m.totalCents));
-    const used = CRM_EXPENSE_CATEGORIES.filter(c => months.some(m => (m.byCategory[c] ?? 0) > 0));
+export function MonthsByCategory({
+    months,
+    scaleMax,
+    legend = true,
+    legendMonths,
+    future = false
+}: {
+    months: CrmExpenseMonth[];
+    /** La barra piena; senza, il mese più caro dell'elenco. */
+    scaleMax?: number;
+    legend?: boolean;
+    /** I mesi da cui prendere i tipi della legenda; senza, `months`. */
+    legendMonths?: CrmExpenseMonth[];
+    /** Addebiti ancora da pagare: barre più chiare. */
+    future?: boolean;
+}) {
+    const max = scaleMax ?? Math.max(1, ...months.map(m => m.totalCents));
+    const usedIn = (list: CrmExpenseMonth[]) =>
+        CRM_EXPENSE_CATEGORIES.filter(c => list.some(m => (m.byCategory[c] ?? 0) > 0));
+    const used = usedIn(months);
 
     return (
-        <div className={styles.monthsChart}>
+        <div className={styles.monthsChart} data-future={future || undefined}>
+            {legend && (
             <ul className={styles.legend} aria-label="Tipi di spesa">
-                {used.map(c => {
+                {usedIn(legendMonths ?? months).map(c => {
                     const { icon: Icon, label } = CATEGORY_META[c];
                     return (
                         <li key={c} className={styles.legendItem} data-tone={c}>
@@ -32,6 +50,7 @@ export function MonthsByCategory({ months }: { months: CrmExpenseMonth[] }) {
                     );
                 })}
             </ul>
+            )}
             <ul className={styles.monthsRows}>
                 {months.map(m => {
                     let x = 0;
