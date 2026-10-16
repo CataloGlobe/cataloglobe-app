@@ -592,6 +592,12 @@ export default function CostsPage() {
                         onDelete={askDelete}
                         onCreate={openCreate}
                         accountLabel={e => accountNameAt(e, nextCharges.get(e.id) ?? e.paid_on ?? today)}
+                        charges={allCharges}
+                        settlements={settlements}
+                        onDeleteMove={move => {
+                            setDialogError(null);
+                            setMoveToDelete(move);
+                        }}
                     />
                 </>
             )}

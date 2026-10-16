@@ -6,7 +6,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { formatEuroCents } from "@shared/crmExpenses";
-import { isJointAccount, type ExpenseBalance } from "@/utils/crm/expenseBalance";
+import { settlementText as moveText, type ExpenseBalance } from "@/utils/crm/expenseBalance";
 import { formatShortDateIt } from "@/utils/crm/expenses";
 import type { CrmExpenseSettlement } from "@/types/crm";
 import { TileState } from "@/pages/Admin/Crm/components/TileState";
@@ -18,11 +18,6 @@ const RECENT_MOVES = 4;
 function listNames(names: string[]): string {
     if (names.length <= 1) return names[0] ?? "nessuno";
     return `${names.slice(0, -1).join(", ")} e ${names.at(-1)}`;
-}
-
-function moveText(s: CrmExpenseSettlement): string {
-    if (s.account_id) return `${s.from_name} versa su ${s.to_name}`;
-    return isJointAccount(s.to_name) ? `${s.from_name} versa sul conto comune` : `${s.from_name} dà a ${s.to_name}`;
 }
 
 /**
@@ -96,16 +91,23 @@ export function PayersCard({
                         </div>
                     )}
 
+                    {/* Quanto ha messo ognuno, coi soldi passati fra voi: chi ha anticipato e poi è stato
+                        rimborsato non risulta aver speso di più (Alex, 2026-10-16). Pari = barre uguali. */}
                     <BarList
-                        aria-label="Quanto ha pagato ognuno"
+                        aria-label="Quanto ha messo ognuno, rimborsi compresi"
                         labelColumn="fit"
                         items={balance.people.map(p => ({
                             id: p.name,
                             label: p.name,
-                            value: p.paidCents,
-                            valueLabel: formatEuroCents(p.paidCents)
+                            value: Math.max(0, p.paidCents + p.settledCents),
+                            valueLabel: formatEuroCents(p.paidCents + p.settledCents)
                         }))}
                     />
+                    {balance.people.some(p => p.settledCents !== 0) && (
+                        <Text as="p" variant="caption" colorVariant="muted">
+                            Contati i soldi passati fra voi: quando siete in pari le barre sono uguali.
+                        </Text>
+                    )}
 
                     {(balance.jointCents > 0 || balance.unassignedCount > 0) && (
                         <Text as="p" variant="caption" colorVariant="muted">

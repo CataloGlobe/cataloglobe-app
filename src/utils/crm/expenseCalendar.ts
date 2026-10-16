@@ -5,7 +5,7 @@
  */
 import { daysBetween } from "@shared/crmExpenses";
 import type { CrmBillingInterval } from "@shared/crmExpenses";
-import type { CrmExpense, CrmExpenseCharge } from "@/types/crm";
+import type { CrmExpense, CrmExpenseCharge, CrmExpenseSettlement } from "@/types/crm";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -102,4 +102,47 @@ export function oneOffByMonth(expenses: CrmExpense[]): OneOffMonth[] {
     return [...map.values()]
         .sort((a, b) => (a.month < b.month ? 1 : -1))
         .map(m => ({ ...m, expenses: m.expenses.sort((a, b) => b.amount_cents - a.amount_cents) }));
+}
+
+export type HistoryRow =
+    | { kind: "charge"; date: string; amountCents: number; expense: CrmExpense }
+    | { kind: "move"; date: string; amountCents: number; settlement: CrmExpenseSettlement };
+
+export interface HistoryMonth {
+    month: string;
+    /** Solo le spese: i movimenti spostano soldi fra voi, non sono costi. */
+    spentCents: number;
+    rows: HistoryRow[];
+}
+
+/**
+ * Lo storico (Alex, 2026-10-16): addebiti fino a oggi e movimenti (versamenti
+ * sui conti comuni, soldi fra voi) nello stesso elenco, mese per mese dal più
+ * recente, dentro il mese dal giorno più recente.
+ */
+export function historyByMonth(
+    charges: CrmExpenseCharge[],
+    expenses: CrmExpense[],
+    settlements: CrmExpenseSettlement[],
+    today: string
+): HistoryMonth[] {
+    const byId = new Map(expenses.map(e => [e.id, e]));
+    const map = new Map<string, HistoryMonth>();
+    const push = (row: HistoryRow) => {
+        const month = row.date.slice(0, 7);
+        const entry = map.get(month) ?? { month, spentCents: 0, rows: [] };
+        if (row.kind === "charge") entry.spentCents += row.amountCents;
+        entry.rows.push(row);
+        map.set(month, entry);
+    };
+    for (const c of charges) {
+        const expense = byId.get(c.expenseId);
+        if (expense && c.chargedOn <= today) push({ kind: "charge", date: c.chargedOn, amountCents: c.amountCents, expense });
+    }
+    for (const s of settlements) {
+        if (s.settled_on <= today) push({ kind: "move", date: s.settled_on, amountCents: s.amount_cents, settlement: s });
+    }
+    return [...map.values()]
+        .sort((a, b) => (a.month < b.month ? 1 : -1))
+        .map(m => ({ ...m, rows: m.rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)) }));
 }
