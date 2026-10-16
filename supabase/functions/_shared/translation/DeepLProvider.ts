@@ -18,7 +18,7 @@ import type {
     TranslateInput,
     TranslateOutput
 } from "./TranslationProvider.ts";
-import { TranslationProviderError } from "./TranslationProvider.ts";
+import { TranslationProviderError, providerConfigError } from "./TranslationProvider.ts";
 
 interface DeepLTranslationItem {
     text: string;
@@ -43,12 +43,7 @@ export class DeepLProvider implements TranslationProvider {
 
     constructor(apiKey: string) {
         if (!apiKey || apiKey.length < 10) {
-            throw new TranslationProviderError(
-                "DeepL API key mancante o invalida",
-                "auth",
-                this.name,
-                false
-            );
+            throw providerConfigError("DeepL API key mancante o malformata", this.name);
         }
         this.apiKey = apiKey;
         const isFreeTier = apiKey.endsWith(":fx");
@@ -167,11 +162,9 @@ export class DeepLProvider implements TranslationProvider {
     private mapHttpError(response: Response): TranslationProviderError {
         const status = response.status;
         if (status === 401 || status === 403) {
-            return new TranslationProviderError(
-                `DeepL auth error (status ${status})`,
-                "auth",
-                this.name,
-                false
+            return providerConfigError(
+                `DeepL ha rifiutato la API key (status ${status})`,
+                this.name
             );
         }
         if (status === 429) {

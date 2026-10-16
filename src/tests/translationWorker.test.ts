@@ -13,6 +13,8 @@
 //                                                  finally (guard processing)
 //   - target gia' manual/overridden             -> 'done' senza chiamare il
 //                                                  provider (niente quota)
+//   - errore di configurazione (chiave mancante -> tick fermo, job 'pending'
+//     o rifiutata)                                  col tentativo restituito
 // =============================================================================
 
 import { describe, it, expect } from "vitest";
@@ -25,6 +27,7 @@ import {
 } from "../../supabase/functions/_shared/translation/processTranslationTick";
 import {
     TranslationProviderError,
+    providerConfigError,
     type TranslationProvider,
     type TranslateInput,
     type TranslateOutput
@@ -105,6 +108,7 @@ class FakeStore implements JobStore {
         row.status = status;
         if (typeof patch.last_error === "string") row.last_error = patch.last_error;
         if (typeof patch.processed_at === "string") row.processed_at = patch.processed_at as string;
+        if (typeof patch.attempts === "number") row.attempts = patch.attempts;
         return Promise.resolve({ error: null });
     }
     resetOrphans(jobIds: string[]): Promise<{ error: { message: string } | null }> {
@@ -225,6 +229,72 @@ describe("runTranslationTick", () => {
         expect(c.failed).toBe(1);
         expect(c.retried).toBe(0);                        // nessun rollback->pending
         expect(store.rows.get(job.id)!.attempts).toBe(1); // singola presa, non 3
+    });
+});
+
+describe("runTranslationTick: errori di configurazione del provider", () => {
+    // Il claim reale ritorna attempts GIA' incrementato: qui job.attempts e' il
+    // valore dopo il claim, e il tick deve riportarlo a quello di prima.
+    it("chiave mancante (router) -> pending col tentativo restituito, niente retry ne' failed", async () => {
+        const job = makeJob({ attempts: 2 });
+        const store = new FakeStore([job]);
+        const missingKey = providerConfigError("DEEPL_API_KEY non impostata", "deepl");
+        const deps = makeDeps(store, makeProvider("ok"), {
+            getProvider: () => { throw missingKey; }
+        });
+
+        const c = await runTranslationTick(deps);
+
+        const row = store.rows.get(job.id)!;
+        expect(row.status).toBe("pending");
+        expect(row.attempts).toBe(1);
+        expect(row.last_error).toMatch(/^config: DEEPL_API_KEY/);
+        expect(c.deferred).toBe(1);
+        expect(c.retried).toBe(0);
+        expect(c.failed).toBe(0);
+        expect(store.resetOrphansCalledWith).toBeNull();
+    });
+
+    it("chiave rifiutata (401) -> stesso esito, e il tick non chiama il provider per gli altri gruppi", async () => {
+        const en = makeJob({ id: "EN", entity_id: "e1", target_language_code: "en", attempts: 1 });
+        const de = makeJob({ id: "DE", entity_id: "e2", target_language_code: "de", attempts: 1 });
+        const store = new FakeStore([en, de]);
+        let calls = 0;
+        const rejected = providerConfigError("DeepL ha rifiutato la API key (status 401)", "deepl");
+        const provider: TranslationProvider = {
+            ...makeProvider("ok"),
+            translate() {
+                calls++;
+                return Promise.reject(rejected);
+            }
+        };
+
+        const c = await runTranslationTick(makeDeps(store, provider));
+
+        expect(calls).toBe(1);
+        expect(store.rows.get("EN")!.status).toBe("pending");
+        expect(store.rows.get("DE")!.status).toBe("pending");
+        expect(store.rows.get("EN")!.attempts).toBe(0);
+        expect(store.rows.get("DE")!.attempts).toBe(0);
+        expect(c.deferred).toBe(2);
+        expect(c.failed).toBe(0);
+        expect(c.retried).toBe(0);
+    });
+
+    it("UPDATE fallito durante il rinvio: conteggiato, il job torna pending dal finally", async () => {
+        const job = makeJob({ attempts: 1 });
+        const store = new FakeStore([job]);
+        store.failUpdateFor.add(`${job.id}|pending`);
+        const deps = makeDeps(store, makeProvider("ok"), {
+            getProvider: () => { throw providerConfigError("DEEPL_API_KEY non impostata", "deepl"); }
+        });
+
+        const c = await runTranslationTick(deps);
+
+        expect(c.updateErrors).toBe(1);
+        expect(c.deferred).toBe(0);
+        expect(store.resetOrphansCalledWith).toEqual([job.id]);
+        expect(store.rows.get(job.id)!.status).toBe("pending");
     });
 });
 
