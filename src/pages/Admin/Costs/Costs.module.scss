@@ -193,17 +193,6 @@
 
 /* ===== Chi ha pagato · In arrivo ===== */
 // Due colonne uguali; una sotto l'altra sotto i 1024.
-.duo {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--space-16);
-    align-items: stretch;
-
-    @media (max-width: 1023px) {
-        grid-template-columns: 1fr;
-    }
-}
-
 .payers {
     display: flex;
     flex-direction: column;
@@ -1084,4 +1073,76 @@
 /* Mese per mese: «Da pagare» sopra «Pagato», barre più chiare (proposta 16). */
 .monthsChart[data-future] .monthsBar rect {
     opacity: 0.5;
+}
+
+/* Tre riquadri in fila, ognuno con «Allarga» (Alex, 2026-10-16): quello
+   allargato sale in cima a tutta larghezza, gli altri restano sotto. */
+.trio {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-16);
+    align-items: start;
+
+    > * {
+        grid-column: span 2;
+    }
+
+    // Con uno allargato, gli altri due si dividono la riga sotto a metà.
+    &:has(> [data-wide]) > * {
+        grid-column: span 3;
+    }
+
+    > [data-wide] {
+        grid-column: 1 / -1;
+        order: -1;
+    }
+
+    @media (max-width: 1023px) {
+        > *,
+        &:has(> [data-wide]) > * {
+            grid-column: 1 / -1;
+        }
+    }
+}
+
+.trioSlot {
+    min-width: 0;
+}
+
+.cardActions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+.expandBtn {
+    all: unset;
+    box-sizing: border-box;
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-pill);
+    background: var(--hover-bg);
+    color: var(--text);
+    cursor: pointer;
+
+    &:hover {
+        background: var(--brand-primary-soft);
+        color: var(--on-brand-soft);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
+}
+
+.toMoveShort {
+    padding: 0 var(--space-24) var(--space-8);
+    color: var(--text-warning);
+}
+
+.moreHint {
+    padding: var(--space-8) var(--space-24) var(--space-12);
 }

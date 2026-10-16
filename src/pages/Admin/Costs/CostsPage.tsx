@@ -58,6 +58,7 @@ import { ExpenseTabs } from "./components/ExpenseTabs";
 import { BalanceBand } from "./components/BalanceBand";
 import { CostsFigures } from "./components/CostsFigures";
 import { ExpenseIcon } from "./components/ExpenseIcon";
+import { ExpandButton } from "./components/ExpandButton";
 import { PayersCard } from "./components/PayersCard";
 import { AccountsDrawer } from "./AccountsDrawer";
 import { ExpenseDrawer } from "./ExpenseDrawer";
@@ -77,6 +78,8 @@ type CostsView = "list" | "calendar";
 const UPCOMING_DAYS = 30;
 /** Quanti mesi avanti si vedono nel calendario e in «Mese per mese». */
 const MONTHS_AHEAD = 12;
+/** Addebiti nel riquadro piccolo di «In arrivo». */
+const UPCOMING_SHORT = 3;
 
 const VIEW_OPTIONS = [
     { value: "list" as const, label: "Elenco", icon: <List size={16} aria-hidden="true" /> },
@@ -133,6 +136,11 @@ export default function CostsPage() {
     const currentMonth = today.slice(0, 7);
     const [calMonth, setCalMonth] = useState(() => today.slice(0, 7));
     const [calDay, setCalDay] = useState(today);
+    // Il riquadro allargato dei tre in fila; uno alla volta.
+    const [wide, setWide] = useState<"accounts" | "payers" | "upcoming" | null>(null);
+    const expandButton = (key: "accounts" | "payers" | "upcoming", what: string) => (
+        <ExpandButton expanded={wide === key} onToggle={() => setWide(w => (w === key ? null : key))} what={what} />
+    );
 
     // Gli addebiti arrivano fino a un anno avanti (proposta 16): servono al
     // calendario, a «Mese per mese» e a «In arrivo» (oggi + 30 giorni).
@@ -422,22 +430,36 @@ export default function CostsPage() {
                 </InlineBanner>
             )}
 
+            <div className={styles.trio}>
             {extrasReady && !figuresLoading && !figuresError && (
+                <div className={styles.trioSlot} data-wide={wide === "accounts" || undefined}>
                 <Card
                     title="Carte e conti comuni"
                     subtitle={
-                        openJoint.length > 0
+                        wide !== "accounts"
+                            ? undefined
+                            : openJoint.length > 0
                             ? "Versato meno speso: quanto c'è ancora sopra."
                             : "Aggiungi le carte di ognuno e i conti comuni: scelto il conto, chi ha pagato viene da sé."
                     }
                     actions={
-                        <Button variant="secondary" size="sm" onClick={() => setIsAccountsOpen(true)}>
-                            Carte e conti
-                        </Button>
+                        <span className={styles.cardActions} data-compact-action>
+                            {wide === "accounts" && (
+                                <Button variant="secondary" size="sm" onClick={() => setIsAccountsOpen(true)}>
+                                    Carte e conti
+                                </Button>
+                            )}
+                            {expandButton("accounts", "Carte e conti comuni")}
+                        </span>
                     }
                     flush={jointRows.length > 0 || overview.toMove.length > 0}
                 >
-                    {overview.toMove.length > 0 && (
+                    {wide !== "accounts" && overview.toMove.length > 0 && (
+                        <Text as="p" variant="caption" className={styles.toMoveShort}>
+                            {overview.toMove.length === 1 ? "1 abbonamento" : `${overview.toMove.length} abbonamenti`} da spostare
+                        </Text>
+                    )}
+                    {wide === "accounts" && overview.toMove.length > 0 && (
                         <div className={styles.toMove}>
                             <InlineBanner variant="warning">
                                 {overview.toMove.length === 1 ? "1 abbonamento è" : `${overview.toMove.length} abbonamenti sono`} ancora su
@@ -445,7 +467,7 @@ export default function CostsPage() {
                             </InlineBanner>
                         </div>
                     )}
-                    {overview.toMove.map(m => (
+                    {wide === "accounts" && overview.toMove.map(m => (
                         <ListRow
                             key={`move-${m.expense.id}`}
                             title={m.expense.name}
@@ -454,7 +476,7 @@ export default function CostsPage() {
                             trailing={`prossimo ${formatShortDateIt(m.nextChargeOn)}`}
                         />
                     ))}
-                    {jointRows.map(row => {
+                    {(wide === "accounts" ? jointRows : jointRows.filter(r => !r.closedOn)).map(row => {
                         const left = row.totals?.balanceCents ?? 0;
                         const short = row.next && left < row.next.amountCents ? row.next.amountCents - left : 0;
                         const parts = [
@@ -470,7 +492,7 @@ export default function CostsPage() {
                             <ListRow
                                 key={row.key}
                                 title={row.name}
-                                subtitle={parts.filter(Boolean).join(" · ")}
+                                subtitle={wide === "accounts" ? parts.filter(Boolean).join(" · ") : undefined}
                                 wrapSubtitle
                                 muted={Boolean(row.closedOn)}
                                 trailing={
@@ -486,7 +508,98 @@ export default function CostsPage() {
                         );
                     })}
                 </Card>
+                </div>
             )}
+            {(
+                <div className={styles.trioSlot} data-wide={wide === "payers" || undefined}>
+                <PayersCard
+                    balance={balance}
+                    loading={figuresLoading || (teamLoad.loading && !teamLoad.data)}
+                    error={figuresError ?? settlementsLoad.error}
+                    settlements={settlements}
+                    settlementsMissing={settlementsMissing}
+                    onRetry={reload}
+                    onRecord={() => {
+                        setMoveDraft(null);
+                        setIsMoveOpen(true);
+                    }}
+                    onDeleteMove={move => {
+                        setDialogError(null);
+                        setMoveToDelete(move);
+                    }}
+                    expanded={wide === "payers"}
+                    expandButton={expandButton("payers", "Chi ha pagato")}
+                />
+                </div>
+            )}
+            {(
+                <div className={styles.trioSlot} data-wide={wide === "upcoming" || undefined}>
+                <Card
+                    title={`In arrivo, ${UPCOMING_DAYS} giorni`}
+                    subtitle={upcoming.length > 0 ? `${formatEuroCents(upcomingTotal)} in tutto.` : undefined}
+                    actions={<span className={styles.cardActions} data-compact-action>{expandButton("upcoming", `In arrivo, ${UPCOMING_DAYS} giorni`)}</span>}
+                    flush
+                >
+                    <TileState
+                        loading={figuresLoading}
+                        error={figuresError}
+                        onRetry={reload}
+                        empty={upcoming.length === 0}
+                        emptyText="Nessun addebito nei prossimi 30 giorni."
+                    >
+                        {(wide === "upcoming" ? [todayCharges, laterCharges] : [todayCharges, laterCharges.slice(0, Math.max(0, UPCOMING_SHORT - todayCharges.length))]).map((group, g) =>
+                            group.length === 0 ? null : (
+                                <div key={g} role="group" aria-label={g === 0 ? "Oggi" : "Prossimi"}>
+                                    {todayCharges.length > 0 && (
+                                        <Text as="p" variant="caption" colorVariant="muted" className={styles.groupLabel}>
+                                            {g === 0 ? "Oggi" : "Prossimi"}
+                                        </Text>
+                                    )}
+                        {group.map((c, i) => {
+                            const expense = byId.get(c.expenseId);
+                            const daysLeft = daysBetween(today, c.chargedOn);
+                            const soon = expense?.remind_days_before != null && daysLeft <= expense.remind_days_before;
+                            const interval = expense?.billing_interval;
+                            return (
+                                <ListRow
+                                    key={`${c.expenseId}-${c.chargedOn}-${i}`}
+                                    leading={wide === "upcoming" ? <ExpenseIcon category={expense?.category} /> : undefined}
+                                    title={expense?.name ?? "Spesa"}
+                                    subtitle={wide !== "upcoming" ? undefined : [
+                                        `${formatEuroCents(c.amountCents)}${interval ? ` ${CRM_BILLING_INTERVAL_LABEL[interval]}` : ""}`,
+                                        expense && accountNameAt(expense, c.chargedOn)
+                                            ? `su ${accountNameAt(expense, c.chargedOn)}`
+                                            : expense?.paid_by &&
+                                              (isJointAccount(expense.paid_by) ? "dal conto comune" : `paga ${expense.paid_by}`)
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                    onClick={expense ? () => openEdit(expense) : undefined}
+                                    trailing={
+                                        g === 0 ? (
+                                            <StatusBadge variant="info" label="Oggi" />
+                                        ) : soon ? (
+                                            <StatusBadge variant="warning" label={formatDaysLeft(daysLeft)} />
+                                        ) : (
+                                            formatShortDateIt(c.chargedOn)
+                                        )
+                                    }
+                                />
+                            );
+                        })}
+                                </div>
+                            )
+                        )}
+                    </TileState>
+                    {wide !== "upcoming" && upcoming.length > UPCOMING_SHORT && (
+                        <Text as="p" variant="caption" colorVariant="muted" className={styles.moreHint}>
+                            e altri {upcoming.length - UPCOMING_SHORT}: «Allarga» per vederli
+                        </Text>
+                    )}
+                </Card>
+                </div>
+            )}
+            </div>
 
             {view === "calendar" ? (
                 <CostsCalendar
@@ -510,83 +623,6 @@ export default function CostsPage() {
                 />
             ) : (
                 <>
-                    <div className={styles.duo}>
-                        <PayersCard
-                            balance={balance}
-                            loading={figuresLoading || (teamLoad.loading && !teamLoad.data)}
-                            error={figuresError ?? settlementsLoad.error}
-                            settlements={settlements}
-                            settlementsMissing={settlementsMissing}
-                            onRetry={reload}
-                            onRecord={() => {
-                                setMoveDraft(null);
-                                setIsMoveOpen(true);
-                            }}
-                            onDeleteMove={move => {
-                                setDialogError(null);
-                                setMoveToDelete(move);
-                            }}
-                        />
-
-                        <Card
-                            title={`In arrivo, ${UPCOMING_DAYS} giorni`}
-                            subtitle={upcoming.length > 0 ? `${formatEuroCents(upcomingTotal)} in tutto.` : undefined}
-                            flush
-                        >
-                            <TileState
-                                loading={figuresLoading}
-                                error={figuresError}
-                                onRetry={reload}
-                                empty={upcoming.length === 0}
-                                emptyText="Nessun addebito nei prossimi 30 giorni."
-                            >
-                                {[todayCharges, laterCharges].map((group, g) =>
-                                    group.length === 0 ? null : (
-                                        <div key={g} role="group" aria-label={g === 0 ? "Oggi" : "Prossimi"}>
-                                            {todayCharges.length > 0 && (
-                                                <Text as="p" variant="caption" colorVariant="muted" className={styles.groupLabel}>
-                                                    {g === 0 ? "Oggi" : "Prossimi"}
-                                                </Text>
-                                            )}
-                                {group.map((c, i) => {
-                                    const expense = byId.get(c.expenseId);
-                                    const daysLeft = daysBetween(today, c.chargedOn);
-                                    const soon = expense?.remind_days_before != null && daysLeft <= expense.remind_days_before;
-                                    const interval = expense?.billing_interval;
-                                    return (
-                                        <ListRow
-                                            key={`${c.expenseId}-${c.chargedOn}-${i}`}
-                                            leading={<ExpenseIcon category={expense?.category} />}
-                                            title={expense?.name ?? "Spesa"}
-                                            subtitle={[
-                                                `${formatEuroCents(c.amountCents)}${interval ? ` ${CRM_BILLING_INTERVAL_LABEL[interval]}` : ""}`,
-                                                expense && accountNameAt(expense, c.chargedOn)
-                                                    ? `su ${accountNameAt(expense, c.chargedOn)}`
-                                                    : expense?.paid_by &&
-                                                      (isJointAccount(expense.paid_by) ? "dal conto comune" : `paga ${expense.paid_by}`)
-                                            ]
-                                                .filter(Boolean)
-                                                .join(" · ")}
-                                            onClick={expense ? () => openEdit(expense) : undefined}
-                                            trailing={
-                                                g === 0 ? (
-                                                    <StatusBadge variant="info" label="Oggi" />
-                                                ) : soon ? (
-                                                    <StatusBadge variant="warning" label={formatDaysLeft(daysLeft)} />
-                                                ) : (
-                                                    formatShortDateIt(c.chargedOn)
-                                                )
-                                            }
-                                        />
-                                    );
-                                })}
-                                        </div>
-                                    )
-                                )}
-                            </TileState>
-                        </Card>
-                    </div>
-
                     <ExpenseTabs
                         expenses={expenses}
                         nextCharges={nextCharges}

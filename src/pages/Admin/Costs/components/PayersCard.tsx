@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { BarList } from "@/components/ui/BarList/BarList";
 import { Button } from "@/components/ui/Button/Button";
@@ -35,7 +36,9 @@ export function PayersCard({
     settlementsMissing,
     onRetry,
     onRecord,
-    onDeleteMove
+    onDeleteMove,
+    expanded,
+    expandButton
 }: {
     balance: ExpenseBalance;
     loading: boolean;
@@ -46,6 +49,9 @@ export function PayersCard({
     onRetry: () => void;
     onRecord: () => void;
     onDeleteMove: (move: CrmExpenseSettlement) => void;
+    /** Piccolo: le sole barre. Allargato: spiegazioni e movimenti. */
+    expanded: boolean;
+    expandButton: ReactNode;
 }) {
     // Versato sui conti comuni e quanto ne resta: spiega perché le barre superano lo speso (Alex, 2026-10-16).
     const depositedCents = balance.jointAccounts.reduce((sum, j) => sum + j.depositedCents, 0);
@@ -54,11 +60,20 @@ export function PayersCard({
     return (
         <Card
             title="Chi ha pagato"
-            subtitle={`Diviso in parti uguali fra ${listNames(balance.people.map(p => p.name))}: ${formatEuroCents(balance.sharedCents)} pagati di tasca vostra fino a oggi.`}
+            subtitle={
+                expanded
+                    ? `Diviso in parti uguali fra ${listNames(balance.people.map(p => p.name))}: ${formatEuroCents(balance.sharedCents)} pagati di tasca vostra fino a oggi.`
+                    : `${formatEuroCents(balance.sharedCents)} di tasca vostra, a metà.`
+            }
             actions={
-                <Button variant="secondary" size="sm" onClick={onRecord} disabled={settlementsMissing}>
-                    Registra un movimento
-                </Button>
+                <span className={styles.cardActions} data-compact-action>
+                    {expanded && (
+                        <Button variant="secondary" size="sm" onClick={onRecord} disabled={settlementsMissing}>
+                            Registra un movimento
+                        </Button>
+                    )}
+                    {expandButton}
+                </span>
             }
         >
             <TileState loading={loading} error={error} onRetry={onRetry}>
@@ -75,7 +90,7 @@ export function PayersCard({
                             valueLabel: formatEuroCents(p.paidCents + p.settledCents)
                         }))}
                     />
-                    {(depositedCents > 0 || balance.people.some(p => p.settledCents !== 0)) && (
+                    {expanded && (depositedCents > 0 || balance.people.some(p => p.settledCents !== 0)) && (
                         <Text as="p" variant="caption" colorVariant="muted">
                             {depositedCents > 0
                                 ? `Le barre contano anche i ${formatEuroCents(depositedCents)} versati sui conti comuni${
@@ -88,7 +103,7 @@ export function PayersCard({
                         </Text>
                     )}
 
-                    {(balance.jointCents > 0 || balance.unassignedCount > 0) && (
+                    {expanded && (balance.jointCents > 0 || balance.unassignedCount > 0) && (
                         <Text as="p" variant="caption" colorVariant="muted">
                             {[
                                 balance.jointCents > 0 && `Dal conto comune ${formatEuroCents(balance.jointCents)}: non pesa su nessuno.`,
@@ -100,7 +115,7 @@ export function PayersCard({
                         </Text>
                     )}
 
-                    {settlementsMissing ? (
+                    {!expanded ? null : settlementsMissing ? (
                         <InlineBanner variant="info">
                             Rimborsi e versamenti si potranno segnare dopo l'aggiornamento del database. Il conto qui sopra vale già.
                         </InlineBanner>
