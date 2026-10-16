@@ -959,6 +959,13 @@ export default function Programming() {
             return prev;
         }, { replace: true });
     }, [setSearchParams]);
+    // «Fai ora» delle basi: «Aggiungi» aperto una volta, poi il parametro va via
+    const addArrived = useCallback(() => {
+        setSearchParams(prev => {
+            prev.delete("aggiungi");
+            return prev;
+        }, { replace: true });
+    }, [setSearchParams]);
     const D_TYPE_ORDER: RuleTypeFilter[] = ["all", "layout", "featured", "price", "visibility"];
     const ruleHead = LOOK_D && viewMode === "list" && (
         <VetrinaHead<RuleTypeFilter>
@@ -1215,6 +1222,12 @@ export default function Programming() {
             ) : (
                 <CalendarioView
                     addFromRules={LOOK_D && searchParams.get("aggiungi") === "regole" ? backToRules : undefined}
+                    // solo a dati caricati e con il permesso, come il pulsante «Aggiungi»
+                    addOnArrive={
+                        LOOK_D && searchParams.get("aggiungi") === "calendario" && !isLoading && canCreate && canEdit
+                            ? addArrived
+                            : undefined
+                    }
                     rules={seatRules}
                     names={calNames}
                     sedi={calSedi}

@@ -582,6 +582,28 @@
   .notifHeaderTitle {
     flex: 1;
   }
+  // «Suono» scritto accanto all'interruttore (copia v64), senza l'icona
+  .notifSoundLabel {
+    @include d-type(control);
+    color: var(--d-muted);
+  }
+  .notifSoundSwitchIconOn,
+  .notifSoundSwitchIconOff {
+    display: none;
+  }
+  .notifSoundSwitchTrack {
+    width: 36px;
+    height: 22px;
+    border: 0;
+    background: color-mix(in srgb, var(--d-muted) 32%, transparent);
+  }
+  .notifSoundSwitchTrackOn {
+    background: var(--d-brand);
+  }
+  .notifSoundSwitchKnob {
+    top: 3px;
+    left: 3px;
+  }
   .notifMarkAllD {
     padding: 0;
     border: 0;

@@ -144,6 +144,7 @@ export function HeaderNotifications(props: HeaderNotificationsProps) {
                             className={styles.notifSoundSwitchIconOff}
                         />
                     )}
+                    {LOOK_D && <span className={styles.notifSoundLabel}>Suono</span>}
                     <button
                         type="button"
                         role="switch"

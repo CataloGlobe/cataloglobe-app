@@ -442,6 +442,8 @@ export default function OverviewPage() {
         description: done ? undefined : description,
         onAction: () => navigate(to)
     });
+    // Nella D (copia v63) «Fai ora» apre già il gesto: la sede nuova, la scheda vuota
+    // del prodotto, il tunnel del menù, «Aggiungi» del Calendario.
     const checklistItems: ChecklistItem[] = [
         step(
             "location",
@@ -454,7 +456,7 @@ export default function OverviewPage() {
             setup?.hasAnyLocation
                 ? "Hai una sede sospesa: finché resta così, la pagina non è raggiungibile."
                 : "È il locale che i clienti raggiungono con il QR.",
-            `${b}/locations`
+            LOOK_D && !setup?.hasAnyLocation ? `${b}/locations?nuova=1` : `${b}/locations`
         ),
         step(
             "products",
@@ -463,7 +465,7 @@ export default function OverviewPage() {
             "Prodotti aggiunti",
             "Aggiungi i primi prodotti",
             `Piatti, bevande, prezzi: li crei una volta e li riusi in ogni ${catalogLower}.`,
-            `${b}/products`
+            LOOK_D ? `${b}/products?nuovo=1` : `${b}/products`
         ),
         step(
             "catalog",
@@ -472,7 +474,7 @@ export default function OverviewPage() {
             `${catalogLabel} pronto`,
             `Crea un ${catalogLower}`,
             `I prodotti vanno organizzati in un ${catalogLower} per essere mostrati ai clienti.`,
-            `${b}/catalogs`
+            LOOK_D ? `${b}/crea/menu?da=panoramica` : `${b}/catalogs`
         ),
         step(
             "rule",
@@ -481,7 +483,7 @@ export default function OverviewPage() {
             "Regola attiva",
             "Attiva una regola",
             `Decide quale ${catalogLower} mostrare in quale sede. Senza, la pagina resta vuota.`,
-            `${b}/scheduling`
+            LOOK_D ? `${b}/scheduling?vista=calendario&aggiungi=calendario` : `${b}/scheduling`
         )
     ];
 

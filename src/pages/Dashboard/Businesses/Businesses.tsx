@@ -202,6 +202,17 @@ export default function Businesses() {
   const handleAddActivity = useCallback(() => {
     if (tryOpen()) setIsCreateOpen(true);
   }, [tryOpen]);
+
+  // «Fai ora» delle basi in Home (D, copia v63): `?nuova=1` apre subito «Nuova sede».
+  useEffect(() => {
+    if (!LOOK_D || searchParams.get("nuova") !== "1" || !canCreate) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("nuova");
+      return next;
+    }, { replace: true });
+    handleAddActivity();
+  }, [searchParams, setSearchParams, canCreate, handleAddActivity]);
   const closeCreateDrawer = useCallback(() => setIsCreateOpen(false), []);
 
   // Richiesta «Nuovo gruppo» dalla testata alla sezione: un contatore che la

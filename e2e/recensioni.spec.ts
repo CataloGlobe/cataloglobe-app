@@ -133,7 +133,8 @@ test.describe("Recensioni", () => {
 
     test("i filtri dell'elenco, con i conteggi", async ({ page }) => {
         await openPage(page);
-        const low = main(page).getByRole("radio", { name: /^Da leggere: le basse/ });
+        const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
+        const low = main(page).getByRole("radio", { name: d ? /^Le basse, da 1 a 3 ★/ : /^Da leggere: le basse/ });
         await expect(low).toContainText("2");
         await press(low);
         await expect(comments(page)).toHaveText(["Servizio lento e2e, un'ora per il secondo.", "Freddo e2e"]);
