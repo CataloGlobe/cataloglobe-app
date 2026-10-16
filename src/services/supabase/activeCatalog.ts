@@ -5,6 +5,7 @@ import {
     loadCatalogById,
     normalizeCatalog,
     type ActivityProductOverrideRow,
+    type CatalogLoadCache,
     type RawCatalogRow,
     type VisibilityOverrideRow
 } from "./resolveActivityCatalogs";
@@ -168,6 +169,8 @@ export async function getActiveCatalogForActivities(
     if (activityIds.length === 0) return {};
 
     const now = getNowInRome();
+    // Sedi sullo stesso menù: il catalogo si scarica una volta sola.
+    const catalogCache: CatalogLoadCache = new Map();
 
     // ── Step 1: Resolve all activities in parallel + override counts in
     //    parallelo (query indipendente, stessi activityIds) ────────────────
@@ -175,7 +178,7 @@ export async function getActiveCatalogForActivities(
         Promise.all(
             activityIds.map(async activityId => {
                 try {
-                    const resolved = await resolveActivityCatalogs(activityId, now, tenantId);
+                    const resolved = await resolveActivityCatalogs(activityId, now, tenantId, catalogCache);
                     // Il catalogo risolto porta con sé il proprio nome
                     // (`ResolvedCatalog.name`): leggerlo qui evita di richiederlo
                     // di nuovo al DB per un dato che abbiamo già in memoria.
