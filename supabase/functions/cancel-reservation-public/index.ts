@@ -323,9 +323,11 @@ async function sendCustomerCancellationEmail(args: CustomerCancellationArgs): Pr
             ...(attachments ? { attachments } : {})
         });
     } catch (mailErr) {
+        // Solo il nome dell'errore: oggetto e messaggio di Resend possono
+        // riportare l'indirizzo del cliente, che non deve finire nei log.
+        const errName = mailErr instanceof Error ? mailErr.name : typeof mailErr;
         console.error(
-            `[cancel-reservation-public] customer email failed (reservation_id=${args.reservationId}):`,
-            mailErr
+            `[cancel-reservation-public] customer email failed (reservation_id=${args.reservationId}): ${errName}`
         );
     }
 }
