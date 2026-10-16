@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { CrmExpense, CrmExpenseAccount, CrmExpenseCharge, CrmExpenseSettlement, CrmExpenseTerm } from "@/types/crm";
-import { computeExpenseBalance, JOINT_ACCOUNT } from "@/utils/crm/expenseBalance";
+import { computeExpenseBalance, evenByDeposit, JOINT_ACCOUNT } from "@/utils/crm/expenseBalance";
 import { buildCostsOverview, recurringMonthlyCents } from "@/utils/crm/expenses";
-import { paidByForAccount, payerResolver, refundsAsCharges, termAt } from "@/utils/crm/expenseTerms";
+import { chargeOnOrAfter, paidByForAccount, payerResolver, refundsAsCharges, termAt } from "@/utils/crm/expenseTerms";
 
 const TODAY = "2026-10-16";
 const ALEX = "m-alex";
@@ -291,5 +291,49 @@ describe("quadro", () => {
         expect(o.toMove.map(m => m.accountName)).toEqual(["Revolut Business"]);
         expect(o.monthlyFromNowCents).toBe(1000);
         expect(o.monthlyOnJointCents).toBe(0);
+    });
+});
+
+describe("chargeOnOrAfter", () => {
+    it("dal 31/01 il primo addebito dal 15/02 è il 28/02, poi il 31/03", () => {
+        const e = sub(1000, "2026-01-31", postepay.id);
+        expect(chargeOnOrAfter(e, "2026-02-15")).toBe("2026-02-28");
+        expect(chargeOnOrAfter(e, "2026-03-01")).toBe("2026-03-31");
+        expect(chargeOnOrAfter(e, "2026-01-31")).toBe("2026-01-31");
+    });
+
+    it("annuale: l'anniversario; disdetto prima: niente", () => {
+        const e = sub(3292, "2026-01-05", postepay.id, "year");
+        expect(chargeOnOrAfter(e, "2026-10-16")).toBe("2027-01-05");
+        expect(chargeOnOrAfter({ ...e, cancelled_on: "2026-12-01" }, "2026-10-16")).toBeNull();
+    });
+});
+
+describe("evenByDeposit", () => {
+    it("in due: chi deve versa il doppio sul cointestato e il saldo torna a zero", () => {
+        const e = expense({ amount_cents: 24076, paid_by: "Lorenzo", paid_on: "2026-04-20" });
+        const sources = {
+            charges: [{ expenseId: e.id, chargedOn: "2026-04-20", amountCents: 24076 }],
+            expenses: [e],
+            team: ["Alex", "Lorenzo"],
+            today: TODAY,
+            accounts,
+            memberNames
+        };
+        const before = computeExpenseBalance({ ...sources, settlements: [] });
+        const hint = evenByDeposit(before);
+        expect(hint).toEqual({ from: "Alex", amountCents: 24076 });
+        const deposit: CrmExpenseSettlement = {
+            id: "s-1",
+            from_name: "Alex",
+            to_name: cointestato.name,
+            amount_cents: hint!.amountCents,
+            settled_on: TODAY,
+            note: null,
+            account_id: cointestato.id,
+            created_by: null,
+            created_at: ""
+        };
+        expect(computeExpenseBalance({ ...sources, settlements: [deposit] }).even).toBe(true);
     });
 });

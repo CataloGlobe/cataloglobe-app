@@ -101,3 +101,35 @@ export function paidByForAccount(
     if (account.kind === "joint") return jointName;
     return account.owner_member_id ? (memberNames.get(account.owner_member_id) ?? null) : null;
 }
+
+/** `iso` + `months` mesi, col giorno tagliato a fine mese (come `date + make_interval` in SQL). */
+export function addMonthsClamped(iso: string, months: number): string {
+    const [y, m, d] = iso.split("-").map(Number);
+    const total = m - 1 + months;
+    const year = y + Math.floor(total / 12);
+    const month = (((total % 12) + 12) % 12) + 1;
+    const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
+
+/**
+ * Il primo addebito dell'abbonamento in `date` o dopo, sempre contato dal
+ * primo (come `crm_expense_charges`); null se è disdetto prima.
+ */
+export function chargeOnOrAfter(expense: CrmExpense, date: string): string | null {
+    if (expense.kind !== "subscription" || !expense.first_charge_on) return null;
+    const step = expense.billing_interval === "year" ? 12 : 1;
+    for (let n = 0; n < 1200; n++) {
+        const on = addMonthsClamped(expense.first_charge_on, n * step);
+        if (expense.cancelled_on && on >= expense.cancelled_on) return null;
+        if (on >= date) return on;
+    }
+    return null;
+}
+
+/** «Postepay Alex · di Alex», «Revolut cointestato · comune». */
+export function accountOwnerText(account: CrmExpenseAccount, memberNames: Map<string, string>): string {
+    if (account.kind === "joint") return "comune, metà a testa";
+    const owner = account.owner_member_id ? memberNames.get(account.owner_member_id) : undefined;
+    return owner ? `di ${owner}` : "personale";
+}

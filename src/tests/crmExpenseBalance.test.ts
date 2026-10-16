@@ -141,8 +141,10 @@ describe("validateSettlementDraft", () => {
             toName: "Alex",
             amountCents: 12050,
             settledOn: TODAY,
-            note: null
+            note: null,
+            accountId: null
         });
+        expect(settlementDraftToInput({ ...ok, toName: "Revolut cointestato", accountId: "a-1" }).accountId).toBe("a-1");
     });
 
     it("la stessa persona, il conto comune che dà, l'importo sbagliato", () => {

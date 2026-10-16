@@ -14,8 +14,10 @@ import {
     type CrmExpenseDraftErrors
 } from "@/utils/crm/expenses";
 import { crmErrorMessage } from "@/utils/crm/stages";
-import type { CrmExpense } from "@/types/crm";
+import type { CrmExpense, CrmExpenseAccount, CrmExpenseRefund, CrmExpenseTerm } from "@/types/crm";
 import { ExpenseForm } from "./components/ExpenseForm";
+import { ExpenseRefundsSection } from "./components/ExpenseRefundsSection";
+import { ExpenseTermsSection } from "./components/ExpenseTermsSection";
 import styles from "./Costs.module.scss";
 
 const FORM_ID = "crm-expense-form";
@@ -30,9 +32,22 @@ type Props = {
     initialDraft?: CrmExpenseDraft | null;
     /** Nomi pronti per «Pagata da». */
     payers?: string[];
+    /**
+     * Carte e conti, cambi e rimborsi: null finché le tabelle non sono sul
+     * database, e allora il drawer resta com'era.
+     */
+    extras?: {
+        accounts: CrmExpenseAccount[];
+        terms: CrmExpenseTerm[];
+        refunds: CrmExpenseRefund[];
+        memberNames: Map<string, string>;
+        today: string;
+        /** Un cambio o un rimborso salvato subito: la pagina ricarica e lo dice. */
+        onChanged: (message: string) => void;
+    } | null;
 };
 
-export function ExpenseDrawer({ open, expense, onClose, onSaved, payers, initialDraft = null }: Props) {
+export function ExpenseDrawer({ open, expense, onClose, onSaved, payers, initialDraft = null, extras = null }: Props) {
     const [draft, setDraft] = useState<CrmExpenseDraft>(() => expenseDraftFrom(null, romeTodayIso()));
     const [errors, setErrors] = useState<CrmExpenseDraftErrors>({});
     const [formError, setFormError] = useState<string | null>(null);
@@ -45,6 +60,9 @@ export function ExpenseDrawer({ open, expense, onClose, onSaved, payers, initial
         setFormError(null);
         setIsSaving(false);
     }, [open, expense, initialDraft]);
+
+    // Bloccato solo se un cambio sposta il conto: un cambio di solo prezzo lascia correggere il conto di partenza.
+    const hasTerms = Boolean(expense && extras?.terms.some(t => t.expense_id === expense.id && t.account_id));
 
     async function handleSubmit() {
         const found = validateExpenseDraft(draft);
@@ -93,7 +111,27 @@ export function ExpenseDrawer({ open, expense, onClose, onSaved, payers, initial
                         onChange={setDraft}
                         onSubmit={() => void handleSubmit()}
                         payers={payers}
+                        accounts={extras?.accounts}
+                        memberNames={extras?.memberNames}
+                        accountLocked={hasTerms}
                     />
+                    {extras && expense?.kind === "subscription" && (
+                        <ExpenseTermsSection
+                            expense={expense}
+                            terms={extras.terms}
+                            accounts={extras.accounts}
+                            today={extras.today}
+                            onChanged={extras.onChanged}
+                        />
+                    )}
+                    {extras && expense && (
+                        <ExpenseRefundsSection
+                            expense={expense}
+                            refunds={extras.refunds}
+                            today={extras.today}
+                            onChanged={extras.onChanged}
+                        />
+                    )}
                 </div>
             </DrawerLayout>
         </SystemDrawer>

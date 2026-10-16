@@ -18,6 +18,9 @@ import {
     type CrmExpenseDraftErrors,
     type CrmExpenseFrequency
 } from "@/utils/crm/expenses";
+import { JOINT_ACCOUNT } from "@/utils/crm/expenseBalance";
+import { paidByForAccount } from "@/utils/crm/expenseTerms";
+import type { CrmExpenseAccount } from "@/types/crm";
 import styles from "../Costs.module.scss";
 
 /**
@@ -45,15 +48,51 @@ type Props = {
     onSubmit: () => void;
     /** Nomi pronti per «Pagata da»: il team e il conto comune. */
     payers?: string[];
+    /** Carte e conti; vuoto = solo «Pagata da» (tabelle non ancora sul database). */
+    accounts?: CrmExpenseAccount[];
+    /** `crm_team_members.user_id` → nome. */
+    memberNames?: Map<string, string>;
+    /** Ci sono «Cambia da…»: il conto del primo addebito non si tocca più. */
+    accountLocked?: boolean;
 };
 
-export function ExpenseForm({ formId, draft, errors, disabled, isEdit, onChange, onSubmit, payers = [] }: Props) {
+const NO_MAP = new Map<string, string>();
+
+export function ExpenseForm({
+    formId,
+    draft,
+    errors,
+    disabled,
+    isEdit,
+    onChange,
+    onSubmit,
+    payers = [],
+    accounts = [],
+    memberNames = NO_MAP,
+    accountLocked = false
+}: Props) {
     const patch = (p: Partial<CrmExpenseDraft>) => onChange({ ...draft, ...p });
     const frequency = frequencyOf(draft);
     const isSubscription = draft.kind === "subscription";
     const pickedPayer = payers.find(p => p.toLocaleLowerCase("it") === draft.paidBy.trim().toLocaleLowerCase("it"));
     const summary = expenseDraftSummary(draft);
     const dateError = isSubscription ? errors.firstChargeOn : errors.paidOn;
+    // Il Select offre i conti aperti, più quello già scelto anche se chiuso.
+    const pickedAccount = accounts.find(a => a.id === draft.accountId);
+    const accountOptions = [
+        { value: "", label: "Nessuno: scrivo chi l'ha pagata" },
+        ...accounts
+            .filter(a => !a.closed_on || a.id === draft.accountId)
+            .map(a => ({ value: a.id, label: a.closed_on ? `${a.name} (chiuso)` : a.name }))
+    ];
+    // Un conto personale il cui titolare non è nel team non dice chi paga:
+    // allora «Pagata da» resta a vista.
+    const accountPayer = pickedAccount ? paidByForAccount(pickedAccount, memberNames, JOINT_ACCOUNT) : null;
+    const pickAccount = (accountId: string) => {
+        const account = accounts.find(a => a.id === accountId);
+        const paidBy = account ? paidByForAccount(account, memberNames, JOINT_ACCOUNT) : null;
+        onChange({ ...draft, accountId, paidBy: paidBy ?? draft.paidBy });
+    };
 
     return (
         <form
@@ -84,6 +123,11 @@ export function ExpenseForm({ formId, draft, errors, disabled, isEdit, onChange,
                     value={draft.amount}
                     onChange={e => patch({ amount: e.target.value })}
                     error={errors.amount}
+                    helperText={
+                        isEdit && isSubscription
+                            ? "Il prezzo dal primo addebito. Se aumenta, usa «Cambia da…» qui sotto: i mesi passati restano."
+                            : undefined
+                    }
                     disabled={disabled}
                 />
                 <Select
@@ -102,25 +146,47 @@ export function ExpenseForm({ formId, draft, errors, disabled, isEdit, onChange,
                 error={dateError}
                 disabled={disabled}
             />
-            <div className={styles.payerField}>
-                <TextInput
-                    label="Pagata da"
-                    maxLength={60}
-                    placeholder="Per esempio Alessandro"
-                    value={draft.paidBy}
-                    onChange={e => patch({ paidBy: e.target.value })}
-                    disabled={disabled}
+            {accounts.length > 0 && (
+                <Select
+                    label="Carta o conto"
+                    value={draft.accountId}
+                    onChange={e => pickAccount(e.target.value)}
+                    options={accountOptions}
+                    helperText={
+                        accountLocked
+                            ? "Per spostarla su un altro conto da una data usa «Cambia da…» qui sotto."
+                            : pickedAccount
+                              ? pickedAccount.kind === "joint"
+                                  ? "Conto comune: non pesa su nessuno dei due."
+                                  : accountPayer
+                                    ? `La paga ${accountPayer}, divisa a metà.`
+                                    : "Il titolare non è nel team: scrivi qui sotto chi l'ha pagata."
+                              : undefined
+                    }
+                    disabled={disabled || accountLocked}
                 />
-                {payers.length > 0 && (
-                    <ChipGroupSingle
-                        options={payers.map(p => ({ value: p, label: p, disabled }))}
-                        value={pickedPayer}
-                        onChange={paidBy => patch({ paidBy })}
-                        ariaLabel="Chi l'ha pagata"
-                        layout="auto"
+            )}
+            {(!pickedAccount || accountPayer == null) && (
+                <div className={styles.payerField}>
+                    <TextInput
+                        label="Pagata da"
+                        maxLength={60}
+                        placeholder="Per esempio Alessandro"
+                        value={draft.paidBy}
+                        onChange={e => patch({ paidBy: e.target.value })}
+                        disabled={disabled}
                     />
-                )}
-            </div>
+                    {payers.length > 0 && (
+                        <ChipGroupSingle
+                            options={payers.map(p => ({ value: p, label: p, disabled }))}
+                            value={pickedPayer}
+                            onChange={paidBy => patch({ paidBy })}
+                            ariaLabel="Chi l'ha pagata"
+                            layout="auto"
+                        />
+                    )}
+                </div>
+            )}
             {summary && (
                 <Text as="p" variant="body-sm" colorVariant="muted" className={styles.formSummary} aria-live="polite">
                     {summary}

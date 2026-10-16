@@ -21,6 +21,7 @@ function listNames(names: string[]): string {
 }
 
 function moveText(s: CrmExpenseSettlement): string {
+    if (s.account_id) return `${s.from_name} versa su ${s.to_name}`;
     return isJointAccount(s.to_name) ? `${s.from_name} versa sul conto comune` : `${s.from_name} dà a ${s.to_name}`;
 }
 
@@ -38,7 +39,9 @@ export function PayersCard({
     onRetry,
     onSettle,
     onRecord,
-    onDeleteMove
+    onDeleteMove,
+    depositHint,
+    onDeposit
 }: {
     balance: ExpenseBalance;
     loading: boolean;
@@ -50,6 +53,9 @@ export function PayersCard({
     onSettle: () => void;
     onRecord: () => void;
     onDeleteMove: (move: CrmExpenseSettlement) => void;
+    /** Pareggiare con un versamento sul conto comune: chi, quanto e dove. */
+    depositHint?: { from: string; amountCents: number; accountName: string } | null;
+    onDeposit?: () => void;
 }) {
     const first = balance.transfers[0];
 
@@ -77,6 +83,18 @@ export function PayersCard({
                             </Button>
                         )}
                     </div>
+
+                    {first && depositHint && onDeposit && (
+                        <div className={styles.depositHint}>
+                            <Text as="p" variant="body-sm" colorVariant="muted">
+                                Oppure {depositHint.from} versa {formatEuroCents(depositHint.amountCents)} in più su {depositHint.accountName}: il
+                                doppio, perché metà di quello che va sul conto comune è anche sua.
+                            </Text>
+                            <Button variant="secondary" size="sm" onClick={onDeposit} disabled={settlementsMissing}>
+                                Segna il versamento
+                            </Button>
+                        </div>
+                    )}
 
                     <BarList
                         aria-label="Quanto ha pagato ognuno"
