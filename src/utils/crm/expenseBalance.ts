@@ -248,6 +248,8 @@ export interface SettlementDraft {
     amount: string;
     settledOn: string;
     note: string;
+    /** Il conto comune scelto in «A»; "" o assente = una persona o «Conto comune» a mano. */
+    accountId?: string;
 }
 
 export type SettlementDraftErrors = Partial<Record<keyof SettlementDraft, string>>;
@@ -271,6 +273,18 @@ export function settlementDraftToInput(draft: SettlementDraft): CrmExpenseSettle
         toName: draft.toName.trim(),
         amountCents: parseEuroToCents(draft.amount) as number,
         settledOn: draft.settledOn,
-        note: draft.note.trim() || null
+        note: draft.note.trim() || null,
+        accountId: draft.accountId || null
     };
+}
+
+/**
+ * Pareggiare con un versamento sul conto comune invece che a mano: chi deve
+ * versa il doppio del debito, perché metà di quello che mette sul conto comune
+ * è anche sua. Solo in due e con un solo passaggio; altrimenti null.
+ */
+export function evenByDeposit(balance: ExpenseBalance): { from: string; amountCents: number } | null {
+    if (balance.people.length !== 2 || balance.transfers.length !== 1) return null;
+    const t = balance.transfers[0];
+    return { from: t.from, amountCents: t.amountCents * 2 };
 }

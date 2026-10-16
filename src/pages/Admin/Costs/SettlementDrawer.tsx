@@ -13,6 +13,7 @@ import {
 } from "@/utils/crm/expenseBalance";
 import { romeTodayIso } from "@/utils/crm/expenses";
 import { crmErrorMessage } from "@/utils/crm/stages";
+import type { CrmExpenseAccount } from "@/types/crm";
 import { SettlementForm } from "./components/SettlementForm";
 import styles from "./Costs.module.scss";
 
@@ -22,6 +23,10 @@ type Props = {
     open: boolean;
     /** Le persone del conto, per «Da» e «A». */
     people: string[];
+    /** Conti comuni aperti, per «A». */
+    jointAccounts?: CrmExpenseAccount[];
+    /** Già compilato, per esempio «pareggia con un versamento». */
+    initialDraft?: Partial<SettlementDraft> | null;
     onClose: () => void;
     onSaved: () => Promise<void> | void;
 };
@@ -31,7 +36,7 @@ function emptyDraft(people: string[]): SettlementDraft {
 }
 
 /** Un rimborso tra voi o un versamento sul conto comune, a mano. */
-export function SettlementDrawer({ open, people, onClose, onSaved }: Props) {
+export function SettlementDrawer({ open, people, jointAccounts = [], initialDraft = null, onClose, onSaved }: Props) {
     const [draft, setDraft] = useState<SettlementDraft>(() => emptyDraft(people));
     const [errors, setErrors] = useState<SettlementDraftErrors>({});
     const [formError, setFormError] = useState<string | null>(null);
@@ -39,7 +44,7 @@ export function SettlementDrawer({ open, people, onClose, onSaved }: Props) {
 
     useEffect(() => {
         if (!open) return;
-        setDraft(emptyDraft(people));
+        setDraft({ ...emptyDraft(people), ...initialDraft });
         setErrors({});
         setFormError(null);
         setIsSaving(false);
@@ -87,6 +92,7 @@ export function SettlementDrawer({ open, people, onClose, onSaved }: Props) {
                         draft={draft}
                         errors={errors}
                         people={people}
+                        jointAccounts={jointAccounts}
                         disabled={isSaving}
                         onChange={patch => setDraft(prev => ({ ...prev, ...patch }))}
                         onSubmit={() => void handleSubmit()}

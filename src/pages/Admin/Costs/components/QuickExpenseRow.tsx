@@ -31,6 +31,10 @@ type Props = {
     today: string;
     /** Chi è entrato: paga lui, finché non si dice altro. */
     defaultPayer: string;
+    /** Il suo conto personale, se ne ha uno solo; "" = nessuno. */
+    defaultAccountId?: string;
+    /** Un conto ancora aperto? Una spesa ripresa da una vecchia non torna su un conto chiuso. */
+    isAccountOpen?: (accountId: string) => boolean;
     /** Dopo il salvataggio: la pagina ricarica e dice cosa è entrato. */
     onAdded: (summary: string, expense: CrmExpense) => void;
     /** «Più dettagli»: il drawer con quello scritto fin qui. */
@@ -48,7 +52,7 @@ function previousLabel(e: CrmExpense): string {
  * propone gli stessi dati; «Più dettagli» apre il drawer già riempito.
  */
 export const QuickExpenseRow = forwardRef<HTMLInputElement, Props>(function QuickExpenseRow(
-    { expenses, today, defaultPayer, onAdded, onDetails },
+    { expenses, today, defaultPayer, defaultAccountId = "", isAccountOpen, onAdded, onDetails },
     nameRef
 ) {
     const [draft, setDraft] = useState<CrmExpenseDraft>(() => quickExpenseDraft(today, defaultPayer));
@@ -59,7 +63,12 @@ export const QuickExpenseRow = forwardRef<HTMLInputElement, Props>(function Quic
 
     // Chi paga arriva dopo il primo render (il team si carica): lo si mette
     // solo finché la riga non l'ha già.
-    const effective = draft.paidBy || !defaultPayer ? draft : { ...draft, paidBy: defaultPayer };
+    const withPayer = draft.paidBy || !defaultPayer ? draft : { ...draft, paidBy: defaultPayer };
+    // Paga chi è entrato: col suo conto personale, se ne ha uno solo.
+    const effective =
+        !withPayer.accountId && defaultAccountId && withPayer.paidBy === defaultPayer
+            ? { ...withPayer, accountId: defaultAccountId }
+            : withPayer;
 
     const suggestions = useMemo(
         () => (picked === draft.name ? [] : suggestExpenses(expenses, draft.name)),
@@ -74,7 +83,8 @@ export const QuickExpenseRow = forwardRef<HTMLInputElement, Props>(function Quic
 
     function pick(e: CrmExpense) {
         setPicked(e.name);
-        change(draftFromPrevious(e, today));
+        const next = draftFromPrevious(e, today);
+        change(next.accountId && isAccountOpen && !isAccountOpen(next.accountId) ? { ...next, accountId: "" } : next);
     }
 
     async function handleSubmit() {

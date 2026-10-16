@@ -11,7 +11,7 @@
 // e la riga di stato di Agenti). Al telefono restano in fila, più piccoli.
 .figures {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-surface);
@@ -19,6 +19,19 @@
 
     > * + * {
         border-left: 1px solid var(--border);
+    }
+
+    // Due per riga: niente bordo a sinistra a inizio riga, bordo sopra dalla seconda.
+    @media (max-width: 1023px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+
+        > :nth-child(2n + 1) {
+            border-left: 0;
+        }
+
+        > :nth-child(n + 3) {
+            border-top: 1px solid var(--border);
+        }
     }
 
     // Errore o caricamento: una riga sola su tutta la larghezza.
@@ -627,4 +640,77 @@
 // La riga che dice cosa succede: «90 € al mese, 1.080 € l'anno».
 .formSummary {
     margin: 0;
+}
+
+// Pareggiare con un versamento sul conto comune.
+.depositHint {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+}
+
+// «Da spostare» in cima alla card dei conti.
+.toMove {
+    padding: 0 var(--space-24) var(--space-8);
+
+    @media (max-width: 767px) {
+        padding: 0 var(--space-16) var(--space-8);
+    }
+}
+
+[data-negative] {
+    color: var(--text-danger);
+}
+
+// Drawer della spesa: «Prezzo e conto» e «Rimborsi», sotto il form.
+.extraSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding-top: var(--space-16);
+    border-top: 1px solid var(--border);
+}
+
+.extraHead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+}
+
+.extraList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.extraRow {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr) auto 28px;
+    align-items: center;
+    gap: var(--space-10);
+    min-height: 36px;
+}
+
+.iconBtnSpacer {
+    width: 28px;
+}
+
+.extraForm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    padding: var(--space-12);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+}
+
+.extraActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-8);
 }

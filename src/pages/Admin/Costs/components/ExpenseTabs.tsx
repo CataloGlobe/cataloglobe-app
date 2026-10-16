@@ -59,7 +59,8 @@ export function ExpenseTabs({
     onRetry,
     onOpen,
     onDelete,
-    onCreate
+    onCreate,
+    accountLabel
 }: {
     expenses: CrmExpense[];
     nextCharges: Map<string, string>;
@@ -71,6 +72,8 @@ export function ExpenseTabs({
     onOpen: (expense: CrmExpense) => void;
     onDelete: (expense: CrmExpense) => void;
     onCreate: () => void;
+    /** Il nome della carta o del conto (al prossimo addebito); null senza conto. */
+    accountLabel?: (expense: CrmExpense) => string | null;
 }) {
     const [tab, setTab] = useState<ExpenseTab>("subscriptions");
 
@@ -154,7 +157,7 @@ export function ExpenseTabs({
                                                     {e.name}
                                                 </Text>
                                                 <Text as="span" variant="caption" colorVariant="muted" className={styles.ellipsis}>
-                                                    {payerText(e)}
+                                                    {accountLabel?.(e) ? `su ${accountLabel(e)}` : payerText(e)}
                                                 </Text>
                                             </button>
                                             {actions(e)}
@@ -215,7 +218,7 @@ export function ExpenseTabs({
                                                     </Text>
                                                     <Text as="span" variant="caption" colorVariant="muted" className={styles.oneOffMeta}>
                                                         {formatShortDateIt(e.paid_on as string)}
-                                                        {e.paid_by ? ` · ${e.paid_by}` : ""}
+                                                        {accountLabel?.(e) ? ` · ${accountLabel(e)}` : e.paid_by ? ` · ${e.paid_by}` : ""}
                                                     </Text>
                                                     <Text as="span" variant="body-sm" weight={600} className={styles.figureValue}>
                                                         {formatEuroCents(e.amount_cents)}
