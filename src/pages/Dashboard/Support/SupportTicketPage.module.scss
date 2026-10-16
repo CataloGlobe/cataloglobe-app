@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Dettaglio richiesta: thread scrollabile + composer fisso in basso.
 // Solo token di _theme.scss.
 
@@ -41,4 +43,11 @@
 // linea di base e il bottone scende oltre il suo bordo.
 .composerTextarea {
   display: block;
+}
+
+// D (copia `.rep`): il composer senza filo sopra, sulla linea della D.
+@include look-d {
+  .composer {
+    border-top-color: var(--d-line);
+  }
 }

@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 .meta {
   display: flex;
   flex-direction: column;
@@ -8,4 +10,29 @@
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+}
+
+// D (Visual Redesign PR 3, v71; copia `.v71-sum`): il riepilogo dell'invito
+// è una scheda con l'etichetta a sinistra e il valore a destra.
+@include look-d {
+    .meta {
+        gap: 10px;
+        padding: 14px 16px;
+        border: 1px solid var(--d-line);
+        border-radius: 18px;
+        background: var(--d-surface);
+    }
+
+    .row {
+        flex-direction: row;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+
+        > :last-child {
+            min-width: 0;
+            text-align: right;
+            overflow-wrap: anywhere;
+        }
+    }
 }

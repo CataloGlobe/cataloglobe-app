@@ -1,3 +1,6 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
 // =============================================================================
 // CreateBusinessWizard — drawer wizard 3-step (Crea attività)
 // =============================================================================
@@ -695,4 +698,143 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// D (Visual Redesign PR 3, v71; copia `.v71-st`, `.v71-plan`, `.v71-tot`)
+// ──────────────────────────────────────────────────────────────────────────────
+
+@include look-d {
+    .header,
+    .footer {
+        border-color: var(--d-line);
+        background-color: var(--d-surface);
+    }
+
+    // i passi sono pillole: il numero in un cerchio, quello di adesso tinto
+    .stepperBar {
+        gap: 6px;
+        padding: 10px 20px;
+        border-color: var(--d-line);
+        background-color: var(--d-surface);
+    }
+
+    .stepItem {
+        flex: 0 1 auto;
+    }
+
+    .stepCluster {
+        gap: 8px;
+        padding: 6px 12px 6px 6px;
+        border-radius: var(--d-r-pill);
+    }
+
+    .stepCluster:has(.stepDotActive) {
+        background-color: var(--d-soft);
+    }
+
+    .stepDot {
+        width: 24px;
+        height: 24px;
+        background-color: var(--d-soft);
+        color: var(--d-muted);
+        @include d-type(initials);
+    }
+
+    .stepDotActive {
+        background-color: var(--d-brand);
+        color: var(--on-brand);
+    }
+
+    .stepDotDone {
+        background-color: var(--d-s-ready-soft);
+        color: var(--d-s-ready-ink);
+    }
+
+    .stepLabel {
+        color: var(--d-muted);
+        @include d-type(body-s);
+    }
+
+    .stepLabelActive {
+        color: var(--d-text);
+    }
+
+    .stepCluster:has(.stepDotActive) .stepLabel {
+        font-weight: 600;
+    }
+
+    .stepConnector {
+        display: none;
+    }
+
+    // al telefono il nome resta solo sul passo di adesso
+    @media (max-width: 639px) {
+        .stepCluster:not(:has(.stepDotActive)) .stepLabel {
+            display: none;
+        }
+
+        .stepCluster:not(:has(.stepDotActive)) {
+            padding-right: 6px;
+        }
+    }
+
+    .planGrid {
+        gap: 12px;
+    }
+
+    .planCard {
+        padding: 16px;
+        border: 1.5px solid var(--d-line);
+        border-radius: 18px;
+        background-color: var(--d-surface);
+
+        &:hover:not(.planCardSelected) {
+            border-color: color-mix(in srgb, var(--d-brand) 30%, var(--d-line));
+        }
+    }
+
+    .planCardSelected {
+        border-color: var(--d-brand);
+        background-color: var(--d-surface);
+        box-shadow: 0 0 0 3px var(--d-soft);
+    }
+
+    .planBadge {
+        top: 12px;
+        right: 12px;
+        background-color: var(--d-soft);
+        color: var(--d-brand-deep);
+        text-transform: none;
+        @include d-type(tag);
+    }
+
+    .seatsPanel {
+        border-color: var(--d-line);
+        border-radius: 14px;
+        background-color: var(--d-surface);
+    }
+
+    .seatsHint,
+    .seatsUnit {
+        color: var(--d-muted);
+    }
+
+    .breakdownBox {
+        border: 0;
+        border-radius: 14px;
+        background-color: var(--d-soft);
+    }
+
+    .summaryCard {
+        border-color: var(--d-line);
+        border-radius: 18px;
+        background-color: var(--d-surface);
+    }
+
+    .infoBlock {
+        border-color: transparent;
+        border-radius: 14px;
+        background-color: var(--d-soft);
+    }
 }

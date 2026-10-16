@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // T17 WS1, WS6: il Workspace è una porta. Colonna centrata 880 (640 tra 640
 // e 1024, unica sotto 640), saluto senza fondo.
 
@@ -220,5 +222,49 @@
 
   .pendingCard {
     flex-wrap: wrap;
+  }
+}
+
+/* ── D (Visual Redesign PR 3, v71; copia `.coc`, `.v71-pend`) ──────────── */
+
+@include look-d {
+  // le card piccole prendono a giro le cinque tinte della D
+  .grid-compact > :nth-child(5n + 1) { --ws-tint: var(--d-tint-1); }
+  .grid-compact > :nth-child(5n + 2) { --ws-tint: var(--d-tint-2); }
+  .grid-compact > :nth-child(5n + 3) { --ws-tint: var(--d-tint-3); }
+  .grid-compact > :nth-child(5n + 4) { --ws-tint: var(--d-tint-4); }
+  .grid-compact > :nth-child(5n + 5) { --ws-tint: var(--d-tint-5); }
+
+  .grid {
+    gap: 14px;
+  }
+
+  .empty {
+    border-color: var(--d-line);
+    border-radius: var(--d-r-card);
+  }
+
+  .pendingCard {
+    padding: 14px 18px;
+    border-color: var(--d-line);
+    border-radius: var(--d-r-card);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+  }
+
+  .deletedRow {
+    border-color: var(--d-line);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--d-surface) 70%, transparent);
+  }
+
+  .deletedAvatar {
+    border-radius: 12px;
+    background: var(--d-soft);
+    color: var(--d-brand-deep);
+  }
+
+  .deletedToggle {
+    color: var(--d-brand-deep);
   }
 }

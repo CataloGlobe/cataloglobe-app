@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Thread di supporto — bolle allineate per parte, una per messaggio.
 // Solo token di _theme.scss: il componente vive in due aree con temi
 // commutabili (business e admin) e non deve portarsi dietro colori propri.
@@ -181,4 +183,28 @@
   // Un URL lungo o uno stack trace senza spazi sfonderebbe il contenitore e
   // farebbe comparire uno scroll orizzontale sull'intero drawer.
   overflow-wrap: anywhere;
+}
+
+// ── D (Visual Redesign PR 3, v71; copia `.msg`, `.me`) ──────────────────────
+// La propria parte piena di viola col testo bianco, l'altra sul viola al 7%.
+@include look-d {
+  .message[data-side="other"] {
+    border-color: transparent;
+    border-radius: 20px 20px 20px 6px;
+    background: color-mix(in srgb, var(--d-brand) 7%, var(--d-surface));
+  }
+
+  .message[data-side="own"] {
+    border-radius: 20px 20px 6px 20px;
+    background: var(--d-brand);
+
+    .author,
+    .role,
+    .you,
+    .time,
+    .body {
+      color: var(--on-brand);
+      opacity: 1;
+    }
+  }
 }
