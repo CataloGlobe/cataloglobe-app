@@ -78,8 +78,6 @@ type CostsView = "list" | "calendar";
 const UPCOMING_DAYS = 30;
 /** Quanti mesi avanti si vedono nel calendario e in «Mese per mese». */
 const MONTHS_AHEAD = 12;
-/** Addebiti nel riquadro piccolo di «In arrivo». */
-const UPCOMING_SHORT = 3;
 
 const VIEW_OPTIONS = [
     { value: "list" as const, label: "Elenco", icon: <List size={16} aria-hidden="true" /> },
@@ -434,10 +432,14 @@ export default function CostsPage() {
             {extrasReady && !figuresLoading && !figuresError && (
                 <div className={styles.trioSlot} data-wide={wide === "accounts" || undefined}>
                 <Card
+                    className={styles.trioCard}
+                    bodyClassName={styles.trioBody}
                     title="Carte e conti comuni"
                     subtitle={
                         wide !== "accounts"
-                            ? undefined
+                            ? openJoint.length > 0
+                                ? `${formatEuroCents(jointRows.reduce((sum, r) => sum + (r.closedOn ? 0 : Math.max(0, r.totals?.balanceCents ?? 0)), 0))} sui conti comuni.`
+                                : undefined
                             : openJoint.length > 0
                             ? "Versato meno speso: quanto c'è ancora sopra."
                             : "Aggiungi le carte di ognuno e i conti comuni: scelto il conto, chi ha pagato viene da sé."
@@ -454,12 +456,7 @@ export default function CostsPage() {
                     }
                     flush={jointRows.length > 0 || overview.toMove.length > 0}
                 >
-                    {wide !== "accounts" && overview.toMove.length > 0 && (
-                        <Text as="p" variant="caption" className={styles.toMoveShort}>
-                            {overview.toMove.length === 1 ? "1 abbonamento" : `${overview.toMove.length} abbonamenti`} da spostare
-                        </Text>
-                    )}
-                    {wide === "accounts" && overview.toMove.length > 0 && (
+                    {overview.toMove.length > 0 && (
                         <div className={styles.toMove}>
                             <InlineBanner variant="warning">
                                 {overview.toMove.length === 1 ? "1 abbonamento è" : `${overview.toMove.length} abbonamenti sono`} ancora su
@@ -467,7 +464,7 @@ export default function CostsPage() {
                             </InlineBanner>
                         </div>
                     )}
-                    {wide === "accounts" && overview.toMove.map(m => (
+                    {overview.toMove.map(m => (
                         <ListRow
                             key={`move-${m.expense.id}`}
                             title={m.expense.name}
@@ -476,7 +473,7 @@ export default function CostsPage() {
                             trailing={`prossimo ${formatShortDateIt(m.nextChargeOn)}`}
                         />
                     ))}
-                    {(wide === "accounts" ? jointRows : jointRows.filter(r => !r.closedOn)).map(row => {
+                    {jointRows.map(row => {
                         const left = row.totals?.balanceCents ?? 0;
                         const short = row.next && left < row.next.amountCents ? row.next.amountCents - left : 0;
                         const parts = [
@@ -492,7 +489,7 @@ export default function CostsPage() {
                             <ListRow
                                 key={row.key}
                                 title={row.name}
-                                subtitle={wide === "accounts" ? parts.filter(Boolean).join(" · ") : undefined}
+                                subtitle={parts.filter(Boolean).join(" · ")}
                                 wrapSubtitle
                                 muted={Boolean(row.closedOn)}
                                 trailing={
@@ -535,6 +532,8 @@ export default function CostsPage() {
             {(
                 <div className={styles.trioSlot} data-wide={wide === "upcoming" || undefined}>
                 <Card
+                    className={styles.trioCard}
+                    bodyClassName={styles.trioBody}
                     title={`In arrivo, ${UPCOMING_DAYS} giorni`}
                     subtitle={upcoming.length > 0 ? `${formatEuroCents(upcomingTotal)} in tutto.` : undefined}
                     actions={<span className={styles.cardActions} data-compact-action>{expandButton("upcoming", `In arrivo, ${UPCOMING_DAYS} giorni`)}</span>}
@@ -547,7 +546,7 @@ export default function CostsPage() {
                         empty={upcoming.length === 0}
                         emptyText="Nessun addebito nei prossimi 30 giorni."
                     >
-                        {(wide === "upcoming" ? [todayCharges, laterCharges] : [todayCharges, laterCharges.slice(0, Math.max(0, UPCOMING_SHORT - todayCharges.length))]).map((group, g) =>
+                        {[todayCharges, laterCharges].map((group, g) =>
                             group.length === 0 ? null : (
                                 <div key={g} role="group" aria-label={g === 0 ? "Oggi" : "Prossimi"}>
                                     {todayCharges.length > 0 && (
@@ -565,7 +564,7 @@ export default function CostsPage() {
                                     key={`${c.expenseId}-${c.chargedOn}-${i}`}
                                     leading={wide === "upcoming" ? <ExpenseIcon category={expense?.category} /> : undefined}
                                     title={expense?.name ?? "Spesa"}
-                                    subtitle={wide !== "upcoming" ? undefined : [
+                                    subtitle={[
                                         `${formatEuroCents(c.amountCents)}${interval ? ` ${CRM_BILLING_INTERVAL_LABEL[interval]}` : ""}`,
                                         expense && accountNameAt(expense, c.chargedOn)
                                             ? `su ${accountNameAt(expense, c.chargedOn)}`
@@ -591,11 +590,6 @@ export default function CostsPage() {
                             )
                         )}
                     </TileState>
-                    {wide !== "upcoming" && upcoming.length > UPCOMING_SHORT && (
-                        <Text as="p" variant="caption" colorVariant="muted" className={styles.moreHint}>
-                            e altri {upcoming.length - UPCOMING_SHORT}: «Allarga» per vederli
-                        </Text>
-                    )}
                 </Card>
                 </div>
             )}

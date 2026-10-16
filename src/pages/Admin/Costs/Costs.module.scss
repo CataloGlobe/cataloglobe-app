@@ -197,6 +197,14 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-12);
+    height: 100%;
+    min-height: 0;
+}
+
+.movesScroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 // Il saldo fra voi in cima alla pagina: la prima cosa che si guarda.
@@ -241,6 +249,8 @@
 }
 
 .moves {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
@@ -1075,38 +1085,70 @@
     opacity: 0.5;
 }
 
-/* Tre riquadri in fila, ognuno con «Allarga» (Alex, 2026-10-16): quello
-   allargato sale in cima a tutta larghezza, gli altri restano sotto. */
+/* Tre riquadri in fila, alti uguali, ognuno con «Allarga» (Alex, 2026-10-16).
+   Allargato prende quasi tutta la riga alla stessa altezza; gli altri due si
+   contraggono a testata sola, uno sopra l'altro, in una colonna a destra. */
 .trio {
+    --trio-height: 360px;
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-16);
-    align-items: start;
 
-    > * {
-        grid-column: span 2;
-    }
+    &:has(> [data-wide]) {
+        grid-template-columns: minmax(0, 1fr) 280px;
+        grid-template-rows: repeat(2, calc((var(--trio-height) - var(--space-16)) / 2));
 
-    // Con uno allargato, gli altri due si dividono la riga sotto a metà.
-    &:has(> [data-wide]) > * {
-        grid-column: span 3;
-    }
+        > [data-wide] {
+            grid-column: 1;
+            grid-row: 1 / span 2;
+        }
 
-    > [data-wide] {
-        grid-column: 1 / -1;
-        order: -1;
+        > :not([data-wide]) {
+            grid-column: 2;
+            height: auto;
+
+            .trioBody,
+            .trioBodyFixed {
+                display: none;
+            }
+        }
     }
 
     @media (max-width: 1023px) {
-        > *,
-        &:has(> [data-wide]) > * {
-            grid-column: 1 / -1;
+        &,
+        &:has(> [data-wide]) {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: none;
+
+            > * {
+                grid-column: 1;
+                grid-row: auto;
+            }
         }
     }
 }
 
+// Testata ferma, il corpo scorre dentro.
 .trioSlot {
     min-width: 0;
+    height: var(--trio-height);
+}
+
+.trioCard {
+    height: 100%;
+}
+
+.trioBody {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+// Chi ha pagato: le barre restano ferme, scorrono i movimenti.
+.trioBodyFixed {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .cardActions {
@@ -1136,13 +1178,4 @@
         outline: 2px solid var(--brand-primary);
         outline-offset: 2px;
     }
-}
-
-.toMoveShort {
-    padding: 0 var(--space-24) var(--space-8);
-    color: var(--text-warning);
-}
-
-.moreHint {
-    padding: var(--space-8) var(--space-24) var(--space-12);
 }

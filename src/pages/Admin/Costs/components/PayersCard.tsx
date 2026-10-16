@@ -14,9 +14,6 @@ import { TileState } from "@/pages/Admin/Crm/components/TileState";
 import { ExpenseIcon } from "./ExpenseIcon";
 import styles from "../Costs.module.scss";
 
-/** Quanti movimenti si vedono sotto il conto. */
-const RECENT_MOVES = 4;
-
 function listNames(names: string[]): string {
     if (names.length <= 1) return names[0] ?? "nessuno";
     return `${names.slice(0, -1).join(", ")} e ${names.at(-1)}`;
@@ -59,6 +56,8 @@ export function PayersCard({
 
     return (
         <Card
+            className={styles.trioCard}
+            bodyClassName={styles.trioBodyFixed}
             title="Chi ha pagato"
             subtitle={
                 expanded
@@ -115,7 +114,7 @@ export function PayersCard({
                         </Text>
                     )}
 
-                    {!expanded ? null : settlementsMissing ? (
+                    {settlementsMissing ? (
                         <InlineBanner variant="info">
                             Rimborsi e versamenti si potranno segnare dopo l'aggiornamento del database. Il conto qui sopra vale già.
                         </InlineBanner>
@@ -123,10 +122,10 @@ export function PayersCard({
                         settlements.length > 0 && (
                             <div className={styles.moves}>
                                 <Text as="span" variant="caption" colorVariant="muted">
-                                    Ultimi movimenti
+                                    Movimenti, dal più recente
                                 </Text>
-                                <ul>
-                                    {settlements.slice(0, RECENT_MOVES).map(s => (
+                                <ul className={styles.movesScroll}>
+                                    {[...settlements].sort((a, b) => (a.settled_on < b.settled_on ? 1 : a.settled_on > b.settled_on ? -1 : 0)).map(s => (
                                         <li key={s.id} className={styles.move}>
                                             <ExpenseIcon move />
                                             <span className={styles.moveLines}>
