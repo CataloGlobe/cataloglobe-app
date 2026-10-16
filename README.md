@@ -1,5 +1,11 @@
 # React + TypeScript + Vite
 
+## Sviluppo locale: le rotte `/api`
+
+`npm run dev` avvia solo Vite, che inoltra `/api/*` a `localhost:3001`. Le rotte serverless di Vercel (`api/`) girano solo con `npm run dev:full` (Vite + `vercel dev` sulla 3001, legge `.env.local`) o `npm run dev:api` in un secondo terminale.
+
+Con il solo `npm run dev` la pagina pubblica si carica lo stesso: `fetchPublicCatalog` vede il 500 vuoto del proxy di Vite e chiama `resolve-public-catalog` direttamente (avviso in console, niente cache Redis né snapshot). Il ramo esiste solo in dev; per provare il proxy vero, la cache o il degrado serve `npm run dev:full`.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
