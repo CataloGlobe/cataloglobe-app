@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { sidebarLink, sediGriglia } from "./nav";
@@ -126,7 +127,7 @@ async function quality(page: Page, name: keyof typeof QUALITY_VALUE): Promise<vo
         if (zipped) await page.keyboard.press("Escape");
         return;
     }
-    await page.getByRole("combobox", { name: "Filtra per stato del prodotto" }).selectOption(QUALITY_VALUE[name]);
+    await scegli(page.getByRole("combobox", { name: "Filtra per stato del prodotto" }), QUALITY_VALUE[name]);
 }
 
 async function noSideScroll(page: Page): Promise<void> {

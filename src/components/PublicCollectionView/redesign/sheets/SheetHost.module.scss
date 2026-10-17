@@ -70,18 +70,18 @@ html :where(.root) :is(p, h1, h2, h3, h4, h5, h6) {
   }
 }
 
-/* Fogli scuri in tutti i locali (D68): token in `_sheet-tone.scss`. */
+/* Fogli nel tono delle parti fisse: token in `_sheet-tone.scss`. */
 .panel {
-  @include dark-sheet;
+  @include sheet-tone;
 }
 
-/* Accento bianco (⋯, informazioni, lingua, filtri del mockup). */
+/* Accento neutro (⋯, informazioni, lingua, filtri del mockup): il testo del foglio. */
 .panel[data-accent="neutral"] {
-  --pub-primary: #fff;
-  --pub-primary-text: #141414;
-  --pub-accent: #fff;
-  --pub-cta-bg: #fff;
-  --pub-cta-text: #141414;
+  --pub-primary: var(--pub-text);
+  --pub-primary-text: var(--pub-surface);
+  --pub-accent: var(--pub-text);
+  --pub-cta-bg: var(--pub-text);
+  --pub-cta-text: var(--pub-surface);
 }
 
 .dragZone {

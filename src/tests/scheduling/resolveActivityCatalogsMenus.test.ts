@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CatalogLoadCache } from "@/services/supabase/resolveActivityCatalogs";
+import type { CatalogLoadCache as EdgeCatalogLoadCache } from "../../../supabase/functions/_shared/resolveActivityCatalogs";
 
 // Giudice nuovo (piano 9b, passo 3b): `resolveActivityCatalogs` con più menù,
 // prezzi / disponibilità / in evidenza che si sommano. Le due copie (edge e
@@ -8,11 +10,17 @@ type Row = Record<string, unknown>;
 type Tables = Record<string, Row[]>;
 
 let tables: Tables = {};
+/** Le select chieste al finto («tabella: colonne»): per contare i download dei cataloghi. */
+let selects: string[] = [];
 
 class FakeQuery {
     private filters: Array<(row: Row) => boolean> = [];
-    constructor(private readonly rows: Row[]) {}
-    select() {
+    constructor(
+        private readonly table: string,
+        private readonly rows: Row[]
+    ) {}
+    select(columns = "*") {
+        selects.push(`${this.table}: ${columns}`);
         return this;
     }
     eq(column: string, value: unknown) {
@@ -38,7 +46,7 @@ class FakeQuery {
 }
 
 const fakeSupabase = {
-    from: (table: string) => new FakeQuery(tables[table] ?? []),
+    from: (table: string) => new FakeQuery(table, tables[table] ?? []),
     rpc: (fn: string, args?: Record<string, unknown>) => {
         if (fn !== "get_schedule_featured_contents") throw new Error(`rpc inattesa ${fn}`);
         const rows = (tables.featured_by_rule ?? []).filter(row => row.schedule_id === args?.p_schedule_id);
@@ -53,6 +61,7 @@ const { resolveActivityCatalogs: resolveEdge } = await import(
     "../../../supabase/functions/_shared/resolveActivityCatalogs"
 );
 const { toRomeDateTime } = await import("@/services/supabase/schedulingNow");
+const { getActiveCatalogForActivities } = await import("@/services/supabase/activeCatalog");
 
 const TENANT = "tenant-1";
 const SEAT = "activity-1";
@@ -147,6 +156,7 @@ function prices(catalog: { categories?: Array<{ products: Array<{ id: string; pr
 }
 
 beforeEach(() => {
+    selects = [];
     tables = {
         activity_group_members: [],
         schedule_targets: [],
@@ -409,5 +419,43 @@ describe("una sede con quattro menù (San Pietro)", () => {
     it("alle 20 la seconda fascia del ristorante, insieme all'aperitivo", async () => {
         const result = await resolveAt(at("2026-03-26T19:00:00.000Z"));
         expect(shape(result)?.filter(m => m[1] === "now").map(m => m[0])).toEqual(["c-rist", "c-ape"]);
+    });
+});
+
+describe("resolveActivityCatalogs: un catalogo si scarica una volta sola", () => {
+    // Il catalogo con sezioni e piatti, non la lettura di `sort_order` del giudice.
+    const catalogDownloads = () =>
+        selects.filter(select => select.startsWith("catalogs:") && select.includes("categories")).length;
+
+    it("più sedi con la stessa Map: ogni catalogo una volta, risultato uguale a senza", async () => {
+        const OTHER = "activity-2";
+        const alone = [await resolveWeb(SEAT, NOON, TENANT), await resolveWeb(OTHER, NOON, TENANT)];
+        expect(catalogDownloads()).toBe(6);
+
+        const webCache: CatalogLoadCache = new Map();
+        selects = [];
+        const web = await Promise.all([
+            resolveWeb(SEAT, NOON, TENANT, webCache),
+            resolveWeb(OTHER, NOON, TENANT, webCache)
+        ]);
+        expect(catalogDownloads()).toBe(3);
+        expect(web).toEqual(alone);
+
+        const edgeCache: EdgeCatalogLoadCache = new Map();
+        selects = [];
+        const edge = await Promise.all([
+            resolveEdge(fakeSupabase, SEAT, NOON, TENANT, edgeCache),
+            resolveEdge(fakeSupabase, OTHER, NOON, TENANT, edgeCache)
+        ]);
+        expect(catalogDownloads()).toBe(3);
+        expect(edge).toEqual(alone);
+    });
+
+    it("getActiveCatalogForActivities: tre sedi sugli stessi menù, due download", async () => {
+        // Senza il menù serale: l'ora vera del test non cambia i menù di adesso.
+        tables.schedules = tables.schedules.filter(row => row.id !== "m-dinner");
+        const result = await getActiveCatalogForActivities(TENANT, ["a-1", "a-2", "a-3"]);
+        expect(catalogDownloads()).toBe(2);
+        expect(Object.values(result).map(meta => meta.catalogId)).toEqual(["c-wine", "c-wine", "c-wine"]);
     });
 });

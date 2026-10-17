@@ -1,5 +1,3 @@
-// @ts-nocheck
-//
 // mark-order-ready — admin-side endpoint that transitions an order from
 // `acknowledged` to `ready`. Used by staff to mark "order prepared,
 // waiting to be delivered to the table".

@@ -84,7 +84,11 @@ export interface TranslateMetadata {
  * Categorie di errore esplicite per gestione retry differenziata in
  * process-translation-jobs (Prompt 7).
  *
- * - 'auth': key invalida/scaduta/wrong tier — NON retryable.
+ * - 'config': configurazione del provider assente o rifiutata (API key
+ *   mancante, malformata, 401/403 del provider). Vale per TUTTO il sistema,
+ *   non per il singolo job: NON retryable, e il tick si ferma rimettendo i job
+ *   in coda senza consumare tentativi (vedi processTranslationTick). Crearla
+ *   sempre con providerConfigError().
  * - 'quota': limit superato — retryable solo dopo reset.
  * - 'rate_limit': 429 — retryable con backoff.
  * - 'network': timeout/DNS/connection — retryable.
@@ -93,7 +97,7 @@ export interface TranslateMetadata {
  * - 'unknown': tutto il resto — retryable cautelativo.
  */
 export type TranslationErrorCategory =
-    | "auth"
+    | "config"
     | "quota"
     | "rate_limit"
     | "network"
@@ -115,4 +119,17 @@ export class TranslationProviderError extends Error {
         super(message);
         this.name = "TranslationProviderError";
     }
+}
+
+/**
+ * Errore di configurazione del provider (chiave mancante, malformata o
+ * rifiutata): unico punto di costruzione, così router e provider producono la
+ * stessa classe con lo stesso comportamento (categoria 'config', mai retryable).
+ */
+export function providerConfigError(
+    message: string,
+    provider: string,
+    originalError?: unknown
+): TranslationProviderError {
+    return new TranslationProviderError(message, "config", provider, false, originalError);
 }

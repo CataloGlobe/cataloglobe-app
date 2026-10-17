@@ -1,5 +1,3 @@
-// @ts-nocheck
-//
 // deliver-order — admin-side endpoint that transitions an order from
 // `acknowledged` or `ready` to `delivered`. Used by staff to mark the
 // order as brought to the table. Accepts both source states so workflows

@@ -1588,6 +1588,29 @@ type MenuCatalog = {
     catalog: ResolvedCatalog | undefined;
 };
 
+/**
+ * Cataloghi già chiesti, per tenant e `catalog_id`: più sedi risolte insieme
+ * sullo stesso catalogo lo scaricano una volta sola (nella stessa sede i menù
+ * sono già unici per catalogo). Vale per un gruppo di risoluzioni fatte insieme,
+ * mai di più: la promessa resta in memoria, anche se fallisce.
+ * Il catalogo condiviso non si tocca: gli strati (`apply*`) fanno copie.
+ */
+export type CatalogLoadCache = Map<string, Promise<ResolvedCatalog | undefined>>;
+
+function loadCatalogOnce(
+    cache: CatalogLoadCache,
+    catalogId: string,
+    tenantId: string
+): Promise<ResolvedCatalog | undefined> {
+    const key = `${tenantId}:${catalogId}`;
+    let pending = cache.get(key);
+    if (!pending) {
+        pending = loadCatalogById(catalogId, tenantId);
+        cache.set(key, pending);
+    }
+    return pending;
+}
+
 // ── Main resolver ────────────────────────────────────────────────────────────
 
 /**
@@ -1600,11 +1623,15 @@ type MenuCatalog = {
  * catalogo intero. `catalog`: il primo di adesso (per `catalogs.sort_order`),
  * per chi legge un menù solo (pagina vecchia, ordini, PDF). I conteggi dei menù
  * di più tardi usano le regole di adesso: servono al riquadro, non al menù.
+ *
+ * `catalogCache`: la stessa Map per più sedi risolte insieme, così un catalogo
+ * comune si scarica una volta sola (vedi `CatalogLoadCache`).
  */
 export async function resolveActivityCatalogs(
     activityId: string,
     now?: RomeDateTime,
-    knownTenantId?: string
+    knownTenantId?: string,
+    catalogCache: CatalogLoadCache = new Map()
 ): Promise<ResolvedCollections> {
     const effectiveNow = now ?? getNowInRome();
 
@@ -1785,7 +1812,7 @@ export async function resolveActivityCatalogs(
     // no deep clone needed; base can safely alias the loaded catalog.
     let menuCatalogs: MenuCatalog[] = await Promise.all(
         ruleResolution.menus.map(async rule => {
-            const base = await loadCatalogById(rule.catalogId, tenantId);
+            const base = await loadCatalogOnce(catalogCache, rule.catalogId, tenantId);
             return { rule, base, catalog: base };
         })
     );

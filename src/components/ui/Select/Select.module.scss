@@ -100,3 +100,130 @@
     color: var(--d-muted);
   }
 }
+
+// --- Tendina della D (copia «Visual Redesign PR 3», `.dd.f`): al posto della
+// tendina di sistema un pulsante largo quanto il campo, testo a sinistra e
+// chevron a destra che gira quando è aperta; il pannello è quello dei menù
+// (`Menu.module.scss`), largo almeno quanto il campo, con la spunta sulla voce
+// scelta. Esiste solo con la D accesa. ---
+.trigger {
+  @include look-d {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    height: var(--control-height);
+    padding: 0 12px;
+    border: 1px solid var(--d-field-line);
+    border-radius: var(--d-r-ctl);
+    background: var(--surface);
+    color: var(--d-text);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+
+    &:hover:not(:disabled) {
+      border-color: color-mix(in srgb, var(--d-brand) 35%, transparent);
+    }
+
+    &:focus-visible,
+    &[data-state="open"] {
+      outline: none;
+      border-color: color-mix(in srgb, var(--d-brand) 55%, transparent);
+      box-shadow: 0 0 0 4px var(--d-soft);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    @include touch-input-font;
+  }
+}
+
+.value {
+  @include look-d {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.triggerCaret {
+  @include look-d {
+    flex: 0 0 auto;
+    color: var(--d-muted);
+    transition: transform 180ms var(--d-ease-move);
+
+    [data-state="open"] > & {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.hasError .trigger {
+  @include look-d {
+    border-color: var(--danger);
+  }
+}
+
+.pop {
+  @include look-d {
+    min-width: max(210px, var(--radix-dropdown-menu-trigger-width));
+    max-height: min(360px, var(--radix-dropdown-menu-content-available-height));
+    overflow-y: auto;
+  }
+}
+
+.option {
+  @include look-d {
+    white-space: nowrap;
+  }
+}
+
+.optionText {
+  @include look-d {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.check {
+  @include look-d {
+    flex: 0 0 auto;
+    margin-left: auto;
+    opacity: 0;
+    color: var(--d-brand);
+
+    [data-state="checked"] > & {
+      opacity: 1;
+    }
+  }
+}
+
+.groupLabel {
+  @include look-d {
+    padding: 8px 10px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--d-muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .triggerCaret {
+    transition: none;
+  }
+}

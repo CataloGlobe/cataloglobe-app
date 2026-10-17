@@ -1,3 +1,4 @@
+import { Select } from "@/components/ui/Select/Select";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -82,7 +83,7 @@ function AddUpdateBlock({
                     disabled={submitting}
                 />
                 <div className={styles.addUpdateRow}>
-                    <select
+                    <Select
                         className={`${styles.select} ${styles.statusSelect}`}
                         value={nextStatus}
                         onChange={(e) => setNextStatus(e.target.value as IncidentStatus | "")}
@@ -93,7 +94,7 @@ function AddUpdateBlock({
                         <option value="investigating">In analisi</option>
                         <option value="identified">Identificato</option>
                         <option value="monitoring">Monitoraggio</option>
-                    </select>
+                    </Select>
                     <button
                         type="submit"
                         className={`${styles.btn} ${styles.btn_primary} ${styles.toolbarBtn}`}
