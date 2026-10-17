@@ -1,13 +1,8 @@
 import type { LayoutRule, LayoutRuleOption } from "@/services/supabase/layoutScheduling";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
+import { isViewRuleActiveNow, judgeSeat, toJudgeRule, VIEW_LAYERS, type JudgeViewRule } from "@/utils/judgeView";
 import { describeZeroReach, ruleReachesAnyActivity } from "@/utils/scheduleReach";
-import {
-    COMPETITION_RULE_TYPES,
-    isTimeRuleActiveNow,
-    resolveCompetition,
-    type CompetitionRule,
-    type CompetitionSeat
-} from "@shared/scheduleCompetition";
+import type { CompetitionSeat } from "@shared/scheduleCompetition";
 
 export type RuleInsight = {
     isActiveNow: boolean;
@@ -18,7 +13,7 @@ export type RuleInsight = {
     /** La regola che adesso vince su questa (nome e id, per il link). */
     overriddenByName?: string;
     overriddenById?: string;
-    /** Nomi delle sedi dove questa regola è sovrascritta da una più specifica. */
+    /** Nomi delle sedi dove questa regola è coperta (da una più specifica, o da un menù «al posto degli altri»). */
     excludedActivityNames?: string[];
     /** Le stesse sedi, con chi vince in ciascuna: la riga ambra dell'elenco (PG5). */
     losingSeats?: Array<{ activityId: string; activityName: string; winnerId: string; winnerName: string }>;
@@ -29,26 +24,7 @@ export type RuleInsight = {
  * `LayoutRule` di Programmazione, o la forma minima caricata altrove (drawer
  * di eliminazione stile).
  */
-export type InsightRule = Pick<
-    LayoutRule,
-    | "id"
-    | "rule_type"
-    | "enabled"
-    | "priority"
-    | "created_at"
-    | "time_mode"
-    | "days_of_week"
-    | "time_from"
-    | "time_to"
-    | "start_at"
-    | "end_at"
-    | "applyToAll"
-    | "activityIds"
-    | "groupIds"
-> & {
-    /** Solo menù: il catalogo collegato (senza catalogo la regola non vince). */
-    layout: { catalog_id: string | null } | null;
-};
+export type InsightRule = JudgeViewRule;
 
 export type RuleInsightsInput<R extends InsightRule = LayoutRule> = {
     rules: R[];
@@ -61,37 +37,17 @@ export type RuleInsightsInput<R extends InsightRule = LayoutRule> = {
     ruleName: (rule: R) => string;
 };
 
-/** La regola della lista nella forma della competizione (targets da schedule_targets). */
-export function toCompetitionRule<R extends InsightRule>(rule: R): CompetitionRule & { source: R } {
-    return {
-        id: rule.id,
-        rule_type: rule.rule_type,
-        enabled: rule.enabled,
-        priority: rule.priority,
-        created_at: rule.created_at,
-        time_mode: rule.time_mode,
-        days_of_week: rule.days_of_week,
-        time_from: rule.time_from,
-        time_to: rule.time_to,
-        start_at: rule.start_at,
-        end_at: rule.end_at,
-        applyToAll: rule.applyToAll,
-        activityIds: rule.activityIds,
-        groupIds: rule.groupIds,
-        hasPayload: rule.rule_type === "layout" ? (rule.layout?.catalog_id ?? null) !== null : undefined,
-        source: rule
-    };
-}
-
 /**
- * «Adesso» e «Sovrascritta da» per ogni regola, con la stessa competizione
- * della pagina pubblica (`resolveCompetition`), sede per sede, all'ora di
- * Roma. Col filtro sede si gioca solo sulla sede filtrata.
+ * «Adesso» e «Sovrascritta da» per ogni regola, col giudice della pagina
+ * pubblica (`judge`), sede per sede, all'ora di Roma. Col filtro sede si
+ * gioca solo sulla sede filtrata.
  *
- * Una regola è sovrascritta se è in finestra e, sulle sedi considerate,
- * perde ovunque partecipi. `overriddenBy*` è il vincitore della prima sede
- * (nell'ordine delle sedi) dove perde; `excludedActivityNames` sono tutte
- * le sedi dove perde.
+ * Una regola è sovrascritta se è attiva e, sulle sedi considerate, è coperta
+ * ovunque partecipi: un menù da un «al posto degli altri» (o una `layout` da
+ * quella che vince con l'ordine di oggi), uno stile da quello che vince.
+ * Prezzi, disponibilità e in evidenza si sommano: nessuna copre l'altra.
+ * `overriddenBy*` è chi copre nella prima sede (nell'ordine delle sedi) dove
+ * è coperta; `excludedActivityNames` sono tutte le sedi dove lo è.
  */
 export function computeRuleInsights<R extends InsightRule>(input: RuleInsightsInput<R>): Map<string, RuleInsight> {
     const { rules, activities, activityIdsByGroupId, groupNameById, filterActivityId, now, ruleName } = input;
@@ -116,7 +72,7 @@ export function computeRuleInsights<R extends InsightRule>(input: RuleInsightsIn
         groupIds: groupIdsByActivityId.get(activityId) ?? []
     }));
 
-    const competitionRules = rules.map(toCompetitionRule);
+    const judgeRules = rules.map(toJudgeRule);
     const ruleWinsNow = new Set<string>();
     const ruleParticipatesNow = new Set<string>();
     const ruleOverriddenBy = new Map<string, R>();
@@ -124,30 +80,38 @@ export function computeRuleInsights<R extends InsightRule>(input: RuleInsightsIn
     const ruleLosingSeats = new Map<string, Array<{ activityId: string; winner: R }>>();
 
     for (const seat of seats) {
-        const outcome = resolveCompetition(competitionRules, seat, nowRome);
-        for (const type of COMPETITION_RULE_TYPES) {
-            const { winner, contenders } = outcome[type];
-            if (!winner) continue;
-            ruleWinsNow.add(winner.rule.id);
-            ruleParticipatesNow.add(winner.rule.id);
-            for (const loser of contenders) {
-                ruleParticipatesNow.add(loser.rule.id);
-                if (!ruleOverriddenBy.has(loser.rule.id)) {
-                    ruleOverriddenBy.set(loser.rule.id, winner.rule.source);
-                }
-                const excluded = ruleExcludedActivityIds.get(loser.rule.id) ?? [];
+        const outcome = judgeSeat(judgeRules, seat, nowRome);
+        // Una regola in onda in uno strato (una layout che dà il menù ma non lo
+        // stile) in questa sede non è coperta.
+        const shownHere = new Set<string>();
+        for (const layer of VIEW_LAYERS) {
+            for (const entry of outcome[layer].shown) {
+                shownHere.add(entry.rule.id);
+                ruleWinsNow.add(entry.rule.id);
+                ruleParticipatesNow.add(entry.rule.id);
+            }
+        }
+        const coveredHere = new Set<string>();
+        for (const layer of VIEW_LAYERS) {
+            for (const { entry, by } of outcome[layer].covered) {
+                const id = entry.rule.id;
+                ruleParticipatesNow.add(id);
+                if (shownHere.has(id) || coveredHere.has(id)) continue;
+                coveredHere.add(id);
+                if (!ruleOverriddenBy.has(id)) ruleOverriddenBy.set(id, by.rule.source);
+                const excluded = ruleExcludedActivityIds.get(id) ?? [];
                 excluded.push(seat.activityId);
-                ruleExcludedActivityIds.set(loser.rule.id, excluded);
-                const losing = ruleLosingSeats.get(loser.rule.id) ?? [];
-                losing.push({ activityId: seat.activityId, winner: winner.rule.source });
-                ruleLosingSeats.set(loser.rule.id, losing);
+                ruleExcludedActivityIds.set(id, excluded);
+                const losing = ruleLosingSeats.get(id) ?? [];
+                losing.push({ activityId: seat.activityId, winner: by.rule.source });
+                ruleLosingSeats.set(id, losing);
             }
         }
     }
 
     const insights = new Map<string, RuleInsight>();
     for (const rule of rules) {
-        const isActiveNow = rule.enabled && isTimeRuleActiveNow(rule, nowRome);
+        const isActiveNow = isViewRuleActiveNow(rule, nowRome);
         const canTargetAnyActivity = ruleReachesAnyActivity(rule, reachCtx);
         const overriddenBy = ruleOverriddenBy.get(rule.id);
         const excludedIds = ruleExcludedActivityIds.get(rule.id);

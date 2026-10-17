@@ -383,9 +383,9 @@ async function listCandidateRulesForActivity(
  * regole candidate. Una regola senza fasce vale tutto il giorno, ogni giorno:
  * il ponte (mig 20261014090000) le scrive per ogni regola «Fascia».
  */
-async function attachSlotsAndOverlaps(
+export async function attachSlotsAndOverlaps(
     supabase: SupabaseLike,
-    rules: JudgeRule[]
+    rules: Array<Partial<Pick<JudgeRule, "slots" | "overlapByActivity" | "overlapByGroup">> & { id: string }>
 ): Promise<void> {
     if (rules.length === 0) return;
     const ids = rules.map(rule => rule.id);

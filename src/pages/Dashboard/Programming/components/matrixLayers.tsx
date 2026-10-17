@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { LayoutRule, RuleType } from "@/services/supabase/layoutScheduling";
-import { describeDiagnosis, describeManual, describeWinner, type MatrixCell, type MatrixRow } from "@/utils/scheduleMatrix";
+import { viewLayerOf } from "@/utils/judgeView";
+import { describeDiagnosis, describeManual, describeWinner, joinNames, type MatrixCell, type MatrixRow } from "@/utils/scheduleMatrix";
 import { MatrixCellLines as CellLines } from "./MatrixCellLines";
 import styles from "./SeatMatrix.module.scss";
 
@@ -36,10 +37,24 @@ export function matrixLayers({ atNow, catalogLabel, catalogName, ruleHref }: Mat
         if (cell.kind === "empty") {
             return <CellLines primary={null} secondary={describeDiagnosis(cell.diagnosis, atNow)} warn={cell.diagnosis.kind === "draft"} />;
         }
-        const catalogId = cell.rule.layout?.catalog_id;
-        const { primary, secondary } = describeWinner(cell.rule, catalogId ? catalogName(catalogId) : undefined);
+        const nameOf = (rule: LayoutRule) => {
+            const catalogId = rule.layout?.catalog_id;
+            return catalogId ? catalogName(catalogId) : undefined;
+        };
+        const winner = describeWinner(cell.rule, nameOf(cell.rule));
+        // Più menù insieme: tutti i nomi sopra; più regole che si sommano: quante sotto.
+        const others = cell.rules.length - 1;
+        const isMenu = viewLayerOf(cell.rule.rule_type) === "layout";
+        const primary =
+            others > 0 && isMenu
+                ? joinNames(cell.rules.map(rule => nameOf(rule) ?? describeWinner(rule).primary))
+                : winner.primary;
+        const secondary =
+            others > 0 && !isMenu
+                ? `${winner.secondary ?? ""}${winner.secondary ? " · " : ""}+${others}`
+                : winner.secondary;
         // Il link porta alla regola: nel menù è la riga sotto, altrove il nome sopra.
-        const menuWithCatalog = cell.rule.rule_type === "layout" && secondary !== null;
+        const menuWithCatalog = isMenu && secondary !== null;
         const link = (
             <Link to={ruleHref(cell.rule)} className={styles.link}>
                 {menuWithCatalog ? secondary : primary}

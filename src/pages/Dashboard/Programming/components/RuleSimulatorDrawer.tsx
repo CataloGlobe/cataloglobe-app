@@ -16,7 +16,7 @@ import Text from "@/components/ui/Text/Text";
 import type { LayoutRule, LayoutRuleOption, RuleType } from "@/services/supabase/layoutScheduling";
 import { ACTIVE_LABEL, formatInactiveReason } from "@/utils/activityStatus";
 import { parseRomeDateTimeLocal, romeDateTimeLocalValue, romeInstantAt } from "@/utils/romeInstant";
-import { buildScheduleMatrix } from "@/utils/scheduleMatrix";
+import { buildScheduleMatrix, joinNames } from "@/utils/scheduleMatrix";
 import { seatsToWatchFirst } from "@/utils/seatsToWatch";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { buildDailyTimeline } from "../simulatorTimeline";
@@ -295,24 +295,27 @@ export function RuleSimulatorDrawer({
                         ) : (
                             timelineBlocks.map(block => {
                                 const where = getSpecificityLabel(block.layoutSpecificity);
-                                const featuredName = block.featuredScheduleId
-                                    ? (ruleById.get(block.featuredScheduleId)?.name ?? "attiva")
-                                    : null;
+                                const featuredName =
+                                    block.featuredScheduleIds.length > 0
+                                        ? joinNames(block.featuredScheduleIds.map(id => ruleById.get(id)?.name ?? "attiva"))
+                                        : null;
                                 return (
                                     <ListRow
                                         key={`${block.startMinutes}-${block.endMinutes}`}
                                         dense
                                         title={`${formatMinutesToHourLabel(block.startMinutes)}–${formatMinutesToHourLabel(block.endMinutes)}`}
                                         subtitle={
-                                            block.layoutCatalogId
-                                                ? (catalogById.get(block.layoutCatalogId)?.name ?? block.layoutCatalogId)
+                                            block.layoutCatalogIds.length > 0
+                                                ? joinNames(block.layoutCatalogIds.map(id => catalogById.get(id)?.name ?? id))
                                                 : `Nessun ${catalogLabel.toLowerCase()}`
                                         }
                                         meta={
                                             <span className={styles.badges}>
                                                 {where && <Badge variant="neutral">{where}</Badge>}
-                                                {block.visibilityMode === "hide" && <Badge variant="neutral">Nascosti</Badge>}
-                                                {block.visibilityMode === "disable" && <Badge variant="warning">Non disponibili</Badge>}
+                                                {block.visibilityModes.includes("hide") && <Badge variant="neutral">Nascosti</Badge>}
+                                                {block.visibilityModes.includes("disable") && (
+                                                    <Badge variant="warning">Non disponibili</Badge>
+                                                )}
                                                 {block.priceRuleId && <Badge variant="neutral">Prezzi</Badge>}
                                                 {featuredName && <Badge variant="neutral">In evidenza: {featuredName}</Badge>}
                                             </span>

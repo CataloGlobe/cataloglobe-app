@@ -19,7 +19,7 @@ import {
 /**
  * Contratto di `ruleAppearance.ts` (§50.13): dove e quando appare un menù,
  * uno stile, un contenuto in evidenza, una storia. La competizione è quella
- * della pagina pubblica (`resolveCompetition`): i casi 13 lo tengono contro
+ * della pagina pubblica (`judge`, dal passo 3d): i casi 13 lo tengono contro
  * la matrice e «Sovrascritta da», che la usano già.
  */
 
@@ -195,7 +195,7 @@ describe("ruleAppearance — dove e quando appare un menù, uno stile, un conten
         expect(catalogStyleIds(appearanceOf(index([off]), { kind: "catalog", id: "carta" }))).toEqual([]);
     });
 
-    it("(11) in evidenza: slot giusto per regola, e «viva» non è «vince»", () => {
+    it("(11) in evidenza: slot giusto per regola, e le regole si sommano", () => {
         const costa = featured("costa", [["autunno", "before_catalog"]], { activityIds: ["comasina"] });
         const porto = featured("porto", [["autunno", "after_catalog"], ["jazz", "after_catalog"]], { activityIds: ["comasina"], created_at: "2026-02-01T00:00:00Z" });
         const spenta = featured("spenta", [["natale", "before_catalog"]], { enabled: false, applyToAll: true });
@@ -205,10 +205,12 @@ describe("ruleAppearance — dove e quando appare un menù, uno stile, un conten
         expect(autunno.rules.map(e => [e.rule.id, e.slot])).toEqual([["costa", "before_catalog"], ["porto", "after_catalog"]]);
         expect(seat(autunno, "comasina")).toMatchObject({ reason: "live", rule: { id: "costa" } });
 
-        // «jazz» ha una regola viva che adesso perde: non è «nessuna regola li mostra».
+        // «jazz» sta solo in «porto», che non è la prima: prima del giudice nuovo
+        // perdeva contro «costa». La pagina pubblica mostra i contenuti di tutte
+        // le regole in evidenza attive (M6, `featuredRuleIds`), quindi è in onda.
         const jazz = appearanceOf(i, { kind: "featured", id: "jazz" });
-        expect(seat(jazz, "comasina")).toMatchObject({ reason: "overridden", overriddenBy: { id: "costa" } });
-        expect(jazz.summary).toBe("assigned");
+        expect(seat(jazz, "comasina")).toMatchObject({ reason: "live", rule: { id: "porto" } });
+        expect(jazz.summary).toBe("liveNow");
         // «natale» esiste in una regola, spenta: nessuna regola viva lo mostra.
         expect(appearanceOf(i, { kind: "featured", id: "natale" }).summary).toBe("stoppedOnly");
 

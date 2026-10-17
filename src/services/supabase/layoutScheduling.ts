@@ -4,6 +4,8 @@ import type { PriorityLevel } from "@utils/priorityUtils";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import { daysOfWeekForDb } from "@utils/scheduleDays";
 import { LOOK_D } from "@styles/lookD";
+import { attachSlotsAndOverlaps } from "@/services/supabase/scheduleResolver";
+import type { JudgeSlot, OverlapMode } from "@shared/scheduleCompetition";
 
 // Un UPDATE/DELETE rifiutato dall'RLS non dà errore: PostgREST risponde 200
 // con zero righe. Come deleteReview si chiede indietro l'id e zero righe è un
@@ -92,6 +94,17 @@ export type LayoutRule = {
     price_overrides: PriceRuleProductOverride[];
     visibility_overrides: VisibilityRuleProductOverride[];
     featured_contents: LayoutRuleFeaturedContent[];
+    // Il modello del giudice nuovo (fase (a) dell'Officina). Assenti dove la
+    // regola non viene dal database: le fasce si ricavano dalle colonne di oggi.
+    /** `schedules.on_air_since`: fra i menù «insieme» e gli stili vince il più nuovo. */
+    on_air_since?: string | null;
+    /** `schedules.overlap_mode`: null = il valore di partenza del tipo. */
+    overlap_mode?: OverlapMode | null;
+    /** Le fasce (`schedule_slots`) con le loro sedi; nessuna = tutto il giorno. */
+    slots?: JudgeSlot[];
+    /** `schedule_targets.overlap_mode`, per sede e per gruppo. */
+    overlapByActivity?: Record<string, OverlapMode>;
+    overlapByGroup?: Record<string, OverlapMode>;
 };
 
 export type LayoutRuleOption = {
@@ -131,6 +144,8 @@ type RawScheduleRow = {
     start_at: string | null;
     end_at: string | null;
     created_at: string;
+    on_air_since?: string | null;
+    overlap_mode?: OverlapMode | null;
 };
 
 type RawScheduleLayoutRow = {
@@ -278,7 +293,9 @@ async function selectSchedulesWithNameFallback(tenantId: string, ruleId?: string
             "time_to",
             "start_at",
             "end_at",
-            "created_at"
+            "created_at",
+            "on_air_since",
+            "overlap_mode"
         ].join(", ");
 
         let query = supabase.from("schedules").select(selectColumns).eq("tenant_id", tenantId);
@@ -566,6 +583,8 @@ async function loadLayoutRules(tenantId: string, ruleId?: string): Promise<Layou
         start_at: row.start_at,
         end_at: row.end_at,
         created_at: row.created_at,
+        on_air_since: row.on_air_since ?? null,
+        overlap_mode: row.overlap_mode ?? null,
         layout: null,
         price_overrides: [],
         visibility_overrides: [],
@@ -738,7 +757,7 @@ async function loadLayoutRules(tenantId: string, ruleId?: string): Promise<Layou
         }
     }
 
-    return baseRules.map(rule => {
+    const rules: LayoutRule[] = baseRules.map(rule => {
         const targetGroup =
             rule.target_type === "activity_group" ? (groupById.get(rule.target_id) ?? null) : null;
 
@@ -793,6 +812,9 @@ async function loadLayoutRules(tenantId: string, ruleId?: string): Promise<Layou
                     : []
         };
     });
+    // Le fasce come le legge la pagina pubblica, così le viste danno lo stesso verdetto.
+    await attachSlotsAndOverlaps(supabase, rules);
+    return rules;
 }
 
 export async function listLayoutRuleOptions(tenantId: string): Promise<{
@@ -1500,6 +1522,8 @@ interface AppearanceScheduleRow {
     start_at: string | null;
     end_at: string | null;
     created_at: string;
+    on_air_since: string | null;
+    overlap_mode: OverlapMode | null;
     layout:
         | { catalog_id: string | null; style_id: string | null }
         | Array<{ catalog_id: string | null; style_id: string | null }>
@@ -1516,6 +1540,7 @@ export async function listAppearanceSources(tenantId: string): Promise<Appearanc
                 `
                 id, tenant_id, name, rule_type, target_type, target_id, apply_to_all, priority,
                 enabled, time_mode, days_of_week, time_from, time_to, start_at, end_at, created_at,
+                on_air_since, overlap_mode,
                 layout:schedule_layout!schedule_layout_schedule_id_fkey(catalog_id, style_id),
                 targets:schedule_targets(target_type, target_id),
                 featured:schedule_featured_contents(featured_content_id, slot, sort_order)
@@ -1561,6 +1586,8 @@ export async function listAppearanceSources(tenantId: string): Promise<Appearanc
             start_at: row.start_at,
             end_at: row.end_at,
             created_at: row.created_at,
+            on_air_since: row.on_air_since ?? null,
+            overlap_mode: row.overlap_mode ?? null,
             layout: layout ? { catalog_id: layout.catalog_id, style_id: layout.style_id } : null,
             price_overrides: [],
             visibility_overrides: [],
@@ -1569,6 +1596,8 @@ export async function listAppearanceSources(tenantId: string): Promise<Appearanc
                 .map(fc => ({ featured_content_id: fc.featured_content_id, slot: fc.slot, sort_order: fc.sort_order }))
         };
     });
+
+    await attachSlotsAndOverlaps(supabase, rules);
 
     return {
         rules,

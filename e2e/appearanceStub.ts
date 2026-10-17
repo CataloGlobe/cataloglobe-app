@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { TENANT_ID } from "./reservationsStub";
+import { legacySlots } from "./legacySlots";
 import type { Row, Tables } from "./restStub";
 
 /**
@@ -62,8 +63,7 @@ export function appearanceTables(prefix: string, rules: AppearanceRuleSpec[]): T
         inactive_reason: status === "inactive" ? "closed" : null,
         created_at: "2026-03-01T10:00:00.000Z"
     });
-    return {
-        schedules: rules.map(r => ({
+    const schedules: Row[] = rules.map(r => ({
             id: r.id,
             tenant_id: TENANT_ID,
             name: r.name,
@@ -80,7 +80,11 @@ export function appearanceTables(prefix: string, rules: AppearanceRuleSpec[]): T
             start_at: r.start_at ?? null,
             end_at: r.end_at ?? null,
             created_at: r.created ?? "2026-03-01T10:00:00.000Z"
-        })),
+        }));
+    return {
+        schedules,
+        schedule_slots: legacySlots(schedules),
+        schedule_slot_targets: [],
         schedule_targets: rules.flatMap(r => [
             ...(r.activities ?? []).map(id => ({ schedule_id: r.id, target_type: "activity", target_id: id })),
             ...(r.groups ?? []).map(id => ({ schedule_id: r.id, target_type: "activity_group", target_id: id }))
