@@ -1,3 +1,4 @@
+import { Select } from "@/components/ui/Select/Select";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 
@@ -160,7 +161,7 @@ export function ZoneSelectField({
             </label>
 
             {mode === "select" ? (
-                <select
+                <Select
                     className={styles.select}
                     value={selectValue}
                     onChange={handleSelectChange}
@@ -177,7 +178,7 @@ export function ZoneSelectField({
                         </optgroup>
                     )}
                     <option value={NEW_ZONE_OPTION}>+ Crea nuova zona</option>
-                </select>
+                </Select>
             ) : (
                 <div className={styles.createForm}>
                     <TextInput

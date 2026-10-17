@@ -1,3 +1,4 @@
+import { Select } from "@/components/ui/Select/Select";
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import {
     ArrowLeft,
@@ -545,7 +546,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
             (d.kind === "menu" || d.kind === "style") && !NEW_MODEL.splitLayout && !viaTunnel ? (
                 <div className={s.ifl}>
                     <h4>{d.kind === "menu" ? "Con lo stile" : "Con il menù"}</h4>
-                    <select
+                    <Select
                         className={`${s.hin} ${s.wide}`}
                         aria-label={d.kind === "menu" ? "Lo stile che va col menù" : "Il menù che va con lo stile"}
                         value={d.pair ?? ""}
@@ -557,7 +558,7 @@ export function CalendarioSection(p: CalendarioSectionProps) {
                                 {x.name}
                             </option>
                         ))}
-                    </select>
+                    </Select>
                     <p className={s.muted}>
                         Oggi menù e stile stanno nella stessa regola: {d.kind === "menu" ? "lo stile" : "il menù"} va in onda insieme, nelle stesse ore. Separati {DB_LATER}.
                     </p>

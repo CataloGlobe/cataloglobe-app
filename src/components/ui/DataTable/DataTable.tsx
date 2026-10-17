@@ -1,3 +1,5 @@
+import { Select } from "@/components/ui/Select/Select";
+import { LOOK_D } from "@styles/lookD";
 import {
     CSSProperties,
     ReactNode,
@@ -690,23 +692,44 @@ export function DataTable<T>({
                                 <Text variant="body-sm" colorVariant="muted" className={styles.pageSizeLabel}>
                                     Per pagina
                                 </Text>
-                                <select
-                                    className={styles.pageSizeSelect}
-                                    value={String(currentPageSize)}
-                                    onChange={e => {
-                                        const v = e.target.value;
-                                        handlePageSizeChange(
-                                            v === "all" || v === "auto" ? v : Number(v)
-                                        );
-                                    }}
-                                    aria-label="Righe per pagina"
-                                >
-                                    {(maxHeightIsExplicit || isAutoMode ? withAutoOption(pageSizeOptions) : pageSizeOptions).map(opt => (
-                                        <option key={String(opt)} value={String(opt)}>
-                                            {formatPageSizeLabel(opt)}
-                                        </option>
-                                    ))}
-                                </select>
+                                {LOOK_D ? (
+                                    // Nella D la tendina di CataloGlobe, compatta (decisione di Alex del 2026-10-16).
+                                    <Select
+                                        containerClassName={styles.pageSizeField}
+                                        value={String(currentPageSize)}
+                                        onChange={e => {
+                                            const v = e.target.value;
+                                            handlePageSizeChange(
+                                                v === "all" || v === "auto" ? v : Number(v)
+                                            );
+                                        }}
+                                        aria-label="Righe per pagina"
+                                    >
+                                        {(maxHeightIsExplicit || isAutoMode ? withAutoOption(pageSizeOptions) : pageSizeOptions).map(opt => (
+                                            <option key={String(opt)} value={String(opt)}>
+                                                {formatPageSizeLabel(opt)}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                ) : (
+                                    <select
+                                        className={styles.pageSizeSelect}
+                                        value={String(currentPageSize)}
+                                        onChange={e => {
+                                            const v = e.target.value;
+                                            handlePageSizeChange(
+                                                v === "all" || v === "auto" ? v : Number(v)
+                                            );
+                                        }}
+                                        aria-label="Righe per pagina"
+                                    >
+                                        {(maxHeightIsExplicit || isAutoMode ? withAutoOption(pageSizeOptions) : pageSizeOptions).map(opt => (
+                                            <option key={String(opt)} value={String(opt)}>
+                                                {formatPageSizeLabel(opt)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </label>
                         )}
                         {showControls && (

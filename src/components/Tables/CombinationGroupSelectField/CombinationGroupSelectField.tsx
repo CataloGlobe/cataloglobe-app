@@ -1,3 +1,4 @@
+import { Select } from "@/components/ui/Select/Select";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 
@@ -148,7 +149,7 @@ export function CombinationGroupSelectField({
 
             {mode === "select" ? (
                 <>
-                    <select
+                    <Select
                         className={styles.select}
                         value={value ?? NO_GROUP_OPTION}
                         onChange={handleSelectChange}
@@ -167,7 +168,7 @@ export function CombinationGroupSelectField({
                             </optgroup>
                         )}
                         <option value={NEW_GROUP_OPTION}>+ Crea nuovo gruppo</option>
-                    </select>
+                    </Select>
                     <Text variant="body-sm" className={styles.hint}>
                         I tavoli dello stesso gruppo vengono considerati accostabili
                         tutti fra loro, ma il sistema ne unisce al massimo 3 per

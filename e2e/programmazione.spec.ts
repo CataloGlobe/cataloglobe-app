@@ -1,3 +1,4 @@
+import { nativa, scegli, voce } from "./tendina";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
@@ -1633,12 +1634,12 @@ test.describe("Programmazione — dettaglio", () => {
         const before = main(page).getByRole("combobox", { name: "Aggiungi un contenuto sopra il menù" });
         await expect(before).toBeVisible();
         // Le voci sono i contenuti non ancora usati dalla regola: Natale.
-        await expect(before.getByRole("option", { name: "Luci di Natale e2e" })).toHaveCount(1);
-        await expect(before.getByRole("option", { name: "Promo autunno e2e" })).toHaveCount(0);
-        await before.selectOption({ label: "Luci di Natale e2e" });
+        await expect(voce(before, "Luci di Natale e2e")).toHaveCount(1);
+        await expect(voce(before, "Promo autunno e2e")).toHaveCount(0);
+        await scegli(before, { label: "Luci di Natale e2e" });
         await expect(main(page).getByText("Luci di Natale e2e", { exact: true })).toBeVisible();
         // Aggiunto, il contenuto esce dalle scelte e la Select torna vuota.
-        await expect(before).toHaveValue("");
+        await expect(nativa(before)).toHaveValue("");
         await expect(before).toBeDisabled();
     });
 
@@ -1650,7 +1651,7 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(remove).toHaveCount(0);
         // Tolto, torna fra le scelte di «sotto il menù».
         await expect(
-            main(page).getByRole("combobox", { name: "Aggiungi un contenuto sotto il menù" }).getByRole("option", { name: "Serata jazz e2e" })
+            voce(main(page).getByRole("combobox", { name: "Aggiungi un contenuto sotto il menù" }), "Serata jazz e2e")
         ).toHaveCount(1);
         await expect(page.getByRole("button", { name: "Salva", exact: true }).first()).toBeVisible();
     });
@@ -1673,7 +1674,7 @@ test.describe("Programmazione — dettaglio", () => {
     test("il dettaglio mostra dove, cosa e quando per ogni tipo", async ({ page }) => {
         await openRule(page, "pranzo");
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue(RULE_NAME.pranzo);
-        await expect(main(page).getByRole("combobox", { name: /Catalogo|Menù/ })).toHaveValue(/./);
+        await expect(nativa(main(page).getByRole("combobox", { name: /Catalogo|Menù/ }))).toHaveValue(/./);
         await expect(main(page).getByText("Centro e2e").first()).toBeVisible();
 
         await page.goto(page.url().replace(RULE.pranzo, RULE.stagionali));
