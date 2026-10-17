@@ -679,7 +679,7 @@ test.describe("Tunnel di creazione — menù", () => {
         await next(page);
         await main(page).getByLabel("Nome dello stile").fill("Pranzo");
         await next(page);
-        await button(page, "Blu").click();
+        await button(page, "Terracotta").click();
         await next(page);
         // il menù era in onda: lo è già anche lo stile, e le sedi sono le sue, da confermare
         await expect(button(page, /^Sì, lo metto in onda/)).toHaveAttribute("aria-pressed", "true");
@@ -1208,9 +1208,9 @@ test.describe("Tunnel dello stile: modificare (D186)", () => {
 
     test("le versioni di prima: si guardano nel telefono e ci si torna, senza salvare finché non lo dici", async ({ page }) => {
         await page.route(/\/rest\/v1\/styles\?.*id=eq\.e2e51700/, route =>
-            route.request().method() === "GET" ? route.fulfill({ json: { id: OWN, tenant_id: TENANT_ID, name: "Sera", is_system: false, is_active: true, current_version: ver(2, "#be123c", "2026-10-03T10:00:00Z") } }) : route.fallback()
+            route.request().method() === "GET" ? route.fulfill({ json: { id: OWN, tenant_id: TENANT_ID, name: "Sera", is_system: false, is_active: true, current_version: ver(2, "#9A3A25", "2026-10-03T10:00:00Z") } }) : route.fallback()
         );
-        await page.route(/\/rest\/v1\/style_versions\?/, route => (route.request().method() === "GET" ? route.fulfill({ json: [ver(2, "#be123c", "2026-10-03T10:00:00Z"), ver(1, "#1d4ed8", "2026-09-18T10:00:00Z")] }) : route.fallback()));
+        await page.route(/\/rest\/v1\/style_versions\?/, route => (route.request().method() === "GET" ? route.fulfill({ json: [ver(2, "#9A3A25", "2026-10-03T10:00:00Z"), ver(1, "#2E5E4E", "2026-09-18T10:00:00Z")] }) : route.fallback()));
         stub.onWrite("style_versions.POST", ({ body }) => ({ id: ID.version, ...first(body) }));
         stub.onWrite("styles.PATCH", ({ body }) => ({ id: OWN, ...first(body) }));
         await openBusinessPageByUrl(page, `crea/stile/${OWN}?da=stili`);
@@ -1218,24 +1218,24 @@ test.describe("Tunnel dello stile: modificare (D186)", () => {
         await main(page).getByRole("checkbox", { name: /^L'aspetto/ }).click();
         await next(page);
         await expect(main(page).getByRole("heading", { name: "L'aspetto" })).toBeVisible();
-        await expect(button(page, "Rosso")).toHaveAttribute("aria-pressed", "true");
+        await expect(button(page, "Terracotta")).toHaveAttribute("aria-pressed", "true");
         // niente di cambiato: niente «Torna com'era», niente confronto
         await expect(button(page, "Torna com'era")).toHaveCount(0);
         await button(page, "Versioni di prima").click();
         const vers = main(page).getByRole("region", { name: "Versioni di prima" });
         await expect(vers.getByText("3 ottobre 2026")).toBeVisible();
-        await expect(vers.getByText(/la prima · diversi: colori e forme/)).toBeVisible();
+        await expect(vers.getByText(/la prima · diversi: i colori/)).toBeVisible();
         await vers.getByRole("button", { name: "Guarda" }).click();
         const side = page.getByLabel("Così lo vede il cliente");
         await side.getByRole("button", { name: /Versione del 18 settembre 2026: torna alle tue modifiche/ }).click();
         await vers.getByRole("button", { name: "Torna a questa" }).click();
-        await expect(button(page, "Blu")).toHaveAttribute("aria-pressed", "true");
+        await expect(button(page, "Verde bottiglia")).toHaveAttribute("aria-pressed", "true");
         await expect(button(page, "Torna com'era")).toHaveCount(1);
         await expect(side.getByRole("button", { name: "Guarda com'era prima" })).toBeVisible();
         expect(writesOf(stub, "style_versions.POST")).toHaveLength(0);
         // una parte sola torna com'era
         await button(page, "Torna com'era").click();
-        await expect(button(page, "Rosso")).toHaveAttribute("aria-pressed", "true");
+        await expect(button(page, "Terracotta")).toHaveAttribute("aria-pressed", "true");
     });
 });
 
