@@ -5,8 +5,9 @@
    Chrome su iPhone) cambia senza toccarlo. Il pulsante principale resta nel colore del
    locale; l'accento usato come testo è il principale corretto per leggersi sul foglio. */
 @mixin sheet-tone {
-  --pub-bg: var(--pub-sheet-bg, #141414);
   --pub-surface: var(--pub-sheet-bg, #1c1c1e);
+  /* un gradino sotto la superficie, come prima #141414 sotto #1c1c1e */
+  --pub-bg: color-mix(in srgb, var(--pub-surface) 94%, #000);
   --pub-text: var(--pub-sheet-text, #fff);
   --pub-text-secondary: color-mix(in srgb, var(--pub-text) 66%, transparent);
   --pub-text-muted: color-mix(in srgb, var(--pub-text) 62%, transparent);
