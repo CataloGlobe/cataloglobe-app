@@ -30,6 +30,8 @@ export function useHomeExtras(tenantId: string | null | undefined, permissions: 
     useEffect(() => {
         if (!tenantId || !permissions) return;
         let cancelled = false;
+        // Azienda o permessi nuovi: i dati di prima non restano in vista durante la lettura.
+        setState(EMPTY);
         const wide = isOwnerOrAdmin(permissions);
         const seesGuests = reservations && canDoOnAnyActivity(permissions, "guests.read");
 
