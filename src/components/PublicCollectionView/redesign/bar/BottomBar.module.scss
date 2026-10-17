@@ -47,15 +47,17 @@ $sfuma: 240ms;
   }
 }
 
-/* Un solo materiale per capsula e cerchio, lo stesso dell'isola (mockup v38, `.bmat.hc-glass`):
-   vetro scuro pieno al 92%, senza blur. */
+/* Un solo materiale per capsula e cerchio, lo stesso dell'isola: chiari o scuri e
+   pieno, vetro o contorno dallo stile (--pub-chrome-*, editor stili). */
 .capsula,
 .ordine {
-  --testo: #fff;
+  --testo: var(--pub-chrome-text);
 
-  border: 1px solid rgb(255 255 255 / 8%);
-  background: rgb(20 20 20 / 92%);
-  box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+  border: var(--pub-chrome-border);
+  background: var(--pub-chrome-bg);
+  -webkit-backdrop-filter: var(--pub-chrome-blur);
+  backdrop-filter: var(--pub-chrome-blur);
+  box-shadow: var(--pub-chrome-shadow);
 }
 
 .capsula {
@@ -81,7 +83,7 @@ $sfuma: 240ms;
   bottom: 0;
   left: 0;
   border-radius: 999px;
-  background: rgb(255 255 255 / 14%);
+  background: color-mix(in srgb, var(--pub-chrome-text) 14%, transparent);
   transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
   pointer-events: none;
 }
@@ -168,11 +170,13 @@ $sfuma: 240ms;
   gap: 9px;
   height: 52px;
   padding: 0 18px 0 16px;
-  border: 0;
+  border: var(--pub-chrome-border);
   border-radius: 999px;
-  background: rgb(20 20 20 / 92%);
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 14px 30px -12px rgb(0 0 0 / 55%);
-  color: #fff;
+  background: var(--pub-chrome-bg);
+  -webkit-backdrop-filter: var(--pub-chrome-blur);
+  backdrop-filter: var(--pub-chrome-blur);
+  box-shadow: var(--pub-chrome-shadow);
+  color: var(--pub-chrome-text);
   font: inherit;
   font-size: 14px;
   font-weight: 700;
@@ -191,7 +195,7 @@ $sfuma: 240ms;
   }
 
   &:focus-visible {
-    outline: 2px solid #fff;
+    outline: 2px solid var(--pub-chrome-text);
     outline-offset: 3px;
   }
 }

@@ -1,5 +1,3 @@
-// @ts-nocheck
-//
 // uncancel-to-acknowledged — admin-side endpoint per l'undo immediato
 // di "Elimina" quando l'ordine era stato cancellato dallo stato
 // `acknowledged`. Usata dal toast "Annulla" lato kanban Comande

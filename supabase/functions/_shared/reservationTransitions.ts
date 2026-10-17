@@ -160,9 +160,11 @@ export function isConfirmOfExpiredRequest(
 const SILENT_ACTIONS: ReadonlySet<ReservationAction> = new Set<ReservationAction>([
     "mark_no_show",
     "undo_no_show",
-    // The diner just cancelled, on a page that told them it worked. Mailing
-    // them "your reservation was cancelled" adds nothing. The message that
-    // matters goes the other way — to the venue, whose table just freed up.
+    // The diner just cancelled, on a page that told them it worked: no
+    // outcome email from the admin path. The one they do get comes from
+    // `cancel-reservation-public` itself (`buildReservationSelfCancelledEmail`)
+    // and exists to carry the METHOD:CANCEL .ics, so the event saved from the
+    // invite leaves their calendar.
     "cancel_by_customer"
 ]);
 

@@ -210,3 +210,18 @@ export function undoLine(selection: SelectionItem[], line: SelectionItem): Selec
         ? selection.map((existing, i) => (i === index ? { ...existing, qty: left } : existing))
         : selection.filter((_, i) => i !== index);
 }
+
+/** «−» del controllo sulla riga del menù: un pezzo in meno dall'ultima riga di quel piatto (a zero la riga sparisce). */
+export function removeOne(selection: SelectionItem[], productId: string): SelectionItem[] {
+    let index = -1;
+    for (let i = selection.length - 1; i >= 0; i--) {
+        if (selection[i].id === productId) {
+            index = i;
+            break;
+        }
+    }
+    if (index < 0) return selection;
+    return selection[index].qty > 1
+        ? selection.map((existing, i) => (i === index ? { ...existing, qty: existing.qty - 1 } : existing))
+        : selection.filter((_, i) => i !== index);
+}

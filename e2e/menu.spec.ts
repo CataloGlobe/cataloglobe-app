@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { sidebarLink } from "./nav";
@@ -81,9 +82,10 @@ async function openList(page: Page): Promise<void> {
     await expect(item(page, "Carta e2e")).toBeVisible({ timeout: 15_000 });
 }
 
+/** L'editor vecchio (dettaglio): la riga apre il tunnel, quello si raggiunge dall'indirizzo. */
 async function openCarta(page: Page): Promise<void> {
     await openList(page);
-    await item(page, "Carta e2e").click();
+    await page.goto(page.url().replace(/\/catalogs.*$/, `/catalogs/${MENU.carta}`));
     await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.carta}`));
     await expect(node(page, "Antipasti")).toBeVisible({ timeout: 15_000 });
 }
@@ -198,7 +200,7 @@ test.describe("Menù — elenco", () => {
         await (await viewRadio(page, "list")).click();
         await expect(page.getByRole("checkbox", { name: "Seleziona tutte le righe" })).toBeVisible();
         await item(page, "Carta e2e").click();
-        await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.carta}`));
+        await expect(page).toHaveURL(new RegExp(`/crea/menu/${MENU.carta}\\?da=menu$`));
     });
 
     test("il kebab del menù ha le tre azioni", async ({ page }) => {
@@ -665,7 +667,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         await selectCategory(page, "Rossi");
         await categoryMenu(page, /^Sposta in/);
-        await dialog(page).getByRole("combobox", { name: "Dentro" }).selectOption({ label: "Nessuna (categoria principale)" });
+        await scegli(dialog(page).getByRole("combobox", { name: "Dentro" }), { label: "Nessuna (categoria principale)" });
         await dialog(page).getByRole("button", { name: "Sposta" }).click();
         // Nella D lo spostamento va in bozza e si scrive con «Salva».
         if (await lookD(page)) {
@@ -865,7 +867,7 @@ test.describe("Menù — dove è attivo (§50.13)", () => {
 
     test("dettaglio: un menù senza regole si lavora senza che nessuno veda", async ({ page }) => {
         await openList(page);
-        await item(page, "Vuoto e2e").click();
+        await page.goto(page.url().replace(/\/catalogs.*$/, `/catalogs/${MENU.vuoto}`));
         await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.vuoto}`));
         await expect(page.getByText("Non assegnato a nessuna sede")).toBeVisible({ timeout: 15_000 });
         await expect(page.getByText("Nessun cliente lo vede adesso")).toBeVisible();
@@ -908,7 +910,7 @@ for (const viewport of [
             await page.setViewportSize(viewport);
             await expect(item(page, "Carta e2e")).toBeVisible();
             await noSideScroll(page);
-            await item(page, "Carta e2e").click();
+            await page.goto(page.url().replace(/\/catalogs.*$/, `/catalogs/${MENU.carta}`));
             await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.carta}`));
             await expect(node(page, "Antipasti")).toBeVisible({ timeout: 15_000 });
             await selectCategory(page, "Antipasti");
@@ -932,7 +934,7 @@ for (const viewport of [
         test("il piè della tabella resta su una riga", async ({ page }) => {
             await openList(page);
             await page.setViewportSize(viewport);
-            await item(page, "Carta e2e").click();
+            await page.goto(page.url().replace(/\/catalogs.*$/, `/catalogs/${MENU.carta}`));
             await expect(node(page, "Pizze")).toBeVisible({ timeout: 15_000 });
             await selectCategory(page, "Pizze");
             const pageSize = main(page).getByRole("combobox", { name: "Righe per pagina" });

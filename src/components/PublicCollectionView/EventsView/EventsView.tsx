@@ -8,7 +8,7 @@ import styles from "./EventsView.module.scss";
 
 type EventsViewProps = {
     featuredContents: V2FeaturedContent[];
-    layout?: "card" | "highlight" | "compact";
+    layout?: "card" | "highlight" | "compact" | "image";
     /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
     showSubtitle?: boolean;
     /** Mostra il titolo nella card overview. Default true (comportamento storico). */

@@ -22,6 +22,7 @@ import {
     buildReservationOutcomeEmail,
     buildReservationReceiptEmail,
     buildReservationReminderEmail,
+    buildReservationSelfCancelledEmail,
     type ReservationEmailContent
 } from "./reservationEmails.ts";
 import { buildReservationIcs, buildReservationIcsAttachment } from "./reservationIcs.ts";
@@ -54,7 +55,8 @@ function buildAllCustomerEmails(language: string | null | undefined): Reservatio
         buildReservationConfirmedEmail({ ...base, variant: "manual" }),
         buildReservationReminderEmail({ ...base, confirmUrl: CONFIRM_URL }),
         buildReservationOutcomeEmail({ ...base, action: "decline" }),
-        buildReservationOutcomeEmail({ ...base, action: "cancel" })
+        buildReservationOutcomeEmail({ ...base, action: "cancel" }),
+        buildReservationSelfCancelledEmail({ ...base, hasCancelIcs: true })
     ];
 }
 
@@ -152,6 +154,8 @@ function renderCopyValue(
                 ["(decline)", copy.outcomeBody(VENUE, "decline", s => s)],
                 ["(cancel)", copy.outcomeBody(VENUE, "cancel", s => s)]
             ];
+        case "selfCancelledBody":
+            return [["", copy.selfCancelledBody(VENUE, s => s)]];
         case "updatedSubject":
             return [["", copy.updatedSubject(VENUE)]];
         case "updatedBody":

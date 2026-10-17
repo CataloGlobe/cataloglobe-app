@@ -466,6 +466,59 @@ export function buildReservationOutcomeEmail(
     return { subject, html, text };
 }
 
+export interface ReservationSelfCancelledEmailArgs extends ReservationEmailBase {
+    /** True quando l'email porta l'allegato METHOD:CANCEL: solo allora la riga che lo spiega. */
+    hasCancelIcs?: boolean;
+}
+
+/**
+ * «Prenotazione annullata» per chi ha annullato da solo dal link della mail.
+ *
+ * Esiste per l'allegato: senza, l'evento salvato dall'invito resterebbe nel
+ * calendario del cliente. Il titolo e' quello dell'annullamento, il corpo dice
+ * che l'ha chiesto lui (niente «contatta il locale se e' un errore»).
+ */
+export function buildReservationSelfCancelledEmail(
+    args: ReservationSelfCancelledEmailArgs
+): ReservationEmailContent {
+    const { activityName, customerName, reservationDate, reservationTime, partySize, hasCancelIcs, language } =
+        args;
+    const copy = reservationCopyFor(language);
+    const eActivityName = escapeHtml(activityName);
+    const eCustomerName = escapeHtml(customerName);
+    const date = formatDate(reservationDate, resolveEmailLang(language));
+    const time = formatTimeIt(reservationTime);
+    const reason = copy.customerReason(activityName);
+    const reasonHtml = copy.customerReason(eActivityName);
+
+    const title = copy.outcomeTitle("cancel");
+
+    const subject = `${title} — ${activityName}`;
+    const html = renderCard(
+        [
+            renderTitle(title),
+            `<p ${PARAGRAPH_LEAD}>${copy.greeting(eCustomerName)}</p>`,
+            `<p ${PARAGRAPH_BODY}>${copy.selfCancelledBody(eActivityName, EMPHASIZE_HTML)}</p>`,
+            renderReservationDetails(copy, date, time, partySize),
+            ...(hasCancelIcs ? [`<p ${PARAGRAPH_NOTE}>${copy.outcomeIcsNote}</p>`] : [])
+        ],
+        {
+            preheader: customerPreheader(copy, activityName, date, time, partySize),
+            reason: reasonHtml,
+            lang: language
+        }
+    );
+    const text =
+        `${copy.greeting(customerName)}\n\n` +
+        `${copy.selfCancelledBody(activityName, EMPHASIZE_TEXT)}\n\n` +
+        renderDetailsText(copy, date, time, partySize) +
+        `\n` +
+        (hasCancelIcs ? `${copy.outcomeIcsNote}\n\n` : "") +
+        `${getEmailFooterText({ reason, lang: language })}`;
+
+    return { subject, html, text };
+}
+
 export interface ReservationUpdatedEmailArgs extends ReservationEmailBase {
     /** Data e ora PRIMA dello spostamento, `YYYY-MM-DD` e `HH:MM[:SS]`. */
     previousDate: string;

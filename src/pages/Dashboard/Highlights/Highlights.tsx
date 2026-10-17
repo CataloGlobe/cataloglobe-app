@@ -168,7 +168,7 @@ export default function Highlights() {
         primaryAction: canWrite ? { label: "Crea contenuto", onClick: handleCreate, disabled: !canEdit } : undefined
     }), [searchQuery, viewMode, handleViewChange, canWrite, handleCreate, canEdit]);
 
-    const contentUrl = (item: FeaturedContentWithProducts) => `/business/${tenantId}/featured/${item.id}`;
+    const contentUrl = (item: FeaturedContentWithProducts) => `/business/${tenantId}/crea/evidenza/${item.id}?da=evidenza`;
 
     // Eliminazione multipla con conferma (§50.11, come Prodotti): il conteggio
     // delle regole rimaste senza contenuti, che il servizio mette in bozza, si

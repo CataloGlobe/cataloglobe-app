@@ -5,7 +5,7 @@ import { DEFAULT_STYLE_TOKENS, parseTokens } from "@/pages/Dashboard/Styles/Edit
 import { CHOOSE, blocker, effWhen, firstBlock, goesLive, isDirty, keepReady, kindOfSlug, newTunnel, oreSummary, readFromAi, sentence, skipped, stepFrom, stepLabel, stepSummary, steps, tunnelTitle, whenProblem, withAside, type From, type Tunnel } from "@/pages/Dashboard/Crea/creaModel";
 import type { DraftLookups } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { DARK_BG, isDarkHex, LIGHT_BG, sampleOf, styleConfig, styleTokens } from "@/pages/Dashboard/Crea/creaStyle";
-import { PART_IDS, cleanLook, contrast, hardToRead, hidFeatured, logoColors, lookKey, lum, palette, partKey, readable, restore } from "@/pages/Dashboard/Crea/stileLook";
+import { PART_IDS, applyPreset, chromeAdvice, cleanLook, contrast, hardToRead, hidFeatured, logoColors, lookKey, lum, palette, partKey, readable, restore, retouched } from "@/pages/Dashboard/Crea/stileLook";
 
 // I tunnel di creazione (D124): i passi, cosa ferma «Avanti», la bozza del
 // Calendario e lo stile fatto con le quattro scelte.
@@ -293,14 +293,52 @@ describe("tunnel dello stile: l'aspetto intero", () => {
         l.appearance.cardTreatment = "glass";
         l.card.productStyle = "compact";
         l.header.showAddress = !was.header.showAddress;
-        expect(PART_IDS.filter(p => partKey(l, p) !== partKey(was, p))).toEqual(["cima", "piatti", "colori"]);
+        l.header.chrome = "light";
+        expect(PART_IDS.filter(p => partKey(l, p) !== partKey(was, p))).toEqual(["colori", "materiale", "cima", "piatti"]);
         restore(l, was, "colori");
         expect(l.colors.primary).toBe(was.colors.primary);
-        expect(l.appearance.borderRadius).toBe(was.appearance.borderRadius);
+        expect(l.header.chrome).toBeUndefined();
         expect(l.appearance.cardTreatment).toBe("glass");
-        restore(l, was, "piatti");
+        restore(l, was, "materiale");
+        expect(l.appearance.borderRadius).toBe(was.appearance.borderRadius);
+        expect(l.appearance.cardTreatment).toBe(was.appearance.cardTreatment);
+        l.header.chrome = "light";
         restore(l, was, "cima");
+        expect(l.header.chrome).toBe("light");
+        restore(l, was, "colori");
+        restore(l, was, "piatti");
         expect(lookKey(l)).toBe(lookKey(was));
+    });
+
+    it("uno stile pronto scrive le sue scelte; cambiandone una diventa «ritoccato»", () => {
+        const l = structuredClone(DEFAULT_STYLE_TOKENS);
+        expect(retouched(l)).toBe(false);
+        applyPreset(l, "avorio");
+        expect(l.meta?.preset).toBe("avorio");
+        expect([l.colors.pageBackground, l.colors.primary, l.colors.accent]).toEqual(["#FAF7F0", "#7A5C22", "#14213D"]);
+        expect([l.card.productStyle, l.card.compactLayoutStyle, l.appearance.cardTreatment, l.header.chrome, l.navigation.style]).toEqual(["compact", "centered", "bordered", "light", "tabs"]);
+        expect(retouched(l)).toBe(false);
+        // la densità non la decide lo stile pronto
+        l.card.contentDensity = "minimal";
+        expect(retouched(l)).toBe(false);
+        l.appearance.borderRadius = "rounded";
+        expect(retouched(l)).toBe(true);
+        applyPreset(l, "notte");
+        expect(l.colors.accent).toBeUndefined();
+        expect(retouched(l)).toBe(false);
+        // «CataloGlobe» parte con la foto a destra, ma la foto resta libera
+        applyPreset(l, "cg");
+        expect(l.card.image).toEqual({ mode: "show", position: "right" });
+        l.card.image = { mode: "hide", position: "left" };
+        expect(retouched(l)).toBe(false);
+    });
+
+    it("consiglio per riquadro in cima e barra: chiari sullo scuro e sul bianco, scuri sulle chiare colorate", () => {
+        expect(chromeAdvice("#17131A")).toBe("light");
+        expect(chromeAdvice("#FFFFFF")).toBe("light");
+        expect(chromeAdvice("#F6F6FA")).toBe("light");
+        expect(chromeAdvice("#F7F0E3")).toBe("dark");
+        expect(chromeAdvice("#FBF5E6")).toBe("dark");
     });
 
     it("la tavolozza ha dieci tinte per cinque toni; per lo sfondo solo molto chiari o molto scuri", () => {

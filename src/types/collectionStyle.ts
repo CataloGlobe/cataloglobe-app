@@ -6,8 +6,9 @@ export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type CardTreatment = "raised" | "bordered" | "glass";
 export type IconStyle = "plain" | "pill";
-export type CompactLayoutStyle = "editorial" | "modern";
+export type CompactLayoutStyle = "editorial" | "modern" | "centered";
 export type ContentDensity = "minimal" | "standard" | "full";
+export type CategoryTitle = "dash" | "icon" | "text";
 
 export type CollectionStyle = {
     /* =========================
@@ -55,11 +56,13 @@ export type CollectionStyle = {
     /** Card/modal appearance: raised (shadow), bordered (border, no shadow), or glass (translucent + blur) */
     cardTreatment?: CardTreatment;
     /** Visual style of featured content cards: card (image top + text below), highlight (image as background, text overlaid), or compact (dense horizontal row) */
-    featuredStyle?: "card" | "highlight" | "compact";
+    featuredStyle?: "card" | "highlight" | "compact" | "image";
     /** Icon style for allergens + characteristics in product cards: plain (bare) or pill (colored circle) */
     iconStyle?: IconStyle;
     /** Structural variant of the compact product row: editorial (dotted leader between name and price) or modern (none). No effect on card style. */
     compactLayoutStyle?: CompactLayoutStyle;
+    /** Segno del titolo della categoria con i piatti a riquadro: trattino sotto, icona o solo testo. */
+    categoryTitle?: CategoryTitle;
     /** Content density of product rows (card + compact): minimal (name+price only), standard (+description), full (+pairings and allergens) */
     contentDensity?: ContentDensity;
     /** Whether the subtitle/description shows in the featured content overview card */
@@ -100,6 +103,7 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     featuredStyle: "card",
     iconStyle: "plain",
     compactLayoutStyle: "modern",
+    categoryTitle: "dash",
     contentDensity: "full",
     showFeaturedSubtitle: true,
     showFeaturedTitle: true,
