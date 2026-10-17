@@ -216,6 +216,8 @@ describe("i testi", () => {
     it("la cella che vince: menù col catalogo sopra e la regola sotto, gli altri la regola e cosa fa", () => {
         const menu = rule({ id: "principale", name: "Menù principale" });
         expect(describeWinner(menu, "Catalogo Completo")).toEqual({ primary: "Catalogo Completo", secondary: "Menù principale" });
+        // multi menù: una regola `menu` sopra il menù e sotto la regola, come una `layout`
+        expect(describeWinner({ ...menu, rule_type: "menu" }, "Catalogo Completo")).toEqual({ primary: "Catalogo Completo", secondary: "Menù principale" });
         const happy = rule({ id: "h", name: "Happy hour", rule_type: "price", price_overrides: price(2) });
         expect(describeWinner(happy)).toEqual({ primary: "Happy hour", secondary: "cambia 2 prezzi" });
         const coppia = rule({
