@@ -167,6 +167,8 @@ export async function purgeActivityFolder(
  *    --- schedule children (must clear BEFORE catalogs/styles — FK RESTRICT) ---
  *   10.  schedule_targets   (no tenant_id — filtered by schedule_id)
  *   11.  schedule_layout    (FK → catalogs, styles)
+ *   11b. schedule_menu      (FK → catalogs; multi menù)
+ *   11c. schedule_style     (FK → styles; multi menù)
  *    --- secondary entities ---
  *   12.  catalog_categories
  *   13.  catalogs
@@ -298,6 +300,8 @@ export async function purgeTenantData(
     }
 
     deleted["schedule_layout"] = await deleteFromTable(admin, "schedule_layout", tenantId);
+    deleted["schedule_menu"]   = await deleteFromTable(admin, "schedule_menu",   tenantId);
+    deleted["schedule_style"]  = await deleteFromTable(admin, "schedule_style",  tenantId);
 
     // 5. Secondary entities (children cleared above)
     deleted["catalog_categories"]            = await deleteFromTable(admin, "catalog_categories",            tenantId);

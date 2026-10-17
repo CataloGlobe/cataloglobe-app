@@ -91,12 +91,17 @@ export async function getProductUsage(productId: string, tenantId: string): Prom
 
     const shownIn = new Set(catalogIds);
     const styleIds = [
-        ...new Set(
-            sources.rules
+        ...new Set([
+            ...sources.rules
                 .filter(rule => rule.rule_type === "layout" && rule.layout?.catalog_id && shownIn.has(rule.layout.catalog_id))
                 .map(rule => rule.layout?.style_id)
+                .filter((id): id is string => Boolean(id)),
+            // multi menù: lo stile è una regola a parte, non legata al menù
+            ...sources.rules
+                .filter(rule => rule.rule_type === "style")
+                .map(rule => rule.layout?.style_id)
                 .filter((id): id is string => Boolean(id))
-        )
+        ])
     ];
 
     return {

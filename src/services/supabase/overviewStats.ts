@@ -85,16 +85,26 @@ async function countCatalogProducts(tenantId: string): Promise<number> {
  * prive di riga in `schedule_layout`.
  */
 async function countActiveLayoutRules(tenantId: string): Promise<number> {
-    const { count, error } = await supabase
-        .from("schedules")
-        .select("id, schedule_layout!inner(catalog_id)", { count: "exact", head: true })
-        .eq("tenant_id", tenantId)
-        .eq("rule_type", "layout")
-        .eq("enabled", true)
-        .not("schedule_layout.catalog_id", "is", null);
+    const [layouts, menus] = await Promise.all([
+        supabase
+            .from("schedules")
+            .select("id, schedule_layout!inner(catalog_id)", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("rule_type", "layout")
+            .eq("enabled", true)
+            .not("schedule_layout.catalog_id", "is", null),
+        // multi menù: una regola `menu` ha sempre il suo catalogo (NOT NULL)
+        supabase
+            .from("schedules")
+            .select("id, schedule_menu!inner(catalog_id)", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("rule_type", "menu")
+            .eq("enabled", true)
+    ]);
 
-    if (error) throw error;
-    return count ?? 0;
+    if (layouts.error) throw layouts.error;
+    if (menus.error) throw menus.error;
+    return (layouts.count ?? 0) + (menus.count ?? 0);
 }
 
 /**
@@ -181,7 +191,7 @@ export async function getTenantCapabilities(tenantId: string): Promise<TenantCap
         extraLanguages
     ] = await Promise.all([
         countRows(() => t("styles").eq("is_system", false)),
-        countRows(() => t("schedule_layout")),
+        Promise.all([countRows(() => t("schedule_layout")), countRows(() => t("schedule_style"))]).then(([a, b]) => a + b),
         countRows(() => t("featured_contents")),
         countRows(() => t("featured_contents").eq("status", "published")),
         countRows(() => t("activities").eq("status", "active").eq("ordering_enabled", true)),
