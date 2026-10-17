@@ -13,8 +13,10 @@
 --
 -- Uso: tutto in una transazione. Fra la parte «prima» e i controlli va
 -- incollato il contenuto delle due migration. Finisce con RAISE EXCEPTION
--- «ESITO: …», che annulla tutto. Provato il 2026-10-17 su staging:
--- 25 regole, 18 sedi, 0 cicli, errori: {}.
+-- «ESITO: …», che annulla tutto. Provato il 2026-10-17 su staging con la
+-- versione di prima della conversione (archi anche fra regole spente, ciclo
+-- solo in NOTICE): 25 regole, 18 sedi, 0 cicli, errori: {}. La versione di
+-- oggi va riprovata prima del rilascio.
 -- =============================================================================
 
 -- Prima: l'ordine di oggi per sede, lo stato delle regole, le bozze.
@@ -27,7 +29,7 @@ row_number()OVER(PARTITION BY a.id ORDER BY
 s.priority,s.created_at,s.id)k
 FROM schedules s JOIN schedule_layout sl ON sl.schedule_id=s.id AND sl.catalog_id IS NOT NULL
 JOIN activities a ON a.tenant_id=s.tenant_id
-WHERE s.rule_type='layout' AND s.enabled AND(s.end_at IS NULL OR s.end_at>now())AND(s.apply_to_all
+WHERE s.rule_type='layout' AND s.enabled AND(s.end_at IS NULL OR s.end_at>now())AND NOT(s.time_mode='window' AND s.start_at IS NOT NULL AND s.end_at IS NULL)AND(s.apply_to_all
 OR EXISTS(SELECT 1 FROM schedule_targets t WHERE t.schedule_id=s.id AND t.target_type='activity' AND t.target_id=a.id)
 OR EXISTS(SELECT 1 FROM schedule_targets t JOIN activity_group_members g ON g.group_id=t.target_id WHERE t.schedule_id=s.id AND t.target_type='activity_group' AND g.activity_id=a.id));
 CREATE TEMP TABLE zb AS SELECT s.id,s.tenant_id,s.enabled,s.apply_to_all,s.time_mode,s.days_of_week,s.time_from,s.time_to,s.start_at,s.end_at,s.name,

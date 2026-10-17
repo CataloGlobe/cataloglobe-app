@@ -16,8 +16,8 @@
 -- `priority`, poi la più vecchia, poi `id`); fra `menu` e `style` «replace»
 -- vince la più nuova per `on_air_since`. Si riscrive `on_air_since` con un
 -- ordine topologico del «chi batte chi» in ogni sede: se A batte B in una
--- sede, A è più nuova. Contano solo le regole che oggi possono vincere (accese
--- e non scadute): le altre il giudice non le fa mai vincere e, nel grafo,
+-- sede, A è più nuova. Contano solo le regole che oggi possono vincere (accese,
+-- non scadute, non «dal X senza fine»): le altre il giudice non le fa mai vincere e, nel grafo,
 -- creerebbero cicli che oggi non ci sono. Le date restano quelle dell'azienda,
 -- ridistribuite (meno 1 ms dove servono distinte).
 --
@@ -69,7 +69,9 @@ BEGIN
          (CASE WHEN s.start_at IS NOT NULL OR s.end_at IS NOT NULL THEN 4 ELSE 0 END
           + CASE WHEN s.time_from IS NOT NULL AND s.time_to IS NOT NULL THEN 2 ELSE 0 END
           + CASE WHEN coalesce(cardinality(s.days_of_week), 0) > 0 THEN 1 ELSE 0 END) AS score,
-         s.enabled AND (s.end_at IS NULL OR s.end_at > now()) AS live,
+         -- come isTimeRuleActiveNow: spenta, scaduta o «dal X senza fine» non vince mai
+         s.enabled AND (s.end_at IS NULL OR s.end_at > now())
+           AND NOT (s.time_mode = 'window' AND s.start_at IS NOT NULL AND s.end_at IS NULL) AS live,
          NULL::integer AS rank, false AS in_cycle, NULL::timestamptz AS new_on_air
   FROM public.schedules s
   JOIN public.schedule_layout sl ON sl.schedule_id = s.id
