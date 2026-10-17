@@ -558,8 +558,10 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce", exact: true })).toBeVisible({ timeout: 15_000 });
         // un menù da solo è una regola `menu`: menù, modo e fasce con save_schedule_model
         expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "menu", name: expect.stringMatching(/^Pranzo veloce/) });
-        const on = writesOf(stub, "schedules.PATCH").map(w => first(w.body)).find(b => "time_mode" in b);
-        expect(on).toMatchObject({ enabled: true, days_of_week: [1, 2, 3, 4, 5], time_from: "12:00", time_to: "15:00" });
+        // il quando lo scrive solo save_schedule_model: la PATCH accende la regola senza le colonne delle ore
+        const on = writesOf(stub, "schedules.PATCH").map(w => first(w.body)).find(b => "enabled" in b);
+        expect(on).toMatchObject({ enabled: true });
+        for (const col of ["time_mode", "days_of_week", "time_from", "time_to"]) expect(on).not.toHaveProperty(col);
         expect(writesOf(stub, "schedule_layout.POST")).toHaveLength(0);
         expect(bodyOf(stub, "rpc.save_schedule_model")).toMatchObject({
             p_schedule_id: ID.rule,
