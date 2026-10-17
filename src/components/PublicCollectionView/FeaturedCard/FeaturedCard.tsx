@@ -15,7 +15,7 @@ export type FeaturedCardProps = {
     /** Apre il form di prenotazione della sede: usato dal pulsante «Prenota» (cta_action = reservation). */
     onOpenReservation?: () => void;
     className?: string;
-    variant?: "card" | "highlight" | "compact";
+    variant?: "card" | "highlight" | "compact" | "image";
     /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
     showSubtitle?: boolean;
     /** Mostra il titolo nella card overview. Default true (comportamento storico). */
@@ -97,6 +97,38 @@ export default function FeaturedCard({ block, onClick, onCtaClick, onOpenReserva
         if (!interactive) return;
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
     };
+
+    // Solo l'immagine: la grafica 16:9 così come il locale l'ha caricata, il testo resta nel
+    // dettaglio. Senza foto un riquadro di testo nello stesso 16:9 (titolo 2 righe, sottotitolo 1).
+    if (variant === "image") {
+        return (
+            <div
+                role="listitem"
+                aria-label={ariaLabel ?? block.title}
+                tabIndex={interactive ? 0 : -1}
+                className={`${styles.card} ${styles.cardImage} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
+                onClick={interactive ? onClick : undefined}
+                onKeyDown={keyHandler}
+            >
+                {hasImage ? (
+                    <FramedMedia
+                        source={block.media_id!}
+                        framing={toFeaturedFraming(block)}
+                        aspectRatio={block.media_aspect_ratio}
+                        alt={block.title}
+                        eager={eager}
+                    />
+                ) : (
+                    <div className={styles.imageText}>
+                        <span className={styles.imageTextKick}>{tagLabel}</span>
+                        <span className={styles.imageTextTitle}>{block.title}</span>
+                        {block.subtitle && <span className={styles.imageTextSubtitle}>{block.subtitle}</span>}
+                        {hasCta && <div className={styles.imageTextCta}>{renderCta(styles.cardCta)}</div>}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     if (variant === "compact") {
         return (

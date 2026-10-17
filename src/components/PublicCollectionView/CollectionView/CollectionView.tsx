@@ -17,6 +17,7 @@ import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/components/productImageFraming";
 import type { HubTab } from "@/types/collectionStyle";
 import Text from "@/components/ui/Text/Text";
+import CategoryHeading from "./CategoryHeading";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
 import PublicFooter from "../PublicFooter/PublicFooter";
@@ -607,7 +608,10 @@ function ProductCompactRowInner({
     };
 
     return (
-        <div className={styles.compactRow} onClick={handleRootClick}>
+        <div
+            className={`${styles.compactRow}${compactLayoutStyle === "centered" ? ` ${styles.compactRowCentered}` : ""}`}
+            onClick={handleRootClick}
+        >
             {/* Tastiera e lettori di schermo: la riga si apre da qui. Invio e spazio
                 fanno un clic che sale alla riga (stesso onClick del tocco). */}
             {canOpen && <button type="button" className={styles.rowOpen} aria-label={name} />}
@@ -3297,7 +3301,7 @@ export default function CollectionView({
                                             </button>
                                         </div>
                                     )}
-                                    {displaySectionGroups.map(group => (
+                                    {displaySectionGroups.map((group, groupIndex) => (
                                         <section
                                             key={group.root.id}
                                             data-section-id={group.root.id}
@@ -3307,9 +3311,13 @@ export default function CollectionView({
                                             className={styles.sectionGroup}
                                             aria-label={group.root.name}
                                         >
-                                            <Text as="h2" variant="title-sm" weight={700} color="var(--pub-bg-text)">
-                                                {group.root.name}
-                                            </Text>
+                                            <CategoryHeading
+                                                name={group.root.name}
+                                                index={groupIndex}
+                                                productStyle={style.productStyle}
+                                                compactLayoutStyle={style.compactLayoutStyle}
+                                                categoryTitle={style.categoryTitle}
+                                            />
 
                                             {renderSectionGrid(group.root)}
 

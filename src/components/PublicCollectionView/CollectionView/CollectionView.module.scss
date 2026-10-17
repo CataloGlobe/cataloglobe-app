@@ -223,6 +223,72 @@
 /* sectionGroup: wrapper root per ogni gruppo gerarchico L1.
    Nessun gap — le distanze tra sotto-sezioni sono gestite inline
    perché dipendono dal contesto (child precedente). */
+/* Alone (editor stili): sotto la copertina quando c'è. */
+.page:has([data-cover]) {
+  --pub-glow-y: 240px;
+}
+
+/* Titolo della categoria (editor stili): trattino sotto, icona o solo testo; nei compatti
+   numero con linea sotto (moderno) o centrato fra due linee (editoriale e centrato). */
+.categoryHeading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.categoryHeadingDash {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.categoryHeadingDashLine {
+  width: 26px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--pub-primary);
+}
+
+.categoryHeadingIconChip {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: calc(var(--pub-btn-radius, 8px) + 2px);
+  background: color-mix(in srgb, var(--pub-primary) 10%, transparent);
+  color: var(--pub-primary);
+}
+
+.categoryHeadingNumbered {
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--pub-border);
+}
+
+.categoryHeadingNumber {
+  color: var(--pub-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.categoryHeadingCentered {
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+
+  &::before,
+  &::after {
+    flex: none;
+    width: 24px;
+    height: 1px;
+    background: color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
+    content: "";
+  }
+}
+
 .sectionGroup {
   display: flex;
   flex-direction: column;
@@ -375,6 +441,48 @@
      viene droppato durante il reflow del body-lock all'apertura della
      ItemDetail sheet → riga "vuota" per 1 frame. Promuovere a layer
      (will-change/translateZ) peggiora il glitch di compositing. */
+}
+
+/* Variante Centrata (editor stili): nome in maiuscoletto spaziato, prezzo sotto, descrizione
+   stretta, un trattino corto al centro fra un piatto e l'altro. */
+.compactRowCentered {
+  justify-content: center;
+  text-align: center;
+
+  .compactRowBody {
+    align-items: center;
+  }
+
+  .compactNameRow {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .compactName {
+    flex: none;
+    font-size: 0.875em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .compactDescription {
+    max-width: 32ch;
+  }
+
+  .compactEmojiRow {
+    justify-content: center;
+  }
+}
+
+.compactItem + .compactItem .compactRowCentered::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 16px;
+  height: 1px;
+  background: color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
+  content: "";
+  translate: -50% 0;
 }
 
 .compactRowBody {

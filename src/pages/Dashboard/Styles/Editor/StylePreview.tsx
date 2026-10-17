@@ -506,13 +506,14 @@ export const StylePreview = ({
     // query (il default "list" dallo spread resta solo per il tipo).
     productStyle: model.card.productStyle,
     compactLayoutStyle: model.card.compactLayoutStyle ?? "modern",
+    categoryTitle: model.card.categoryTitle ?? "dash",
     contentDensity: model.card.contentDensity ?? "full",
     showLogo: model.header.showLogo,
     showCoverImage: model.header.showCoverImage,
     showActivityName: model.header.showActivityName,
     showCatalogName: model.header.showCatalogName,
     showAddress: model.header.showAddress,
-    featuredStyle: model.appearance.featuredStyle === "image" ? "card" : model.appearance.featuredStyle, // "image" (Solo l'immagine) si mostra come card finché la pagina non ha la sua forma
+    featuredStyle: model.appearance.featuredStyle,
     showFeaturedSubtitle: model.appearance.showFeaturedSubtitle ?? true,
     showFeaturedTitle: model.appearance.showFeaturedTitle ?? true,
     showFeaturedCta: model.appearance.showFeaturedCta ?? true,

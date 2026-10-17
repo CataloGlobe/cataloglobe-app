@@ -81,6 +81,57 @@
   background: var(--pub-primary-soft, rgba(99, 102, 241, 0.1));
 }
 
+/* ── Solo l'immagine ───────────────────────────────────────────────────── */
+
+.cardImage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+}
+
+.imageText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 18px 16px 16px;
+  background: color-mix(in srgb, var(--pub-primary) 10%, var(--pub-surface));
+}
+
+.imageTextKick {
+  color: var(--pub-primary);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.imageTextTitle {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--pub-surface-text);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.imageTextSubtitle {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--pub-surface-text-muted);
+  font-size: 13.5px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.imageTextCta {
+  margin-top: auto;
+}
+
 /* ── Tag badge ─────────────────────────────────────────────────────────── */
 
 .cardTag {
