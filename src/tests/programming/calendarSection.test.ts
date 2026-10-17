@@ -31,6 +31,7 @@ import {
     isDirty,
     missing,
     NEW_MODEL,
+    nextRange,
     parseTime,
     setRangeTime,
     perText,
@@ -151,6 +152,20 @@ describe("una fascia che passa la mezzanotte (punto 26)", () => {
         expect(segs(ven)).toEqual([[1320, 1560]]);
         expect(segs(ven + 1)).toEqual([]);
         expect(fState(dayCtx(list, "menu", seat, ven), 1500).win?.ruleId).toBe(notte.id);
+    });
+});
+
+describe("«Aggiungi una fascia»", () => {
+    it("dopo l'ultima, come prima; la sera se il pranzo è la sola", () => {
+        expect(nextRange([[720, 900]])).toEqual([1140, 1320]);
+        expect(nextRange([[720, 900], [1140, 1260]])).toEqual([1320, 1440]);
+    });
+    it("con una fascia oltre mezzanotte nasce una fascia libera, che non si fonde con le altre", () => {
+        expect(nextRange([[1320, 1560]])).toEqual([1080, 1260]);
+        expect(nextRange([[720, 1140], [1320, 1560]])).toEqual([420, 600]);
+    });
+    it("niente posto libero: niente fascia", () => {
+        expect(nextRange([[0, 1440]])).toBeNull();
     });
 });
 
