@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage, openBusinessPageByUrl } from "./business";
 import { sidebarVoci } from "./nav";
@@ -111,7 +112,7 @@ test.describe("Clienti — elenco", () => {
     test("passati da una sede", async ({ page }) => {
         await openList(page);
         await expect(guestName(page, "Giulia Rossi e2e")).toBeVisible({ timeout: 15_000 });
-        await main(page).getByRole("combobox", { name: "Passati da" }).selectOption({ label: "Passati da: Porto e2e" });
+        await scegli(main(page).getByRole("combobox", { name: "Passati da" }), { label: "Passati da: Porto e2e" });
         await expect(guestName(page, "Luca Ferri e2e")).toBeVisible();
         await expect(guestName(page, "Giulia Rossi e2e")).toHaveCount(0);
         await expect(main(page).getByRole("radio", { name: "Tutti 1" })).toBeVisible();

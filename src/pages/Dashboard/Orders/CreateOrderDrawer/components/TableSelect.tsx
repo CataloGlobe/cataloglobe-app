@@ -1,3 +1,4 @@
+import { Select } from "@/components/ui/Select/Select";
 import { useMemo } from "react";
 
 import type { V2TableWithState } from "@/types/orders";
@@ -105,7 +106,7 @@ export function TableSelect({
 
     return (
         <div className={styles.wrapper}>
-            <select
+            <Select
                 id="create-order-table-select"
                 aria-label="Tavolo"
                 className={styles.select}
@@ -126,7 +127,7 @@ export function TableSelect({
                         ))}
                     </optgroup>
                 ))}
-            </select>
+            </Select>
         </div>
     );
 }
