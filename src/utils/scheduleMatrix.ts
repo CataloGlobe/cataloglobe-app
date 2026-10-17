@@ -218,7 +218,7 @@ export function describeManual(count: number | null): { primary: string | null; 
  */
 export function describeWinner(rule: LayoutRule, catalogName?: string): { primary: string; secondary: string | null } {
     const name = rule.name?.trim() || "Regola senza nome";
-    if (rule.rule_type === "layout") return { primary: catalogName ?? name, secondary: catalogName ? name : null };
+    if (rule.rule_type === "layout" || rule.rule_type === "menu") return { primary: catalogName ?? name, secondary: catalogName ? name : null };
     if (rule.rule_type === "featured") {
         const titles = rule.featured_contents.map(content => content.featured_content_title).filter(Boolean);
         if (titles.length > 0) return { primary: name, secondary: titles.join(" · ") };
