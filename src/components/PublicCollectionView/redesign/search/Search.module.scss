@@ -86,10 +86,10 @@
     min-height: 0;
     padding: 0 6px 0 16px;
     gap: 10px;
-    border: 1px solid rgb(255 255 255 / 20%);
+    border: 1px solid color-mix(in srgb, var(--pub-chrome-text) 20%, transparent);
     border-radius: 999px;
-    background: rgb(255 255 255 / 12%);
-    color: #fff;
+    background: color-mix(in srgb, var(--pub-chrome-text) 12%, transparent);
+    color: var(--pub-chrome-text);
   }
 
   .fieldIcon {
@@ -101,12 +101,12 @@
     font-size: 15px;
 
     &::placeholder {
-      color: rgb(255 255 255 / 72%);
+      color: color-mix(in srgb, var(--pub-chrome-text) 72%, transparent);
     }
   }
 
   .clear {
-    background: rgb(255 255 255 / 16%);
+    background: color-mix(in srgb, var(--pub-chrome-text) 16%, transparent);
   }
 
   .cancel {

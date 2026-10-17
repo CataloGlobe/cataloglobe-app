@@ -1,5 +1,3 @@
-// @ts-nocheck
-//
 // restore-order — admin-side endpoint that reverses a `delivered` order
 // back to `acknowledged`. Used by staff to recover from accidental
 // "Servito" taps on the Storico tab (Step 5a).

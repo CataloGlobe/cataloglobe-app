@@ -1,5 +1,3 @@
-// @ts-nocheck
-//
 // unready-order — admin-side endpoint che rimette un ordine da `ready`
 // a `acknowledged` ("Rimetti in lavorazione"). Usata dallo staff per
 // correggere un Pronto scattato per errore.

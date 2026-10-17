@@ -28,6 +28,11 @@
 //   3. finally anti-orfano: i job presi nel tick ma non risolti vengono
 //      riportati a 'pending' (best-effort, guard status='processing'). Rete a
 //      monte; il reclaim DB (FASE 2a) resta la rete a valle.
+//   4. Errore di configurazione del provider (categoria 'config'): il tick si
+//      ferma e rimette in coda i job rimasti restituendo il tentativo, invece
+//      di consumare i retry o mandare a failed job che non hanno colpa.
+//      Limite: se quell'UPDATE fallisce, il job torna pending dal finally (3)
+//      ma il tentativo preso dal claim resta consumato.
 //
 // Ref: docs/translations-architecture-v3.md sez. 6.3 + audit FASE 1/2.
 // =============================================================================
@@ -145,6 +150,8 @@ export interface TickCounters {
     processed: number;
     failed: number;
     retried: number;
+    /** Job rimessi in coda per errore di configurazione del provider. */
+    deferred: number;
     /** UPDATE di stato falliti (non ingoiati). */
     updateErrors: number;
     /** Job riportati a pending dal finally anti-orfano. */
@@ -172,6 +179,16 @@ function isRetryable(err: unknown): boolean {
 }
 
 /**
+ * Errore di configurazione del provider (categoria 'config', vedi
+ * providerConfigError in ./TranslationProvider.ts). Duck-typed come
+ * isRetryable, per lo stesso motivo (niente import del modulo Deno).
+ */
+function isConfigError(err: unknown): boolean {
+    return !!err && typeof err === "object"
+        && (err as { category?: unknown }).category === "config";
+}
+
+/**
  * Esegue un tick completo: claim -> group -> translate -> upsert/mark -> finally.
  * Ritorna i contatori. Non lancia: tutti gli errori sono gestiti internamente.
  */
@@ -180,6 +197,7 @@ export async function runTranslationTick(deps: TickDeps): Promise<TickCounters> 
         processed: 0,
         failed: 0,
         retried: 0,
+        deferred: 0,
         updateErrors: 0,
         orphansReset: 0
     };
@@ -202,7 +220,8 @@ export async function runTranslationTick(deps: TickDeps): Promise<TickCounters> 
         const tenantBaseLangs = await resolveTenantBaseLangs(toTranslate, deps);
         const groups = groupBySourceTarget(toTranslate, tenantBaseLangs);
 
-        for (const group of groups) {
+        for (let gi = 0; gi < groups.length; gi++) {
+            const group = groups[gi];
             try {
                 const result = await translateWithTimeout(
                     deps.getProvider(group.target),
@@ -258,9 +277,27 @@ export async function runTranslationTick(deps: TickDeps): Promise<TickCounters> 
                     await markDone(job.id, unresolved, counters, deps);
                 }
             } catch (err) {
+                const errMessage = err instanceof Error ? err.message : String(err);
+
+                // Configurazione del provider (chiave mancante/malformata/
+                // rifiutata): fallirebbe uguale per ogni gruppo e ogni job. Si
+                // ferma il tick e si rimettono in coda tutti i job rimasti,
+                // restituendo il tentativo preso dal claim: non e' colpa del
+                // job, non deve avvicinarlo al cap ne' mandarlo a failed.
+                if (isConfigError(err)) {
+                    const remaining = groups.slice(gi).flatMap(g => g.jobs);
+                    deps.log?.(
+                        "provider config error: tick fermato, job rimessi in coda senza consumare tentativi",
+                        { message: errMessage, jobs: remaining.length }
+                    );
+                    for (const job of remaining) {
+                        await deferForConfig(job, errMessage, unresolved, counters, deps);
+                    }
+                    break;
+                }
+
                 // Errore sull'intero gruppo (provider down, timeout, batch fallito).
                 const retryable = isRetryable(err);
-                const errMessage = err instanceof Error ? err.message : String(err);
 
                 for (const job of group.jobs) {
                     if (retryable && job.attempts < deps.maxAttempts) {
@@ -387,6 +424,39 @@ async function rollbackToPending(
     }
     unresolved.delete(jobId);
     counters.retried++;
+}
+
+/**
+ * Rimette in coda un job fermato da un errore di configurazione. Il claim ha
+ * gia' incrementato attempts (job.attempts e' il valore dopo il claim): qui lo
+ * si riporta al valore di prima, cosi' una chiave mancante per ore non manda a
+ * failed l'intera coda e i job ripartono da soli quando la chiave e' corretta.
+ *
+ * Limite voluto: se questo UPDATE fallisce il job resta unresolved e il finally
+ * lo rimette pending con resetOrphans, che cambia solo lo stato: il tentativo
+ * resta consumato. Ripristinarlo anche li' vorrebbe un UPDATE per job sul
+ * percorso di ripiego, che serve proprio quando il DB sta gia' rifiutando le
+ * scritture; nel caso peggiore il job arriva al cap prima del dovuto.
+ */
+async function deferForConfig(
+    job: PendingJob,
+    errMessage: string,
+    unresolved: Set<string>,
+    counters: TickCounters,
+    deps: TickDeps
+): Promise<void> {
+    const { error } = await deps.store.updateJob(job.id, {
+        status: "pending",
+        attempts: Math.max(job.attempts - 1, 0),
+        last_error: `config: ${errMessage}`
+    });
+    if (error) {
+        deps.log?.(`deferForConfig update failed for job ${job.id}`, error);
+        counters.updateErrors++;
+        return;
+    }
+    unresolved.delete(job.id);
+    counters.deferred++;
 }
 
 // ── Provider call con timeout esplicito (AbortController + race) ─────────────

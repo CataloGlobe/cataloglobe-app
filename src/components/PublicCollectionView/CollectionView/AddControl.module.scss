@@ -1,0 +1,160 @@
+/* Il «+» per ordinare dalla riga del menù (editor stili, deciso da Lorenzo il 2026-10-17).
+   Riferimento: sim-v5 `.pb` e `.pq`. Leggero finché il piatto non è nell'ordine; il colore
+   dei pulsanti solo sul numero e sul «+» del gruppo aperto. */
+
+.root {
+  --ac-ink: var(--pub-surface-text);
+  --ac-surf: var(--pub-surface);
+  --ac-soft: color-mix(in srgb, var(--ac-ink) 7%, var(--ac-surf));
+
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+/* Righe compatte: stanno sulla pagina, non su un riquadro. */
+.page {
+  --ac-ink: var(--pub-bg-text);
+  --ac-surf: var(--pub-bg);
+}
+
+.main,
+.stepper > button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Area da toccare 44px senza cambiare il disegno. */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-accent, currentColor);
+    outline-offset: 2px;
+  }
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.96));
+  }
+}
+
+.main {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ac-soft);
+  color: var(--ac-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.15s ease;
+
+  @media (hover: hover) {
+    &:not(.on):hover {
+      background: color-mix(in srgb, var(--ac-ink) 12%, var(--ac-surf));
+    }
+  }
+}
+
+.on {
+  background: var(--pub-accent);
+  color: var(--pub-cta-text);
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin-block: -1px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--ac-soft);
+  color: var(--ac-ink);
+  font-variant-numeric: tabular-nums;
+  transform-origin: right center;
+  animation: stepper-in 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.stepMinus,
+.stepPlus {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.stepMinus {
+  background: none;
+  color: var(--ac-ink);
+}
+
+.stepPlus {
+  background: var(--pub-accent);
+  color: var(--pub-cta-text);
+}
+
+/* Nel gruppo i pulsanti sono da 24px: l'area da toccare arriva a 44px. */
+.stepper > button::after {
+  inset: -10px;
+}
+
+.stepQty {
+  min-width: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Sulla foto a destra: nell'angolo in basso, staccato dalla foto con un anello. */
+.photo {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  z-index: 1;
+
+  .main,
+  .stepper {
+    box-shadow:
+      0 0 0 3px var(--pub-surface),
+      0 3px 8px -2px rgb(0 0 0 / 30%);
+  }
+
+  .main:not(.on) {
+    background: var(--pub-surface);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent),
+      0 3px 8px -2px rgb(0 0 0 / 28%);
+  }
+
+  .stepper {
+    background: var(--pub-surface);
+  }
+}
+
+/* Sopra i 1024px la foto è in cima, larga quanto la scheda: il «+» sta dentro l'angolo, non fuori. */
+@container collection (min-width: 1024px) {
+  .photo {
+    right: 10px;
+    bottom: 10px;
+  }
+}
+
+@keyframes stepper-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
