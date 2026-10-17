@@ -414,13 +414,14 @@ export default function PublicCatalogReady({
         // query; il token card.layout resta tollerato nel parse ma ignorato.
         productStyle: tokens.card.productStyle,
         compactLayoutStyle: tokens.card.compactLayoutStyle ?? "modern",
+        categoryTitle: tokens.card.categoryTitle ?? "dash",
         contentDensity: tokens.card.contentDensity ?? "full",
         showLogo: tokens.header.showLogo,
         showCoverImage: tokens.header.showCoverImage,
         showActivityName: tokens.header.showActivityName,
         showCatalogName: tokens.header.showCatalogName,
         showAddress: tokens.header.showAddress,
-        featuredStyle: tokens.appearance.featuredStyle === "image" ? "card" : tokens.appearance.featuredStyle, // "image" (Solo l'immagine) si mostra come card finché la pagina non ha la sua forma
+        featuredStyle: tokens.appearance.featuredStyle,
         cardTreatment: tokens.appearance.cardTreatment,
         iconStyle: tokens.appearance.iconStyle ?? "plain",
         appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius),

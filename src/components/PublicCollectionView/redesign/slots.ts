@@ -111,7 +111,7 @@ export type PublicSheetName =
 
 /** Aspetto delle card in evidenza, dallo stile del locale. */
 export type FeaturedLook = {
-    layout: "card" | "highlight" | "compact";
+    layout: "card" | "highlight" | "compact" | "image";
     showSubtitle: boolean;
     showTitle: boolean;
     showCta: boolean;
