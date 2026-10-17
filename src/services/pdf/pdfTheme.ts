@@ -4,7 +4,8 @@
 // Regola accenti: primary/primarySoft dai token. MAI `colors.accent` — è
 // riservato ai CTA interattivi, inesistenti su carta.
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { borderRadiusToPx, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
+import { borderRadiusToPx } from "@/features/public/utils/mapStyleTokensToCssVars";
+import { INK_ON_DARK, INK_ON_LIGHT, isDarkPage } from "@/features/public/utils/styleColors";
 
 export type PdfTheme = {
     pageBg: string;
@@ -71,9 +72,9 @@ const MIN_PRIMARY_CONTRAST = 2.5;
 export function buildPdfTheme(tokens: StyleTokenModel): PdfTheme {
     const pageBg = tokens.colors.pageBackground;
 
-    // contrastText garantisce bianco/near-black leggibile; lieve blend verso il
-    // bg (stessa ricetta della pagina pubblica) per un nero meno "stampato male".
-    const inkBase = contrastText(pageBg);
+    // Stesso testo della pagina pubblica (scura sotto 0,18 di luminanza); lieve blend
+    // verso il bg per un nero meno "stampato male".
+    const inkBase = isDarkPage(pageBg) ? INK_ON_DARK : INK_ON_LIGHT;
     const ink = mixHex(pageBg, inkBase, 0.88);
     const muted = mixHex(pageBg, ink, 0.55);
 

@@ -16,7 +16,7 @@
 
 // Opt-in tinted chip ("con sfondo"). Applied only when the `chip` prop is set
 // (Style Editor iconStyle = "pill"). La forma segue "Arrotondamento" via
-// --pub-radius (none=0 → quadrato, soft → arrotondato, rounded=20px → cerchio,
+// --pub-radius (none=4px → quasi quadrato, soft=12px → arrotondato, rounded=20px → cerchio,
 // poiché il browser clampa border-radius al 50% del lato).
 .chip {
     background-color: var(--pub-primary-soft, var(--hover-bg));

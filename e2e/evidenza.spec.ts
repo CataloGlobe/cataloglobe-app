@@ -175,7 +175,7 @@ test.describe("In evidenza — elenco", () => {
     test("griglia: le stesse card, la card apre il dettaglio", async ({ page }) => {
         await openList(page, "grid");
         await contentName(page, "Concerto e2e").click();
-        await expect(page).toHaveURL(new RegExp(`/featured/${FEATURED.concerto}(\\?.*)?$`));
+        await expect(page).toHaveURL(new RegExp(`/crea/evidenza/${FEATURED.concerto}\\?da=evidenza$`));
     });
 
     test("ricerca per nome interno e per titolo", async ({ page }) => {
@@ -262,7 +262,7 @@ test.describe("In evidenza — elenco ricomposto (P7)", () => {
         await expect(cards.getByRole("listitem")).toHaveCount(3);
         await expect(contentName(page, "Menu di coppia e2e")).toHaveCount(0);
         await contentName(page, "Concerto e2e").click();
-        await expect(page).toHaveURL(new RegExp(`/featured/${FEATURED.concerto}(\\?.*)?$`));
+        await expect(page).toHaveURL(new RegExp(`/crea/evidenza/${FEATURED.concerto}\\?da=evidenza$`));
     });
 
     test("errore di caricamento: lo stato lo dice, «Riprova» ricarica", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
+import { isDarkPage } from "@/features/public/utils/styleColors";
 
 /**
  * Sfondo del documento sulla pagina pubblica.
@@ -49,7 +49,7 @@ export function applyPublicDocumentChrome(doc: ChromeDocument, color: string): (
 
     html.backgroundColor = color;
     // Controlli nativi e UI del browser seguono lo stile, non il tema admin.
-    html.colorScheme = contrastText(color) === "#1a1a1a" ? "light" : "dark";
+    html.colorScheme = isDarkPage(color) ? "dark" : "light";
     body.backgroundColor = color;
     // global.scss anima `background` sul body: niente dissolvenza dal colore admin.
     body.transition = "none";

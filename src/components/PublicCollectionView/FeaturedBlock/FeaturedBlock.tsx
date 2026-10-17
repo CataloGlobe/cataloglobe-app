@@ -19,7 +19,7 @@ type Props = {
     onOpenDetail: (block: V2FeaturedContent) => void;
     /** Tap su «Vedi tutti»: apre la sheet «In evidenza» sull'elenco. */
     onOpenAll: () => void;
-    layout?: "card" | "highlight" | "compact";
+    layout?: "card" | "highlight" | "compact" | "image";
     /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
     showSubtitle?: boolean;
     /** Mostra il titolo nella card overview. Default true (comportamento storico). */

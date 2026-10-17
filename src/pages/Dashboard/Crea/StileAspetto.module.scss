@@ -292,9 +292,23 @@
     }
 }
 
+// il carattere: il nome scritto col suo font, sotto il font
 .font {
-    padding: 5px 13px;
-    @include cal.fs(label);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 7px 13px;
+    border-radius: 14px;
+
+    b {
+        @include d-type(logo);
+    }
+
+    small {
+        color: var(--k-muted);
+        font-weight: 500;
+        @include cal.fs(fine);
+    }
 }
 
 .tgl {
@@ -341,46 +355,6 @@
         border-radius: 50%;
         background: var(--k-surface);
         transition: transform 0.15s;
-    }
-}
-
-/* il mini-esempio della categoria in cui sei */
-.mini {
-    padding: 2px 8px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    color: var(--k-brand-ink);
-    font-weight: 400;
-    line-height: 1.4;
-    @include cal.fs(kicker);
-
-    &[data-m="filled"] {
-        background: var(--k-brand);
-        color: var(--on-brand, var(--k-surface));
-    }
-
-    &[data-m="tinted"] {
-        background: var(--k-brand-soft);
-    }
-
-    &[data-m="outline"] {
-        border-color: var(--k-brand);
-    }
-
-    &[data-m="tabs"] {
-        padding: 2px;
-        border-radius: 0;
-        box-shadow: inset 0 -2px 0 var(--k-brand);
-    }
-
-    &[data-m="minimal"] {
-        padding: 2px;
-        color: var(--k-ink);
-        font-weight: 700;
-    }
-
-    [aria-pressed="true"] > &[data-m="tinted"] {
-        background: var(--k-surface);
     }
 }
 
@@ -599,21 +573,159 @@
     cursor: pointer;
     @include cal.fs(text);
 
+    &:hover,
+    &[aria-pressed="true"] {
+        border-color: var(--k-brand);
+    }
+}
+
+/* lo stile pronto: «Aa» col carattere sullo sfondo, i due colori, il nome e «ritoccato» */
+.lookSw {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 9px;
+    background: var(--b);
+    color: var(--p);
+    @include d-type(voice-k);
+    line-height: 1;
+
     i {
-        display: grid;
-        place-items: center;
-        width: 26px;
-        height: 26px;
-        border-radius: 7px;
-        background: var(--c);
-        box-shadow: inset 0 0 0 1px var(--k-edge);
-        font-style: normal;
-        font-weight: 700;
-        @include cal.fs(fine);
+        display: flex;
+        gap: 3px;
     }
 
-    &:hover {
-        border-color: var(--k-brand);
+    i b {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px rgb(255 255 255 / 35%);
+    }
+}
+
+.lookName small {
+    display: block;
+    font-weight: 500;
+    opacity: 0.65;
+    @include cal.fs(fine);
+}
+
+.lookTick {
+    display: none;
+}
+
+/* «Tutta la pagina», «Le parti della pagina» */
+.grp {
+    margin: 6px 0 -4px;
+    color: var(--k-muted);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    @include cal.fs(kicker);
+}
+
+/* le scelte in tessere, col disegno sopra il nome */
+.tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+
+    &[data-cols="2"] {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-width: 540px;
+    }
+
+    &[data-cols="3"] {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    @media (max-width: 560px) {
+        &[data-cols="4"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+}
+
+.tile {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 14px;
+    line-height: 1.25;
+    text-align: left;
+}
+
+/* una scelta che ora non vale resta al suo posto, spenta, col motivo */
+.chip:disabled {
+    border-style: dashed;
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.off > .hint {
+    color: var(--k-ink);
+    font-weight: 600;
+}
+
+.cons {
+    display: block;
+    margin-top: 2px;
+
+    &[data-on] {
+        color: var(--k-brand);
+        font-weight: 600;
+    }
+}
+
+.dot {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 15%);
+}
+
+/* il colore che nel menù schiariamo o scuriamo perché si legga */
+.fix {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: var(--k-brand-soft);
+    @include cal.fs(small);
+
+    > svg {
+        flex: none;
+        margin-top: 1px;
+        color: var(--k-brand-ink);
+    }
+
+    p {
+        margin: 0;
+    }
+
+    p + p {
+        margin-top: 4px;
+    }
+}
+
+.pair {
+    display: inline-flex;
+    gap: 4px;
+    margin-left: 6px;
+    vertical-align: -3px;
+
+    b {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        box-shadow: inset 0 0 0 1px rgb(0 0 0 / 15%);
     }
 }
 
@@ -706,7 +818,6 @@
     }
 
     .lookSw {
-        display: block;
         padding: 8px 10px;
         border-radius: 9px;
         background: var(--b);

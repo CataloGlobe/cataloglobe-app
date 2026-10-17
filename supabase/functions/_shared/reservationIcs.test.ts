@@ -532,4 +532,28 @@ describe("annullamento — METHOD:CANCEL", () => {
         expect(att).toHaveLength(1);
         expect(att![0].filename).toBe("prenotazione.ics");
     });
+    it("annullamento del cliente: l'allegato toglie proprio l'evento dell'invito", () => {
+        // Invito della conferma (SEQUENCE 0), poi il cliente annulla dal link:
+        // il trigger porta ics_sequence a 1 e l'allegato della mail lo riporta.
+        const invite = buildReservationIcs({ ...BASE, icsSequence: 0, language: "fr" })!;
+        const att = buildReservationCancelledIcsAttachment({
+            reservationId: RID.toUpperCase(),
+            venueName: "Trattoria da Ciro",
+            reservationDate: "2026-07-15",
+            reservationTime: "20:00:00",
+            durationMinutes: 120,
+            language: "fr",
+            icsSequence: 1,
+            now: NOW
+        })!;
+        const decoded = new TextDecoder().decode(
+            Uint8Array.from(atob(att[0].content), c => c.charCodeAt(0))
+        );
+        expect(lineFor(decoded, "METHOD")).toBe("METHOD:CANCEL");
+        expect(lineFor(decoded, "STATUS")).toBe("STATUS:CANCELLED");
+        expect(lineFor(decoded, "UID")).toBe(lineFor(invite, "UID"));
+        expect(lineFor(decoded, "SEQUENCE")).toBe("SEQUENCE:1");
+        expect(lineFor(invite, "SEQUENCE")).toBe("SEQUENCE:0");
+        expect(att[0].filename).toBe("reservation.ics");
+    });
 });
