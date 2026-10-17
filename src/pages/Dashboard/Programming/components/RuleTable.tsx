@@ -335,7 +335,8 @@ export function RuleTable({
                         ariaLabel={`Azioni per ${nameOf(rule)}`}
                         actions={[
                             rowAction.edit(() => onOpen(rule)),
-                            rowAction.duplicate(() => onDuplicate?.(rule.id), { hidden: !onDuplicate }),
+                            // le regole menu/style hanno fasce e modo che la copia non porta: si rifanno dal Calendario
+                            rowAction.duplicate(() => onDuplicate?.(rule.id), { hidden: !onDuplicate || rule.rule_type === "menu" || rule.rule_type === "style" }),
                             rowAction.remove(() => onDelete?.(rule.id), { hidden: !onDelete })
                         ]}
                     />

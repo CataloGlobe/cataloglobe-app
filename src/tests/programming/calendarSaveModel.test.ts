@@ -18,7 +18,7 @@ vi.mock("@/services/supabase/scheduleModel", () => ({ saveScheduleModel: vi.fn(a
 import { createRuleDraft, updateRule, type LayoutRule } from "@/services/supabase/layoutScheduling";
 import { createScopedRuleDraft } from "@/services/supabase/scheduleTargets";
 import { saveScheduleModel } from "@/services/supabase/scheduleModel";
-import { blankDraft, DB, savesAsModel, scontriWait, waitsForDb, type Draft, type DraftLookups, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
+import { blankDraft, DB, NEW_MODEL, draftFromEntry, savesAsModel, scontriWait, waitsForDb, type Draft, type DraftLookups, type Scontro } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import { modelSlotsOf, saveDraft } from "@/pages/Dashboard/Programming/calendar/calendarSave";
 
 const L = { products: new Map(), catalogs: new Map([["bar", "Bar"]]), styles: new Map([["chiaro", "Chiaro"]]), featured: new Map(), sedi: new Map([["a1", "Porto"]]) } as unknown as DraftLookups;
@@ -27,6 +27,7 @@ const SEDE = { all: false, activityIds: ["a1"], groupIds: [] };
 const menu = (o: Partial<Draft> = {}): Draft => ({ ...blankDraft("menu", SEDE, null), thing: "bar", ...o });
 
 const keep = DB.schedule;
+const keepSplit = NEW_MODEL.splitLayout;
 beforeEach(() => {
     DB.schedule = true;
     calls.length = 0;
@@ -54,7 +55,7 @@ describe("Calendario → regole menu e style", () => {
 
     it("stile da solo: style_id, «al posto», senza ore niente fasce (le scrive il ponte)", async () => {
         await saveDraft({ ...blankDraft("style", SEDE, null), thing: "chiaro" }, L, "t");
-        expect(saveScheduleModel).toHaveBeenCalledWith("nuova", { style_id: "chiaro", overlap_mode: "replace" });
+        expect(saveScheduleModel).toHaveBeenCalledWith("nuova", { style_id: "chiaro" });
     });
 
     it("un ruolo di sede crea la bozza menu con le sue sedi", async () => {
@@ -65,7 +66,12 @@ describe("Calendario → regole menu e style", () => {
     it("una regola layout resta layout; senza il database nuovo tutto come oggi", async () => {
         const layout = { id: "vecchia", rule_type: "layout", tenant_id: "t", name: "x", layout: { catalog_id: "bar", style_id: "chiaro" } } as unknown as LayoutRule;
         expect(savesAsModel(menu({ rule: layout, mode: "edit" }))).toBe(false);
+        // la coppia che il Calendario mette da sé (pairFor) conta solo coi tipi insieme
+        NEW_MODEL.splitLayout = true;
+        expect(savesAsModel(menu({ pair: "chiaro" }))).toBe(true);
+        NEW_MODEL.splitLayout = false;
         expect(savesAsModel(menu({ pair: "chiaro" }))).toBe(false);
+        NEW_MODEL.splitLayout = keepSplit;
         DB.schedule = false;
         expect(savesAsModel(menu())).toBe(false);
         await saveDraft(menu({ pair: "chiaro" }), L, "t");
@@ -81,6 +87,14 @@ describe("Calendario → regole menu e style", () => {
         DB.schedule = false;
         expect(waitsForDb(due)).not.toBe("");
         expect(scontriWait(due, sc)).not.toBe("");
+    });
+
+    it("riaprendo un menù «insieme» resta insieme", () => {
+        const r = { id: "m", rule_type: "menu", tenant_id: "t", name: "Bar", overlap_mode: "together", layout: { catalog_id: "bar", style_id: null }, applyToAll: false, activityIds: ["a1"], groupIds: [], time_mode: "always", price_overrides: [], visibility_overrides: [], featured_contents: [] } as unknown as LayoutRule;
+        const e = { id: "m:menu", ruleId: "m", kind: "menu", thing: "Bar", where: SEDE, when: {}, tscore: 0, priority: 10, created: 0, add: true, rule: r };
+        const D = draftFromEntry(e as never, L);
+        expect(D.insieme).toBe(true);
+        expect(savesAsModel(D)).toBe(true);
     });
 
     it("modelSlotsOf: solo giorni = tutto il giorno; niente = undefined", () => {

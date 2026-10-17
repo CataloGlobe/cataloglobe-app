@@ -115,8 +115,11 @@ async function writeRule(id: string, tenantId: string, D: Draft, name: string, p
         // menù o stile, «insieme» o «al posto», e le fasce in un colpo (dopo le sedi:
         // la RPC vuole poter scrivere su tutte)
         const slots = modelSlotsOf(D.when);
+        // Se la RPC fallisce in modifica, il ponte ha già ridotto le fasce alla
+        // prima (dalle colonne di updateRule): «Riprova» le riscrive tutte.
         await saveScheduleModel(id, {
-            ...(D.kind === "menu" ? { catalog_id: D.thing ?? undefined, overlap_mode: D.insieme ? "together" : "replace" } : { style_id: D.thing ?? undefined, overlap_mode: "replace" }),
+            // lo stile non tocca il suo modo: «lascia gli altri» si sceglie altrove
+            ...(D.kind === "menu" ? { catalog_id: D.thing ?? undefined, overlap_mode: D.insieme ? "together" : "replace" } : { style_id: D.thing ?? undefined }),
             ...(slots ? { slots } : {})
         });
     }

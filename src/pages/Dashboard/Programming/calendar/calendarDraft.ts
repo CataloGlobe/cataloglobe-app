@@ -195,6 +195,8 @@ export function draftFromEntry(e: CalEntry, L: DraftLookups, only: string | null
     } else if (e.kind === "menu") {
         D.thing = r.layout?.catalog_id ?? null;
         D.pair = r.layout?.style_id ?? null;
+        // una regola `menu` dice da sé se sta insieme agli altri
+        if (r.rule_type === "menu") D.insieme = r.overlap_mode === "together";
     } else {
         D.thing = r.layout?.style_id ?? null;
         D.pair = r.layout?.catalog_id ?? null;
@@ -241,12 +243,15 @@ export function invalid(D: Draft): string {
 
 /**
  * La bozza si salva come regola `menu` o `style` del modello nuovo
- * (save_schedule_model): un menù o uno stile nuovo da solo, o una regola che
- * è già di quel tipo. Una regola `layout` (menù e stile insieme) resta com'è.
+ * (save_schedule_model): un menù o uno stile nuovo (da solo, o con la coppia
+ * nascosta dai tipi separati), o una regola che è già di quel tipo. Una
+ * regola `layout` (menù e stile insieme) resta com'è.
  */
 export function savesAsModel(D: Draft): boolean {
     if (!DB.schedule || (D.kind !== "menu" && D.kind !== "style")) return false;
-    return D.rule ? D.rule.rule_type === D.kind : !D.pair;
+    // con menù e stile separati la coppia non si sceglie (resta quella di sempre):
+    // il nuovo sta da solo e lo stile lo tiene la regola layout che c'è
+    return D.rule ? D.rule.rule_type === D.kind : NEW_MODEL.splitLayout || !D.pair;
 }
 
 /**
