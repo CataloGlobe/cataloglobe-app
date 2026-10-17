@@ -301,8 +301,7 @@
     border-radius: 14px;
 
     b {
-        font-weight: 600;
-        font-size: 16px;
+        @include d-type(logo);
     }
 
     small {
@@ -590,7 +589,7 @@
     border-radius: 9px;
     background: var(--b);
     color: var(--p);
-    font-size: 22px;
+    @include d-type(voice-k);
     line-height: 1;
 
     i {
