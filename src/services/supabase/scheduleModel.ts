@@ -1,6 +1,6 @@
 import { supabase } from "@/services/supabase/client";
 import type { OverlapMode } from "@shared/scheduleCompetition";
-import { updateScheduleEnabled } from "@/services/supabase/layoutScheduling";
+import { deleteLayoutRule, updateScheduleEnabled } from "@/services/supabase/layoutScheduling";
 import { createScopedRuleDraft } from "@/services/supabase/scheduleTargets";
 
 /**
@@ -96,11 +96,20 @@ export async function createMenuAndStyleRules(input: {
 }): Promise<{ menuId: string; styleRuleId: string }> {
     const draft = (ruleType: "menu" | "style") =>
         createScopedRuleDraft({ tenantId: input.tenantId, ruleType, name: input.name, activityIds: [input.activityId] });
-    const menuId = await draft("menu");
-    await saveScheduleModel(menuId, { catalog_id: input.catalogId, overlap_mode: "replace" });
-    const styleRuleId = await draft("style");
-    await saveScheduleModel(styleRuleId, { style_id: input.styleId, overlap_mode: "replace" });
-    await updateScheduleEnabled(menuId, true);
-    await updateScheduleEnabled(styleRuleId, true);
-    return { menuId, styleRuleId };
+    // se un passo fallisce si tolgono le regole già create: niente menù acceso senza il suo stile
+    const created: string[] = [];
+    try {
+        const menuId = await draft("menu");
+        created.push(menuId);
+        await saveScheduleModel(menuId, { catalog_id: input.catalogId, overlap_mode: "replace" });
+        const styleRuleId = await draft("style");
+        created.push(styleRuleId);
+        await saveScheduleModel(styleRuleId, { style_id: input.styleId, overlap_mode: "replace" });
+        await updateScheduleEnabled(menuId, true);
+        await updateScheduleEnabled(styleRuleId, true);
+        return { menuId, styleRuleId };
+    } catch (error) {
+        for (const id of created) await deleteLayoutRule(id).catch(e => console.error("Regola del wizard non tolta:", id, e));
+        throw error;
+    }
 }

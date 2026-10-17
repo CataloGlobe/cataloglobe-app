@@ -15,10 +15,10 @@ vi.mock("@/services/supabase/scheduleTargets", () => ({
         return `regola-${++nextId}`;
     }
 }));
+const enabled = vi.fn(async (...args: unknown[]) => void calls.push(["enabled", ...args]));
 vi.mock("@/services/supabase/layoutScheduling", () => ({
-    updateScheduleEnabled: async (...args: unknown[]) => {
-        calls.push(["enabled", ...args]);
-    }
+    updateScheduleEnabled: (...args: unknown[]) => enabled(...args),
+    deleteLayoutRule: async (id: string) => void calls.push(["delete", id])
 }));
 
 import { createMenuAndStyleRules } from "@/services/supabase/scheduleModel";
@@ -43,9 +43,25 @@ describe("createMenuAndStyleRules", () => {
         ]);
     });
 
-    it("se la scrittura del menù fallisce non accende niente", async () => {
+    const input = { tenantId: "t1", name: "M", activityId: "a1", catalogId: "c1", styleId: "s1" };
+
+    it("se la scrittura del menù fallisce non accende niente e toglie la bozza", async () => {
         rpc.mockResolvedValueOnce({ data: null, error: { message: "no" } } as never);
-        await expect(createMenuAndStyleRules({ tenantId: "t1", name: "M", activityId: "a1", catalogId: "c1", styleId: "s1" })).rejects.toBeTruthy();
+        await expect(createMenuAndStyleRules(input)).rejects.toBeTruthy();
         expect(calls.some(c => c[0] === "enabled")).toBe(false);
+        expect(calls.filter(c => c[0] === "delete")).toEqual([["delete", "regola-1"]]);
+    });
+
+    it("se la scrittura dello stile fallisce toglie menù e stile", async () => {
+        rpc.mockResolvedValueOnce({ data: null, error: null }).mockResolvedValueOnce({ data: null, error: { message: "no" } } as never);
+        await expect(createMenuAndStyleRules(input)).rejects.toBeTruthy();
+        expect(calls.filter(c => c[0] === "delete")).toEqual([["delete", "regola-1"], ["delete", "regola-2"]]);
+    });
+
+    it("se l'accensione dello stile fallisce toglie anche il menù già acceso, e rilancia l'errore", async () => {
+        const boom = new Error("rete");
+        enabled.mockImplementationOnce(async (...args: unknown[]) => void calls.push(["enabled", ...args])).mockRejectedValueOnce(boom);
+        await expect(createMenuAndStyleRules(input)).rejects.toBe(boom);
+        expect(calls.filter(c => c[0] === "delete")).toEqual([["delete", "regola-1"], ["delete", "regola-2"]]);
     });
 });

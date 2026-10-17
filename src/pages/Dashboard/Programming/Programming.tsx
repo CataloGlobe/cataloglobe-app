@@ -52,6 +52,7 @@ import { describeTarget } from "./components/ruleTarget";
 import { measureTextWidth } from "@/utils/measureText";
 import { LOOK_D } from "@/styles/lookD";
 import { NEW_MODEL } from "./calendar/calendarFlags";
+import { addsFromCalendar } from "./calendar/splitLayout";
 import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import CalendarioView from "./calendar/CalendarioView";
 import type { CalNames } from "./calendar/calendarModel";
@@ -814,7 +815,7 @@ export default function Programming() {
         const effectiveType = overrideType ?? (ruleTypeFilter === "all" ? undefined : ruleTypeFilter as RuleType);
         if (!effectiveType) return;
         // multi menù: col Calendario acceso menù e stile si aggiungono da lì (il dettaglio non li modifica)
-        if (NEW_MODEL && effectiveType === "layout") {
+        if (addsFromCalendar(effectiveType)) {
             setSearchParams(prev => {
                 prev.set("vista", "calendario");
                 prev.set("aggiungi", "calendario");
@@ -1250,7 +1251,7 @@ export default function Programming() {
                     addFromRules={LOOK_D && searchParams.get("aggiungi") === "regole" ? backToRules : undefined}
                     // solo a dati caricati e con il permesso, come il pulsante «Aggiungi»
                     addOnArrive={
-                        (LOOK_D || NEW_MODEL) && searchParams.get("aggiungi") === "calendario" && !isLoading && canCreate && canEdit
+                        (LOOK_D || NEW_MODEL.splitLayout) && searchParams.get("aggiungi") === "calendario" && !isLoading && canCreate && canEdit
                             ? addArrived
                             : undefined
                     }

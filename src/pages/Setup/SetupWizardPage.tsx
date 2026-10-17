@@ -3,9 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useTenantId } from "@/context/useTenantId";
 import { useAiImportSession, type AiImportOutcome } from "@/hooks/useAiImportSession";
-import { createLayoutRule } from "@/services/supabase/layoutScheduling";
-import { createMenuAndStyleRules } from "@/services/supabase/scheduleModel";
-import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
+import { createSetupRule } from "./setupRule";
 import { listStyles } from "@/services/supabase/styles";
 import { getTenantSetupStatus } from "@/services/supabase/overviewStats";
 import { buildPublicUrl } from "@/utils/publicUrl";
@@ -210,31 +208,13 @@ export default function SetupWizardPage() {
                 }
 
                 // multi menù: col Calendario acceso nascono una regola menù e una stile
-                if (NEW_MODEL) {
-                    await createMenuAndStyleRules({
-                        tenantId,
-                        name: RULE_NAME,
-                        activityId: createdActivity.id,
-                        catalogId: createdCatalog.id,
-                        styleId: systemStyle.id
-                    });
-                } else {
-                    await createLayoutRule({
-                        tenantId,
-                        name: RULE_NAME,
-                        targetType: "activity",
-                        targetId: createdActivity.id,
-                        catalogId: createdCatalog.id,
-                        styleId: systemStyle.id,
-                        priorityLevel: "medium",
-                        displayOrder: 0,
-                        enabled: true,
-                        timeMode: "always",
-                        daysOfWeek: null,
-                        timeFrom: null,
-                        timeTo: null
-                    });
-                }
+                await createSetupRule({
+                    tenantId,
+                    name: RULE_NAME,
+                    activityId: createdActivity.id,
+                    catalogId: createdCatalog.id,
+                    styleId: systemStyle.id
+                });
 
                 if (!cancelled) setRuleStatus("ready");
             } catch (error) {
