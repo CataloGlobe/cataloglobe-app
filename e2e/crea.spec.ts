@@ -942,7 +942,7 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         stub = await stubProgrammazione(page);
     });
 
-    test("stile: le sei parti dell'aspetto, la bozza ha i token giusti e si torna all'elenco degli stili", async ({ page }) => {
+    test("stile: le parti dell'aspetto, la bozza ha i token giusti e si torna all'elenco degli stili", async ({ page }) => {
         stub.onWrite("styles.POST", ({ body }) => ({ id: ID.style, ...first(body) }));
         stub.onWrite("style_versions.POST", ({ body }) => ({ id: ID.version, ...first(body) }));
         stub.onWrite("styles.PATCH", ({ body }) => ({ id: ID.style, name: "Natale", ...first(body) }));
@@ -954,20 +954,28 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await expect(button(page, "Avanti")).toBeEnabled();
         // nel telefono c'è la pagina vera del cliente, la stessa dell'editor dello stile
         await expect(page.getByLabel("Così lo vede il cliente").getByText("Happy Hour Estivo").first()).toBeVisible();
-        await button(page, "Rosso").click();
-        await button(page, "Scuro").click();
-        await button(page, "Lora").click();
-        await button(page, "Una riga di un elenco").click();
-        // la scelta che compare solo quando serve
-        await button(page, "I puntini, come sulla carta").click();
+        // uno stile pronto è una partenza: ritoccandolo il riquadro dice «ritoccato»
+        await button(page, /^Avorio e blu notte/).click();
+        await expect(button(page, /^Avorio e blu notte/)).toHaveAttribute("aria-pressed", "true");
+        await expect(main(page).getByText("ritoccato")).toHaveCount(0);
+        await button(page, "Terracotta").click();
+        await expect(main(page).getByText("ritoccato")).toBeVisible();
+        // sulla crema consigliamo riquadro e barra scuri
+        await button(page, "Crema").click();
+        await expect(main(page).getByText("Su questo sfondo ti consigliamo: Scuri.")).toBeVisible();
+        await button(page, "Scuri").click();
+        await expect(main(page).getByText("Su questo sfondo vanno bene scuri.")).toBeVisible();
+        await button(page, /^Classico/).click();
+        await button(page, "Una riga come sulla carta").click();
+        // nelle righe la foto non c'è: la scelta resta, spenta, col motivo
+        await expect(main(page).getByRole("group", { name: "La foto del piatto" }).getByRole("button", { name: "A destra" })).toBeDisabled();
+        await expect(main(page).getByText(/^Nelle righe la foto non c'è/)).toBeVisible();
         await button(page, "Sottolineata").click();
         // la tavolozza è un fumetto sul pulsante: si chiude scegliendo
-        const second = main(page).getByRole("group", { name: "Secondo colore" });
-        await second.getByRole("button", { name: "Un altro colore" }).click();
-        const pal = page.getByRole("dialog", { name: "Secondo colore" });
-        // dieci tinte per cinque toni, il colore del logo, i due già usati e «Altri colori…»
+        const second = main(page).getByRole("group", { name: "Colore dei pulsanti" });
+        await second.getByRole("button", { name: "Un tuo colore" }).click();
+        const pal = page.getByRole("dialog", { name: "Colore dei pulsanti" });
         await expect(pal.getByText("Dal tuo logo")).toBeVisible();
-        await expect(pal.getByRole("button")).toHaveCount(50 + 1 + 2 + 1);
         await pal.getByRole("button").nth(12).click();
         await expect(pal).toHaveCount(0);
         await expect(second.getByRole("button", { name: "Un tuo colore" })).toBeVisible();
@@ -977,8 +985,10 @@ test.describe("Tunnel di creazione — stile, in evidenza, storia", () => {
         await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
         expect(bodyOf(stub, "styles.POST")).toMatchObject({ name: "Natale", is_system: false });
         const config = JSON.stringify(bodyOf(stub, "style_versions.POST").config);
-        expect(config).toContain("#be123c");
-        expect(config).toContain("#0F172A");
+        expect(config).toContain("#9A3A25");
+        expect(config).toContain("#F7F0E3");
+        expect(config).toContain('"chrome":"dark"');
+        expect(config).toContain('"preset":"avorio"');
         expect(config).toContain("lora");
         expect(config).toContain("compact");
         expect(config).toContain("editorial");

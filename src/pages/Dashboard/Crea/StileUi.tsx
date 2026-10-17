@@ -5,27 +5,27 @@ import s from "./StileAspetto.module.scss";
 
 export type Opts<V extends string> = readonly (readonly [V, string])[];
 
-export function Group({ label, hint, wide, cond, children }: { label: string; hint?: string; wide?: boolean; cond?: boolean; children: ReactNode }) {
+export function Group({ label, hint, wide, cond, off, children }: { label: string; hint?: ReactNode; wide?: boolean; cond?: boolean; off?: string; children: ReactNode }) {
     return (
-        <div className={[s.og, wide && s.wide, cond && s.cond].filter(Boolean).join(" ")} role="group" aria-label={label}>
+        <div className={[s.og, wide && s.wide, cond && s.cond, off && s.off].filter(Boolean).join(" ")} role="group" aria-label={label}>
             <span className={s.lab}>{label}</span>
             {children}
-            {hint && <span className={s.hint}>{hint}</span>}
+            {(off || hint) && <span className={s.hint}>{off || hint}</span>}
         </div>
     );
 }
 
-export function Choice<V extends string>({ label, opts, value, on, wide, cond, mini }: { label: string; opts: Opts<V>; value: V; on: (v: V) => void; wide?: boolean; cond?: boolean; mini?: boolean }) {
+/**
+ * Una scelta fra pochi valori, ognuno col suo disegno (`draw`): in riga, o in tessere con
+ * `tiles` colonne. Con `off` resta al suo posto, spenta, col motivo (deciso da Lorenzo il 2026-10-16).
+ */
+export function Choice<V extends string>({ label, opts, value, on, wide, cond, hint, off, draw, tiles }: { label: string; opts: Opts<V>; value: V; on: (v: V) => void; wide?: boolean; cond?: boolean; hint?: ReactNode; off?: string; draw?: (v: V) => ReactNode; tiles?: 2 | 3 | 4 }) {
     return (
-        <Group label={label} wide={wide} cond={cond}>
-            <div className={s.chips}>
+        <Group label={label} wide={wide} cond={cond} hint={hint} off={off}>
+            <div className={tiles ? s.tiles : s.chips} data-cols={tiles}>
                 {opts.map(([v, text]) => (
-                    <button key={v} type="button" className={s.chip} aria-pressed={value === v} onClick={() => on(v)}>
-                        {mini && (
-                            <span className={s.mini} data-m={v} aria-hidden>
-                                Primi
-                            </span>
-                        )}
+                    <button key={v} type="button" className={tiles ? `${s.chip} ${s.tile}` : s.chip} aria-pressed={value === v} disabled={!!off} onClick={() => on(v)}>
+                        {draw?.(v)}
                         {text}
                     </button>
                 ))}
