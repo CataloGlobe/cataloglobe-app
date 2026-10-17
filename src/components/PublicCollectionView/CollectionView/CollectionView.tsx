@@ -17,6 +17,7 @@ import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/components/productImageFraming";
 import type { HubTab } from "@/types/collectionStyle";
 import Text from "@/components/ui/Text/Text";
+import AddControl from "./AddControl";
 import CategoryHeading from "./CategoryHeading";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
@@ -32,7 +33,7 @@ import { hasFeaturedCta } from "../FeaturedBlock/featuredCta";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
 import type { BottomBarSlot, FeaturedSlot, FooterSlot, HeaderSlot, SheetsSlot, StorySlot } from "../redesign/slots";
-import { addLine, lineQty, replaceLine, undoLine } from "../redesign/order/orderDraft";
+import { addLine, lineQty, removeOne, replaceLine, undoLine } from "../redesign/order/orderDraft";
 import { orderRequest, sendFailure, type SendResult } from "../redesign/order/orderSend";
 import { hasOpenSheet } from "../hooks/openSheets";
 import { useBottomBarAutoHide } from "../hooks/useBottomBarAutoHide";
@@ -306,6 +307,8 @@ type ProductRowProps = {
     mode: "public" | "preview";
     onClick: (item: CollectionViewSectionItem) => void;
     onAdd: (item: CollectionViewSectionItem) => void;
+    /** Redesign: c'è il «−», quindi il «+» nuovo nell'angolo in basso (`AddControl`). */
+    onRemove?: (item: CollectionViewSectionItem) => void;
     orderingEnabled: boolean;
     selectionQty?: number;
     iconChip?: boolean;
@@ -322,6 +325,7 @@ function ProductRowInner({
     mode,
     onClick,
     onAdd,
+    onRemove,
     orderingEnabled,
     selectionQty = 0,
     iconChip = false,
@@ -367,6 +371,16 @@ function ProductRowInner({
         e.stopPropagation();
         onAdd(item);
     };
+    const addControl = (place: "photo" | "surface" | "page") =>
+        canAdd && onRemove ? (
+            <AddControl
+                qty={selectionQty}
+                hasOptions={(item.optionGroups?.length ?? 0) > 0}
+                onAdd={() => onAdd(item)}
+                onRemove={() => onRemove(item)}
+                place={place}
+            />
+        ) : null;
 
     return (
         <div
@@ -406,6 +420,7 @@ function ProductRowInner({
                             />
                         </div>
                     )}
+                    {imageRight && addControl("photo")}
                 </div>
             )}
             <div className={styles.rowBody}>
@@ -431,7 +446,7 @@ function ProductRowInner({
                             <span className={styles.promoBadge}>{t("product.badge_promo")}</span>
                         )}
                     </div>
-                    {canAdd && (
+                    {canAdd && !onRemove && (
                         <button
                             type="button"
                             className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
@@ -448,33 +463,36 @@ function ProductRowInner({
                     )}
                 </div>
 
-                {dp.type === "from" ? (
-                    <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
-                        {dp.originalPrice != null && (
-                            <span className={styles.priceOriginal}>
-                                {t("product.price_from", { price: cardPrice(dp.originalPrice, priceAfter) })}
+                <div className={styles.priceRow}>
+                    {dp.type === "from" ? (
+                        <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
+                            {dp.originalPrice != null && (
+                                <span className={styles.priceOriginal}>
+                                    {t("product.price_from", { price: cardPrice(dp.originalPrice, priceAfter) })}
+                                </span>
+                            )}
+                            <span
+                                className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
+                            >
+                                {t("product.price_from", { price: cardPrice(dp.price, priceAfter) })}
                             </span>
-                        )}
-                        <span
-                            className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
-                        >
-                            {t("product.price_from", { price: cardPrice(dp.price, priceAfter) })}
-                        </span>
-                    </Text>
-                ) : dp.type === "single" ? (
-                    <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
-                        {dp.originalPrice != null && (
-                            <span className={styles.priceOriginal}>
-                                {cardPrice(dp.originalPrice, priceAfter)}
+                        </Text>
+                    ) : dp.type === "single" ? (
+                        <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
+                            {dp.originalPrice != null && (
+                                <span className={styles.priceOriginal}>
+                                    {cardPrice(dp.originalPrice, priceAfter)}
+                                </span>
+                            )}
+                            <span
+                                className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
+                            >
+                                {cardPrice(dp.price, priceAfter)}
                             </span>
-                        )}
-                        <span
-                            className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
-                        >
-                            {cardPrice(dp.price, priceAfter)}
-                        </span>
-                    </Text>
-                ) : null}
+                        </Text>
+                    ) : null}
+                    {!(imageRight && showImage) && addControl("surface")}
+                </div>
 
                 {contentDensity !== "minimal" && description && (
                     <Text variant="caption" className={styles.description} color="var(--pub-surface-text-muted)">
@@ -547,6 +565,8 @@ type ProductCompactRowProps = {
     item: CollectionViewSectionItem;
     onClick: (item: CollectionViewSectionItem) => void;
     onAdd: (item: CollectionViewSectionItem) => void;
+    /** Redesign: c'è il «−», quindi il «+» nuovo nell'angolo in basso (`AddControl`). */
+    onRemove?: (item: CollectionViewSectionItem) => void;
     orderingEnabled: boolean;
     selectionQty?: number;
     iconChip?: boolean;
@@ -561,6 +581,7 @@ function ProductCompactRowInner({
     item,
     onClick,
     onAdd,
+    onRemove,
     orderingEnabled,
     selectionQty = 0,
     iconChip = false,
@@ -606,6 +627,16 @@ function ProductCompactRowInner({
         e.stopPropagation();
         onAdd(item);
     };
+    const addControl = (place: "photo" | "surface" | "page") =>
+        canAdd && onRemove ? (
+            <AddControl
+                qty={selectionQty}
+                hasOptions={(item.optionGroups?.length ?? 0) > 0}
+                onAdd={() => onAdd(item)}
+                onRemove={() => onRemove(item)}
+                place={place}
+            />
+        ) : null;
 
     return (
         <div
@@ -648,7 +679,7 @@ function ProductCompactRowInner({
                             </span>
                         </span>
                     )}
-                    {canAdd && (
+                    {canAdd && !onRemove && (
                         <button
                             type="button"
                             className={[styles.addBtnOutline, selectionQty > 0 ? styles.addBtnOutlineActive : ""]
@@ -664,8 +695,17 @@ function ProductCompactRowInner({
                         </button>
                     )}
                 </div>
-                {contentDensity !== "minimal" && description && (
-                    <span className={styles.compactDescription}>{description}</span>
+                {onRemove && canAdd ? (
+                    // Redesign: il «+» sotto il prezzo, in fondo alla riga della descrizione.
+                    <div className={styles.compactSub}>
+                        {contentDensity !== "minimal" && description && (
+                            <span className={styles.compactDescription}>{description}</span>
+                        )}
+                        {addControl("page")}
+                    </div>
+                ) : (
+                    contentDensity !== "minimal" &&
+                    description && <span className={styles.compactDescription}>{description}</span>
                 )}
                 {contentDensity === "full" && item.pairings && item.pairings.length > 0 && (
                     <span className={`${styles.pairingChip} ${styles.pairingChipBg}`}>
@@ -2151,6 +2191,21 @@ export default function CollectionView({
         [handleAddClick, openItemDetail]
     );
 
+    // «−» del «+» nuovo: solo nella pagina nuova (la pagina di oggi tiene il suo «+»).
+    const handleRowRemove = useCallback(
+        (item: CollectionViewSectionItem) => {
+            setSelection(prev => {
+                const next = removeOne(prev, item.id);
+                if (next !== prev && mode === "public" && activityId) {
+                    trackEvent(activityId, "selection_remove", { product_id: item.id, product_name: item.name });
+                }
+                return next;
+            });
+        },
+        [mode, activityId]
+    );
+    const rowRemove = redesignPrices ? handleRowRemove : undefined;
+
     const isProgrammaticScrollRef = useRef(false);
     const programmaticScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -2857,6 +2912,7 @@ export default function CollectionView({
                                         item={item}
                                         onClick={handleRowClick}
                                         onAdd={handleRowAdd}
+                                        onRemove={rowRemove}
                                         orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
                                         iconChip={style.iconStyle === "pill"}
@@ -2873,6 +2929,7 @@ export default function CollectionView({
                                         mode={mode}
                                         onClick={handleRowClick}
                                         onAdd={handleRowAdd}
+                                        onRemove={rowRemove}
                                         orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
                                         iconChip={style.iconStyle === "pill"}
@@ -2903,6 +2960,7 @@ export default function CollectionView({
                                                 item={variantItem}
                                                 onClick={handleRowClick}
                                                 onAdd={handleRowAdd}
+                                                onRemove={rowRemove}
                                                 orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
                                                 iconChip={style.iconStyle === "pill"}
@@ -2919,6 +2977,7 @@ export default function CollectionView({
                                                 mode={mode}
                                                 onClick={handleRowClick}
                                                 onAdd={handleRowAdd}
+                                                onRemove={rowRemove}
                                                 orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
                                                 iconChip={style.iconStyle === "pill"}

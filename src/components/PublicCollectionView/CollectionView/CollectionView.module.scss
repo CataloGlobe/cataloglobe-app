@@ -555,6 +555,27 @@
   opacity: 0.7;
 }
 
+/* Righe compatte del redesign: descrizione e, in fondo a destra, il «+» sotto il prezzo. */
+.compactSub {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+
+  > :last-child {
+    margin-left: auto;
+  }
+}
+
+.compactRowCentered .compactSub {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+
+  > :last-child {
+    margin-left: 0;
+  }
+}
+
 .compactDescription {
   color: var(--pub-bg-text-secondary);
   font-size: 0.82rem;
@@ -1028,6 +1049,23 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.45rem;
+}
+
+/* Riga del prezzo: col redesign il «+» sta qui, a destra (mai nella riga del nome). */
+.priceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+
+  &:empty {
+    display: none;
+  }
+
+  &:not(:has(> :nth-child(2))) {
+    min-height: 0;
+  }
 }
 
 .priceOriginal {
