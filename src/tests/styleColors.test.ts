@@ -131,6 +131,9 @@ describe("disegni nuovi", () => {
     it("lino e curve di livello sono tasselli SVG", () => {
         expect(getPatternCss("linen", "#1B1A17")[1]).toBe("240px 240px");
         expect(getPatternCss("contour", "#1B1A17")[1]).toBe("280px 280px");
-        expect(contourPath().startsWith("M")).toBe(true);
+        const d = contourPath();
+        expect(d).toBe(contourPath());
+        expect(d.length).toBeGreaterThan(40000);
+        expect(d).toMatch(/^M[\d.]+ [\d.]+L[\d.]+ [\d.]+M/);
     });
 });

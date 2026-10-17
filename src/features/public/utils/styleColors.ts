@@ -1,7 +1,7 @@
 /**
- * Regole dei colori dell'editor stili (spec `editor-stili/spec-app.md` §2, stesse
- * funzioni del simulatore `sim-v5.mjs`): pagina chiara o scura, contrasto garantito,
- * scuro nel tono della pagina, colore del contorno, consiglio Chiari/Scuri.
+ * Regole dei colori dell'editor stili, le stesse dell'anteprima con cui sono state
+ * decise: pagina chiara o scura, contrasto garantito, scuro nel tono della pagina,
+ * colore del contorno, consiglio Chiari/Scuri.
  */
 
 /** Sotto questa luminanza la pagina è scura. */

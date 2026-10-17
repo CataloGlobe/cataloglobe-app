@@ -46,46 +46,6 @@ function mixHex(bgHex: string, fgHex: string, alpha: number): string {
 }
 
 /**
- * Parses a hex color (#rrggbb or #rgb) and returns relative luminance [0, 1].
- * Returns 0.5 on parse failure so the caller defaults to white text (safe).
- */
-function hexLuminance(hex: string): number {
-    const clean = hex.replace("#", "");
-    const full =
-        clean.length === 3
-            ? clean
-                  .split("")
-                  .map(c => c + c)
-                  .join("")
-            : clean;
-    if (full.length !== 6) return 0.5;
-
-    const r = parseInt(full.slice(0, 2), 16) / 255;
-    const g = parseInt(full.slice(2, 4), 16) / 255;
-    const b = parseInt(full.slice(4, 6), 16) / 255;
-
-    const linearize = (c: number) =>
-        c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-
-    return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
-}
-
-/**
- * Returns true if the color is perceptually light (luminance > 0.35).
- */
-function isLight(hex: string): boolean {
-    return hexLuminance(hex) > 0.35;
-}
-
-/**
- * Returns "#ffffff" or "#1a1a1a" depending on which gives better contrast
- * against the given background color.
- */
-export function contrastText(bgHex: string): string {
-    return isLight(bgHex) ? "#1a1a1a" : "#ffffff";
-}
-
-/**
  * Converts a hex color (#rrggbb or #rgb) into an rgba() string at the given alpha [0, 1].
  * Used to build the glass surface "tint floor" — a semi-transparent surface color that
  * keeps text legible behind the blur even over a flat background.
@@ -135,7 +95,7 @@ export function getPatternCss(
             ];
         case "contour":
             return [
-                svg(`<svg xmlns='http://www.w3.org/2000/svg' width='${CONTOUR_TILE}' height='${CONTOUR_TILE}'><path d='${contourPath()}' fill='none' stroke='${rgba(0.09)}' stroke-width='1' stroke-linecap='round'/></svg>`),
+                contourUrl(rgba(0.09)),
                 `${CONTOUR_TILE}px ${CONTOUR_TILE}px`
             ];
         case "diagonal":
@@ -173,12 +133,23 @@ export function getPatternCss(
     }
 }
 
+// Il tracciato pesa ~47 KB: l'URL si ricalcola solo quando cambia il colore della linea
+// (l'anteprima dell'editor chiama il mapper a ogni modifica).
+let contourCache: { stroke: string; url: string } | null = null;
+function contourUrl(stroke: string): string {
+    if (contourCache?.stroke !== stroke) {
+        const s = `<svg xmlns='http://www.w3.org/2000/svg' width='${CONTOUR_TILE}' height='${CONTOUR_TILE}'><path d='${contourPath()}' fill='none' stroke='${stroke}' stroke-width='1' stroke-linecap='round'/></svg>`;
+        contourCache = { stroke, url: `url("data:image/svg+xml,${encodeURIComponent(s)}")` };
+    }
+    return contourCache.url;
+}
+
 /**
  * Converte il token BorderRadius nel valore numerico in px usato dall'animazione lerp dell'header.
  * Stessa tabella di conversione usata per --pub-radius nella CSS var.
  */
 export function borderRadiusToPx(br: BorderRadius): number {
-    return RADII[br][0];
+    return (RADII[br] ?? RADII.rounded)[0];
 }
 
 /**
@@ -215,6 +186,8 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     const bg = tokens.colors.pageBackground;
     const dark = isDarkPage(bg);
     const ink = dark ? INK_ON_DARK : INK_ON_LIGHT;
+    // Un solo attenuato per secondary e muted: al 62% fa 4,5:1 anche sui riquadri bianchi
+    // (D75, deciso da Lorenzo il 2026-10-13: mai sotto WCAG AA).
     const mut = dark ? "rgb(243 241 236 / 64%)" : "rgb(27 26 23 / 62%)";
 
     // superficie derivata dallo sfondo (no più colore utente) — vedi deriveSurface
@@ -227,8 +200,8 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     // Ink (neutro utility/chrome): quasi-nero/quasi-bianco che assorbe il 12% del colore pagina.
     // Su sfondo chiaro resta scuro, su sfondo scuro diventa una pill chiara → sempre leggibile.
     // Derivato dallo sfondo pagina così le pill utility si staccano da --pub-surface.
-    const inkPill = mixHex(contrastText(bg), bg, 0.12);
-    const inkText = contrastText(inkPill);
+    const inkPill = mixHex(ink, bg, 0.12);
+    const inkText = isDarkPage(inkPill) ? INK_ON_DARK : INK_ON_LIGHT;
 
     const borderOnBg = mixHex(bg, ink, 0.1);
     const outline = borderColor(tokens.appearance.outlinedBorderColor === "primary", bg, primary);
@@ -254,6 +227,9 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         : nearWhite
             ? `0 0 0 1px rgba(${tint},.07), 0 2px 5px rgba(${tint},.12), 0 12px 24px -8px rgba(${tint},.26)`
             : `0 1px 2px rgba(${tint},.07), 0 6px 14px -4px rgba(${tint},.13), 0 18px 30px -14px rgba(${tint},.16)`;
+    const raisedShadowHover = dark
+        ? "inset 0 1px 0 rgba(255,255,255,.07), 0 4px 8px rgba(0,0,0,.4), 0 16px 32px -8px rgba(0,0,0,.65)"
+        : `0 1px 2px rgba(${tint},.08), 0 8px 18px -4px rgba(${tint},.17), 0 22px 36px -14px rgba(${tint},.2)`;
 
     // Riquadro in cima, barra in basso e scheda del piatto: chiari o scuri, mai nel colore del locale.
     // Uno stile salvato prima dell'editor nuovo resta scuro come la pagina di oggi.
@@ -324,7 +300,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
         // ── Materiale dei riquadri (piatti, In evidenza) ─────────────────
         "--pub-card-shadow": raisedShadow,
-        "--pub-card-shadow-hover": raisedShadow,
+        "--pub-card-shadow-hover": raisedShadowHover,
         "--pub-card-outline-bg": dark ? "transparent" : mix(bg, surface, 0.45),
         "--pub-card-outline-shadow": dark
             ? "0 1px 2px rgba(0,0,0,.4), 0 10px 20px -10px rgba(0,0,0,.7)"
