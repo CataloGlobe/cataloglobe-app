@@ -144,6 +144,14 @@
   }
 }
 
+/* Sopra i 1024px la foto è in cima, larga quanto la scheda: il «+» sta dentro l'angolo, non fuori. */
+@container collection (min-width: 1024px) {
+  .photo {
+    right: 10px;
+    bottom: 10px;
+  }
+}
+
 @keyframes stepper-in {
   from {
     opacity: 0;
