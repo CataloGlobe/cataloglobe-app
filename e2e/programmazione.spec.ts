@@ -473,6 +473,18 @@ test.describe("Programmazione — elenco", () => {
         await expect(page).toHaveURL(new RegExp(`/scheduling/${NEW_ID}`));
     });
 
+    // Multi menù (passo 6): col Calendario acceso (in dev sempre) «Menù e stile» non crea una layout,
+    // apre l'aggiunta del Calendario, perché il dettaglio non modifica le regole menù e stile.
+    test("cablaggio: «Aggiungi» (menù e stile) apre l'aggiunta del Calendario", async ({ page }) => {
+        stub.onWrite("schedules.POST", () => ({ id: "e2e0d000-0000-4000-a000-000000000778" }));
+        await openList(page, "layout");
+        if (await lookD(page)) return addOpensTunnel(page);
+        await page.getByRole("button", { name: "Aggiungi", exact: true }).first().click();
+        await expect(page).toHaveURL(/vista=calendario/);
+        await expect(main(page).getByRole("heading", { name: "Cosa vuoi mettere in calendario?" })).toBeVisible({ timeout: 15_000 });
+        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+    });
+
     test("cablaggio: «Aggiungi» (regola) dalla sede nasce su quella sede e resta nella sede (PG6)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000779";
         stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
@@ -646,7 +658,8 @@ test.describe("Programmazione — ruolo di sede con più sedi", () => {
     test("cablaggio: «Aggiungi» dall'azienda nasce sulle sue sedi (T9b)", async ({ page }) => {
         const NEW_ID = "e2e0d000-0000-4000-a000-000000000781";
         stub.onWrite("rpc.create_schedule_with_targets", () => NEW_ID);
-        await openList(page, "layout");
+        // Prezzi: «Menù e stile» col Calendario acceso apre il Calendario (multi menù, passo 6)
+        await openList(page, "price");
         if (await lookD(page)) return addOpensTunnel(page);
         await page.getByRole("button", { name: /^Aggiungi/ }).first().click();
         await expect.poll(() => writesOf(stub, "rpc.create_schedule_with_targets").length).toBe(1);

@@ -51,6 +51,8 @@ import { compareJudgeEntries } from "@shared/scheduleCompetition";
 import { describeTarget } from "./components/ruleTarget";
 import { measureTextWidth } from "@/utils/measureText";
 import { LOOK_D } from "@/styles/lookD";
+import { NEW_MODEL } from "./calendar/calendarFlags";
+import { addsFromCalendar } from "./calendar/splitLayout";
 import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import CalendarioView from "./calendar/CalendarioView";
 import type { CalNames } from "./calendar/calendarModel";
@@ -812,6 +814,15 @@ export default function Programming() {
     const handleCreateRule = useCallback(async (overrideType?: RuleType) => {
         const effectiveType = overrideType ?? (ruleTypeFilter === "all" ? undefined : ruleTypeFilter as RuleType);
         if (!effectiveType) return;
+        // multi menù: col Calendario acceso menù e stile si aggiungono da lì (il dettaglio non li modifica)
+        if (addsFromCalendar(effectiveType)) {
+            setSearchParams(prev => {
+                prev.set("vista", "calendario");
+                prev.set("aggiungi", "calendario");
+                return prev;
+            });
+            return;
+        }
         setIsCreating(true);
         try {
             const timestamp = new Date().toLocaleDateString("it-IT", {
@@ -855,7 +866,7 @@ export default function Programming() {
         } finally {
             setIsCreating(false);
         }
-    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, routeActivityId, schedulingBase, scopedTargetIds, showToast]);
+    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, routeActivityId, schedulingBase, scopedTargetIds, setSearchParams, showToast]);
 
     // «Aggiungi» da solo (PG4): il simulatore si apre dalla card «Adesso».
     // Sulla tab "Tutte" non ha un tipo implicito da creare → apre lei stessa il
@@ -1240,7 +1251,7 @@ export default function Programming() {
                     addFromRules={LOOK_D && searchParams.get("aggiungi") === "regole" ? backToRules : undefined}
                     // solo a dati caricati e con il permesso, come il pulsante «Aggiungi»
                     addOnArrive={
-                        LOOK_D && searchParams.get("aggiungi") === "calendario" && !isLoading && canCreate && canEdit
+                        (LOOK_D || NEW_MODEL.splitLayout) && searchParams.get("aggiungi") === "calendario" && !isLoading && canCreate && canEdit
                             ? addArrived
                             : undefined
                     }

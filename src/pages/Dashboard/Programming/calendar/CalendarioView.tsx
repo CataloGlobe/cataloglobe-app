@@ -82,7 +82,7 @@ import { calLead, inOndaOra } from "./calendarLead";
 import { CalendarioAgenda, type AgendaItem } from "./CalendarioAgenda";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { PartialSaveError } from "./calendarSave";
-import { LastBaseError, lastBaseMenu } from "./baseRule";
+import { LastBaseError, basePair, lastBaseMenu } from "./baseRule";
 
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const DAYS_L = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -986,14 +986,9 @@ export default function CalendarioView({
         [section?.pickList, anteprima?.pickList, names, sedi, groupNames, multi]
     );
     // oggi menù e stile vanno in coppia: si parte da quelli della regola di base
-    const base = useMemo(
-        () =>
-            rules.find(r => r.enabled && r.rule_type === "layout" && r.applyToAll && r.time_mode === "always" && !r.start_at && !r.end_at && r.layout?.catalog_id && r.layout?.style_id)
-                ?.layout ?? null,
-        [rules]
-    );
+    const base = useMemo(() => basePair(rules), [rules]);
     const pairFor = (k: CalKind) =>
-        k === "menu" ? (base?.style_id ?? section?.systemStyleId ?? section?.styles[0]?.id ?? null) : k === "style" ? (base?.catalog_id ?? section?.catalogs[0]?.id ?? null) : null;
+        k === "menu" ? (base?.styleId ?? section?.systemStyleId ?? section?.styles[0]?.id ?? null) : k === "style" ? (base?.catalogId ?? section?.catalogs[0]?.id ?? null) : null;
     const openAdd = () => {
         setSec({ back: !!pick });
         setDraft(null);

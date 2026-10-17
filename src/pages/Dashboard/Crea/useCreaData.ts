@@ -8,6 +8,7 @@ import { listFeaturedContentPositions } from "@/services/supabase/featuredConten
 import { NEW_MODEL } from "@/pages/Dashboard/Programming/calendar/calendarFlags";
 import type { DraftLookups, PickProduct } from "@/pages/Dashboard/Programming/calendar/calendarDraft";
 import type { CalNames } from "@/pages/Dashboard/Programming/calendar/calendarModel";
+import { basePair } from "@/pages/Dashboard/Programming/calendar/baseRule";
 
 export type CreaData = {
     rules: LayoutRule[];
@@ -135,17 +136,6 @@ export function useCreaData(tenantId: string | null | undefined) {
         for (const [g, ids] of Object.entries(raw.idsByGroup)) for (const id of ids) (groupIdsByActivity[id] ??= []).push(g);
         const sedi = raw.activities.map(a => ({ id: a.id, name: a.name, ...(a.status === "inactive" ? { off: true as const } : {}) }));
         const groupNames = new Map(raw.groups.map(g => [g.id, g.name]));
-        const baseRule = raw.rules.find(
-            r =>
-                r.enabled &&
-                r.rule_type === "layout" &&
-                r.applyToAll &&
-                r.time_mode === "always" &&
-                !r.start_at &&
-                !r.end_at &&
-                r.layout?.catalog_id &&
-                r.layout?.style_id
-        );
         const menusOf = new Map<string, string[]>();
         for (const x of raw.pairs ?? []) {
             const l = menusOf.get(x.product_id);
@@ -166,7 +156,7 @@ export function useCreaData(tenantId: string | null | undefined) {
             pickList,
             catalogs: raw.catalogs,
             styles: raw.styles,
-            base: baseRule?.layout ? { catalogId: baseRule.layout.catalog_id!, styleId: baseRule.layout.style_id! } : null,
+            base: basePair(raw.rules),
             systemStyleId: raw.styles.find(st => st.is_system)?.id ?? null,
             L: {
                 products: new Map(pickList.map(p => [p.id, p])),
