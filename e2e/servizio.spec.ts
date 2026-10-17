@@ -92,10 +92,27 @@ async function expectModo(page: Page, name: "Elenco" | "Mappa" | "Sala", timeout
 /** Apre Servizio dalla sidebar e sceglie la Mappa per nome. */
 async function openMappa(page: Page): Promise<string> {
     const base = await openVoce(page, "In servizio");
+    await inSala(page);
     await expect(modo(page, "Mappa")).toBeVisible({ timeout: 15_000 });
     await modo(page, "Mappa").click();
     await expectModo(page, "Mappa");
+    // Nella D la sala sta accanto alle Comande (un terzo della pagina): «Allarga»
+    // le dà tutta la larghezza, come fuori dalla D, e il pannello del tavolo
+    // non copre le tessere.
+    const allarga = main(page).getByRole("region", { name: "In sala" }).getByRole("button", { name: "Allarga" });
+    if (await allarga.isVisible()) await allarga.click();
     return base;
+}
+
+/**
+ * Nella D, a pagina stretta (sotto 700 px), In servizio mostra una parte alla
+ * volta e parte dalle Comande: si sceglie «In sala». Fuori dalla D niente.
+ */
+async function inSala(page: Page): Promise<void> {
+    if (!(await lookD(page))) return;
+    const parti = page.getByRole("radiogroup", { name: "Parti di In servizio" });
+    await expect(main(page).getByRole("region").first()).toBeAttached({ timeout: 15_000 });
+    if (await parti.isVisible()) await parti.getByRole("radio", { name: /^In sala/ }).click();
 }
 
 /** La tessera del tavolo della fixture nella Mappa. */
@@ -111,23 +128,36 @@ test.describe("Servizio", () => {
         const d = await page.evaluate(() => document.documentElement.dataset.look === "d");
         // Nella D come nella copia «Visual Redesign PR 3»: Prenotazioni è una parte, «Cosa vedono» si apre da «Disponibilità».
         await expect(parti).toHaveText(d ? ["In servizio", "Prenotazioni", "Storico"] : ["In servizio", "Cosa vedono i clienti", "Sala", "Storico"], { timeout: 15_000 });
-        // Comande (e fuori dalla D Prenotazioni) non sono parti: le apre l'interruttore di «In servizio».
-        const pagine = page.getByRole("radiogroup", { name: "Parti di In servizio" }).getByRole("radio");
-        await expect(pagine).toHaveText(d ? ["Elenco", "Mappa", "Comande"] : ["Elenco", "Mappa", "Prenotazioni", "Comande"]);
-        await page.getByRole("radio", { name: "Comande", exact: true }).click();
-        await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
-        await expect(page.getByRole("radio", { name: "Comande", exact: true })).toHaveAttribute("aria-checked", "true");
-        await expect(await sidebarLink(page, "In servizio")).toHaveAttribute("aria-current", "page");
         if (d) {
+            // Nella D (copia «Visual Redesign PR 3») le Comande e la sala stanno nella stessa pagina,
+            // affiancate; la sala ha «In sala · In arrivo» e Mappa/Elenco, e si parte dalla Mappa.
+            await expect(main(page).getByRole("region", { name: "Comande" })).toBeVisible({ timeout: 15_000 });
+            await expect(main(page).getByRole("region", { name: "In sala" })).toBeVisible();
+            await expect(page.getByRole("radiogroup", { name: "In sala o in arrivo" }).getByRole("radio")).toHaveText([/^In sala/, /^In arrivo/]);
+            await expect(page.getByRole("radiogroup", { name: "Vista della sala" }).getByRole("radio")).toHaveText(["Mappa", "Elenco"]);
+            await expectModo(page, "Mappa");
+            await expect(page.getByRole("radiogroup", { name: "Parti di In servizio" })).toBeHidden();
+            await expect(await sidebarLink(page, "In servizio")).toHaveAttribute("aria-current", "page");
             await parti.getByText("Prenotazioni", { exact: true }).click();
             await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
             await expect(await sidebarLink(page, "Prenotazioni")).toHaveAttribute("aria-current", "page");
             await expect(page.getByRole("radiogroup", { name: "Parti di In servizio" })).toHaveCount(0);
             await openVoce(page, "In servizio");
-        } else {
-            await page.getByRole("radio", { name: "Prenotazioni", exact: true }).click();
-            await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
+            await page.getByRole("radio", { name: "Elenco", exact: true }).click();
+            await expect(page).toHaveURL(/\/servizio\?modo=elenco$/, { timeout: 15_000 });
+            await page.getByRole("radio", { name: "Mappa", exact: true }).click();
+            await expect(page).toHaveURL(/\/servizio\?modo=mappa$/, { timeout: 15_000 });
+            return;
         }
+        // Comande e Prenotazioni non sono parti: le apre l'interruttore di «In servizio».
+        const pagine = page.getByRole("radiogroup", { name: "Parti di In servizio" }).getByRole("radio");
+        await expect(pagine).toHaveText(["Elenco", "Mappa", "Prenotazioni", "Comande"]);
+        await page.getByRole("radio", { name: "Comande", exact: true }).click();
+        await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
+        await expect(page.getByRole("radio", { name: "Comande", exact: true })).toHaveAttribute("aria-checked", "true");
+        await expect(await sidebarLink(page, "In servizio")).toHaveAttribute("aria-current", "page");
+        await page.getByRole("radio", { name: "Prenotazioni", exact: true }).click();
+        await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
         await page.getByRole("radio", { name: "Mappa", exact: true }).click();
         await expect(page).toHaveURL(/\/servizio\?modo=mappa$/, { timeout: 15_000 });
     });
@@ -261,6 +291,7 @@ test.describe("Servizio", () => {
         await page.setViewportSize({ width: 768, height: 900 });
         await expect.poll(async () => new Set(await tops()).size).toBe(1);
         await page.setViewportSize({ width: 375, height: 900 });
+        await inSala(page);
         // Nella D tessere da 146 px come nella v28: al telefono due per riga.
         if (await page.evaluate(() => document.documentElement.dataset.look === "d")) {
             await expect.poll(async () => new Set(await tops()).size).toBe(1);
@@ -299,6 +330,7 @@ test.describe("Servizio", () => {
         await expect(tessera(page)).toBeVisible({ timeout: 15_000 });
         for (const width of [768, 375]) {
             await page.setViewportSize({ width, height: 900 });
+            await inSala(page);
             await expect(tessera(page)).toBeVisible();
             const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
             expect(overflow).toBeLessThanOrEqual(0);
@@ -373,8 +405,9 @@ test.describe("Elenco (lotto B-b)", () => {
     test("col piano Pro Servizio si apre sull'Elenco", async ({ page }) => {
         await openVoce(page, "In servizio");
         await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
-        await expectModo(page, "Elenco", 15_000);
-        await expect(modo(page, "Mappa")).toBeVisible();
+        // Nella D si parte dalla Mappa, come nella copia «Visual Redesign PR 3».
+        await expectModo(page, D_ON ? "Mappa" : "Elenco", 15_000);
+        await expect(modo(page, D_ON ? "Elenco" : "Mappa")).toBeVisible();
         await expect(modo(page, "Gestisci la sala")).toHaveCount(0);
     });
 
@@ -384,6 +417,20 @@ test.describe("Elenco (lotto B-b)", () => {
         const m = main(page);
         await expect(m.getByText(/in sala adesso/i)).toBeVisible({ timeout: 15_000 });
         await expect(m.getByText("Paolo Gallo").first()).toBeVisible();
+        if (D_ON) {
+            // Nella D gli arrivi sono la parte «In arrivo», accanto a «In sala», e la riga «Oggi» è «Adesso».
+            await page.getByRole("radiogroup", { name: "In sala o in arrivo" }).getByRole("radio", { name: /^In arrivo/ }).click();
+            await expect(page).toHaveURL(/[?&]parte=arrivo/);
+            await expect(m.getByText("Sara Conti").first()).toBeVisible({ timeout: 15_000 });
+            await expect(m.getByText("Elena Riva").first()).toBeVisible();
+            await expect(m.getByText("Ospite di Varedo")).toHaveCount(0);
+            await expect(m.getByText("Paolo Gallo")).toHaveCount(0);
+            await expect(m.getByRole("button", { name: "Senza prenotazione" })).toBeVisible();
+            const adesso = m.getByRole("status", { name: "Adesso" });
+            await expect(adesso).toBeVisible();
+            expect((await adesso.boundingBox())!.height).toBeLessThan(64);
+            return;
+        }
         await expect(m.getByText(/in arrivo/i)).toBeVisible();
         await expect(m.getByText("Sara Conti").first()).toBeVisible();
         await expect(m.getByText("Elena Riva").first()).toBeVisible();
@@ -444,6 +491,16 @@ test.describe("Elenco (lotto B-b)", () => {
         const base = await sedePath(page);
         await page.goto(`${base}/servizio?modo=mappa`);
         const m = main(page);
+        if (D_ON) {
+            // Nella D una riga sola per tutta la pagina, «Adesso» in testata; «Senza prenotazione» sta in testata
+            // anche con la Mappa (copia «Visual Redesign PR 3»): apre l'Elenco della sala.
+            await expect(m.getByRole("status", { name: "Adesso" })).toBeVisible({ timeout: 15_000 });
+            await expect(m.getByRole("status", { name: "Oggi" })).toHaveCount(0);
+            await m.getByRole("button", { name: "Senza prenotazione" }).click();
+            await expect(page).toHaveURL(/modo=elenco/);
+            await expect(page.getByRole("dialog").getByText("Tavolata senza prenotazione").first()).toBeVisible();
+            return;
+        }
         await expect(m.getByRole("status", { name: "Oggi" })).toBeVisible({ timeout: 15_000 });
         await expect(m.getByRole("button", { name: "Senza prenotazione" })).toHaveCount(0);
         const richieste = m.getByRole("link", { name: D_ON ? /prenotazion[ei] da confermare/ : /richiest[ae] da gestire/ });
@@ -504,7 +561,8 @@ test.describe("Elenco (lotto B-b)", () => {
             await asRole(page, role, base.split("/").pop()!, "pro");
             await page.goto(base);
             await expect(page).toHaveURL(/\/servizio$/, { timeout: 15_000 });
-            await expectModo(page, "Elenco", 15_000);
+            await inSala(page);
+            await expectModo(page, D_ON ? "Mappa" : "Elenco", 15_000);
             await expect(main(page).getByText(/Non hai accesso|richiede il piano Pro/)).toHaveCount(0);
         });
     }
@@ -516,12 +574,102 @@ test.describe("Elenco (lotto B-b)", () => {
         await expect(main(page).getByText(/in sala adesso/i)).toBeVisible({ timeout: 15_000 });
     });
 
+    test("D: Comande accanto alla sala, «Adesso» le conta, «Allarga», e al telefono una parte alla volta", async ({ page }) => {
+        test.skip(!D_ON, "la pagina In servizio della D");
+        // A 1440 le Comande hanno le tre colonne (sotto i 600 px di riquadro, una alla volta, come nella copia).
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await openVoce(page, "In servizio");
+        const m = main(page);
+        const comande = m.getByRole("region", { name: "Comande" });
+        const sala = m.getByRole("region", { name: "In sala" });
+        for (const colonna of ["Nuove", "In lavorazione", "Pronte"]) {
+            await expect(comande.getByRole("region", { name: colonna })).toBeVisible({ timeout: 15_000 });
+        }
+        // La comanda della fixture è di un servizio precedente: sta nella riga
+        // delle rimaste e «Adesso» non la conta (copia, B2); «Guarda» la mostra.
+        await expect(comande.getByText(/rimast[ae] da servizi precedenti/)).toBeVisible({ timeout: 15_000 });
+        await expect(m.getByRole("status", { name: "Adesso" })).not.toContainText(/comand[ae] nuov[ae]/);
+        await comande.getByRole("button", { name: "Guarda", exact: true }).click();
+        await expect(comande.getByRole("article", { name: "T TEST", exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
+        // Affiancate: le Comande a sinistra, la sala a destra, sulla stessa riga.
+        const [c, s] = [(await comande.boundingBox())!, (await sala.boundingBox())!];
+        expect(c.x + c.width).toBeLessThanOrEqual(s.x);
+        expect(Math.abs(c.y - s.y)).toBeLessThan(4);
+
+        await comande.getByRole("button", { name: "Allarga" }).click();
+        await expect(sala).toBeHidden();
+        await comande.getByRole("button", { name: "Rimpicciolisci" }).click();
+        await expect(sala).toBeVisible();
+
+        await page.setViewportSize({ width: 375, height: 900 });
+        const parti = page.getByRole("radiogroup", { name: "Parti di In servizio" });
+        await expect(parti.getByRole("radio", { name: /^Comande/ })).toHaveAttribute("aria-checked", "true");
+        await expect(sala).toBeHidden();
+        await parti.getByRole("radio", { name: /^In arrivo/ }).click();
+        await expect(page).toHaveURL(/[?&]parte=arrivo/);
+        await expect(m.getByRole("region", { name: "In arrivo" })).toBeVisible();
+        await expect(comande).toBeHidden();
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        expect(overflow).toBeLessThanOrEqual(0);
+    });
+
+    test("D: «Disponibilità» apre il pannello dei prodotti, e da lì la pagina intera si chiama «Disponibilità»", async ({ page }) => {
+        test.skip(!D_ON, "la pagina In servizio della D");
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await openVoce(page, "In servizio");
+        await page.getByRole("button", { name: /^Disponibilità/ }).first().click();
+        await expect(page).toHaveURL(/[?&]disponibilita=1/);
+        const pane = page.getByRole("dialog", { name: "Disponibilità dei prodotti" });
+        await expect(pane).toBeVisible({ timeout: 15_000 });
+        // Il contenuto è quello della pagina: la banda dell'esito.
+        await expect(pane.getByRole("region", { name: "Cosa vedono i clienti" })).toBeVisible({ timeout: 15_000 });
+        await pane.getByRole("button", { name: "Apri la pagina intera" }).click();
+        await expect(page).toHaveURL(/\/cosa-vedono$/);
+        // Nella D le pagine della sede non hanno un h1: la nominano le briciole.
+        await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Disponibilità", { timeout: 15_000 });
+    });
+
+    test("D: il viewer apre la Disponibilità in sola lettura", async ({ page }) => {
+        test.skip(!D_ON, "la pagina In servizio della D");
+        const base = await sedePath(page);
+        await asRole(page, "viewer", base.split("/").pop()!, "pro");
+        await page.goto(`${base}/servizio?disponibilita=1`);
+        const pane = page.getByRole("dialog", { name: "Disponibilità dei prodotti" });
+        await expect(pane.getByText(/^Sola lettura/)).toBeVisible({ timeout: 15_000 });
+    });
+
+    test("D: «In arrivo» ha «Da confermare» con Conferma e Rifiuta, e rimanda a Prenotazioni per gli altri giorni", async ({ page }) => {
+        test.skip(!D_ON, "la pagina In servizio della D");
+        const base = await sedePath(page);
+        await page.goto(`${base}/servizio?parte=arrivo`);
+        const arrivo = main(page).getByRole("region", { name: "In arrivo" });
+        // Le tre da confermare della sede: oggi, domani e otto giorni fa.
+        const giulia = arrivo.getByRole("button").filter({ hasText: "Giulia Bianchi" });
+        await expect(giulia).toBeVisible({ timeout: 15_000 });
+        await expect(arrivo.getByText("Marco Rossi")).toBeVisible();
+        // Quella di otto giorni fa, se non è fra le righe, la dice il rimando.
+        const altra = arrivo.getByRole("link", { name: "Un'altra in Prenotazioni" });
+        await expect(arrivo.getByText("Luca Verdi").or(altra)).toBeVisible();
+        if ((await altra.count()) > 0) await expect(altra).toHaveAttribute("href", /\/prenotazioni$/);
+        await expect(main(page).getByRole("status", { name: "Adesso" })).toContainText(/3 prenotazioni da confermare/);
+        // Gli arrivi confermati di oggi stanno sotto, in «Oggi».
+        await expect(arrivo.getByText("Sara Conti")).toBeVisible();
+
+        await giulia.getByRole("button", { name: "Conferma" }).click();
+        await expect(page.getByText("Prenotazione confermata.")).toBeVisible();
+        await page.getByRole("button", { name: "Annulla", exact: true }).click();
+        await expect(giulia.getByRole("button", { name: "Rifiuta" })).toBeVisible();
+        expect(stub.writes).toHaveLength(0);
+    });
+
     test("a 768 e 375 l'Elenco non scorre di lato", async ({ page }) => {
         const base = await sedePath(page);
         await page.goto(`${base}/servizio?modo=elenco`);
         await expect(main(page).getByText("Paolo Gallo").first()).toBeVisible({ timeout: 15_000 });
         for (const width of [768, 375]) {
             await page.setViewportSize({ width, height: 900 });
+            await inSala(page);
             await expect(main(page).getByText("Paolo Gallo").first()).toBeVisible();
             const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
             expect(overflow).toBeLessThanOrEqual(0);

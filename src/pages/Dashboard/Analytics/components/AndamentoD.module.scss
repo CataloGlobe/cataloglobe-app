@@ -51,6 +51,15 @@
   align-items: center;
 }
 
+// La testata ha la classe sticky di Vetrina (display: grid): qui frase e comandi restano in riga.
+.page > .cmd {
+  display: flex;
+}
+
+.cmd[data-compact] .answer {
+  display: none;
+}
+
 .answer {
   @include d-type(answer);
 

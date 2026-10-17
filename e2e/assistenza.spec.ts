@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage, openBusinessPageByUrl } from "./business";
 import { sidebarVoci } from "./nav";
@@ -115,7 +116,7 @@ test.describe("Assistenza — elenco", () => {
         expect(write(stub, "rpc.create_support_ticket")).toBeUndefined();
 
         await drawer.getByRole("textbox", { name: /^Oggetto/ }).fill("Menù non aggiornato e2e");
-        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Porto e2e" });
+        await scegli(drawer.getByRole("combobox", { name: /Sede/ }), { label: "Porto e2e" });
         await drawer.getByRole("textbox", { name: /^Descrizione/ }).fill("Il prezzo del caffè è quello vecchio.");
         await drawer.getByRole("button", { name: "Invia richiesta" }).click();
         await expect(page).toHaveURL(new RegExp(`/support/${created.id}$`));

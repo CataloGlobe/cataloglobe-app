@@ -593,6 +593,8 @@
     padding: 18px clamp(14px, 2.4vw, 28px) 10px;
     background: var(--d-bg);
   }
+  .topD[data-compact] { padding-block: 8px 0; }
+  .topD[data-compact] > p { display: none; }
   // Senza il telefono a fianco, Copia il link e Apri la pagina stanno qui.
   .barActs { display: none; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 

@@ -173,6 +173,16 @@
     @include narrow-board;
 }
 
+// Dentro In servizio della D (copia «Visual Redesign PR 3», `.board` sotto i
+// 600): un nome di contenitore suo, così il limite dei 720 non la tocca.
+.board[data-embedded] {
+    container-name: board-d;
+}
+
+@container board-d (max-width: 599px) {
+    @include narrow-board;
+}
+
 @mixin narrow-board-d {
     .stateTabs [role="tablist"] {
         display: inline-flex;
@@ -298,6 +308,10 @@
     }
 
     @container board (max-width: 719px) {
+        @include narrow-board-d;
+    }
+
+    @container board-d (max-width: 599px) {
         @include narrow-board-d;
     }
 }

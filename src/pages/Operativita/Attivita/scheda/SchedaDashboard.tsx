@@ -20,6 +20,8 @@ import { useSchedaFollow } from "./useSchedaFollow";
 import { usePhoneFit } from "@/hooks/usePhoneFit";
 import { LOOK_D } from "@/styles/lookD";
 import { Lead } from "@/pages/Dashboard/Vetrina/VetrinaHead";
+import vs from "@/pages/Dashboard/Vetrina/Vetrina.module.scss";
+import { useCompactHead } from "@/pages/Dashboard/Vetrina/useCompactHead";
 import type { LeadPart } from "@/pages/Dashboard/Vetrina/vetrinaModel";
 import { addressLine } from "./schedaModel";
 import styles from "./Scheda.module.scss";
@@ -47,6 +49,8 @@ function rich(text: string) {
  * card fissa sopra il telefono dice cos'è; il telefono non si muove.
  */
 export function SchedaDashboard({ facts, tiles, now, onCopyLink, lead }: SchedaDashboardProps) {
+    // La frase si ritira scorrendo (copia, punto 7); restano ferme le azioni.
+    const { compact: headCompact, setTop: setHeadTop } = useCompactHead();
     const { a } = facts;
     const rootRef = useRef<HTMLDivElement>(null);
     const colRef = useRef<HTMLDivElement>(null);
@@ -134,7 +138,8 @@ export function SchedaDashboard({ facts, tiles, now, onCopyLink, lead }: SchedaD
         );
         return (
             <div className={styles.root} ref={rootRef}>
-                <div className={styles.topD} ref={topRef}>
+                <div ref={setHeadTop} className={vs.top} aria-hidden />
+                <div className={styles.topD} ref={topRef} data-compact={headCompact ? "" : undefined}>
                     {lead && <Lead parts={lead} family="menu" />}
                     <div className={styles.barActs}>{acts}</div>
                 </div>

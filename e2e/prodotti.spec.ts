@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { sidebarLink, sediGriglia } from "./nav";
@@ -106,16 +107,27 @@ async function openCollection(page: Page, name: RegExp): Promise<void> {
 
 const QUALITY_VALUE = { "Senza prezzo": "missing-price", "Fuori menù": "out-of-catalog", Tutti: "all" } as const;
 
+/** Apre «Mostra solo» se la riga dei comandi ha raccolto lì i chip. */
+async function openZipped(page: Page): Promise<boolean> {
+    const fz = main(page).getByRole("button", { name: /^Mostra solo/ });
+    if (!(await fz.isVisible().catch(() => false))) return false;
+    await fz.click();
+    return true;
+}
+
 /** Filtro di qualità: chip (dopo P2) o `Select` (oggi). */
 async function quality(page: Page, name: keyof typeof QUALITY_VALUE): Promise<void> {
     // nella D «Fuori menù» si chiama «In nessun menù»
     const label = name === "Fuori menù" ? "(Fuori menù|In nessun menù)" : name;
-    const chip = main(page).getByRole("radio", { name: new RegExp(`^${label}`) });
+    // Nella D, se non c'è posto, i chip stanno nel pulsante «Mostra solo».
+    const zipped = await openZipped(page);
+    const chip = page.getByRole("radio", { name: new RegExp(`^${label}`) }).filter({ visible: true });
     if ((await chip.count()) > 0) {
         await chip.click();
+        if (zipped) await page.keyboard.press("Escape");
         return;
     }
-    await page.getByRole("combobox", { name: "Filtra per stato del prodotto" }).selectOption(QUALITY_VALUE[name]);
+    await scegli(page.getByRole("combobox", { name: "Filtra per stato del prodotto" }), QUALITY_VALUE[name]);
 }
 
 async function noSideScroll(page: Page): Promise<void> {
@@ -284,12 +296,15 @@ test.describe("Prodotti — elenco", () => {
     test("filtri di qualità coi conteggi", async ({ page }) => {
         await openList(page);
         // I conteggi: nelle etichette dei chip (dopo P2) o delle opzioni della select (oggi).
-        const control = main(page)
+        const zipped = await openZipped(page);
+        const control = page
             .getByRole("radiogroup", { name: /qualità|stato|Quali mostrare/i })
+            .filter({ visible: true })
             .or(page.getByRole("combobox", { name: "Filtra per stato del prodotto" }))
             .first();
         await expect(control).toContainText(/Senza prezzo\s*\(?1\)?/);
         await expect(control).toContainText(/(Fuori menù|In nessun menù)\s*\(?2\)?/);
+        if (zipped) await page.keyboard.press("Escape");
 
         await quality(page, "Senza prezzo");
         await expect(product(page, "Insalatona")).toBeVisible();

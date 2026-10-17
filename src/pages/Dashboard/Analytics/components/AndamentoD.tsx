@@ -11,6 +11,8 @@ import { compareValue, formatDelta, formatRating, lowReviews, type AndamentoRow,
 import type { DailyChart } from "../utils/andamentoSeries";
 import { isBelowSample, type PeriodKey } from "../utils/periodComparison";
 import styles from "./AndamentoD.module.scss";
+import vs from "@/pages/Dashboard/Vetrina/Vetrina.module.scss";
+import { useCompactHead } from "@/pages/Dashboard/Vetrina/useCompactHead";
 
 /**
  * Andamento nella direzione D (artifact v28, `#p-and`): una vista sola. In
@@ -742,6 +744,8 @@ export interface AndamentoDProps {
 
 export function AndamentoD(props: AndamentoDProps) {
     const { selected } = props;
+    // La testata si stringe scorrendo (copia, punto 7): resta ferma la riga dei comandi.
+    const { compact: headCompact, setTop: setHeadTop } = useCompactHead();
     const andRef = useRef<HTMLDivElement>(null);
     // In tablet e telefono, se il grafico è più giù dello schermo, ci si porta
     // sopra (Visual Redesign 2): scorre solo il riquadro del contenuto.
@@ -758,7 +762,11 @@ export function AndamentoD(props: AndamentoDProps) {
     };
     return (
         <div className={styles.page}>
-            <div className={`${styles.cmd} ${styles.rise} ${styles.k1}`}>
+            <div ref={setHeadTop} className={vs.top} aria-hidden />
+            <div
+                className={`${vs.head} ${styles.cmd} ${styles.rise} ${styles.k1}`}
+                data-compact={headCompact ? "" : undefined}
+            >
                 <p className={styles.answer} aria-live="polite" data-loading={props.loading ? "" : undefined}>
                     <Lead text={props.lead} />
                 </p>

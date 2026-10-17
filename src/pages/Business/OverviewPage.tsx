@@ -61,6 +61,7 @@ import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcru
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { canSeeServizio } from "@/utils/servizioModes";
 import { HomeD } from "./home/HomeD";
+import { HomeBasi } from "./home/HomeBasi";
 import styles from "./OverviewPage.module.scss";
 
 /** Sede attiva raggiungibile dal pubblico. Il menù attivo NON sta qui: arriva
@@ -513,7 +514,7 @@ export default function OverviewPage() {
         } else if (setupStatus !== "ready") {
             basesBlock = <Checklist loading items={[]} />;
         } else {
-            basesBlock = <Checklist items={checklistItems} />;
+            basesBlock = LOOK_D && missingSteps > 0 ? <HomeBasi items={checklistItems} /> : <Checklist items={checklistItems} />;
         }
     }
 
@@ -738,7 +739,7 @@ export default function OverviewPage() {
             onClick: () => navigate(`${b}/locations/${activityId}/prenotazioni`)
         },
         {
-            label: "Cosa vedono i clienti",
+            label: LOOK_D ? "Disponibilità" : "Cosa vedono i clienti",
             hidden: !canDoOnActivity(permissions, "activity.read", activityId),
             onClick: () => navigate(`${b}/locations/${activityId}/cosa-vedono`)
         },

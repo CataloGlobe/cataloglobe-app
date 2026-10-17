@@ -185,7 +185,8 @@ const SCHEDA: NavEntry = {
 const COSA_VEDONO: NavEntry = {
     seat: "one",
     key: "cosa-vedono",
-    label: "Cosa vedono i clienti",
+    // Nella D la pagina si chiama «Disponibilità» (Alex, 2026-10-16).
+    label: LOOK_D ? "Disponibilità" : "Cosa vedono i clienti",
     level: "sede",
     segment: "cosa-vedono",
     gate: { on: "activity", permission: "activity.read" }

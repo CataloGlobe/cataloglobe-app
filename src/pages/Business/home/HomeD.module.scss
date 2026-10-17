@@ -86,6 +86,28 @@
   min-width: 0;
 }
 
+// Da fare alta quanto la sinistra: la card riempie la colonna senza darle altezza,
+// le righe che non entrano vanno dietro «Altre N» (copia `fitTodo`). Aperta, cresce.
+@container home (min-width: 1000px) {
+  .col:not(.colAll) {
+    position: relative;
+    min-height: 0;
+
+    > .card {
+      position: absolute;
+      inset: 0;
+      height: auto;
+      overflow: hidden;
+    }
+  }
+}
+
+.sedePick {
+  flex: 0 0 220px;
+  width: 220px;
+  max-width: 100%;
+}
+
 .card {
   height: 100%;
   animation: rise 340ms var(--d-ease) both;
@@ -400,6 +422,10 @@
     border-top: 1px solid var(--d-line);
     animation: rise 320ms var(--d-ease) both;
     animation-delay: calc(var(--i, 0) * 40ms + 120ms);
+
+    &[hidden] {
+      display: none;
+    }
 
     &:first-child {
       border-top: 0;
