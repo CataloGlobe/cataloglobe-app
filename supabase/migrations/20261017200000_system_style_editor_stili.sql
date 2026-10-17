@@ -129,8 +129,6 @@ BEGIN
 END;
 $$;
 
--- Come 20260429150000 e 20260429160000: la funzione la chiama solo il trigger.
-REVOKE EXECUTE ON FUNCTION public.handle_new_tenant_system_group() FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.handle_new_tenant_system_group() FROM anon, authenticated;
+-- REVOKE in 20261017200100: db push non accetta funzione e REVOKE nello stesso file (42601).
 
 COMMIT;
