@@ -20,8 +20,8 @@ const ruleTypeOf = (D: Draft): RuleType => (savesAsModel(D) ? (D.kind as "menu" 
 
 /**
  * Le fasce del quando per save_schedule_model: gli stessi giorni per tutte
- * (0 = domenica nel database, 0 = lunedì qui). Senza giorni né ore:
- * undefined, cioè «Sempre» (writeRule manda `[]`).
+ * (0 = domenica nel database, 0 = lunedì qui). Senza giorni né ore non si
+ * mandano: il quando lo scrivono le colonne di updateRule, come oggi.
  */
 export function modelSlotsOf(w: Draft["when"]): ModelSlot[] | undefined {
     if (!w.days && !w.ranges?.length) return undefined;
@@ -73,6 +73,9 @@ const ruleProducts = (r: LayoutRule, skip: string | null): Products => ({
 async function writeRule(id: string, tenantId: string, D: Draft, name: string, products: Products, contents: LayoutRule["featured_contents"]) {
     const t = timeOf(D), tg = targetOf(D);
     const model = savesAsModel(D);
+    // con giorni od ore il quando lo scrive la RPC con le fasce; senza, le colonne
+    // di updateRule (anche «solo periodo», che resta `window`)
+    const slots = model ? modelSlotsOf(D.when) : undefined;
     if (D.kind === "featured") {
         await updateFeaturedRule({
             id,
@@ -104,8 +107,7 @@ async function writeRule(id: string, tenantId: string, D: Draft, name: string, p
             timeTo: t.timeTo,
             startAt: t.startAt,
             endAt: t.endAt,
-            // il quando di menu e style lo scrive la RPC con le fasce (sotto)
-            ...(model ? { keepTime: true } : {}),
+            ...(slots ? { keepTime: true } : {}),
             ...(D.kind === "menu" && !model ? { layout: { catalogId: D.thing, styleId: D.pair } } : {}),
             ...(D.kind === "style" && !model ? { layout: { catalogId: D.pair, styleId: D.thing } } : {}),
             ...(D.kind === "price" ? { priceProducts: products.price } : {}),
@@ -115,12 +117,12 @@ async function writeRule(id: string, tenantId: string, D: Draft, name: string, p
     await writeTargets(id, tg);
     if (model) {
         // menù o stile, «insieme» o «al posto», e le fasce in un colpo (dopo le sedi:
-        // la RPC vuole poter scrivere su tutte). Le fasce vanno sempre ([] = «Sempre»):
-        // updateRule non ha toccato il quando, quindi se la RPC fallisce restano quelle di prima.
+        // la RPC vuole poter scrivere su tutte). Con le fasce updateRule non ha
+        // toccato il quando: se la RPC fallisce restano quelle di prima.
         await saveScheduleModel(id, {
             // lo stile non tocca il suo modo: «lascia gli altri» si sceglie altrove
             ...(D.kind === "menu" ? { catalog_id: D.thing ?? undefined, overlap_mode: D.insieme ? "together" : "replace" } : { style_id: D.thing ?? undefined }),
-            slots: modelSlotsOf(D.when) ?? []
+            ...(slots ? { slots } : {})
         });
     }
 }

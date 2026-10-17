@@ -55,10 +55,18 @@ describe("Calendario → regole menu e style", () => {
         });
     });
 
-    it("stile da solo, senza ore: style_id e fasce vuote («Sempre»), il quando non passa da updateRule", async () => {
+    it("stile da solo, senza ore: style_id, niente fasce, il quando lo scrive updateRule", async () => {
         await saveDraft({ ...blankDraft("style", SEDE, null), thing: "chiaro" }, L, "t");
-        expect(saveScheduleModel).toHaveBeenCalledWith("nuova", { style_id: "chiaro", slots: [] });
-        expect(vi.mocked(updateRule).mock.calls[0][0].keepTime).toBe(true);
+        expect(saveScheduleModel).toHaveBeenCalledWith("nuova", { style_id: "chiaro" });
+        expect(vi.mocked(updateRule).mock.calls[0][0].keepTime).toBeUndefined();
+    });
+
+    it("menù con solo il periodo: resta `window` (colonne di updateRule), niente fasce alla RPC", async () => {
+        await saveDraft(menu({ when: { period: { from: 1, to: 2 } as never } }), L, "t");
+        const u = vi.mocked(updateRule).mock.calls[0][0];
+        expect(u.keepTime).toBeUndefined();
+        expect(u.timeMode).toBe("window");
+        expect(vi.mocked(saveScheduleModel).mock.calls[0][1]).not.toHaveProperty("slots");
     });
 
     it("un ruolo di sede crea la bozza menu con le sue sedi", async () => {
