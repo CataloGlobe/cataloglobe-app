@@ -169,6 +169,7 @@ export async function purgeActivityFolder(
  *   11.  schedule_layout    (FK → catalogs, styles)
  *   11b. schedule_menu      (FK → catalogs; multi menù)
  *   11c. schedule_style     (FK → styles; multi menù)
+ *   11d. schedule_multimenu_conversion (archivio della conversione, senza FK)
  *    --- secondary entities ---
  *   12.  catalog_categories
  *   13.  catalogs
@@ -302,6 +303,7 @@ export async function purgeTenantData(
     deleted["schedule_layout"] = await deleteFromTable(admin, "schedule_layout", tenantId);
     deleted["schedule_menu"]   = await deleteFromTable(admin, "schedule_menu",   tenantId);
     deleted["schedule_style"]  = await deleteFromTable(admin, "schedule_style",  tenantId);
+    deleted["schedule_multimenu_conversion"] = await deleteFromTable(admin, "schedule_multimenu_conversion", tenantId);
 
     // 5. Secondary entities (children cleared above)
     deleted["catalog_categories"]            = await deleteFromTable(admin, "catalog_categories",            tenantId);

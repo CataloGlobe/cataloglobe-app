@@ -7,9 +7,9 @@
 --     nome, stile in schedule_style); senza menù è diventata `style` spenta
 --   - non restano righe di schedule_layout delle regole convertite; restano
 --     solo le layout bozza (senza riga)
---   - in ogni sede l'ordine completo di oggi (compareLayoutToday) è uguale a
---     quello per on_air_since dalla più nuova, per i menù e per gli stili
---     (tranne le sedi con regole segnate in_cycle)
+--   - in ogni sede l'ordine di oggi (compareLayoutToday) delle regole che possono
+--     vincere (accese, non scadute) è uguale a quello per on_air_since dalla più
+--     nuova, per i menù e per gli stili (con un ciclo la migration si ferma)
 --
 -- Uso: tutto in una transazione. Fra la parte «prima» e i controlli va
 -- incollato il contenuto delle due migration. Finisce con RAISE EXCEPTION
@@ -27,13 +27,13 @@ row_number()OVER(PARTITION BY a.id ORDER BY
 s.priority,s.created_at,s.id)k
 FROM schedules s JOIN schedule_layout sl ON sl.schedule_id=s.id AND sl.catalog_id IS NOT NULL
 JOIN activities a ON a.tenant_id=s.tenant_id
-WHERE s.rule_type='layout' AND(s.apply_to_all
+WHERE s.rule_type='layout' AND s.enabled AND(s.end_at IS NULL OR s.end_at>now())AND(s.apply_to_all
 OR EXISTS(SELECT 1 FROM schedule_targets t WHERE t.schedule_id=s.id AND t.target_type='activity' AND t.target_id=a.id)
 OR EXISTS(SELECT 1 FROM schedule_targets t JOIN activity_group_members g ON g.group_id=t.target_id WHERE t.schedule_id=s.id AND t.target_type='activity_group' AND g.activity_id=a.id));
 CREATE TEMP TABLE zb AS SELECT s.id,s.tenant_id,s.enabled,s.apply_to_all,s.time_mode,s.days_of_week,s.time_from,s.time_to,s.start_at,s.end_at,s.name,
 (SELECT count(*)FROM schedule_targets t WHERE t.schedule_id=s.id)nt,(SELECT count(*)FROM schedule_slots x WHERE x.schedule_id=s.id)ns
 FROM schedules s JOIN schedule_layout sl ON sl.schedule_id=s.id WHERE s.rule_type='layout';
-CREATE TEMP TABLE zd AS SELECT count(*)n FROM schedules s WHERE s.rule_type='layout' AND NOT EXISTS(SELECT 1 FROM schedule_layout sl WHERE sl.schedule_id=s.id);
+CREATE TEMP TABLE zd AS SELECT count(*)dn FROM schedules s WHERE s.rule_type='layout' AND NOT EXISTS(SELECT 1 FROM schedule_layout sl WHERE sl.schedule_id=s.id);
 
 -- Qui: contenuto di 20261017120000_multimenu_conversion_archive.sql
 -- e di 20261017120100_multimenu_convert_layouts.sql.
@@ -57,7 +57,7 @@ OR(SELECT count(*)FROM schedule_targets t WHERE t.schedule_id=g.id)<>b.nt
 OR(SELECT count(*)FROM schedule_slots x WHERE x.schedule_id=g.id)<>b.ns
 OR(SELECT count(*)FROM schedule_slots x WHERE x.schedule_id=b.id)<>b.ns)THEN e:=e||'gemella sbagliata'::text; END IF;
 IF EXISTS(SELECT 1 FROM schedule_layout sl JOIN zb b ON b.id=sl.schedule_id)THEN e:=e||'righe layout rimaste'::text; END IF;
-IF(SELECT count(*)FROM schedules s WHERE s.rule_type='layout')<>(SELECT n FROM zd)THEN e:=e||'layout rimaste oltre le bozze'::text; END IF;
+IF(SELECT count(*)FROM schedules s WHERE s.rule_type='layout')<>(SELECT dn FROM zd)THEN e:=e||'layout rimaste oltre le bozze'::text; END IF;
 SELECT count(*)INTO cyc FROM schedule_multimenu_conversion WHERE in_cycle;
 SELECT count(DISTINCT act)INTO acts FROM zq;
 IF EXISTS(

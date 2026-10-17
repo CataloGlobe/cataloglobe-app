@@ -16,18 +16,29 @@
 -- `priority`, poi la più vecchia, poi `id`); fra `menu` e `style` «replace»
 -- vince la più nuova per `on_air_since`. Si riscrive `on_air_since` con un
 -- ordine topologico del «chi batte chi» in ogni sede: se A batte B in una
--- sede, A è più nuova. Le date restano quelle dell'azienda, ridistribuite
--- (meno 1 ms dove servono distinte). Un ciclo (A batte B in una sede, B batte
--- A in un'altra) non si riproduce: si segna `in_cycle` e si dice in NOTICE.
+-- sede, A è più nuova. Contano solo le regole che oggi possono vincere (accese
+-- e non scadute): le altre il giudice non le fa mai vincere e, nel grafo,
+-- creerebbero cicli che oggi non ci sono. Le date restano quelle dell'azienda,
+-- ridistribuite (meno 1 ms dove servono distinte).
 --
--- Si ferma se un'azienda con regole `layout` ha già regole `menu` o `style`:
--- l'ordine con quelle va visto a mano. Il trigger delle fasce si salta
+-- Si ferma (e non cambia niente):
+-- - se un ciclo (A batte B in una sede, B batte A in un'altra) rende l'ordine di
+--   oggi non riproducibile: le regole si dicono in NOTICE, va visto a mano (D121);
+-- - se un'azienda con regole `layout` da convertire ha già regole `menu` o
+--   `style`: l'ordine con quelle va visto a mano.
+-- Prima del rilascio in produzione si prova in una transazione annullata
+-- (supabase/tests/multimenu_convert_layouts.test.sql). Il trigger delle fasce si salta
 -- (`cataloglobe.schedule_bridge`) e le fasce si copiano così come sono.
 -- Archivio in public.schedule_multimenu_conversion (20261017120000).
 -- Rollback: per ogni riga dell'archivio, rimettere la riga di `schedule_layout`
 -- (layout_row_id, catalog_id, style_id), `rule_type = 'layout'`,
--- `overlap_mode = NULL`, `on_air_since_before`, `enabled_before`; cancellare la
--- gemella (style_rule_id) e le righe di `schedule_menu`/`schedule_style`.
+-- `overlap_mode = NULL` (le `layout` non lo usano), `on_air_since_before`,
+-- `enabled_before`; cancellare la gemella (style_rule_id) e le righe di
+-- `schedule_menu`/`schedule_style`. Vale finché nessuno ha modificato le regole
+-- convertite: dopo, quelle modifiche si perdono.
+--
+-- Ordine del rilascio: questa migration cancella le righe `schedule_layout`
+-- convertite, quindi va dopo il front e le edge che leggono `menu`/`style`.
 -- =============================================================================
 
 DO $$
@@ -45,7 +56,9 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM public.schedules m
     WHERE m.rule_type IN ('menu', 'style')
-      AND m.tenant_id IN (SELECT s.tenant_id FROM public.schedules s WHERE s.rule_type = 'layout')
+      AND m.tenant_id IN (SELECT s.tenant_id FROM public.schedules s
+                          JOIN public.schedule_layout sl ON sl.schedule_id = s.id
+                          WHERE s.rule_type = 'layout')
   ) THEN
     RAISE EXCEPTION 'Multi menù: aziende con regole layout e già regole menu/style, da vedere a mano';
   END IF;
@@ -56,6 +69,7 @@ BEGIN
          (CASE WHEN s.start_at IS NOT NULL OR s.end_at IS NOT NULL THEN 4 ELSE 0 END
           + CASE WHEN s.time_from IS NOT NULL AND s.time_to IS NOT NULL THEN 2 ELSE 0 END
           + CASE WHEN coalesce(cardinality(s.days_of_week), 0) > 0 THEN 1 ELSE 0 END) AS score,
+         s.enabled AND (s.end_at IS NULL OR s.end_at > now()) AS live,
          NULL::integer AS rank, false AS in_cycle, NULL::timestamptz AS new_on_air
   FROM public.schedules s
   JOIN public.schedule_layout sl ON sl.schedule_id = s.id
@@ -77,14 +91,14 @@ BEGIN
     JOIN public.activities a ON a.tenant_id = mr.tenant_id
   ) x WHERE x.spec IS NOT NULL;
 
-  -- «winner batte loser» in almeno una sede (compareLayoutToday), fra regole con menù.
+  -- «winner batte loser» in almeno una sede (compareLayoutToday), fra regole con menù che oggi possono vincere.
   CREATE TEMP TABLE mm_edge ON COMMIT DROP AS
   SELECT DISTINCT w.id AS winner, l.id AS loser
   FROM mm_rule w
   JOIN mm_rule l ON l.tenant_id = w.tenant_id AND l.id <> w.id
   JOIN mm_spec sw ON sw.rule_id = w.id
   JOIN mm_spec sl ON sl.rule_id = l.id AND sl.activity_id = sw.activity_id
-  WHERE w.catalog_id IS NOT NULL AND l.catalog_id IS NOT NULL
+  WHERE w.catalog_id IS NOT NULL AND l.catalog_id IS NOT NULL AND w.live AND l.live
     AND (-sw.spec, -w.score, w.priority, w.created_at, w.id) < (-sl.spec, -l.score, l.priority, l.created_at, l.id);
 
   -- Ordine topologico per azienda: prima chi non è battuto da nessuna rimasta.
@@ -128,6 +142,9 @@ BEGIN
   FOR r IN SELECT * FROM mm_rule WHERE in_cycle ORDER BY tenant_id, rank LOOP
     RAISE NOTICE 'Multi menù: ordine non riproducibile in tutte le sedi, azienda %, regola % (%)', r.tenant_id, r.id, r.name;
   END LOOP;
+  IF EXISTS (SELECT 1 FROM mm_rule WHERE in_cycle) THEN
+    RAISE EXCEPTION 'Multi menù: ordine di oggi non riproducibile (regole nei NOTICE), da vedere a mano';
+  END IF;
 
   FOR r IN SELECT * FROM mm_rule ORDER BY tenant_id, rank LOOP
     IF r.catalog_id IS NOT NULL THEN
