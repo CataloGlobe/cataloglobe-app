@@ -241,6 +241,9 @@ function makeTables(matrix: boolean, manySeats: boolean, oneSeat = false, covere
         ),
         schedule_slots: legacySlots(rs.map(scheduleRow)),
         schedule_slot_targets: [],
+        // le regole `menu`/`style` del modello nuovo: nessuna nei dati di prova
+        schedule_menu: [],
+        schedule_style: [],
         schedule_layout: [
             layout("carta", MENU.carta),
             layout("pranzo", MENU.pranzo),

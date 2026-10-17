@@ -86,6 +86,7 @@ function wireRule(stub: ProgrammazioneStub) {
     stub.onWrite("schedules.PATCH", () => [{ id: ID.rule }]);
     stub.onWrite("schedule_layout.POST", () => null);
     stub.onWrite("rpc.update_schedule_targets", () => null);
+    stub.onWrite("rpc.save_schedule_model", () => null);
 }
 
 function wireMenu(stub: ProgrammazioneStub) {
@@ -482,7 +483,8 @@ test.describe("Tunnel di creazione — menù", () => {
         await insieme(page, "Mostralo al posto degli altri");
         await next(page);
         await expect(main(page).getByRole("heading", { name: "Controlla" })).toBeVisible();
-        await expect(main(page).getByText("Dopo mezzanotte: si salva col database nuovo").first()).toBeVisible();
+        // col database nuovo (multi menù, passo 4) un menù da solo dopo mezzanotte si salva
+        await expect(main(page).getByText("Dopo mezzanotte: si salva col database nuovo")).toHaveCount(0);
     });
 
     test("Metti in onda: la regola nel Calendario, poi «E adesso?» e «Ho finito»", async ({ page }) => {
@@ -554,10 +556,15 @@ test.describe("Tunnel di creazione — menù", () => {
         await expect(cosa.getByText("Si vede «Pranzo veloce», «Carta e2e» no")).toBeVisible();
         await button(page, "Metti in onda").click();
         await expect(main(page).getByRole("heading", { level: 2, name: "Pranzo veloce", exact: true })).toBeVisible({ timeout: 15_000 });
-        expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "layout", name: expect.stringMatching(/^Pranzo veloce/) });
+        // un menù da solo è una regola `menu`: menù, modo e fasce con save_schedule_model
+        expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "menu", name: expect.stringMatching(/^Pranzo veloce/) });
         const on = writesOf(stub, "schedules.PATCH").map(w => first(w.body)).find(b => "time_mode" in b);
         expect(on).toMatchObject({ enabled: true, days_of_week: [1, 2, 3, 4, 5], time_from: "12:00", time_to: "15:00" });
-        expect(bodyOf(stub, "schedule_layout.POST")).toMatchObject({ catalog_id: ID.catalog, schedule_id: ID.rule });
+        expect(writesOf(stub, "schedule_layout.POST")).toHaveLength(0);
+        expect(bodyOf(stub, "rpc.save_schedule_model")).toMatchObject({
+            p_schedule_id: ID.rule,
+            p_payload: { catalog_id: ID.catalog, overlap_mode: "replace", slots: [{ days_of_week: [1, 2, 3, 4, 5], start_minute: 720, end_minute: 900 }] }
+        });
         expect(bodyOf(stub, "rpc.update_schedule_targets")).toMatchObject({ p_targets: [{ target_type: "activity", target_id: SEDE.porto }] });
         // «E adesso?»: cosa hai fatto, tre strade (dal suo primo piatto) e «Ho finito»
         await expect(main(page).getByText(/^«Pranzo veloce» è in onda a Porto e2e, .+\. Vuoi creare subito qualcos'altro\?$/)).toBeVisible();
@@ -1326,8 +1333,8 @@ test.describe("Dove e Quando: in onda o pronto (D189)", () => {
         await button(page, "Metti in onda").click();
         await finito(page);
         await expect(page).toHaveURL(/\/styles$/, { timeout: 15_000 });
-        expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "layout" });
-        expect(bodyOf(stub, "schedule_layout.POST")).toMatchObject({ style_id: ID.style });
+        expect(bodyOf(stub, "schedules.POST")).toMatchObject({ rule_type: "style" });
+        expect(bodyOf(stub, "rpc.save_schedule_model")).toMatchObject({ p_schedule_id: ID.rule, p_payload: { style_id: ID.style } });
     });
 
     test("in evidenza tenuto pronto: resta bozza, nessuna regola nel Calendario", async ({ page }) => {

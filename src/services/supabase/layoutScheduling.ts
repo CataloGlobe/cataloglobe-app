@@ -1401,6 +1401,9 @@ export async function updateRule(input: {
         return;
     }
 
+    // menù o stile, modo e fasce li scrive save_schedule_model (multi menù, passo 4)
+    if (input.ruleType === "menu" || input.ruleType === "style") return;
+
     if (input.ruleType === "price") {
         const { error: deleteError } = await supabase
             .from("schedule_price_overrides")
