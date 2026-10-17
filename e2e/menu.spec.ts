@@ -933,7 +933,7 @@ for (const viewport of [
         test("il piè della tabella resta su una riga", async ({ page }) => {
             await openList(page);
             await page.setViewportSize(viewport);
-            await item(page, "Carta e2e").click();
+            await page.goto(page.url().replace(/\/catalogs.*$/, `/catalogs/${MENU.carta}`));
             await expect(node(page, "Pizze")).toBeVisible({ timeout: 15_000 });
             await selectCategory(page, "Pizze");
             const pageSize = main(page).getByRole("combobox", { name: "Righe per pagina" });
