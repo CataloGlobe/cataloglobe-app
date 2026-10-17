@@ -1,9 +1,19 @@
 import type { StyleTokenModel, BorderRadius, PatternIntensity } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import { CONTOUR_TILE, contourPath } from "./patternContour";
+import { INK_ON_DARK, INK_ON_LIGHT, borderColor, fixContrast, isDarkPage, lum, mix, onColor, rgbOf, tintDark } from "./styleColors";
 
+// Stessi passi dell'editor stili (Leggera, Media, Forte).
 const PATTERN_INTENSITY_MULTIPLIER: Record<PatternIntensity, number> = {
-    subtle: 0.5,
+    subtle: 0.6,
     medium: 1.0,
-    strong: 1.75
+    strong: 1.5
+};
+
+/** Raggi in px [card, pulsanti, riquadro in cima] per ogni scelta di angoli (editor stili). */
+const RADII: Record<BorderRadius, readonly [number, number, number]> = {
+    none: [4, 3, 6],
+    soft: [12, 8, 14],
+    rounded: [20, 10, 22]
 };
 
 function parseHex(hex: string): { r: number; g: number; b: number } {
@@ -94,16 +104,40 @@ export function hexToRgba(hex: string, alpha: number): string {
 export function getPatternCss(
     pattern: string,
     colorHex: string,
-    intensity: PatternIntensity = "medium"
+    intensity: PatternIntensity = "medium",
+    primaryHex: string = colorHex
 ): [string, string] {
     const { r, g, b } = parseHex(colorHex);
     const multiplier = PATTERN_INTENSITY_MULTIPLIER[intensity] ?? 1.0;
     const clampOpacity = (base: number) => Math.min(0.8, base * multiplier);
     const rgba = (base: number) => `rgba(${r},${g},${b},${clampOpacity(base)})`;
+    const svg = (s: string) => `url("data:image/svg+xml,${encodeURIComponent(s)}")`;
+    const [nr, ng, nb] = [r, g, b].map(v => (v / 255).toFixed(3));
 
     switch (pattern) {
-        case "dots":
-            return [`radial-gradient(circle, ${rgba(0.18)} 1px, transparent 1px)`, "16px 16px"];
+        case "glow": {
+            // Una luce sola del principale in alto al centro; --pub-glow-y la abbassa sotto la copertina.
+            const p = parseHex(primaryHex);
+            const a = (base: number) => `rgba(${p.r},${p.g},${p.b},${(base * multiplier).toFixed(3)})`;
+            return [`radial-gradient(150% 460px at 50% var(--pub-glow-y, 20px), ${a(0.22)}, ${a(0.08)} 45%, transparent 75%)`, "100% 100%"];
+        }
+        case "dots": {
+            const g2 = 28;
+            return [
+                svg(`<svg xmlns='http://www.w3.org/2000/svg' width='${g2}' height='${g2}'><circle cx='${g2 / 4}' cy='${g2 / 4}' r='1.25' fill='${rgba(0.16)}'/><circle cx='${(3 * g2) / 4}' cy='${(3 * g2) / 4}' r='1.25' fill='${rgba(0.16)}'/></svg>`),
+                `${g2}px ${g2}px`
+            ];
+        }
+        case "linen":
+            return [
+                svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='h' x='0' y='0' width='1' height='1'><feTurbulence type='fractalNoise' baseFrequency='0.025 1.3' numOctaves='1' seed='4' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 ${nr} 0 0 0 0 ${ng} 0 0 0 0 ${nb} 0 0 0 5 -2.4'/></filter><filter id='v' x='0' y='0' width='1' height='1'><feTurbulence type='fractalNoise' baseFrequency='1.3 0.025' numOctaves='1' seed='9' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 ${nr} 0 0 0 0 ${ng} 0 0 0 0 ${nb} 0 0 0 5 -2.5'/></filter><rect width='240' height='240' filter='url(#h)' opacity='${(0.06 * multiplier).toFixed(3)}'/><rect width='240' height='240' filter='url(#v)' opacity='${(0.045 * multiplier).toFixed(3)}'/></svg>`),
+                "240px 240px"
+            ];
+        case "contour":
+            return [
+                svg(`<svg xmlns='http://www.w3.org/2000/svg' width='${CONTOUR_TILE}' height='${CONTOUR_TILE}'><path d='${contourPath()}' fill='none' stroke='${rgba(0.09)}' stroke-width='1' stroke-linecap='round'/></svg>`),
+                `${CONTOUR_TILE}px ${CONTOUR_TILE}px`
+            ];
         case "diagonal":
             return [
                 `repeating-linear-gradient(45deg, transparent, transparent 10px, ${rgba(0.10)} 10px, ${rgba(0.10)} 11px)`,
@@ -144,7 +178,7 @@ export function getPatternCss(
  * Stessa tabella di conversione usata per --pub-radius nella CSS var.
  */
 export function borderRadiusToPx(br: BorderRadius): number {
-    return br === "none" ? 0 : br === "soft" ? 10 : 20;
+    return RADII[br][0];
 }
 
 /**
@@ -153,10 +187,7 @@ export function borderRadiusToPx(br: BorderRadius): number {
  * Fonte unica della superficie, usata dal mapper.
  */
 export function deriveSurface(pageBackground: string): string {
-    const DARK_BG_THRESHOLD = 0.15;
-    return hexLuminance(pageBackground) < DARK_BG_THRESHOLD
-        ? mixHex(pageBackground, "#FFFFFF", 0.12)
-        : "#FFFFFF";
+    return isDarkPage(pageBackground) ? mix(pageBackground, "#FFFFFF", 0.12) : "#FFFFFF";
 }
 
 /**
@@ -177,68 +208,85 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     };
     const fontFamily = FONT_MAP[tokens.typography.fontFamily] ?? "'Inter', sans-serif";
 
-    const br = tokens.appearance.borderRadius;
-    const pubRadius = br === "none" ? "0px" : br === "soft" ? "10px" : "20px";
-    const btnRadius = br === "none" ? "0px" : br === "soft" ? "6px" : "10px";
+    const [cardRadius, btnRadius, islandRadius] = RADII[tokens.appearance.borderRadius] ?? RADII.rounded;
 
-    const bgLight = isLight(tokens.colors.pageBackground);
+    // Regole dei colori dell'editor stili (spec §2): pagina scura sotto 0,18 di luminanza,
+    // testo caldo quasi nero o quasi bianco, principale e pulsanti corretti per il contrasto.
+    const bg = tokens.colors.pageBackground;
+    const dark = isDarkPage(bg);
+    const ink = dark ? INK_ON_DARK : INK_ON_LIGHT;
+    const mut = dark ? "rgb(243 241 236 / 64%)" : "rgb(27 26 23 / 62%)";
 
     // superficie derivata dallo sfondo (no più colore utente) — vedi deriveSurface
-    const surface = deriveSurface(tokens.colors.pageBackground);
-    const surfaceLight = isLight(surface);
-
-    // Accent (ruolo "azione"): se non impostato segue il primario → stili esistenti invariati
-    const accent = tokens.colors.accent || tokens.colors.primary;
+    const surface = deriveSurface(bg);
+    const primary = fixContrast(tokens.colors.primary, [bg, surface]);
+    const accentRaw = tokens.colors.accent || tokens.colors.primary;
+    const onAccent = onColor(accentRaw);
+    const accent = fixContrast(accentRaw, [onAccent]);
 
     // Ink (neutro utility/chrome): quasi-nero/quasi-bianco che assorbe il 12% del colore pagina.
     // Su sfondo chiaro resta scuro, su sfondo scuro diventa una pill chiara → sempre leggibile.
     // Derivato dallo sfondo pagina così le pill utility si staccano da --pub-surface.
-    const ink = mixHex(contrastText(tokens.colors.pageBackground), tokens.colors.pageBackground, 0.12);
-    const inkText = contrastText(ink);
+    const inkPill = mixHex(contrastText(bg), bg, 0.12);
+    const inkText = contrastText(inkPill);
 
-    // Derived text colors — always computed from background contrast, never from saved tokens
-    const bgText = contrastText(tokens.colors.pageBackground);
-    const surfaceText = contrastText(surface);
-    const surfaceTextSecondary = surfaceLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
-    // Muted su chiaro al 55% come il secondary: al 38% era ~2,7:1 su bianco, sotto
-    // WCAG AA (D75, deciso da Lorenzo il 2026-10-13). Su scuro il 45% passa già.
-    const surfaceTextMuted = surfaceLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.45)";
-    const bgTextSecondary = bgLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
-    const bgTextMuted = bgLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.45)";
-
-    // Border colors — 10% contrast text blended into background
-    const borderOnBg = mixHex(tokens.colors.pageBackground, bgText, 0.1);
-    // "bordered" può forzare il colore primario invece del blend derivato (default "auto")
-    const borderOnSurface =
-        tokens.appearance.outlinedBorderColor === "primary"
-            ? tokens.colors.primary
-            : mixHex(surface, surfaceText, 0.15);
+    const borderOnBg = mixHex(bg, ink, 0.1);
+    const outline = borderColor(tokens.appearance.outlinedBorderColor === "primary", bg, primary);
 
     const [patternImage, patternSize] = getPatternCss(
         tokens.appearance.backgroundPattern,
-        bgText,
-        tokens.appearance.patternIntensity
+        ink,
+        tokens.appearance.patternIntensity,
+        primary
     );
 
     // Tripletta RGB dello sfondo pagina per gradienti alpha `rgba(var(--pub-bg-rgb), a)`.
     // Un gradiente verso `transparent` (o via color-mix con transparent) interpola verso
     // rgba(0,0,0,0) e produce banding grigio su WebKit; con la tripletta l'endpoint ad
     // alpha 0 conserva l'hue per costruzione. Stesso parseHex di --pub-bg (fallback 0 per canale).
-    const bgRgb = parseHex(tokens.colors.pageBackground);
+    const bgRgb = parseHex(bg);
+
+    // Ombre nel tono della pagina; su pagina quasi bianca il pieno ha bisogno di un'ombra più netta.
+    const tint = rgbOf(mix(bg, "#000000", dark ? 0.6 : 0.55)).join(",");
+    const nearWhite = !dark && lum(bg) > 0.95;
+    const raisedShadow = dark
+        ? "inset 0 1px 0 rgba(255,255,255,.07), 0 2px 4px rgba(0,0,0,.35), 0 12px 26px -8px rgba(0,0,0,.6)"
+        : nearWhite
+            ? `0 0 0 1px rgba(${tint},.07), 0 2px 5px rgba(${tint},.12), 0 12px 24px -8px rgba(${tint},.26)`
+            : `0 1px 2px rgba(${tint},.07), 0 6px 14px -4px rgba(${tint},.13), 0 18px 30px -14px rgba(${tint},.16)`;
+
+    // Riquadro in cima, barra in basso e scheda del piatto: chiari o scuri, mai nel colore del locale.
+    // Uno stile salvato prima dell'editor nuovo resta scuro come la pagina di oggi.
+    const chromeDark = (tokens.header.chrome ?? "dark") === "dark";
+    const treatment = tokens.appearance.cardTreatment;
+    const glass = treatment === "glass";
+    const darkTone = tintDark(bg);
+    const chromeBg = chromeDark
+        ? glass ? `rgb(${rgbOf(darkTone).join(" ")} / 80%)` : darkTone
+        : glass ? (dark ? "rgb(255 255 255 / 90%)" : "rgb(255 255 255 / 70%)") : "#FFFFFF";
+    const chromeActive = fixContrast(tokens.colors.primary, [chromeDark ? darkTone : "#F7F7F7"]);
+    const chromeBorder =
+        treatment === "bordered"
+            ? `.5px solid ${tokens.appearance.outlinedBorderColor === "primary" ? primary : chromeDark ? "rgb(255 255 255 / 28%)" : outline}`
+            : glass
+                ? chromeDark ? "1px solid rgb(255 255 255 / 10%)" : "1px solid rgb(255 255 255 / 70%)"
+                : "0px solid transparent";
+    const sheetBg = chromeDark ? tintDark(bg, 0.12) : "#F7F5F1";
 
     return {
         // ── Existing pub vars ────────────────────────────────────────────
-        "--pub-bg": tokens.colors.pageBackground,
+        "--pub-bg": bg,
         "--pub-bg-rgb": `${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b}`,
-        "--pub-primary": tokens.colors.primary,
+        "--pub-primary": primary,
         // --pub-primary-text: testo su elementi primary-filled (nav attiva, badge) →
         // contrasto sul primario, NON sull'accent (cta-text serve solo agli elementi accent-filled)
-        "--pub-primary-text": contrastText(tokens.colors.primary),
+        "--pub-primary-text": onColor(primary),
         "--pub-header-bg": tokens.colors.primary,
         "--pub-font-family": fontFamily,
 
         // ── Shape ────────────────────────────────────────────────────────
-        "--pub-radius": pubRadius,
+        "--pub-radius": `${cardRadius}px`,
+        "--pub-island-radius": `${islandRadius}px`,
 
         // ── Background pattern ───────────────────────────────────────────
         "--pub-bg-pattern": patternImage,
@@ -246,53 +294,63 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
         // ── New semantic vars ────────────────────────────────────────────
         "--pub-surface": surface,
-        // Pavimento-tinta del materiale "vetro" (unico, condiviso da card/modale/header):
-        // surface resa semitrasparente così il testo resta leggibile dietro il blur anche
-        // su sfondo piatto. Tono auto-derivato (alpha 0.80 chiaro / 0.68 scuro).
-        // Emessa sempre; consumata solo da [data-card-treatment="glass"] (no-op con raised/bordered).
-        "--pub-surface-glass": hexToRgba(surface, surfaceLight ? 0.8 : 0.68),
+        // Pavimento-tinta del materiale "vetro" per fogli e intestazioni (le card hanno --pub-card-glass).
+        "--pub-surface-glass": hexToRgba(surface, dark ? 0.68 : 0.8),
         // Neutro utility/chrome (pill allergeni/caratteristiche + cerchi social) — staccato da surface
-        "--pub-ink": ink,
+        "--pub-ink": inkPill,
         "--pub-ink-text": inkText,
         // Base text vars default to surface context (most text sits on cards)
-        "--pub-text": surfaceText,
-        "--pub-text-secondary": surfaceTextSecondary,
-        "--pub-text-muted": surfaceTextMuted,
-        "--pub-primary-soft": `color-mix(in srgb, ${tokens.colors.primary} 30%, ${surface})`,
+        "--pub-text": ink,
+        "--pub-text-secondary": mut,
+        "--pub-text-muted": mut,
+        "--pub-primary-soft": `color-mix(in srgb, ${primary} 30%, ${surface})`,
         "--pub-border": borderOnBg,
-        "--pub-surface-border": borderOnSurface,
+        "--pub-surface-border": outline,
 
         // ── FeaturedBlock / CTA vars ─────────────────────────────────────
         // --pub-accent: colore azione (pulsanti prodotto + accento CTA) → accent (fallback primario)
         "--pub-accent": accent,
-        // --pub-cta-bg: sfondo pulsante CTA → accent (fallback primario)
         "--pub-cta-bg": accent,
-        // --pub-cta-text: testo pulsante CTA → bianco/nero calcolato per contrasto sull'accent
-        "--pub-cta-text": contrastText(accent),
-        // --pub-btn-radius: arrotondamento pulsanti → coerente con --pub-radius
-        "--pub-btn-radius": btnRadius,
+        "--pub-cta-text": onAccent,
+        "--pub-btn-radius": `${btnRadius}px`,
 
         // ── Contrast-safe text on configurable backgrounds ───────────────────
-        // Text directly on --pub-bg (page background)
-        "--pub-bg-text": bgText,
-        "--pub-bg-text-secondary": bgTextSecondary,
-        "--pub-bg-text-muted": bgTextMuted,
+        "--pub-bg-text": ink,
+        "--pub-bg-text-secondary": mut,
+        "--pub-bg-text-muted": mut,
+        "--pub-surface-text": ink,
+        "--pub-surface-text-secondary": mut,
+        "--pub-surface-text-muted": mut,
 
-        // Text directly on --pub-surface (content areas, cards, nav bar)
-        "--pub-surface-text": surfaceText,
-        "--pub-surface-text-secondary": surfaceTextSecondary,
-        "--pub-surface-text-muted": surfaceTextMuted,
+        // ── Materiale dei riquadri (piatti, In evidenza) ─────────────────
+        "--pub-card-shadow": raisedShadow,
+        "--pub-card-shadow-hover": raisedShadow,
+        "--pub-card-outline-bg": dark ? "transparent" : mix(bg, surface, 0.45),
+        "--pub-card-outline-shadow": dark
+            ? "0 1px 2px rgba(0,0,0,.4), 0 10px 20px -10px rgba(0,0,0,.7)"
+            : `0 1px 2px rgba(${tint},.08), 0 8px 16px -10px rgba(${tint},.22)`,
+        "--pub-card-glass": dark ? "rgba(60,56,52,.45)" : "rgba(255,255,255,.52)",
+        "--pub-card-glass-border": dark ? "rgba(255,255,255,.12)" : "rgba(255,255,255,.75)",
+        "--pub-card-glass-shadow": dark
+            ? "inset 0 1px 0 rgba(255,255,255,.10), 0 12px 28px -12px rgba(0,0,0,.7)"
+            : `inset 0 1px 0 rgba(255,255,255,.9), 0 10px 24px -12px rgba(${tint},.25)`,
+        // Riquadro di testo di In evidenza senza foto.
+        "--pub-card-text-only": `color-mix(in srgb, ${primary} 10%, ${surface})`,
 
-        // ── Card shadows ─────────────────────────────────────────────────
-        // Centralized to keep FeaturedCard and product cards in sync.
-        // Bg-aware: su sfondo chiaro l'ombra a base contrast-text resta morbida e scura;
-        // su sfondo scuro quei colori diventerebbero bianchi (glow + anello 0 0 1px = alone),
-        // quindi si passa a un'ombra nero puro più profonda senza layer chiaro.
-        "--pub-card-shadow": bgLight
-            ? "0 2px 8px color-mix(in srgb, var(--pub-bg-text) 10%, transparent), 0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent)"
-            : "0 6px 20px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35)",
-        "--pub-card-shadow-hover": bgLight
-            ? "0 4px 14px color-mix(in srgb, var(--pub-bg-text) 14%, transparent), 0 0 2px color-mix(in srgb, var(--pub-surface-text) 10%, transparent)"
-            : "0 10px 28px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.4)"
+        // ── Parti fisse: riquadro in cima, barra, scheda del piatto ─────
+        "--pub-chrome-bg": chromeBg,
+        "--pub-chrome-solid": chromeDark ? darkTone : "#FFFFFF",
+        "--pub-chrome-text": chromeDark ? "#FFFFFF" : INK_ON_LIGHT,
+        "--pub-chrome-on": chromeDark ? "#111111" : "#FFFFFF",
+        "--pub-chrome-blur": glass ? "blur(18px) saturate(1.4)" : "none",
+        "--pub-chrome-shadow": treatment === "bordered"
+            ? "0 1px 2px rgb(0 0 0 / 8%), 0 8px 18px -10px rgb(0 0 0 / 25%)"
+            : "0 10px 28px -12px rgb(0 0 0 / 45%)",
+        "--pub-chrome-border": chromeBorder,
+        "--pub-chrome-active": chromeActive,
+        "--pub-chrome-active-text": onColor(chromeActive),
+        "--pub-sheet-bg": sheetBg,
+        "--pub-sheet-text": chromeDark ? INK_ON_DARK : INK_ON_LIGHT,
+        "--pub-sheet-primary": fixContrast(tokens.colors.primary, [sheetBg])
     };
 }
