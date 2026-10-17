@@ -107,6 +107,7 @@ export function describeRuleAction(
     const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
     switch (rule.rule_type) {
         case "layout":
+        case "menu":
             return catalogName ? `mostra ${catalogName}` : null;
         case "price": {
             const n = rule.price_overrides?.length ?? 0;
