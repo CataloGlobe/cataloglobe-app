@@ -198,13 +198,6 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.save_schedule_model(uuid, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.save_schedule_model(uuid, jsonb) FROM anon;
-GRANT EXECUTE ON FUNCTION public.save_schedule_model(uuid, jsonb) TO authenticated;
-
-COMMENT ON FUNCTION public.save_schedule_model(uuid, jsonb) IS
-  'Multi menù: salva menù o stile, overlap_mode e fasce di una regola menu/style in un colpo; scrive le colonne di oggi dalla prima fascia (ponte girato).';
-
 -- 2. create_schedule_with_targets: identica a 20261007210000 salvo i tipi ammessi.
 CREATE OR REPLACE FUNCTION public.create_schedule_with_targets(
   p_tenant_id uuid,
