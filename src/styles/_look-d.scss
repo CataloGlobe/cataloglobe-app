@@ -16,7 +16,8 @@ html[data-look="d"] {
   --d-surface: #ffffff;
   --d-text: #1d1840;
   --d-muted: #59547c;
-  --d-side-muted: #6d678f;
+  // Voci della sidebar: 4,5:1 sulla carta (AA), anche dopo averla scurita.
+  --d-side-muted: #645e83;
   --d-brand: #6a5cf5;
   --d-brand-deep: #3d2fc0;
   --d-warm: #ee5f3f;
@@ -24,7 +25,9 @@ html[data-look="d"] {
   --d-soft: color-mix(in srgb, var(--d-brand) 10%, #fff);
   --d-soft2: color-mix(in srgb, var(--d-brand) 18%, #fff);
   --d-warm-soft: color-mix(in srgb, var(--d-warm) 12%, #fff);
-  --d-side-bg: color-mix(in srgb, var(--d-brand) 9%, var(--d-bg));
+  // Un po' più scura dello sfondo (Alex, 2026-10-16): stacco 1,17:1 invece
+  // di 1,12:1, stesso viola.
+  --d-side-bg: color-mix(in srgb, var(--d-brand) 13%, var(--d-bg));
   --d-line: color-mix(in srgb, var(--d-muted) 16%, transparent);
   --d-field-line: color-mix(in srgb, var(--d-muted) 30%, transparent);
 

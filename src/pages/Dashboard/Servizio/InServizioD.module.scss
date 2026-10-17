@@ -1,0 +1,182 @@
+@use "@styles/mixins" as *;
+@use "@styles/d-type" as *;
+
+// In servizio della D (copia «Visual Redesign PR 3», `.sgrid` e `.now`): la
+// pagina esiste solo con la D accesa, quindi tutto sta sotto `look-d`.
+// Da 700 px di pagina Comande (2/3) e la sala (1/3) affiancate; sotto, una
+// parte alla volta col selettore, e la riga «Adesso» non c'è (i numeri sono
+// nel selettore).
+@include look-d {
+  .page {
+    container: srv / inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: var(--d-gap);
+    min-width: 0;
+  }
+
+  // «Adesso»: una frase, non pulsanti.
+  .now {
+    @include d-type(tile-title);
+    flex: 1 1 360px;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 16px;
+    margin: 0;
+    color: var(--d-text);
+
+    b {
+      font-family: var(--d-f-num);
+      font-weight: var(--d-num-weight);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  .nowLabel {
+    @include d-type(label);
+    color: var(--d-muted);
+  }
+
+  .calm {
+    @include d-type(body-s);
+    color: var(--d-muted);
+  }
+
+  .nowItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--d-s-new);
+
+    &[data-tone="ready"] {
+      background: var(--d-s-ready);
+    }
+
+    &[data-tone="wait"] {
+      background: var(--d-warm);
+    }
+
+    &[data-tone="booking"] {
+      background: var(--d-brand);
+    }
+  }
+
+  .partSwitch {
+    display: none;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--d-gap);
+    align-items: start;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: var(--d-pad);
+    border-radius: var(--d-r-card);
+    background: var(--d-surface);
+    box-shadow: var(--d-shadow);
+  }
+
+  .cardHead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+  }
+
+  .cardTitle,
+  .rightTitle {
+    @include d-type(card-title);
+    margin: 0;
+    color: var(--d-text);
+  }
+
+  .cardTitle {
+    flex: 1 1 auto;
+  }
+
+  .headTail {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .cardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  // Da 700: affiancate, e il titolo della destra lo dice il selettore.
+  @container srv (min-width: 700px) {
+    .page[data-comande] .grid {
+      grid-template-columns: minmax(0, 2fr) minmax(340px, 1fr);
+    }
+
+    .rightTitle {
+      display: none;
+    }
+  }
+
+  // Sotto 700: una parte alla volta, scelta dal selettore in cima.
+  @container srv (max-width: 699.98px) {
+    .rightSwitch,
+    .wideButton {
+      display: none;
+    }
+
+    .partSwitch {
+      display: block;
+      overflow-x: auto;
+    }
+
+    .page[data-part="comande"] .right,
+    .page:not([data-part="comande"]) .comande {
+      display: none;
+    }
+
+    // Una parte sola: niente carta intorno, la larghezza va ai tavoli (due
+    // tessere per riga al telefono) e ai filtri.
+    .card {
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+  }
+
+  // «Allarga»: un riquadro solo, a tutta larghezza. Solo da 700: sotto
+  // decide il selettore delle parti.
+  @container srv (min-width: 700px) {
+    .page[data-wide] .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .page[data-wide="comande"] .right,
+    .page[data-wide="destra"] .comande {
+      display: none;
+    }
+
+    .page[data-wide] .rightTitle {
+      display: block;
+    }
+  }
+}

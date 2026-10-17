@@ -1,4 +1,5 @@
 import { useOutletContext } from "react-router-dom";
+import { LOOK_D } from "@styles/lookD";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import type { ActivityDraft } from "./useActivityDraft";
@@ -25,7 +26,8 @@ export const ACTIVITY_SECTION_LABELS: Record<ActivitySection, string> = {
     "ordini-al-tavolo": "Ordini dal tavolo",
     "prenotazioni-online": "Prenotazioni",
     pubblicazione: "Pubblicazione",
-    "cosa-vedono": "Cosa vedono i clienti"
+    // Nella D la pagina si chiama «Disponibilità» (Alex, 2026-10-16).
+    "cosa-vedono": LOOK_D ? "Disponibilità" : "Cosa vedono i clienti"
 };
 
 /**

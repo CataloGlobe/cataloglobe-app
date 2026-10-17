@@ -55,7 +55,8 @@ const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
     analitiche: "Andamento",
     recensioni: "Recensioni",
     programmazione: "Regole",
-    "cosa-vedono": "Cosa vedono i clienti"
+    // Nella D la pagina si chiama «Disponibilità» (Alex, 2026-10-16).
+    "cosa-vedono": LOOK_D ? "Disponibilità" : "Cosa vedono i clienti"
 };
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */

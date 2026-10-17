@@ -291,8 +291,20 @@ test.describe("Aspetto della sidebar (§51.15)", () => {
         await sectionRow(page, SERVIZIO[0]).hover();
         await expect(sectionPanel(page, SERVIZIO[0])).toBeVisible();
         // Il numero accanto alla voce (In servizio, Prenotazioni) non fa parte del nome.
-        const voci = (await sectionPanel(page, SERVIZIO[0]).getByRole("link").allTextContents()).map(t => t.trim().replace(/\s*\d+\+?$/, ""));
-        expect(voci).toEqual((await lookD(page)) ? SERVIZIO_D[1] : SERVIZIO[1]);
+        // Il nome accessibile è la voce sola; il numero, se c'è, è la descrizione.
+        const attese = (await lookD(page)) ? SERVIZIO_D[1] : SERVIZIO[1];
+        const link = sectionPanel(page, SERVIZIO[0]).getByRole("link");
+        await expect(link).toHaveCount(attese.length);
+        for (const [i, voce] of attese.entries()) await expect(link.nth(i)).toHaveAccessibleName(voce);
+        let descritte = 0;
+        for (let i = 0; i < attese.length; i++) {
+            if ((await link.nth(i).getAttribute("aria-describedby")) === null) continue;
+            descritte++;
+            // Il numero si legge come frase («3 prenotazioni da confermare»), non come «3» da solo.
+            await expect(link.nth(i)).toHaveAccessibleDescription(/\d.*[a-z]{3,}/);
+        }
+        // Nella D almeno un numero c'è (comande nuove o prenotazioni da confermare nei dati di prova).
+        if (await lookD(page)) expect(descritte).toBeGreaterThan(0);
         await closeSections(page);
         await page.getByRole("button", { name: "Espandi menù laterale" }).click();
         await expect.poll(async () => (await aside(page).boundingBox())?.width).toBe(W.open);
@@ -393,7 +405,7 @@ test.describe("Sede in alto a destra (D152)", () => {
         for (const p of ["products", "styles", "locations"]) {
             await page.goto(`${root}/${p}`);
             await expect(menuRows(page).first()).toBeVisible({ timeout: 15_000 });
-            await expect(page.getByRole("button", { name: "Notifiche" })).toBeVisible();
+            await expect(page.getByRole("button", { name: "Notifiche", exact: true })).toBeVisible();
             await expect(sedeSwitcher(page)).toHaveCount(0);
         }
     });
@@ -409,7 +421,9 @@ test.describe("Sede in alto a destra (D152)", () => {
         await expect(sedePicker(page)).toBeVisible();
         await expect(sedePicker(page).getByRole("radio", { name: /^Tutte le sedi/ })).toHaveCount(0);
         await sedePicker(page).getByRole("radio", { name: new RegExp(`^${escapeRe(name)}`) }).click();
-        await expect(page).toHaveURL(`${paths[1]}/comande`, { timeout: 15_000 });
+        // Nella D /comande porta a In servizio, dove stanno le Comande: si resta lì.
+        if (await lookD(page)) await expect(page).toHaveURL(new RegExp(`${escapeRe(paths[1])}/servizio(\\?|$)`), { timeout: 15_000 });
+        else await expect(page).toHaveURL(`${paths[1]}/comande`, { timeout: 15_000 });
         await expect(sedeSwitcher(page)).toContainText(name);
         expect(await sedeSwitcher(page).textContent()).not.toBe(before);
     });
@@ -438,7 +452,7 @@ test.describe("Sede in alto a destra (D152)", () => {
         await asRole(page, "manager", activityIdOf(paths[0]), "pro");
         await page.goto(`${paths[0]}/servizio`);
         await expect(sectionRow(page, SERVIZIO[0])).toHaveAttribute("aria-expanded", "true", { timeout: 15_000 });
-        await expect(page.getByRole("button", { name: "Notifiche" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Notifiche", exact: true })).toBeVisible();
         await expect(sedeSwitcher(page)).toHaveCount(0);
     });
 
@@ -499,7 +513,7 @@ test.describe("Sede in alto a destra (D152)", () => {
         await asSingleSede(page);
         await page.goto(`${paths[0]}/servizio`);
         await expect(sectionRow(page, SERVIZIO[0])).toHaveAttribute("aria-expanded", "true", { timeout: 15_000 });
-        await expect(page.getByRole("button", { name: "Notifiche" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Notifiche", exact: true })).toBeVisible();
         await expect(sedeSwitcher(page)).toHaveCount(0);
     });
 
@@ -613,7 +627,9 @@ test.describe("Atterraggio (§51.6) e indirizzi (§51.14)", () => {
                 .poll(() => page.evaluate(() => window.localStorage.getItem("cataloglobe:orders:lastActivityId")))
                 .toBe(activityIdOf(sede));
             await page.goto(`${root}/${legacy}`);
-            await expect(page).toHaveURL(new RegExp(`${sede}/${segment}`), { timeout: 15_000 });
+            // Nella D /comande porta a In servizio, parte Comande.
+            const atteso = segment === "comande" && (await lookD(page)) ? "servizio\\?parte=comande" : segment;
+            await expect(page).toHaveURL(new RegExp(`${sede}/${atteso}`), { timeout: 15_000 });
         }
     });
 
