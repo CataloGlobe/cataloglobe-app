@@ -76,6 +76,7 @@ interface OrderItemRow {
     line_total: number | string;
     options_snapshot: Record<string, unknown>;
     item_notes: string | null;
+    cancelled_at: string | null;
 }
 
 interface OrderRow {
@@ -208,7 +209,7 @@ async function _fetchOrdersWithItems(
             items:order_items(
                 id, product_id, product_name_snapshot,
                 unit_price_snapshot, quantity, line_total,
-                options_snapshot, item_notes
+                options_snapshot, item_notes, cancelled_at
             )
             `
         )
@@ -240,7 +241,8 @@ function _shapeOrders(orders: OrderRow[]): Array<Record<string, unknown>> {
             quantity: it.quantity,
             line_total: _toNumber(it.line_total),
             options_snapshot: it.options_snapshot,
-            item_notes: it.item_notes
+            item_notes: it.item_notes,
+            cancelled_at: it.cancelled_at
         }))
     }));
 }
