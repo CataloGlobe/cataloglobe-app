@@ -7,6 +7,8 @@ import type { RuleType } from "@/services/supabase/layoutScheduling";
  */
 export function ruleTypeLabel(type: RuleType, catalogLabel: string): string {
     if (type === "layout") return `${catalogLabel} e stile`;
+    if (type === "menu") return catalogLabel;
+    if (type === "style") return "Stile";
     if (type === "featured") return "In evidenza";
     if (type === "price") return "Prezzi";
     return "Disponibilità";

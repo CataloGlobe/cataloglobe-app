@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase/client";
+import type { RuleType } from "@/services/supabase/layoutScheduling";
 
 export type ScheduleTargetType = "activity" | "activity_group";
 
@@ -35,7 +36,7 @@ export async function updateScheduleTargets(
  */
 export async function createScopedRuleDraft(input: {
     tenantId: string;
-    ruleType: "layout" | "price" | "visibility" | "featured";
+    ruleType: RuleType;
     name: string;
     activityIds: readonly string[];
 }): Promise<string> {

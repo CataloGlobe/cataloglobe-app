@@ -72,7 +72,9 @@ import { useCompactHead } from "../Vetrina/useCompactHead";
 import type { LeadPart } from "../Vetrina/vetrinaModel";
 import { LAST_BASE_TIP, LastBaseError, lastBaseMenu, removesLastBase } from "./calendar/baseRule";
 
-type RuleTypeFilter = RuleType | "all";
+// `menu` e `style` stanno nella scheda di «Menù e stile» (`layout`).
+type RuleTypeFilter = Exclude<RuleType, "menu" | "style"> | "all";
+const filterOf = (t: RuleType): RuleTypeFilter => (t === "menu" || t === "style" ? "layout" : t);
 
 type RuleTypeOption = { value: RuleTypeFilter; label: string; description: string };
 
@@ -435,13 +437,13 @@ export default function Programming() {
     }, [activityById, catalogById, catalogLabel, seatRules, searchTerm, styleById]);
 
     const filteredRules = useMemo(
-        () => (ruleTypeFilter === "all" ? searchedRules : searchedRules.filter(rule => rule.rule_type === ruleTypeFilter)),
+        () => (ruleTypeFilter === "all" ? searchedRules : searchedRules.filter(rule => filterOf(rule.rule_type) === ruleTypeFilter)),
         [ruleTypeFilter, searchedRules]
     );
 
     const typeCounts = useMemo(() => {
         const counts: Record<RuleTypeFilter, number> = { layout: 0, featured: 0, price: 0, visibility: 0, all: searchedRules.length };
-        for (const rule of searchedRules) counts[rule.rule_type] += 1;
+        for (const rule of searchedRules) counts[filterOf(rule.rule_type)] += 1;
         return counts;
     }, [searchedRules]);
 

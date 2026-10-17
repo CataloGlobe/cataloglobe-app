@@ -3,7 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { asRole } from "./asRole";
 import { openBusinessPage } from "./business";
 import { sectionRow, sidebarLink } from "./nav";
-import { COVERED_RULE, COVERED_RULE_NAME, FEATURED, MATRIX_RULE_NAME, MENU, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, STYLE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { COVERED_RULE, COVERED_RULE_NAME, FEATURED, MATRIX_RULE_NAME, MENU, MISSING_RULE, PRODUCT, RULE, RULE_NAME, SEDE, StubError, TENANT_ID, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
  * Programmazione (lotto `ds-5-programmazione`, P0). Scritto sulla pagina di
@@ -965,6 +965,7 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         stub.onWrite("schedule_layout.PATCH", () => [{ id: NEW_ID }]);
         stub.onWrite("schedule_layout.POST", () => null);
         stub.onWrite("rpc.update_schedule_targets", () => null);
+        stub.onWrite("rpc.save_schedule_model", () => null);
         await openSeatList(page, SEDE.centro, "layout");
         await openCalendar(page);
         await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
@@ -992,12 +993,20 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         const targets = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
         expect(targets).toContain(SEDE.centro);
         expect(targets).not.toContain(SEDE.porto);
-        const layout = [...writesOf(stub, "schedule_layout.PATCH"), ...writesOf(stub, "schedule_layout.POST")].map(w => JSON.stringify(w.body));
-        expect(layout.some(b => b.includes(MENU.pranzo) && b.includes(STYLE.base))).toBe(true);
+        // col database nuovo il menù è una regola `menu` da sola, lo stile resta il suo
+        expect([writesOf(stub, "schedules.POST")[0].body].flat()[0]).toMatchObject({ rule_type: "menu" });
+        await expect.poll(() => writesOf(stub, "rpc.save_schedule_model").length).toBe(1);
+        expect(writesOf(stub, "rpc.save_schedule_model")[0].body).toMatchObject({ p_schedule_id: NEW_ID, p_payload: { catalog_id: MENU.pranzo } });
+        expect([...writesOf(stub, "schedule_layout.PATCH"), ...writesOf(stub, "schedule_layout.POST")]).toHaveLength(0);
         await expect(main(page).getByRole("status")).toHaveText(/^Aggiunto al calendario: Pranzo e2e/);
     });
 
-    test("D135: a pari merito con un altro menù l'avviso lo dice, e per ora non si salva", async ({ page }) => {
+    test("D135: a pari merito con un altro menù l'avviso lo dice; al posto o insieme, si salva", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000782";
+        stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
+        stub.onWrite("schedules.PATCH", () => [{ id: NEW_ID }]);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        stub.onWrite("rpc.save_schedule_model", () => null);
         await openSeatList(page, SEDE.centro, "layout");
         await openCalendar(page);
         await main(page).getByRole("button", { name: "Aggiungi", exact: true }).click();
@@ -1013,18 +1022,23 @@ test.describe("Programmazione — calendario, simulatore, guida", () => {
         await expect(avviso).toContainText("c'è già «Pranzo e2e»");
         await expect(avviso.getByText("In quelle ore va in onda il tuo; fuori da quelle ore resta tutto com'è.")).toBeVisible();
         const add = main(page).getByRole("button", { name: "Aggiungi al calendario" });
-        await expect(add).toBeDisabled();
-        await expect(main(page).getByText("Prende il posto di un altro a pari merito: si salva col database nuovo")).toBeVisible();
+        // col database nuovo (multi menù, passo 4) non aspetta più
+        await expect(add).toBeEnabled();
+        await expect(main(page).getByText("Prende il posto di un altro a pari merito: si salva col database nuovo")).toHaveCount(0);
         await avviso.getByRole("radio", { name: "Mettili insieme" }).click();
         await expect(avviso.getByText("In quelle ore ci sono tutti e due: il cliente sceglie.")).toBeVisible();
-        await expect(main(page).getByText("Due menù insieme: si salva col database nuovo. Per ora scegli «al posto».")).toBeVisible();
+        await expect(main(page).getByText("Due menù insieme: si salva col database nuovo. Per ora scegli «al posto».")).toHaveCount(0);
         // il riepilogo e l'anteprima lo dicono: si aggiunge, non prende il posto
         await expect(main(page).getByText(/«Carta e2e» si aggiunge agli altri menù/).first()).toBeVisible();
         await expect(main(page).getByText("Quando si sovrappongono c'è insieme a «Pranzo e2e»: il cliente sceglie.")).toBeVisible();
         await expect(avviso.getByRole("radio", { name: "Mettili insieme" })).toHaveAttribute("aria-checked", "true");
-        await expect(add).toBeDisabled();
         await noHorizontalScroll(page);
-        expect(writesOf(stub, "schedules.POST")).toHaveLength(0);
+        await add.click();
+        await expect.poll(() => writesOf(stub, "rpc.save_schedule_model").length).toBe(1);
+        expect(writesOf(stub, "rpc.save_schedule_model")[0].body).toMatchObject({
+            p_schedule_id: NEW_ID,
+            p_payload: { catalog_id: MENU.carta, overlap_mode: "together" }
+        });
     });
 
     test("punti 22 e 23: «Quale menù» dice chi è in onda; chi ha già la sua voce si modifica da lì, gli altri proseguono nel tunnel", async ({ page }) => {

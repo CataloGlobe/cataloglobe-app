@@ -47,7 +47,9 @@ const byName = (a: ProductUsageItem, b: ProductUsageItem) => a.name.localeCompar
 export function resolveProductUsage(input: ProductUsageInput): ProductUsageData {
     const catalogIds = new Set(input.catalogs.map(c => c.id));
     const touching = input.rules.filter(rule =>
-        rule.rule_type === "layout" ? rule.catalogId !== null && catalogIds.has(rule.catalogId) : true
+        rule.rule_type === "layout" || rule.rule_type === "menu"
+            ? rule.catalogId !== null && catalogIds.has(rule.catalogId)
+            : rule.rule_type !== "style"
     );
 
     const reached = new Set<string>();

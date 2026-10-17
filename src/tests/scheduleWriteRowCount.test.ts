@@ -93,3 +93,13 @@ describe("scritture sulle regole rifiutate dall'RLS (0 righe)", () => {
         ).rejects.toThrow(/permess/i);
     });
 });
+
+// Multi menù, passo 4: menù e stile di una regola `menu`/`style` li scrive
+// save_schedule_model; updateRule tocca solo la regola, non la disponibilità.
+describe("updateRule su una regola menu o style", () => {
+    it.each(["menu", "style"] as const)("%s: solo la tabella schedules", async ruleType => {
+        from.mockImplementation(() => queryBuilder(ONE));
+        await updateRule({ ...baseRule, ruleType });
+        expect(new Set(from.mock.calls.map(call => call[0]))).toEqual(new Set(["schedules"]));
+    });
+});

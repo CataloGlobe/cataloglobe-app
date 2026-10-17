@@ -184,7 +184,11 @@ export default function RuleDetailPage() {
         }
     }, [rule, businessId, location.pathname, location.search, navigate, schedulingBase]);
 
-    const listUrl = (type: string | null | undefined) => `${schedulingBase}${type ? `?type=${type}` : ""}`;
+    // `menu` e `style` stanno nella scheda «Menù e stile»
+    const listUrl = (type: string | null | undefined) => {
+        const tab = type === "menu" || type === "style" ? "layout" : type;
+        return `${schedulingBase}${tab ? `?type=${tab}` : ""}`;
+    };
     const backToList = listUrl(fromType ?? form?.ruleType ?? rule?.rule_type ?? "layout");
     const typeLabel = form ? ruleTypeLabel(form.ruleType, catalogLabel) : null;
     const title = form?.name || (status === "loading" ? "Caricamento regola..." : "Regola");
@@ -384,6 +388,22 @@ export default function RuleDetailPage() {
                 >
                     Non riusciamo a caricare la regola.
                 </InlineBanner>
+            );
+        }
+        if (rule && (rule.rule_type === "menu" || rule.rule_type === "style")) {
+            // il modello nuovo (più fasce, insieme o al posto) si modifica solo dal Calendario
+            return (
+                <EmptyState
+                    variant="page"
+                    icon={<CalendarClock />}
+                    title="Questa regola si modifica dal Calendario"
+                    description="Lì vedi le sue fasce e come sta con le altre regole."
+                    action={
+                        <Button variant="primary" onClick={() => navigate(`${schedulingBase}?vista=calendario`)}>
+                            Apri il Calendario
+                        </Button>
+                    }
+                />
             );
         }
         if (status === "loading" || !form || !rule) {

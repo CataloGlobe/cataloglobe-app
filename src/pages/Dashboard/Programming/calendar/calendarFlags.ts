@@ -7,7 +7,12 @@
 // `evid`: in evidenza, la data sulla card e il pulsante senza link libero (D187).
 const ON = (import.meta.env.DEV || import.meta.env.VITE_OFFICINA_CALENDARIO === "true") && import.meta.env.MODE !== "test";
 export const NEW_MODEL = { multiRange: ON, overnight: ON, multiMenu: ON, splitLayout: ON, newestWins: ON, evid: ON, soloMenu: ON };
-/** Il database salva già le novità: diventa true con le migrazioni di Lorenzo. */
-export const DB = { ready: false };
+/**
+ * Il database salva già le novità. `schedule`: regole `menu` e `style` con più
+ * fasce, oltre mezzanotte, «insieme» o «al posto» (save_schedule_model, multi
+ * menù passo 3), dove si vede il modello nuovo. `ready`: il resto (In evidenza
+ * con data, pulsante e ordine), diventa true con le sue migrazioni.
+ */
+export const DB = { ready: false, schedule: ON };
 export const DB_LATER = "arriva col database nuovo";
 export const DB_WAIT = "si salva col database nuovo";

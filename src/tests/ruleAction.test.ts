@@ -19,6 +19,8 @@ describe("describeRuleAction: il verbo del mockup, per tipo", () => {
     it("menù: mostra {menù}", () => {
         expect(describeRuleAction(rule({ rule_type: "layout" }), "Carta")).toBe("mostra Carta");
         expect(describeRuleAction(rule({ rule_type: "layout" }))).toBeNull();
+        // multi menù: una regola `menu` dice il suo menù come una `layout`
+        expect(describeRuleAction(rule({ rule_type: "menu" }), "Carta")).toBe("mostra Carta");
     });
 
     it("prezzi: cambia N prezzi, al singolare con uno", () => {

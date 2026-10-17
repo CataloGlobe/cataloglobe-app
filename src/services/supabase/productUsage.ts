@@ -66,7 +66,7 @@ export async function getProductUsage(productId: string, tenantId: string): Prom
     if (overrideSchedulesRes.error) throw new Error(overrideSchedulesRes.error.message);
 
     const layoutRules: UsageRule[] = sources.rules
-        .filter(rule => rule.rule_type === "layout")
+        .filter(rule => rule.rule_type === "layout" || rule.rule_type === "menu")
         .map(rule => ({
             id: rule.id,
             name: rule.name,

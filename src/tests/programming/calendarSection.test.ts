@@ -228,7 +228,8 @@ describe("chi vince a parità (#337.1)", () => {
         ];
         const cal = entriesFromRules(rules, names).filter(e => e.kind === "menu").sort(order(seat)).map(e => e.ruleId);
         const pub = rules
-            .map(r => ({ rule: r, specificity: specificityFor(r, seat)! }))
+            // qui solo regole `layout`: il tipo del giudice vecchio basta
+            .map(r => ({ rule: r as typeof r & { rule_type: "layout" }, specificity: specificityFor(r, seat)! }))
             .sort(compareCandidates)
             .map(x => x.rule.id);
         expect(cal).toEqual(pub);
