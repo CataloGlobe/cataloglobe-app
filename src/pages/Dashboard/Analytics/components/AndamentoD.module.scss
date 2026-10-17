@@ -51,6 +51,10 @@
   align-items: center;
 }
 
+.cmd[data-compact] .answer {
+  display: none;
+}
+
 .answer {
   @include d-type(answer);
 
