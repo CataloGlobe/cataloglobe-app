@@ -103,7 +103,9 @@
 }
 
 .sedePick {
-  min-width: 190px;
+  flex: 0 0 220px;
+  width: 220px;
+  max-width: 100%;
 }
 
 .card {
