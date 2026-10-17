@@ -420,7 +420,7 @@ export default function PublicCatalogReady({
         showActivityName: tokens.header.showActivityName,
         showCatalogName: tokens.header.showCatalogName,
         showAddress: tokens.header.showAddress,
-        featuredStyle: tokens.appearance.featuredStyle,
+        featuredStyle: tokens.appearance.featuredStyle === "image" ? "card" : tokens.appearance.featuredStyle, // "image" (Solo l'immagine) si mostra come card finché la pagina non ha la sua forma
         cardTreatment: tokens.appearance.cardTreatment,
         iconStyle: tokens.appearance.iconStyle ?? "plain",
         appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius),

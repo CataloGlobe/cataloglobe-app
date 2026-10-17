@@ -512,7 +512,7 @@ export const StylePreview = ({
     showActivityName: model.header.showActivityName,
     showCatalogName: model.header.showCatalogName,
     showAddress: model.header.showAddress,
-    featuredStyle: model.appearance.featuredStyle,
+    featuredStyle: model.appearance.featuredStyle === "image" ? "card" : model.appearance.featuredStyle, // "image" (Solo l'immagine) si mostra come card finché la pagina non ha la sua forma
     showFeaturedSubtitle: model.appearance.showFeaturedSubtitle ?? true,
     showFeaturedTitle: model.appearance.showFeaturedTitle ?? true,
     showFeaturedCta: model.appearance.showFeaturedCta ?? true,
