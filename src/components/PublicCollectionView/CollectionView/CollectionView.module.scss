@@ -536,7 +536,7 @@
 }
 
 /* Aspetto card (data-card-treatment sul wrapper PublicThemeScope):
-   raised = ombra, bordo invisibile · bordered = bordo, niente ombra (neanche hover).
+   raised = ombra, bordo invisibile · bordered = linea da 0,5px e ombra appena accennata.
    Il bordo 1px di base resta sempre per geometria; cambia solo il colore.
    .card vive solo nel catalogo (mai nelle modali) → nessun leak. */
 :global([data-card-treatment="raised"]) .card {
@@ -544,24 +544,26 @@
   border-color: transparent;
 }
 :global([data-card-treatment="bordered"]) .card {
-  box-shadow: none;
+  background: var(--pub-card-outline-bg);
+  border-width: 0.5px;
   border-color: var(--pub-surface-border);
+  box-shadow: var(--pub-card-outline-shadow);
 }
 :global([data-card-treatment="bordered"]) .card:hover {
-  box-shadow: none; /* niente ombra su hover in contornata (lift translateY mantenuto) */
+  box-shadow: var(--pub-card-outline-shadow);
 }
 
 /* Vetro: superficie semitrasparente + blur (terzo valore di cardTreatment).
    Mutuamente esclusivo con raised/bordered → nessun gating cross-asse. */
 :global([data-card-treatment="glass"]) .card {
-  background: var(--pub-surface-glass);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: none;
+  background: var(--pub-card-glass);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
+  border-color: var(--pub-card-glass-border);
+  box-shadow: var(--pub-card-glass-shadow);
 }
 :global([data-card-treatment="glass"]) .card:hover {
-  box-shadow: none;
+  box-shadow: var(--pub-card-glass-shadow);
 }
 /* Fallback senza supporto backdrop-filter: torna al solido leggibile. */
 @supports not (
