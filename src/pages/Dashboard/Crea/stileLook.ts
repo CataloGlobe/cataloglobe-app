@@ -212,6 +212,8 @@ export function retouched(l: StyleTokenModel): boolean {
     if (!id) return false;
     const ref = structuredClone(l);
     applyPreset(ref, id);
+    // la foto la mette solo «CataloGlobe», come partenza: cambiarla non è un ritocco
+    ref.card.image = structuredClone(l.card.image);
     return lookKey(ref) !== lookKey(l);
 }
 

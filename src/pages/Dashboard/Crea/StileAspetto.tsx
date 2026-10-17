@@ -75,7 +75,7 @@ export function StileAspetto({ t, u, tenantId, rules, onPeek, readOnly, seen = n
     const [vers, setVers] = useState<{ id: string; when: string; look: Look }[] | "failed" | null>(null);
     const showVers = () => {
         setOpen(o => !o);
-        if (vers || !editId) return;
+        if ((vers && vers !== "failed") || !editId) return;
         listStyleVersions(editId, tenantId)
             .then(list => setVers(list.map(v => ({ id: v.id, when: day(v.created_at), look: parseTokens(v.config) }))))
             .catch(() => setVers("failed"));

@@ -1,16 +1,22 @@
 // I pezzi piccoli de «L'aspetto» dello stile: il gruppo di una scelta, le pillole, la tavolozza.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ink, palette, sameHex, type PaletteKind } from "./stileLook";
 import s from "./StileAspetto.module.scss";
 
 export type Opts<V extends string> = readonly (readonly [V, string])[];
 
 export function Group({ label, hint, wide, cond, off, children }: { label: string; hint?: ReactNode; wide?: boolean; cond?: boolean; off?: string; children: ReactNode }) {
+    const hintId = useId();
+    const note = off || hint;
     return (
-        <div className={[s.og, wide && s.wide, cond && s.cond, off && s.off].filter(Boolean).join(" ")} role="group" aria-label={label}>
+        <div className={[s.og, wide && s.wide, cond && s.cond, off && s.off].filter(Boolean).join(" ")} role="group" aria-label={label} aria-describedby={note ? hintId : undefined}>
             <span className={s.lab}>{label}</span>
             {children}
-            {(off || hint) && <span className={s.hint}>{off || hint}</span>}
+            {note && (
+                <span className={s.hint} id={hintId}>
+                    {note}
+                </span>
+            )}
         </div>
     );
 }

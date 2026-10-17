@@ -326,6 +326,11 @@ describe("tunnel dello stile: l'aspetto intero", () => {
         applyPreset(l, "notte");
         expect(l.colors.accent).toBeUndefined();
         expect(retouched(l)).toBe(false);
+        // «CataloGlobe» parte con la foto a destra, ma la foto resta libera
+        applyPreset(l, "cg");
+        expect(l.card.image).toEqual({ mode: "show", position: "right" });
+        l.card.image = { mode: "hide", position: "left" };
+        expect(retouched(l)).toBe(false);
     });
 
     it("consiglio per riquadro in cima e barra: chiari sullo scuro e sul bianco, scuri sulle chiare colorate", () => {
