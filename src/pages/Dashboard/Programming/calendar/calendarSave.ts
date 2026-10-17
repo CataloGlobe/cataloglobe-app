@@ -20,8 +20,8 @@ const ruleTypeOf = (D: Draft): RuleType => (savesAsModel(D) ? (D.kind as "menu" 
 
 /**
  * Le fasce del quando per save_schedule_model: gli stessi giorni per tutte
- * (0 = domenica nel database, 0 = lunedì qui). Senza giorni né ore non si
- * mandano: le scrive il ponte dalle colonne, come oggi.
+ * (0 = domenica nel database, 0 = lunedì qui). Senza giorni né ore:
+ * undefined, cioè «Sempre» (writeRule manda `[]`).
  */
 export function modelSlotsOf(w: Draft["when"]): ModelSlot[] | undefined {
     if (!w.days && !w.ranges?.length) return undefined;
@@ -104,6 +104,8 @@ async function writeRule(id: string, tenantId: string, D: Draft, name: string, p
             timeTo: t.timeTo,
             startAt: t.startAt,
             endAt: t.endAt,
+            // il quando di menu e style lo scrive la RPC con le fasce (sotto)
+            ...(model ? { keepTime: true } : {}),
             ...(D.kind === "menu" && !model ? { layout: { catalogId: D.thing, styleId: D.pair } } : {}),
             ...(D.kind === "style" && !model ? { layout: { catalogId: D.pair, styleId: D.thing } } : {}),
             ...(D.kind === "price" ? { priceProducts: products.price } : {}),
@@ -113,14 +115,12 @@ async function writeRule(id: string, tenantId: string, D: Draft, name: string, p
     await writeTargets(id, tg);
     if (model) {
         // menù o stile, «insieme» o «al posto», e le fasce in un colpo (dopo le sedi:
-        // la RPC vuole poter scrivere su tutte)
-        const slots = modelSlotsOf(D.when);
-        // Se la RPC fallisce in modifica, il ponte ha già ridotto le fasce alla
-        // prima (dalle colonne di updateRule): «Riprova» le riscrive tutte.
+        // la RPC vuole poter scrivere su tutte). Le fasce vanno sempre ([] = «Sempre»):
+        // updateRule non ha toccato il quando, quindi se la RPC fallisce restano quelle di prima.
         await saveScheduleModel(id, {
             // lo stile non tocca il suo modo: «lascia gli altri» si sceglie altrove
             ...(D.kind === "menu" ? { catalog_id: D.thing ?? undefined, overlap_mode: D.insieme ? "together" : "replace" } : { style_id: D.thing ?? undefined }),
-            ...(slots ? { slots } : {})
+            slots: modelSlotsOf(D.when) ?? []
         });
     }
 }
