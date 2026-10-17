@@ -104,6 +104,13 @@ test("il numero sulla riga apre «− n +»: più, meno, cestino; si richiude da
     await expect(group).toHaveCount(0, { timeout: 5000 });
     await expect(row.getByRole("button", { name: "Nell'ordine: 1" })).toBeVisible();
 
+    // Esc lo richiude anche se il fuoco non è nel gruppo.
+    await row.getByRole("button", { name: "Nell'ordine: 1" }).click();
+    await expect(group).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(group).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
     // Toccando fuori si richiude subito.
     await row.getByRole("button", { name: "Nell'ordine: 1" }).click();
     await expect(group).toBeVisible();

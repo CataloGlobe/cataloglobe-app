@@ -106,6 +106,11 @@
   color: var(--pub-cta-text);
 }
 
+/* Nel gruppo i pulsanti sono da 24px: l'area da toccare arriva a 44px. */
+.stepper > button::after {
+  inset: -10px;
+}
+
 .stepQty {
   min-width: 12px;
   font-size: 14px;

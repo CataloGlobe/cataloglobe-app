@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FocusEvent, type MouseEvent } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import styles from "./AddControl.module.scss";
@@ -29,6 +29,8 @@ export default function AddControl({ qty, hasOptions, onAdd, onRemove, place }: 
     const plusRef = useRef<HTMLButtonElement>(null);
     // Dove rimettere il fuoco dopo un cambio aperto/chiuso fatto da tastiera.
     const focusNext = useRef<"main" | "plus" | null>(null);
+    // Tolto l'ultimo pezzo da fuori (Annulla, foglio dell'ordine) il gruppo non resta aperto.
+    if (open && qty === 0) setOpen(false);
     const stepOpen = open && qty > 0 && !hasOptions;
 
     const close = useCallback(() => {
@@ -38,15 +40,24 @@ export default function AddControl({ qty, hasOptions, onAdd, onRemove, place }: 
 
     useEffect(() => {
         if (!stepOpen) return;
-        // Ogni tocco cambia qty e fa ripartire i 3 secondi.
-        const timer = window.setTimeout(close, CLOSE_AFTER_MS);
+        // Ogni tocco cambia qty e fa ripartire i 3 secondi. Col fuoco da tastiera dentro il gruppo
+        // non si chiude da solo (WCAG 2.2.1): si chiude con Esc o uscendo col Tab.
+        const timer = window.setTimeout(() => {
+            if (!rootRef.current?.querySelector(":focus-visible")) close();
+        }, CLOSE_AFTER_MS);
         const outside = (e: PointerEvent) => {
             if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
         };
+        // Esc su tutta la pagina: aperto col tocco, il fuoco non è nel gruppo.
+        const esc = (e: globalThis.KeyboardEvent) => {
+            if (e.key === "Escape") close();
+        };
         document.addEventListener("pointerdown", outside, true);
+        document.addEventListener("keydown", esc);
         return () => {
             window.clearTimeout(timer);
             document.removeEventListener("pointerdown", outside, true);
+            document.removeEventListener("keydown", esc);
         };
     }, [stepOpen, qty, close]);
 
@@ -71,11 +82,9 @@ export default function AddControl({ qty, hasOptions, onAdd, onRemove, place }: 
         onRemove();
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape" && stepOpen) {
-            e.stopPropagation();
-            close();
-        }
+    // Uscendo col Tab il gruppo si richiude (relatedTarget nullo: il fuoco non è andato altrove).
+    const handleBlur = (e: FocusEvent) => {
+        if (stepOpen && e.relatedTarget && !rootRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
     };
 
     return (
@@ -84,7 +93,7 @@ export default function AddControl({ qty, hasOptions, onAdd, onRemove, place }: 
             ref={rootRef}
             className={`${styles.root} ${styles[place]}`}
             onClick={e => e.stopPropagation()}
-            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
         >
             {stepOpen ? (
                 <span className={styles.stepper} role="group" aria-label={t("selection.in_order_aria", { count: qty })}>
@@ -96,7 +105,9 @@ export default function AddControl({ qty, hasOptions, onAdd, onRemove, place }: 
                     >
                         {qty === 1 ? <Trash2 size={15} strokeWidth={2.2} /> : <Minus size={15} strokeWidth={2.5} />}
                     </button>
-                    <b className={styles.stepQty}>{qty}</b>
+                    <b className={styles.stepQty} aria-live="polite">
+                        {qty}
+                    </b>
                     <button
                         ref={plusRef}
                         type="button"
@@ -113,6 +124,7 @@ export default function AddControl({ qty, hasOptions, onAdd, onRemove, place }: 
                     type="button"
                     className={`${styles.main}${qty > 0 ? ` ${styles.on}` : ""}`}
                     onClick={handleMain}
+                    aria-haspopup={hasOptions ? "dialog" : undefined}
                     aria-label={qty > 0 ? t("selection.in_order_aria", { count: qty }) : t("selection.add_aria")}
                 >
                     {qty > 0 ? <b>{qty}</b> : <Plus size={place === "photo" ? 18 : 16} strokeWidth={2.5} />}
