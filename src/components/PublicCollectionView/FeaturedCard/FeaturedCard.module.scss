@@ -86,6 +86,7 @@
 .cardImage {
   position: relative;
   aspect-ratio: 16 / 9;
+  container-type: inline-size;
 }
 
 .imageText {
@@ -130,6 +131,24 @@
 
 .imageTextCta {
   margin-top: auto;
+}
+
+/* Riquadro stretto (anteprima, tablet a più colonne): nel 16:9 non ci sta tutto, quindi
+   via il sottotitolo e titolo su una riga, perché il pulsante resti intero. */
+@container (max-width: 300px) {
+  .imageText {
+    gap: 6px;
+    padding: 14px 14px 12px;
+  }
+
+  .imageTextTitle {
+    font-size: 17px;
+    -webkit-line-clamp: 1;
+  }
+
+  .imageTextSubtitle {
+    display: none;
+  }
 }
 
 /* ── Tag badge ─────────────────────────────────────────────────────────── */

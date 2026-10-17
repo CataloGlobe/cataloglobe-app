@@ -115,7 +115,8 @@ export default function FeaturedCard({ block, onClick, onCtaClick, onOpenReserva
                         source={block.media_id!}
                         framing={toFeaturedFraming(block)}
                         aspectRatio={block.media_aspect_ratio}
-                        alt={block.title}
+                        // Il titolo lo dice già l'aria-label del riquadro.
+                        alt=""
                         eager={eager}
                     />
                 ) : (

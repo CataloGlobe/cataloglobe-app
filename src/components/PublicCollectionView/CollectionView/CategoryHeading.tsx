@@ -18,6 +18,7 @@ type Props = {
  * nel centrato il titolo centrato fra due linee (lì l'icona non c'è).
  */
 export default function CategoryHeading({ name, index, productStyle, compactLayoutStyle = "modern", categoryTitle = "dash" }: Props) {
+    if (!name) return null;
     const title = (
         <Text as="h2" variant="title-sm" weight={700} color="var(--pub-bg-text)">
             {name}

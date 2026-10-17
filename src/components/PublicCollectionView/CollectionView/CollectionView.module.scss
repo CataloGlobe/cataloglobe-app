@@ -220,14 +220,14 @@
   gap: 1.25rem;
 }
 
-/* sectionGroup: wrapper root per ogni gruppo gerarchico L1.
-   Nessun gap — le distanze tra sotto-sezioni sono gestite inline
-   perché dipendono dal contesto (child precedente). */
 /* Alone (editor stili): sotto la copertina quando c'è. */
 .page:has([data-cover]) {
   --pub-glow-y: 240px;
 }
 
+/* sectionGroup: wrapper root per ogni gruppo gerarchico L1.
+   Nessun gap — le distanze tra sotto-sezioni sono gestite inline
+   perché dipendono dal contesto (child precedente). */
 /* Titolo della categoria (editor stili): trattino sotto, icona o solo testo; nei compatti
    numero con linea sotto (moderno) o centrato fra due linee (editoriale e centrato). */
 .categoryHeading {
@@ -474,15 +474,19 @@
   }
 }
 
-.compactItem + .compactItem .compactRowCentered::before {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 16px;
-  height: 1px;
-  background: color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
-  content: "";
-  translate: -50% 0;
+/* Trattino fra un piatto e l'altro: solo a una colonna (sotto i 480px la griglia ne ha
+   sempre una); a più colonne i piatti affiancati non hanno un «sopra». */
+@container collection (max-width: 480px) {
+  .compactItem + .compactItem .compactRowCentered::before {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 16px;
+    height: 1px;
+    background: color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
+    content: "";
+    translate: -50% 0;
+  }
 }
 
 .compactRowBody {

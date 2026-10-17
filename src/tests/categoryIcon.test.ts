@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Beef, CakeSlice, CookingPot, CupSoda, Pizza, Utensils, Wine } from "lucide-react";
+import { Beef, CakeSlice, Coffee, CookingPot, CupSoda, Pizza, Sandwich, Utensils, Wine } from "lucide-react";
 import { categoryIcon } from "@/components/PublicCollectionView/CollectionView/categoryIcon";
 
 describe("categoryIcon", () => {
@@ -17,6 +17,11 @@ describe("categoryIcon", () => {
 
     it("non confonde parole che contengono la radice", () => {
         expect(categoryIcon("Divino")).toBe(Utensils);
+        expect(categoryIcon("Tortellini")).toBe(CookingPot);
+        expect(categoryIcon("Torte")).toBe(CakeSlice);
+        expect(categoryIcon("Hamburger")).toBe(Sandwich);
+        expect(categoryIcon("Tè e tisane")).toBe(Coffee);
+        expect(categoryIcon("Fatte da te")).toBe(Utensils);
     });
 
     it("usa le posate quando nessuna parola combacia", () => {
