@@ -42,15 +42,16 @@ export async function listStyles(tenantId: string): Promise<V2Style[]> {
 
     if (stylesError) throw stylesError;
 
-    // Fetch usage counts directly
-    const { data: layoutsData, error: layoutsError } = await supabase
-        .from("schedule_layout")
-        .select("style_id")
-        .eq("tenant_id", tenantId);
+    // Fetch usage counts directly: regole layout e regole style (multi menù)
+    const [layouts, styleRules] = await Promise.all([
+        supabase.from("schedule_layout").select("style_id").eq("tenant_id", tenantId),
+        supabase.from("schedule_style").select("style_id").eq("tenant_id", tenantId)
+    ]);
 
-    if (layoutsError) throw layoutsError;
+    if (layouts.error) throw layouts.error;
+    if (styleRules.error) throw styleRules.error;
 
-    const usageCounts = (layoutsData || []).reduce((acc: Record<string, number>, layout) => {
+    const usageCounts = [...(layouts.data || []), ...(styleRules.data || [])].reduce((acc: Record<string, number>, layout) => {
         if (layout.style_id) {
             acc[layout.style_id] = (acc[layout.style_id] || 0) + 1;
         }
@@ -272,20 +273,24 @@ export async function duplicateStyle(styleId: string, newName: string, tenantId:
     return createStyle(sourceStyle.tenant_id, newName, sourceStyle.current_version.config);
 }
 
+/** Le tabelle delle regole che nominano uno stile: `layout` e, col multi menù, `style`. */
+const STYLE_USAGE_TABLES = ["schedule_layout", "schedule_style"] as const;
+
 /**
- * Le righe di `schedule_layout` che nominano lo stile, lette adesso: è il
- * vincolo che `deleteStyle` controlla. Il drawer di eliminazione la rilegge
- * all'apertura invece di fidarsi del conteggio dell'elenco.
+ * Le righe di `schedule_layout` e `schedule_style` che nominano lo stile, lette
+ * adesso: è il vincolo che `deleteStyle` controlla. Il drawer di eliminazione la
+ * rilegge all'apertura invece di fidarsi del conteggio dell'elenco.
  */
 export async function countStyleUsage(styleId: string, tenantId: string): Promise<number> {
-    const { data, error } = await supabase
-        .from("schedule_layout")
-        .select("id")
-        .eq("style_id", styleId)
-        .eq("tenant_id", tenantId);
-
-    if (error) throw error;
-    return data?.length ?? 0;
+    const results = await Promise.all(
+        STYLE_USAGE_TABLES.map(table => supabase.from(table).select("id").eq("style_id", styleId).eq("tenant_id", tenantId))
+    );
+    let count = 0;
+    for (const { data, error } of results) {
+        if (error) throw error;
+        count += data?.length ?? 0;
+    }
+    return count;
 }
 
 export async function deleteStyle(styleId: string, tenantId: string, replaceWithStyleId?: string): Promise<void> {
@@ -310,13 +315,15 @@ export async function deleteStyle(styleId: string, tenantId: string, replaceWith
         if (!replacement) throw new Error("Replacement style not found");
 
         // Update all references
-        const { error: updateError } = await supabase
-            .from("schedule_layout")
-            .update({ style_id: replaceWithStyleId })
-            .eq("style_id", styleId)
-            .eq("tenant_id", tenantId);
+        for (const table of STYLE_USAGE_TABLES) {
+            const { error: updateError } = await supabase
+                .from(table)
+                .update({ style_id: replaceWithStyleId })
+                .eq("style_id", styleId)
+                .eq("tenant_id", tenantId);
 
-        if (updateError) throw updateError;
+            if (updateError) throw updateError;
+        }
     }
 
     // Delete the style (cascade will delete versions)
