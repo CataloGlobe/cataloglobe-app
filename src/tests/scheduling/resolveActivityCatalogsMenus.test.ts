@@ -327,6 +327,101 @@ describe("resolveActivityCatalogs col giudice nuovo", () => {
     });
 });
 
+// Multi menù, passo 5: una sede come San Pietro Bistrò, quattro menù. Il
+// ristorante ha due fasce, la gelateria prende il posto degli altri; l'ordine
+// dei riquadri è `catalogs.sort_order` (riordino del back office).
+describe("una sede con quattro menù (San Pietro)", () => {
+    const slot = (scheduleId: string, n: number, from: number, to: number): Row => ({
+        id: `s-${scheduleId}-${n}`,
+        schedule_id: scheduleId,
+        days_of_week: null,
+        start_minute: from * 60,
+        end_minute: to * 60,
+        sort_order: n
+    });
+    const at = (utc: string) => toRomeDateTime(new Date(utc));
+    async function resolveAt(time: ReturnType<typeof toRomeDateTime>) {
+        const web = await resolveWeb(SEAT, time, TENANT);
+        const edge = await resolveEdge(fakeSupabase, SEAT, time, TENANT);
+        expect(edge).toEqual(web);
+        return web;
+    }
+    const shape = (result: Awaited<ReturnType<typeof resolveAt>>) =>
+        result.menus?.map(m => [m.catalogId, m.state, m.startMinute]);
+
+    beforeEach(() => {
+        tables.schedule_menu = [
+            { schedule_id: "m-rist", catalog_id: "c-rist" },
+            { schedule_id: "m-bar", catalog_id: "c-bar" },
+            { schedule_id: "m-ape", catalog_id: "c-ape" },
+            { schedule_id: "m-gel", catalog_id: "c-gel" }
+        ];
+        tables.catalogs = [
+            rawCatalog("c-rist", "Ristorante", 1, ["p-1"]),
+            rawCatalog("c-bar", "Bar e caffetteria", 2, ["p-2"]),
+            rawCatalog("c-ape", "Aperitivo", 3, ["p-3"]),
+            rawCatalog("c-gel", "Gelateria", 4, ["p-4"])
+        ];
+        tables.schedules = [
+            rule("m-rist", "menu", { overlap_mode: "together", time_mode: "window" }),
+            rule("m-bar", "menu", { overlap_mode: "together", time_mode: "window" }),
+            rule("m-ape", "menu", { overlap_mode: "together", time_mode: "window" }),
+            rule("m-gel", "menu", { overlap_mode: "replace", time_mode: "window" })
+        ];
+        tables.schedule_slots = [
+            slot("m-rist", 0, 12, 15),
+            slot("m-rist", 1, 19, 23),
+            slot("m-bar", 0, 7, 19),
+            slot("m-ape", 0, 18, 21),
+            slot("m-gel", 0, 15, 18)
+        ];
+    });
+
+    it("alle 13: ristorante e bar insieme, nell'ordine dato; più tardi gelateria e aperitivo per ora", async () => {
+        const result = await resolveAt(at("2026-03-26T12:00:00.000Z"));
+        expect(shape(result)).toEqual([
+            ["c-rist", "now", 720],
+            ["c-bar", "now", 420],
+            ["c-gel", "later", 900],
+            ["c-ape", "later", 1080]
+        ]);
+    });
+
+    it("riordinati dal back office: il bar va prima del ristorante", async () => {
+        tables.catalogs = tables.catalogs.map(c =>
+            c.id === "c-bar" ? { ...c, sort_order: 1 } : c.id === "c-rist" ? { ...c, sort_order: 2 } : c
+        );
+        const result = await resolveAt(at("2026-03-26T12:00:00.000Z"));
+        expect(shape(result)?.filter(m => m[1] === "now").map(m => m[0])).toEqual(["c-bar", "c-rist"]);
+    });
+
+    it("più tardi alla stessa ora: prima chi viene prima nell'ordine", async () => {
+        // gelateria «insieme» dalle 18 come l'aperitivo, e prima di lui nell'ordine
+        // (l'alfabeto direbbe il contrario: conta sort_order)
+        tables.schedules = tables.schedules.map(r => (r.id === "m-gel" ? { ...r, overlap_mode: "together" } : r));
+        tables.schedule_slots = tables.schedule_slots.map(s => (s.schedule_id === "m-gel" ? slot("m-gel", 0, 18, 23) : s));
+        tables.catalogs = tables.catalogs.map(c =>
+            c.id === "c-gel" ? { ...c, sort_order: 3 } : c.id === "c-ape" ? { ...c, sort_order: 4 } : c
+        );
+        const result = await resolveAt(at("2026-03-26T12:00:00.000Z"));
+        expect(shape(result)?.filter(m => m[1] === "later")).toEqual([
+            ["c-gel", "later", 1080],
+            ["c-ape", "later", 1080]
+        ]);
+    });
+
+    it("alle 16 la gelateria prende il posto degli altri", async () => {
+        const result = await resolveAt(at("2026-03-26T15:00:00.000Z"));
+        expect(result.catalog?.id).toBe("c-gel");
+        expect(shape(result)?.filter(m => m[1] === "now").map(m => m[0])).toEqual(["c-gel"]);
+    });
+
+    it("alle 20 la seconda fascia del ristorante, insieme all'aperitivo", async () => {
+        const result = await resolveAt(at("2026-03-26T19:00:00.000Z"));
+        expect(shape(result)?.filter(m => m[1] === "now").map(m => m[0])).toEqual(["c-rist", "c-ape"]);
+    });
+});
+
 describe("resolveActivityCatalogs: un catalogo si scarica una volta sola", () => {
     // Il catalogo con sezioni e piatti, non la lettura di `sort_order` del giudice.
     const catalogDownloads = () =>

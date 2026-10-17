@@ -16,7 +16,7 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconBook2 } from "@tabler/icons-react";
-import { Sparkles, Eye, LayoutGrid, List as ListIcon, TextCursorInput } from "lucide-react";
+import { Sparkles, Eye, LayoutGrid, List as ListIcon, TextCursorInput, ArrowUpDown } from "lucide-react";
 import { Loader } from "@/components/ui/Loader/Loader";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { rowAction } from "@/components/ui/TableRowActions/rowAction";
@@ -41,6 +41,7 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { CatalogDeleteDialog } from "./CatalogDeleteDialog";
 import { CatalogForm } from "./components/CatalogForm";
 import { CatalogSheet } from "./components/CatalogSheet";
+import { CatalogOrderDrawer } from "./components/CatalogOrderDrawer";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import { LOOK_D } from "@/styles/lookD";
 import { VetrinaHead, type VetrinaView } from "../Vetrina/VetrinaHead";
@@ -98,6 +99,9 @@ export default function Catalogs() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editingCatalog, setEditingCatalog] = useState<V2Catalog | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    // L'ordine di «Scegli il menu» (multi menù, D117): serve da due menù in su.
+    const [isOrderOpen, setIsOrderOpen] = useState(false);
+    const canOrder = canWriteCatalog && catalogs.length > 1;
 
     // AI Import: sessione sollevata in MainLayout. La pagina apre il drawer via
     // context e ricarica quando l'import completa (importRefreshKey bumpato).
@@ -212,6 +216,11 @@ export default function Catalogs() {
                     {aiImportLabel}
                 </Button>
             )}
+            {canOrder && (
+                <Button variant="secondary" onClick={() => setIsOrderOpen(true)} disabled={!canEdit} leftIcon={<ArrowUpDown size={16} />}>
+                    Ordine per i clienti
+                </Button>
+            )}
             {canWriteCatalog && (
                 <Button
                     variant="primary"
@@ -223,7 +232,7 @@ export default function Catalogs() {
                 </Button>
             )}
         </>
-    ), [canWriteCatalog, canEdit, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, handleOpenAiImport, importStatus, aiImportIsBusy, aiImportLabel]);
+    ), [canWriteCatalog, canOrder, canEdit, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, handleOpenAiImport, importStatus, aiImportIsBusy, aiImportLabel]);
 
     // Import AI del drawer, mentre lavora (a riposo non c'è, D165). Non può
     // nascondersi nel kebab: un'operazione in corso che l'utente non vede è
@@ -714,7 +723,22 @@ export default function Catalogs() {
                         value: viewMode === "list" ? "elenco" : "fogli",
                         onChange: (v: VetrinaView) => handleViewModeChange(v === "elenco" ? "list" : "grid")
                     }}
-                    crea={<VetrinaCrea da="menu" disabled={!canEdit} />}
+                    crea={
+                        <>
+                            {canOrder && (
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setIsOrderOpen(true)}
+                                    disabled={!canEdit}
+                                    leftIcon={<ArrowUpDown size={16} aria-hidden />}
+                                >
+                                    Ordine per i clienti
+                                </Button>
+                            )}
+                            <VetrinaCrea da="menu" disabled={!canEdit} />
+                        </>
+                    }
                     compact={compact}
                     setTop={setTop}
                 />
@@ -771,6 +795,15 @@ export default function Catalogs() {
                 message={`Si eliminano anche le loro ${categoryPluralLower} e i collegamenti ai ${productPluralLower}, e non si torna indietro. I ${productPluralLower} restano. Un ${catalogLower} usato da una regola del Calendario non si elimina.`}
                 confirmLabel={`Elimina ${countLabel(pendingBulkIds?.length ?? 0)}`}
             />
+
+            {canOrder && currentTenantId && (
+                <CatalogOrderDrawer
+                    open={isOrderOpen}
+                    onClose={() => setIsOrderOpen(false)}
+                    tenantId={currentTenantId}
+                    catalogLabel={catalogLower}
+                />
+            )}
 
             <CatalogDeleteDialog
                 isOpen={isDeleteOpen}
