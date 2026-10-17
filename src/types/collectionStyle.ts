@@ -6,7 +6,7 @@ export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type CardTreatment = "raised" | "bordered" | "glass";
 export type IconStyle = "plain" | "pill";
-export type CompactLayoutStyle = "editorial" | "modern";
+export type CompactLayoutStyle = "editorial" | "modern" | "centered";
 export type ContentDensity = "minimal" | "standard" | "full";
 
 export type CollectionStyle = {
