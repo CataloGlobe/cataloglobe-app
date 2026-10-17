@@ -126,12 +126,21 @@ describe("giudice nuovo — menù (M5)", () => {
         expect(v.coveredMenus).toEqual([]);
     });
 
-    it("un «al posto» copre gli «insieme»", () => {
-        const together = rule({ id: "pranzo", overlap_mode: "together", on_air_since: "2026-03-01T00:00:00.000Z" });
-        const replace = rule({ id: "natale", overlap_mode: "replace" });
+    it("un «al posto» copre gli «insieme» più vecchi", () => {
+        const together = rule({ id: "pranzo", overlap_mode: "together" });
+        const replace = rule({ id: "natale", overlap_mode: "replace", on_air_since: "2026-03-01T00:00:00.000Z" });
         const v = judge([together, replace], SEAT_X, THU_13);
         expect(ids(v.menus)).toEqual(["natale"]);
         expect(ids(v.coveredMenus)).toEqual(["pranzo"]);
+    });
+
+    it("un «insieme» più nuovo si aggiunge all'«al posto» (D129)", () => {
+        const older = rule({ id: "vecchio", overlap_mode: "together" });
+        const replace = rule({ id: "completo", overlap_mode: "replace", on_air_since: "2026-02-01T00:00:00.000Z" });
+        const newer = rule({ id: "pranzo", overlap_mode: "together", on_air_since: "2026-03-01T00:00:00.000Z" });
+        const v = judge([older, replace, newer], SEAT_X, THU_13);
+        expect(ids(v.menus)).toEqual(["pranzo", "completo"]);
+        expect(ids(v.coveredMenus)).toEqual(["vecchio"]);
     });
 
     it("fra due «al posto» vale l'ultima scelta salvata (on_air_since)", () => {

@@ -139,8 +139,8 @@ export function judgeSeat<R>(
     now: RomeDateTime
 ): ViewOutcome<R> {
     const verdict = judge(rules, seat, now);
-    // Un menù è coperto solo da un «al posto degli altri»: allora se ne vede uno solo.
-    const menuBy = verdict.menus[0] ?? null;
+    // Un menù è coperto solo da un «al posto degli altri».
+    const menuBy = verdict.menuCover;
     const styleBy = verdict.style;
     return {
         layout: {

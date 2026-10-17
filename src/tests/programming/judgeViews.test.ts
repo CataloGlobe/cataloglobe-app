@@ -375,16 +375,18 @@ describe("viste sul giudice nuovo: più menù", () => {
         ]);
     });
 
-    it("una regola layout attiva conta come «al posto» e copre i menù «insieme»", () => {
-        // È il caso di San Pietro: la regola di oggi va spenta quando si creano i menù.
+    it("una regola layout attiva conta come «al posto»: copre gli «insieme» più vecchi, non i più nuovi (D129)", () => {
+        // È il caso di San Pietro: i menù nuovi si aggiungono, la regola di oggi va spenta a parte.
         const completo = rule({ id: "menu-completo", layout: { style_id: "s", catalog_id: "carta" } });
+        const vecchio = menu({ id: "bar-vecchio", catalog: "vecchio", on_air_since: "2025-12-01T00:00:00.000Z" });
         const bar = menu({ id: "bar-sempre", catalog: "bar", on_air_since: "2026-02-01T00:00:00.000Z" });
-        const insights = insightsAt([completo, bar], THU_13);
-        expect(insights.get("bar-sempre")).toMatchObject({ isOverridden: true, overriddenById: "menu-completo" });
+        const insights = insightsAt([completo, vecchio, bar], THU_13);
+        expect(insights.get("bar-vecchio")).toMatchObject({ isOverridden: true, overriddenById: "menu-completo" });
+        expect(insights.get("bar-sempre")).toMatchObject({ isActiveNow: true, isOverridden: false });
         expect(insights.get("menu-completo")).toMatchObject({ isOverridden: false });
 
-        const spento = insightsAt([{ ...completo, enabled: false }, bar], THU_13);
-        expect(spento.get("bar-sempre")).toMatchObject({ isActiveNow: true, isOverridden: false });
+        const spento = insightsAt([{ ...completo, enabled: false }, vecchio, bar], THU_13);
+        expect(spento.get("bar-vecchio")).toMatchObject({ isActiveNow: true, isOverridden: false });
     });
 
     it("un menù con due fasce è in onda in tutte e due, non in mezzo", () => {

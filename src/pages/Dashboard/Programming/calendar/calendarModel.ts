@@ -298,11 +298,13 @@ export function dayCtx(entries: readonly CalEntry[], kind: CalKind, seat: CalSea
 
 export function fState(ctx: DayCtx, m: number): FState {
     const c = ctx.cands.filter(e => inWin(e.when, ctx.day, m));
-    const adds = c.filter(e => e.add);
     const reps = c.filter(e => !e.add).sort(order(ctx.seat));
     const win = reps[0] ?? null;
+    // un menù «insieme» si aggiunge solo se è andato in onda dopo l'«al posto» (D129)
+    const covered = (e: CalEntry) => ctx.kind === "menu" && !!win && e.created <= win.created;
+    const adds = c.filter(e => e.add && !covered(e));
     const onda = [...new Set([...(win ? [win.thing] : []), ...adds.map(e => e.thing)])];
-    const hidden = [...new Set(reps.slice(1).map(e => e.thing))].filter(t => !onda.includes(t));
+    const hidden = [...new Set([...reps.slice(1), ...c.filter(e => e.add && covered(e))].map(e => e.thing))].filter(t => !onda.includes(t));
     return { onda, hidden, win, reps };
 }
 

@@ -154,6 +154,20 @@ describe("una fascia che passa la mezzanotte (punto 26)", () => {
     });
 });
 
+describe("«insieme» e «al posto»: conta chi è andato in onda dopo (D129)", () => {
+    const menu = (catalog_id: string, overlap_mode: "together" | "replace", on_air_since: string) =>
+        rule({ rule_type: "menu", applyToAll: true, activityIds: [], time_mode: "always", layout: { catalog_id } as LayoutRule["layout"], overlap_mode, on_air_since });
+    const nomi = { ...names, catalogs: new Map([["vecchio", "Vecchio"], ["completo", "Completo"], ["pranzo", "Pranzo"]]) };
+    it("l'«al posto» copre gli «insieme» più vecchi, quelli più nuovi gli si aggiungono", () => {
+        const vecchio = menu("vecchio", "together", "2026-08-01T00:00:00Z");
+        const completo = menu("completo", "replace", "2026-09-01T00:00:00Z");
+        const pranzo = menu("pranzo", "together", "2026-09-10T00:00:00Z");
+        const st = fState(dayCtx(entriesFromRules([vecchio, completo, pranzo], nomi), "menu", { activityId: "a1", groupIds: [] }, dayNum(2026, 8, 23)), 12 * 60);
+        expect(st.onda).toEqual(["Completo", "Pranzo"]);
+        expect(st.hidden).toEqual(["Vecchio"]);
+    });
+});
+
 describe("bozza della sezione", () => {
     it("i tempi tornano come li scrive l'editor: domenica = 0, fine alle 24 → 23:59", () => {
         const t = timeFields({ period: { from: dayNum(2026, 9, 9), to: dayNum(2026, 10, 8) }, days: [0, 6], ranges: [[720, 1440]] });
