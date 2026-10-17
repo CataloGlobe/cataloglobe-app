@@ -181,6 +181,13 @@ describe("«insieme» e «al posto»: conta chi è andato in onda dopo (D129)", 
         expect(st.onda).toEqual(["Completo", "Pranzo"]);
         expect(st.hidden).toEqual(["Vecchio"]);
     });
+    it("conta l'«al posto» più nuovo, anche se nella sede vince un altro, come nel giudice", () => {
+        const sede = { ...menu("completo", "replace", "2026-08-01T00:00:00Z"), applyToAll: false, activityIds: ["a1"] };
+        const pranzo = menu("pranzo", "together", "2026-09-01T00:00:00Z");
+        const tutte = menu("vecchio", "replace", "2026-09-10T00:00:00Z");
+        const st = fState(dayCtx(entriesFromRules([sede, pranzo, tutte], nomi), "menu", { activityId: "a1", groupIds: [] }, dayNum(2026, 8, 23)), 12 * 60);
+        expect(st.onda).not.toContain("Pranzo");
+    });
 });
 
 describe("bozza della sezione", () => {
