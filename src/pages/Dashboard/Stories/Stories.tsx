@@ -221,7 +221,7 @@ export default function Stories() {
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    const storyUrl = (item: StoryWithProduct) => `/business/${tenantId}/stories/${item.id}`;
+    const storyUrl = (item: StoryWithProduct) => `/business/${tenantId}/crea/storia/${item.id}?da=storie`;
 
     // Chip e ricerca: filtrando non si riordina, l'ordine è quello dell'elenco intero.
     const matchesFilter = (item: StoryWithProduct, which: StoryFilter) =>
