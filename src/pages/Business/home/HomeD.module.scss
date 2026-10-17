@@ -1,0 +1,626 @@
+@use "@styles/d-type" as *;
+
+// Home della D, copia «Visual Redesign PR 3» (`.hm`, D202 e D203). Misura il
+// contenitore, non la finestra: la pagina sta accanto alla sidebar.
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+.home {
+  container: home / inline-size;
+  display: grid;
+  gap: var(--d-gap, 18px);
+  min-width: 0;
+}
+
+// La riga in cima: cosa c'è da fare oggi e «Apri il servizio».
+.cmd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  animation: rise 340ms var(--d-ease) both;
+}
+
+.answer {
+  flex: 1 1 420px;
+  margin: 0;
+  @include d-type(answer);
+  line-height: 1.15;
+  color: var(--d-text);
+  text-wrap: balance;
+
+  b {
+    color: var(--d-brand);
+    font-weight: inherit;
+  }
+
+  b.hot {
+    color: var(--d-warm);
+  }
+}
+
+.hm {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
+  gap: var(--d-gap, 18px);
+  align-items: stretch;
+}
+
+.left {
+  display: grid;
+  gap: var(--d-gap, 18px);
+  grid-template-rows: auto 1fr;
+  align-content: start;
+  min-width: 0;
+
+  &:has(> :only-child) {
+    grid-template-rows: 1fr;
+  }
+}
+
+.l2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--d-gap, 18px);
+  align-items: stretch;
+}
+
+.l2One {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.col {
+  display: grid;
+  min-width: 0;
+}
+
+.card {
+  height: 100%;
+  animation: rise 340ms var(--d-ease) both;
+}
+
+.make {
+  container: mk / inline-size;
+}
+
+.left > .make {
+  animation-delay: 55ms;
+}
+
+.col > .card {
+  animation-delay: 110ms;
+}
+
+.l2 > :first-child {
+  animation-delay: 165ms;
+}
+
+.l2 > :nth-child(2) {
+  animation-delay: 220ms;
+}
+
+.hint {
+  @include d-type(small);
+  color: var(--d-muted);
+  font-weight: 500;
+}
+
+.foot {
+  margin: 0;
+  @include d-type(small);
+  color: var(--d-muted);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// ===== Cosa vuoi creare? =====
+.mks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+
+  > li {
+    display: flex;
+    animation: pop 320ms var(--d-ease-move) both;
+    animation-delay: calc(var(--i, 0) * 50ms + 120ms);
+  }
+}
+
+.mk {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 13px 13px 12px;
+  border-radius: 20px;
+  background: var(--d-tint-menu);
+  color: var(--d-text);
+  text-decoration: none;
+  box-sizing: border-box;
+  transition:
+    transform var(--d-dur) var(--d-ease-move),
+    box-shadow var(--d-dur) ease;
+
+  &[data-kind="stile"] {
+    background: var(--d-tint-sty);
+    --mk-ink: var(--d-fam-sty-ink);
+  }
+
+  &[data-kind="evidenza"] {
+    background: #fff6e8;
+    --mk-ink: var(--d-fam-ev-ink);
+  }
+
+  &[data-kind="storia"] {
+    background: #fdf0f6;
+    --mk-ink: var(--d-fam-sto-ink);
+  }
+
+  b {
+    display: block;
+    @include d-type(card-name);
+  }
+
+  small {
+    display: block;
+    margin-top: 2px;
+    @include d-type(small);
+    line-height: 1.3;
+    color: var(--d-muted);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 26px -18px rgba(61, 47, 192, 0.45);
+    }
+
+    &:hover .go svg {
+      transform: translateX(3px);
+    }
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.mkIc {
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--d-surface);
+  color: var(--mk-ink, var(--d-brand-deep));
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 2px 8px;
+  border-radius: var(--d-r-pill);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--d-surface);
+  color: var(--d-s-wait-ink);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--d-warm) 25%, transparent);
+}
+
+.go {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--d-brand-deep);
+
+  svg {
+    width: 13px;
+    height: 13px;
+    transition: transform var(--d-dur) var(--d-ease-move);
+  }
+}
+
+@container mk (max-width: 600px) {
+  .mks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container mk (max-width: 420px) {
+  .mks {
+    gap: 8px;
+  }
+
+  .mk {
+    padding: 11px;
+
+    small {
+      display: none;
+    }
+  }
+
+  .tag {
+    top: 9px;
+    right: 9px;
+    font-size: 10.5px;
+    padding: 1px 6px;
+  }
+
+  .hint {
+    display: none;
+  }
+}
+
+// ===== Com'è andata =====
+.wk {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.t {
+  display: grid;
+  gap: 1px;
+  padding: 11px 14px 12px;
+  border-radius: 20px;
+  background: var(--d-tint-1);
+  color: var(--d-text);
+  text-decoration: none;
+  transition: transform var(--d-dur) var(--d-ease-move);
+  animation: pop 320ms var(--d-ease-move) both;
+  animation-delay: calc(var(--i, 0) * 50ms + 150ms);
+
+  &:nth-child(2) {
+    background: var(--d-fam-pr);
+  }
+
+  &:nth-child(3) {
+    background: #f1e8ff;
+  }
+
+  &:nth-child(4) {
+    background: var(--d-fam-sto);
+  }
+
+  > span {
+    font-size: 12px;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--d-text) 72%, transparent);
+  }
+
+  > b {
+    @include d-type(voice-k);
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      transform: translateY(-2px);
+    }
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.dl {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--d-muted);
+}
+
+.up {
+  color: var(--d-good);
+}
+
+.down {
+  color: var(--d-warm);
+}
+
+// ===== Da fare =====
+.n {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  box-sizing: border-box;
+  border-radius: 99px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--d-warm-soft);
+  color: var(--d-s-wait-ink);
+}
+
+.nZero {
+  background: color-mix(in srgb, var(--d-good) 12%, #fff);
+  color: var(--d-good);
+}
+
+.do {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+
+  > li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    align-items: center;
+    padding: 11px 0;
+    border-top: 1px solid var(--d-line);
+    animation: rise 320ms var(--d-ease) both;
+    animation-delay: calc(var(--i, 0) * 40ms + 120ms);
+
+    &:first-child {
+      border-top: 0;
+      padding-top: 2px;
+    }
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    > button {
+      white-space: nowrap;
+    }
+  }
+}
+
+.doText {
+  min-width: 0;
+
+  b {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.3;
+  }
+
+  small {
+    display: block;
+    color: var(--d-muted);
+    font-size: 12.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.sdt {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: 1px;
+  white-space: nowrap;
+  color: var(--d-muted);
+  background: color-mix(in srgb, var(--d-muted) 11%, transparent);
+}
+
+.ic {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--d-tint-1);
+  color: var(--d-brand-deep);
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.ic_wait {
+  background: var(--d-warm-soft);
+  color: var(--d-s-wait-ink);
+}
+
+.ic_blue {
+  background: var(--d-fam-pr);
+  color: var(--d-fam-pr-ink);
+}
+
+.ic_violet {
+  background: #f1e8ff;
+  color: #6b3fc0;
+}
+
+.more {
+  justify-self: start;
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: var(--d-r-pill);
+  background: var(--d-soft);
+  color: var(--d-brand-deep);
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color var(--d-dur) ease;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    transition: transform var(--d-dur) var(--d-ease-move);
+  }
+
+  &[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: var(--d-soft2);
+    }
+  }
+}
+
+.ok {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 26px 10px 14px;
+
+  b {
+    @include d-type(pane-title);
+  }
+
+  > span:last-child {
+    color: var(--d-muted);
+    font-size: 13px;
+    max-width: 34ch;
+  }
+}
+
+.icOk {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  transform: rotate(-4deg);
+  background: color-mix(in srgb, var(--d-good) 13%, #fff);
+  color: var(--d-good);
+  animation: pop 380ms var(--d-ease-move) both;
+}
+
+.doLoading {
+  display: grid;
+  gap: 12px;
+}
+
+// ===== Larghezze =====
+// Una colonna: prima «Cosa vuoi creare?», poi «Da fare», poi settimana e vetrina.
+@container home (max-width: 1000px) {
+  .hm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .left {
+    display: contents;
+  }
+
+  .left > .make {
+    order: 0;
+  }
+
+  .col {
+    order: 1;
+  }
+
+  .l2 {
+    order: 2;
+  }
+
+  .card {
+    height: auto;
+  }
+}
+
+@container home (max-width: 640px) {
+  .l2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container home (max-width: 460px) {
+  .do > li {
+    grid-template-columns: auto minmax(0, 1fr);
+
+    > button {
+      grid-column: 2;
+      justify-self: start;
+    }
+  }
+
+  .doText small {
+    white-space: normal;
+  }
+}
+
+@container home (max-width: 360px) {
+  .wk {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmd,
+  .card,
+  .mks > li,
+  .t,
+  .do > li,
+  .icOk {
+    animation: none;
+  }
+
+  .mk,
+  .t,
+  .go svg,
+  .more svg {
+    transition: none;
+  }
+}

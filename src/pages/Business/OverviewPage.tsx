@@ -8,6 +8,7 @@ import {
     ExternalLink,
     Image as ImageIcon,
     Languages,
+    Link2,
     Wand2,
     Palette,
     PauseCircle,
@@ -49,6 +50,7 @@ import {
 import { QrCode, type QrCodeHandle } from "@/components/ui/QrCode/QrCode";
 import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import { Card } from "@/components/ui/Card/Card";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Checklist, type ChecklistItem } from "@/components/ui/Checklist/Checklist";
@@ -58,6 +60,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { canSeeServizio } from "@/utils/servizioModes";
+import { HomeD } from "./home/HomeD";
 import styles from "./OverviewPage.module.scss";
 
 /** Sede attiva raggiungibile dal pubblico. Il menù attivo NON sta qui: arriva
@@ -924,6 +927,179 @@ export default function OverviewPage() {
                 ))}
                 {suspendedRows}
             </>
+        );
+    }
+
+    // ── Home della D (copia «Visual Redesign PR 3», D202 e D203) ─────────────
+    // Con le basi complete (o per i ruoli di sede) la Home dice cosa c'è da
+    // fare e come va; «Cosa hai attivato» e le basi chiuse non ci sono più.
+    // Finché le basi mancano resta la pagina di sempre, qui sotto.
+    if (LOOK_D && showcaseWanted) {
+        const statusLine = (location: PublicLocation) => {
+            const state = menuStateFor(location.id);
+            if (state === "loading") return <Skeleton height="14px" width={MENU_SKELETON_WIDTH} />;
+            if (state === "none") return <StatusBadge variant="warning" label={`Nessun ${catalogLower} attivo`} />;
+            if (state === "error") return "Stato non disponibile";
+            return `Sta mostrando «${activeCatalogDisplayName(catalogFetch.byActivity[location.id])}»`;
+        };
+        const copyButton = (location: PublicLocation) => (
+            <IconButton
+                size="sm"
+                icon={<Link2 size={16} />}
+                aria-label={`Copia il link di ${location.name}`}
+                title="Copia il link"
+                onClick={() => void handleCopyPublicUrl(location.publicUrl)}
+            />
+        );
+        // Le sospese come righe compatte: la `ListRow` della vetrina larga esce dalla card stretta.
+        const suspendedD = (locations?.suspended ?? []).map(location => (
+            <div key={location.id} className={styles.dRow}>
+                <PauseCircle size={20} className={styles.suspendedIcon} aria-hidden="true" />
+                <span className={styles.dRowText}>
+                    <span className={styles.dRowName}>{location.name}</span>
+                    <span className={styles.dRowSub}>
+                        {location.reason ? formatInactiveReason(location.reason) : "La pagina non si apre"}
+                    </span>
+                </span>
+                <span className={styles.dRowActions}>
+                    <StatusBadge variant="neutral" label="Sospesa" />
+                    <Button variant="secondary" size="sm" onClick={() => navigate(`${b}/locations/${location.id}/pubblicazione`)}>
+                        Apri sede
+                    </Button>
+                </span>
+            </div>
+        ));
+        let vetrinaBody: ReactNode;
+        if (locationsStatus !== "ready" || activeCount === 0 || !single) {
+            vetrinaBody =
+                locationsStatus === "ready" && activeCount > 0 ? (
+                    <div className={styles.dRows}>
+                        {locations!.active.slice(0, MAX_VISIBLE_LOCATIONS).map(location => (
+                            <div key={location.id} className={styles.dRow}>
+                                <QrCode
+                                    ref={setQrRef(location.id)}
+                                    value={location.publicUrl}
+                                    size="sm"
+                                    level="M"
+                                    fileName={`${location.slug}-qr`}
+                                    className={styles.rowQr}
+                                />
+                                <span className={styles.dRowText}>
+                                    {publicLink(location, styles.dRowName, location.name)}
+                                    <span className={styles.dRowSub}>{statusLine(location)}</span>
+                                </span>
+                                <span className={styles.dRowActions}>
+                                    {resolveButton(location.id) ?? copyButton(location)}
+                                    <TableRowActions actions={rowActions(location)} ariaLabel={`Azioni per ${location.name}`} />
+                                </span>
+                            </div>
+                        ))}
+                        {suspendedD}
+                    </div>
+                ) : (
+                    showcaseBody
+                );
+        } else {
+            const state = menuStateFor(single.id);
+            vetrinaBody = (
+                <>
+                    <div className={styles.dOne}>
+                        <QrCode
+                            ref={setQrRef(single.id)}
+                            value={single.publicUrl}
+                            size={96}
+                            level="H"
+                            fileName={`${single.slug}-qr`}
+                            className={styles.singleQr}
+                        />
+                        <div className={styles.dOneInfo}>
+                            {publicLink(single, styles.dOneName, single.name)}
+                            <span className={styles.dRowSub}>
+                                {state === "resolved" && <StatusBadge variant="success" label="Online" />}
+                                {statusLine(single)}
+                                {state === "resolved" && canDoOnActivity(permissions, "scheduling.read", single.id) && (
+                                    <Link className={styles.why} to={`${b}/locations/${single.id}/cosa-vedono`}>
+                                        Perché
+                                    </Link>
+                                )}
+                                {resolveButton(single.id)}
+                            </span>
+                        </div>
+                    </div>
+                    <div className={styles.dOneBar}>
+                        <Button
+                            as="a"
+                            href={single.publicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<ExternalLink size={16} />}
+                        >
+                            Apri la pagina
+                        </Button>
+                        <span className={styles.dOneFill} />
+                        {copyButton(single)}
+                        <IconButton
+                            size="sm"
+                            icon={<Download size={16} />}
+                            aria-label="Scarica il QR"
+                            title="Scarica il QR"
+                            onClick={() => void qrRefs.current[single.id]?.downloadPng()}
+                        />
+                        <TableRowActions
+                            actions={[
+                                { label: "Scarica QR (SVG)", icon: Download, onClick: () => qrRefs.current[single.id]?.downloadSvg() },
+                                ...operationalLinks(single.id)
+                            ]}
+                            ariaLabel={`Azioni per ${single.name}`}
+                        />
+                    </div>
+                    {suspendedD}
+                </>
+            );
+        }
+        const vetrina = (
+            <Card
+                title={showcaseTitle}
+                className={styles.dVetrina}
+                actions={
+                    showcaseSubtitle ? (
+                        <Text as="span" variant="caption" colorVariant="muted">
+                            {isScoped ? showcaseSubtitle : activeCount === 1 ? undefined : `${activeCount} sedi`}
+                        </Text>
+                    ) : undefined
+                }
+            >
+                {scopedNote && (
+                    <Text as="p" variant="caption" colorVariant="muted">
+                        {scopedNote}
+                    </Text>
+                )}
+                {vetrinaBody}
+                {hiddenLocationsCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={() => navigate(`${b}/locations`)}>
+                        Vedi tutte le sedi
+                    </Button>
+                )}
+            </Card>
+        );
+        return (
+            <HomeD
+                tenantId={tenantId!}
+                permissions={permissions}
+                sedi={locationsStatus === "ready" ? locations!.active.map(l => ({ id: l.id, name: l.name })) : null}
+                sediError={locationsStatus === "error"}
+                menuNone={
+                    locationsStatus === "ready"
+                        ? locations!.active.filter(l => menuStateFor(l.id) === "none").map(l => ({ id: l.id, name: l.name }))
+                        : []
+                }
+                createOptions={createOptions}
+                capabilities={capabilities}
+                catalogLower={catalogLower}
+                vetrina={vetrina}
+            />
         );
     }
 

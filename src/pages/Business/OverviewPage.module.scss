@@ -412,3 +412,96 @@
     }
   }
 }
+
+/* ===== Home della D: la vetrina compatta (copia «Visual Redesign PR 3», `.hm-v1`, `.hm-vr`) ===== */
+
+.dVetrina {
+  height: 100%;
+}
+
+.dRows {
+  display: grid;
+}
+
+.dRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--d-line);
+
+  &:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+  }
+}
+
+.dRowText {
+  display: grid;
+  min-width: 0;
+}
+
+.dRowName,
+.dOneName {
+  color: var(--d-text);
+  font-weight: 600;
+  font-size: 13.5px;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.dRowSub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  min-width: 0;
+  color: var(--d-muted);
+  font-size: 12px;
+}
+
+.dRowActions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.dOne {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.dOneInfo {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dOneName {
+  font-family: var(--d-f-display, inherit);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.dOneBar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.dOneFill {
+  flex: 1;
+}

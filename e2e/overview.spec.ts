@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { sidebarLink } from "./nav";
+import { D_ON } from "./lookD";
 
 test.describe("Panoramica", () => {
     test.beforeEach(async ({ page }) => {
@@ -29,11 +30,30 @@ test.describe("Panoramica", () => {
     test("vetrina: la card delle pagine pubbliche", async ({ page }) => {
         const main = page.getByRole("main");
         await expect(main.getByText("La vetrina adesso", { exact: true })).toBeVisible();
-        await expect(main.getByText(/^(1 sede online|\d+ sedi online)$/)).toBeVisible();
+        // Nella D (Home della copia) il numero delle sedi è «N sedi»; con una sede sola non c'è.
+        await expect(main.getByText(D_ON ? /^\d+ sedi$/ : /^(1 sede online|\d+ sedi online)$/)).toBeVisible();
+    });
+
+    test("Home della D: la riga di oggi e «Da fare»", async ({ page }) => {
+        test.skip(!D_ON, "Solo con la D");
+        const main = page.getByRole("main");
+        // La riga di oggi arriva dopo le letture di «Da fare» (una per sede).
+        await expect(main.getByText(/^Oggi (a|in) .+ da fare\.$/)).toBeVisible({ timeout: 20_000 });
+        await expect(main.getByText("Da fare", { exact: true })).toBeVisible();
+        await expect(main.getByText("Cosa hai attivato", { exact: true })).toHaveCount(0);
     });
 
     test("vetrina: riga di una sede pubblica con nome, URL e QR", async ({ page }) => {
         const main = page.getByRole("main");
+        if (D_ON) {
+            // Vetrina compatta della copia: nome come link alla pagina pubblica, QR e ⋯, senza l'URL scritto.
+            const nameLink = main.locator('a[target="_blank"][href^="http"]').first();
+            await expect(nameLink).toBeVisible();
+            await expect(nameLink).not.toHaveText("");
+            await expect(main.getByRole("img", { name: /^QR di / }).first()).toBeVisible();
+            await expect(main.getByRole("button", { name: /^Azioni per / }).first()).toBeVisible();
+            return;
+        }
         // Il link il cui testo È l'URL pubblico: da lì si risale alla sede.
         const urlLink = main.getByRole("link", { name: /^https?:\/\// }).first();
         await expect(urlLink).toBeVisible();
