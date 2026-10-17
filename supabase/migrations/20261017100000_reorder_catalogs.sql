@@ -57,10 +57,3 @@ BEGIN
   WHERE c.id = o.id AND c.tenant_id = p_tenant_id AND c.sort_order IS DISTINCT FROM o.pos;
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.reorder_catalogs(uuid, uuid[]) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.reorder_catalogs(uuid, uuid[]) FROM anon;
-GRANT EXECUTE ON FUNCTION public.reorder_catalogs(uuid, uuid[]) TO authenticated;
-
-COMMENT ON FUNCTION public.reorder_catalogs(uuid, uuid[]) IS
-  'Multi menù passo 5: riscrive catalogs.sort_order da 1 nell''ordine dato; elenco = tutti i menù dell''azienda. Permesso catalogs.write.';
