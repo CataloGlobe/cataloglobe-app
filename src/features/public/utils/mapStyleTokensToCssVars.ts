@@ -327,6 +327,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-chrome-active-text": onColor(chromeActive),
         "--pub-sheet-bg": sheetBg,
         "--pub-sheet-text": chromeDark ? INK_ON_DARK : INK_ON_LIGHT,
-        "--pub-sheet-primary": fixContrast(tokens.colors.primary, [sheetBg])
+        "--pub-sheet-primary": fixContrast(tokens.colors.primary, [sheetBg]),
+        "--pub-sheet-scheme": chromeDark ? "dark" : "light"
     };
 }
