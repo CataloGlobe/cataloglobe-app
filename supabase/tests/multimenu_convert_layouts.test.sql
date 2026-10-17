@@ -13,10 +13,9 @@
 --
 -- Uso: tutto in una transazione. Fra la parte «prima» e i controlli va
 -- incollato il contenuto delle due migration. Finisce con RAISE EXCEPTION
--- «ESITO: …», che annulla tutto. Provato il 2026-10-17 su staging con la
--- versione di prima della conversione (archi anche fra regole spente, ciclo
--- solo in NOTICE): 25 regole, 18 sedi, 0 cicli, errori: {}. La versione di
--- oggi va riprovata prima del rilascio.
+-- «ESITO: …», che annulla tutto. Provato il 2026-10-17 su staging, con la
+-- versione di prima e con quella di oggi (dopo aver rimesso le layout
+-- dall'archivio): 25 regole, 18 sedi, 0 cicli, errori: {}.
 -- =============================================================================
 
 -- Prima: l'ordine di oggi per sede, lo stato delle regole, le bozze.
