@@ -1,5 +1,7 @@
 import { supabase } from "@/services/supabase/client";
 import type { OverlapMode } from "@shared/scheduleCompetition";
+import { updateScheduleEnabled } from "@/services/supabase/layoutScheduling";
+import { createScopedRuleDraft } from "@/services/supabase/scheduleTargets";
 
 /**
  * Il salvataggio del modello nuovo (multi menù, passo 3): menù o stile,
@@ -77,4 +79,28 @@ export function toModelSlot(input: {
             ? { targets: input.targets }
             : {}),
     };
+}
+
+/**
+ * Menù e stile di una sede come due regole del modello nuovo, accese: quello
+ * che col modello di oggi è una regola `layout` (il wizard, multi menù passo 6).
+ * Nascono spente con la sede (create_schedule_with_targets), si scrivono, poi
+ * si accendono: a metà resta al più una bozza spenta.
+ */
+export async function createMenuAndStyleRules(input: {
+    tenantId: string;
+    name: string;
+    activityId: string;
+    catalogId: string;
+    styleId: string;
+}): Promise<{ menuId: string; styleRuleId: string }> {
+    const draft = (ruleType: "menu" | "style") =>
+        createScopedRuleDraft({ tenantId: input.tenantId, ruleType, name: input.name, activityIds: [input.activityId] });
+    const menuId = await draft("menu");
+    await saveScheduleModel(menuId, { catalog_id: input.catalogId, overlap_mode: "replace" });
+    const styleRuleId = await draft("style");
+    await saveScheduleModel(styleRuleId, { style_id: input.styleId, overlap_mode: "replace" });
+    await updateScheduleEnabled(menuId, true);
+    await updateScheduleEnabled(styleRuleId, true);
+    return { menuId, styleRuleId };
 }
