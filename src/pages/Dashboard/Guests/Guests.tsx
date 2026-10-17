@@ -109,7 +109,9 @@ export default function Guests() {
         if (searchOpen) searchRef.current?.focus();
     }, [searchOpen]);
 
-    const [filter, setFilter] = useState<GuestFilter>("all");
+    const [filter, setFilter] = useState<GuestFilter>(() =>
+        new URLSearchParams(window.location.search).get("filtro") === "lost" ? "lost" : "all"
+    );
     const [sedeFilter, setSedeFilter] = useState("");
     const [lostLine, setLostLine] = useState(readLostLine);
     const toggleLostLine = useCallback((on: boolean) => {

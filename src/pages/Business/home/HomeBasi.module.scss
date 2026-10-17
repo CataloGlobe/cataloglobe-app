@@ -1,0 +1,97 @@
+// «Le basi» della copia «Visual Redesign PR 3» (`.hm-basi`).
+.head {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  b {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--d-brand-deep);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.bar {
+  width: 96px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--d-soft);
+  overflow: hidden;
+
+  i {
+    display: block;
+    height: 100%;
+    width: var(--p);
+    border-radius: 99px;
+    background: var(--d-brand);
+    transform-origin: 0 50%;
+    animation: grow 480ms var(--d-ease) both;
+  }
+}
+
+@keyframes grow {
+  from {
+    transform: scaleX(0.04);
+  }
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+
+  > li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border-radius: var(--d-r-ctl, 16px);
+    background: var(--d-soft);
+  }
+}
+
+.done {
+  opacity: 0.75;
+}
+
+.ic {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--d-brand-deep);
+
+  svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+
+.text {
+  min-width: 0;
+
+  b {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  small {
+    display: block;
+    color: var(--d-muted);
+    font-size: 12.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar i {
+    animation: none;
+  }
+}

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     ArrowRight,
@@ -10,10 +10,16 @@ import {
     QrCode as QrCodeIcon,
     Soup,
     Star,
-    Check
+    Check,
+    CreditCard,
+    Mail,
+    MessageCircle,
+    UserRoundX
 } from "lucide-react";
 import type { UserPermissions } from "@/lib/permissions";
 import { canDoOnAnyActivity } from "@/lib/permissions";
+import { useTenant } from "@/context/useTenant";
+import { Select } from "@/components/ui/Select/Select";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { canSeeServizio } from "@/utils/servizioModes";
 import type { TenantCapabilities } from "@/services/supabase/overviewStats";
@@ -22,6 +28,7 @@ import { Card } from "@/components/ui/Card/Card";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { calculateDelta } from "@/pages/Dashboard/Analytics/utils/periodComparison";
 import { useHomeTodo, type HomeTodoSede } from "./useHomeTodo";
+import { useHomeExtras } from "./useHomeExtras";
 import { useHomeWeek, type HomeWeekPair } from "./useHomeWeek";
 import styles from "./HomeD.module.scss";
 
@@ -57,6 +64,8 @@ type TodoItem = {
 };
 
 const TODO_MAX = 5;
+/** Spazio che il pulsante «Altre N» si prende in fondo alla card. */
+const MORE_ROOM = 56;
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : `${n} ${many}`);
 
 function todayIso(offsetDays = 0): string {
@@ -176,6 +185,60 @@ function todoFor(
     return items;
 }
 
+type Tenant = ReturnType<typeof useTenant>["selectedTenant"];
+
+/** Le voci che non sono di una sede: l'ordine è quello della copia. */
+function extraItems(x: ReturnType<typeof useHomeExtras>, b: string, sedeId: string | null, tenant: Tenant): TodoItem[] {
+    const items: TodoItem[] = [];
+    if (tenant?.user_role === "owner" && tenant.subscription_status === "past_due") {
+        items.push({
+            key: "pay",
+            icon: <CreditCard />,
+            tone: "wait",
+            title: "Il pagamento dell'abbonamento non è andato",
+            sub: "Aggiorna la carta per non perdere il servizio",
+            button: "Aggiorna la carta",
+            to: `${b}/settings/abbonamento`,
+            urgent: true
+        });
+    }
+    const lost = sedeId ? x.lost.filter(g => g.sedi.includes(sedeId)) : x.lost;
+    if (lost.length > 0) {
+        items.push({
+            key: "lost",
+            icon: <UserRoundX />,
+            tone: "violet",
+            title: `${plural(lost.length, "Un cliente abituale non torna", "clienti abituali non tornano")} da 3 mesi`,
+            sub: lost.slice(0, 2).map(g => g.name).join(", ") + (lost.length > 2 ? " e altri" : ""),
+            button: "Vedi chi",
+            to: `${b}/guests?filtro=lost`
+        });
+    }
+    if (x.expiredInvite) {
+        items.push({
+            key: "invite",
+            icon: <Mail />,
+            tone: "brand",
+            title: `L'invito a ${x.expiredInvite} è scaduto`,
+            sub: "Non l'ha accettato in tempo",
+            button: "Rinvia",
+            to: `${b}/settings/team`
+        });
+    }
+    if (x.unreadTicket) {
+        items.push({
+            key: "support",
+            icon: <MessageCircle />,
+            tone: "brand",
+            title: "L'assistenza ti ha risposto",
+            sub: `«${x.unreadTicket}»`,
+            button: "Leggi",
+            to: `${b}/supporto`
+        });
+    }
+    return items;
+}
+
 function Delta({ pair, points }: { pair: { now: number; before: number }; points?: boolean }) {
     const value = points ? pair.now - pair.before : calculateDelta(pair.now, pair.before);
     if (value == null || !Number.isFinite(value)) return <em className={styles.dl}>&nbsp;</em>;
@@ -208,7 +271,16 @@ export function HomeD({
     const [all, setAll] = useState(false);
     const b = `/business/${tenantId}`;
 
+    const { selectedTenant } = useTenant();
     const todo = useHomeTodo(tenantId, sedi, permissions, sediError);
+    const extras = useHomeExtras(tenantId, permissions);
+    // «Tutte le sedi»: con più sedi la Home si restringe a una sola (copia `homeSedePick`).
+    const [sedeSel, setSedeSel] = useState("all");
+    // «Da fare» sta nella colonna a destra e ci stanno le righe che entrano (copia `fitTodo`);
+    // le altre dietro «Altre N». Nella colonna sola, a una colonna, restano le prime cinque.
+    const todoRef = useRef<HTMLDivElement>(null);
+    const [hiddenN, setHiddenN] = useState(0);
+    const scoped = sedi?.find(s => s.id === sedeSel) ?? null;
 
     const seeAnalytics = canDoOnAnyActivity(permissions, "analytics.read");
     const show = {
@@ -222,16 +294,20 @@ export function HomeD({
 
     const many = (sedi?.length ?? 0) > 1;
     const noneIds = new Set(menuNone.map(m => m.id));
-    const items =
+    const sedeItems =
         todo.status === "ready"
             ? todo.sedi
-                  .flatMap(sede => todoFor(sede, canSeeServizio(permissions, sede.id), b, catalogLower, many, noneIds.has(sede.id)))
+                  .filter(sede => !scoped || sede.id === scoped.id)
+                  .flatMap(sede => todoFor(sede, canSeeServizio(permissions, sede.id), b, catalogLower, many && !scoped, noneIds.has(sede.id)))
+            : [];
+    const items =
+        todo.status === "ready"
+            ? [...sedeItems, ...extraItems(extras, b, scoped?.id ?? null, selectedTenant)]
                   // Prima le urgenti, l'ordine di ogni gruppo resta.
                   .sort((x, y) => Number(!!y.urgent) - Number(!!x.urgent))
             : [];
     const n = items.length;
-    const cut = n > TODO_MAX + 1 && !all;
-    const visible = cut ? items.slice(0, TODO_MAX) : items;
+    const itemsKey = items.map(i => i.key).join("|");
     const urgent = items.some(i => i.urgent);
     const partial = todo.status === "ready" && todo.partial;
 
@@ -242,7 +318,11 @@ export function HomeD({
     const line =
         todo.status !== "ready" || !sedi || (partial && n === 0) ? null : (
             <>
-                {sedi.length === 1 ? `Oggi a ${sedi[0].name}: ` : `Oggi in ${sedi.length} sedi: `}
+                {scoped
+                    ? `Oggi a ${scoped.name}: `
+                    : sedi.length === 1
+                      ? `Oggi a ${sedi[0].name}: `
+                      : `Oggi in ${sedi.length} sedi: `}
                 {n > 0 ? (
                     <>
                         <b className={urgent ? styles.hot : undefined}>{count}</b> da fare.
@@ -398,7 +478,7 @@ export function HomeD({
         todoBody = (
             <>
                 <ul className={styles.do}>
-                    {visible.map((item, i) => (
+                    {items.map((item, i) => (
                         <li key={item.key} style={{ "--i": i } as React.CSSProperties}>
                             <span className={`${styles.ic} ${styles[`ic_${item.tone}`]}`} aria-hidden="true">
                                 {item.icon}
@@ -420,15 +500,47 @@ export function HomeD({
                         </li>
                     ))}
                 </ul>
-                {n > TODO_MAX + 1 && (
+                {(hiddenN > 0 || all) && (
                     <button type="button" className={styles.more} aria-expanded={all} onClick={() => setAll(v => !v)}>
-                        {all ? "Mostra meno" : `Altre ${n - TODO_MAX}`}
+                        {all ? "Mostra meno" : hiddenN === 1 ? "Un'altra" : `Altre ${hiddenN}`}
                         <ChevronDown aria-hidden="true" />
                     </button>
                 )}
             </>
         );
     }
+
+    useLayoutEffect(() => {
+        const card = todoRef.current?.firstElementChild as HTMLElement | null | undefined;
+        if (!card) return;
+        const fit = () => {
+            const rows = [...card.querySelectorAll<HTMLElement>(`.${styles.do} > li`)];
+            rows.forEach(li => li.removeAttribute("hidden"));
+            let shown = rows.length;
+            if (!all) {
+                if (getComputedStyle(card).position === "absolute") {
+                    const pb = parseFloat(getComputedStyle(card).paddingBottom) || 0;
+                    const limit = card.clientHeight - pb - MORE_ROOM;
+                    shown = rows.filter(li => li.offsetTop + li.offsetHeight <= limit).length;
+                    // Se entrano tutte non serve il pulsante: l'ultima riga può usare il suo spazio.
+                    if (shown < rows.length && rows.every(li => li.offsetTop + li.offsetHeight <= limit + MORE_ROOM)) {
+                        shown = rows.length;
+                    }
+                } else if (rows.length > TODO_MAX + 1) {
+                    shown = TODO_MAX;
+                }
+            }
+            rows.forEach((li, i) => {
+                if (i >= shown) li.setAttribute("hidden", "");
+            });
+            setHiddenN(rows.length - shown);
+        };
+        fit();
+        const ro = new ResizeObserver(fit);
+        ro.observe(card);
+        if (todoRef.current) ro.observe(todoRef.current);
+        return () => ro.disconnect();
+    }, [itemsKey, all, todo.status, sedeSel]);
 
     const todoCard = (
         <Card
@@ -452,6 +564,18 @@ export function HomeD({
                 <p className={styles.answer} aria-live="off">
                     {line ?? (todo.status === "loading" ? <Skeleton height="30px" width="320px" /> : null)}
                 </p>
+                {many && sedi && (
+                    <Select
+                        aria-label="Sede"
+                        value={sedeSel}
+                        onChange={e => setSedeSel(e.target.value)}
+                        containerClassName={styles.sedePick}
+                        options={[
+                            { value: "all", label: `Tutte le sedi · ${sedi.length}` },
+                            ...sedi.map(x => ({ value: x.id, label: x.name }))
+                        ]}
+                    />
+                )}
                 {servizioSede && (
                     <Button
                         variant="primary"
@@ -472,7 +596,7 @@ export function HomeD({
                         </div>
                     )}
                 </div>
-                <div className={styles.col}>{todoCard}</div>
+                <div ref={todoRef} className={`${styles.col} ${all ? styles.colAll : ""}`}>{todoCard}</div>
             </div>
         </div>
     );
