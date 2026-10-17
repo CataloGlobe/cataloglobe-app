@@ -5,6 +5,7 @@ import {
     buildReservationOutcomeEmail,
     buildReservationReceiptEmail,
     buildReservationReminderEmail,
+    buildReservationSelfCancelledEmail,
     buildReservationUpdatedEmail,
     buildReservationVenueAlertEmail,
     type ReservationEmailBase,
@@ -46,6 +47,7 @@ const ALL_BUILDERS: ReadonlyArray<[string, (over?: Partial<ReservationEmailBase>
     ["reminder", over => buildReservationReminderEmail({ ...BASE, ...over })],
     ["outcome:decline", over => buildReservationOutcomeEmail({ ...BASE, ...over, action: "decline" })],
     ["outcome:cancel", over => buildReservationOutcomeEmail({ ...BASE, ...over, action: "cancel" })],
+    ["selfCancelled", over => buildReservationSelfCancelledEmail({ ...BASE, ...over, hasCancelIcs: true })],
     [
         "venueAlert",
         over =>
@@ -186,6 +188,33 @@ describe("reservation email builders (_shared)", () => {
             const con = buildReservationOutcomeEmail({ ...BASE, action: "decline", hasCancelIcs: true });
             for (const body of [senza.html, senza.text]) expect(body).not.toContain("l'allegato lo rimuove");
             for (const body of [con.html, con.text]) expect(body).toContain("Se avevi salvato l'appuntamento nel calendario, l'allegato lo rimuove.");
+        });
+    });
+
+    describe("annullata dal cliente", () => {
+        it("titolo dell'annullamento, corpo di chi l'ha chiesto", () => {
+            const email = buildReservationSelfCancelledEmail({ ...BASE, hasCancelIcs: true });
+            expect(email.subject).toBe("Prenotazione annullata — Trattoria da Ciro");
+            expect(email.text).toContain(
+                "Come hai chiesto, la tua prenotazione presso Trattoria da Ciro è stata annullata."
+            );
+            // La frase dell'annullamento fatto dalla sede qui sarebbe falsa.
+            for (const body of [email.html, email.text]) {
+                expect(body).not.toContain("contatta direttamente il locale");
+            }
+        });
+
+        it("spiega l'allegato SOLO quando c'è", () => {
+            const con = buildReservationSelfCancelledEmail({ ...BASE, hasCancelIcs: true });
+            const senza = buildReservationSelfCancelledEmail({ ...BASE, hasCancelIcs: false });
+            for (const body of [con.html, con.text]) expect(body).toContain("l'allegato lo rimuove");
+            for (const body of [senza.html, senza.text]) expect(body).not.toContain("l'allegato lo rimuove");
+        });
+
+        it("segue la lingua della prenotazione", () => {
+            const email = buildReservationSelfCancelledEmail({ ...BASE, language: "de", hasCancelIcs: true });
+            expect(email.subject).toBe("Reservierung storniert — Trattoria da Ciro");
+            expect(email.text).toContain("Wie gewünscht wurde Ihre Reservierung");
         });
     });
 

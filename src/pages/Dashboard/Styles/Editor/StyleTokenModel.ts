@@ -3,14 +3,21 @@ export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type BorderRadius = "none" | "soft" | "rounded";
 export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "raleway" | "spectral" | "lora" | "eb-garamond" | "patrick-hand";
-export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crosshatch" | "noise";
+/** glow, linen, contour: disegni dell'editor stili nuovo; diagonal, waves, crosshatch restano per gli stili esistenti (D119). */
+export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crosshatch" | "noise" | "glow" | "linen" | "contour";
 export type PatternIntensity = "subtle" | "medium" | "strong";
-export type FeaturedStyle = "card" | "highlight" | "compact";
+export type FeaturedStyle = "card" | "highlight" | "compact" | "image";
 export type CardTreatment = "raised" | "bordered" | "glass";
 export type OutlinedBorderColor = "auto" | "primary";
 export type IconStyle = "plain" | "pill";
-export type CompactLayoutStyle = "editorial" | "modern";
+export type CompactLayoutStyle = "editorial" | "modern" | "centered";
 export type ContentDensity = "minimal" | "standard" | "full";
+/** Riquadro in cima e barra in basso della pagina pubblica: chiari o scuri (D119). */
+export type HeaderChrome = "light" | "dark";
+/** Titolo della categoria nella lista dei piatti: trattino, icona o solo testo (D119). */
+export type CategoryTitle = "dash" | "icon" | "text";
+/** Stili pronti dell'editor: da quale si è partiti («ritoccato» se poi si cambia qualcosa). */
+export type StylePreset = "cg" | "trattoria" | "avorio" | "bistrot" | "salvia" | "notte";
 
 export interface StyleTokenModel {
     colors: {
@@ -45,6 +52,8 @@ export interface StyleTokenModel {
         showActivityName: boolean;
         showCatalogName: boolean;
         showAddress: boolean;
+        /** Riquadro in cima e barra chiari o scuri. Assente = stile salvato prima dell'editor nuovo: decide il mapper. */
+        chrome?: HeaderChrome;
     };
     navigation: {
         style: NavigationStyle;
@@ -56,10 +65,16 @@ export interface StyleTokenModel {
         compactLayoutStyle?: CompactLayoutStyle;
         /** Densità contenuti riga prodotto (Card + Compatto): "minimal" (nome+prezzo), "standard" (+descrizione), "full" (+abbinamenti e allergeni). Assente = "full" (comportamento storico). */
         contentDensity?: ContentDensity;
+        /** Titolo della categoria. Assente = "dash" (trattino). */
+        categoryTitle?: CategoryTitle;
         image: {
             mode: "show" | "hide";
             position: "left" | "right";
         };
+    };
+    /** Dati dell'editor, nessun effetto sulla pagina pubblica. */
+    meta?: {
+        preset?: StylePreset;
     };
 }
 
@@ -99,9 +114,12 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
     }
 };
 
-const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves", "crosshatch", "noise"];
+const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves", "crosshatch", "noise", "glow", "linen", "contour"];
 const VALID_PATTERN_INTENSITIES: PatternIntensity[] = ["subtle", "medium", "strong"];
-const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight", "compact"];
+const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight", "compact", "image"];
+const VALID_CHROMES: HeaderChrome[] = ["light", "dark"];
+const VALID_CATEGORY_TITLES: CategoryTitle[] = ["icon", "text"];
+const VALID_PRESETS: StylePreset[] = ["cg", "trattoria", "avorio", "bistrot", "salvia", "notte"];
 const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered", "glass"];
 const VALID_OUTLINED_BORDER_COLORS: OutlinedBorderColor[] = ["auto", "primary"];
 
@@ -156,6 +174,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
     const rawTypo = rawJson.typography || {};
     const rawCardImage = rawCard.image || {};
     const rawAppearance = rawJson.appearance || {};
+    const rawMeta = rawJson.meta || {};
 
     // Retrocompat: derive borderRadius from old card.radius if new field absent
     const borderRadius: BorderRadius = (() => {
@@ -265,7 +284,8 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             showAddress:
                 typeof rawHeader.showAddress === "boolean"
                     ? rawHeader.showAddress
-                    : DEFAULT_STYLE_TOKENS.header.showAddress
+                    : DEFAULT_STYLE_TOKENS.header.showAddress,
+            chrome: VALID_CHROMES.includes(rawHeader.chrome) ? (rawHeader.chrome as HeaderChrome) : undefined
         },
         navigation: {
             style: (() => {
@@ -289,10 +309,16 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                     ? (rawCard.productStyle as ProductStyle)
                     : DEFAULT_STYLE_TOKENS.card.productStyle,
             // compactLayoutStyle: assente = "modern" (comportamento storico). Serializzato solo se "editorial".
-            compactLayoutStyle: rawCard.compactLayoutStyle === "editorial" ? "editorial" : undefined,
+            compactLayoutStyle: rawCard.compactLayoutStyle === "editorial" || rawCard.compactLayoutStyle === "centered"
+                ? (rawCard.compactLayoutStyle as CompactLayoutStyle)
+                : undefined,
             // contentDensity: assente = "full" (mostra tutto, comportamento storico). Serializzato solo se non-default.
             contentDensity: rawCard.contentDensity === "minimal" || rawCard.contentDensity === "standard"
                 ? (rawCard.contentDensity as ContentDensity)
+                : undefined,
+            // categoryTitle: assente = "dash". Serializzato solo se "icon" o "text".
+            categoryTitle: VALID_CATEGORY_TITLES.includes(rawCard.categoryTitle)
+                ? (rawCard.categoryTitle as CategoryTitle)
                 : undefined,
             image: {
                 mode: ["show", "hide"].includes(rawCardImage.mode)
@@ -302,7 +328,8 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                     ? rawCardImage.position
                     : DEFAULT_STYLE_TOKENS.card.image.position
             }
-        }
+        },
+        ...(VALID_PRESETS.includes(rawMeta.preset) ? { meta: { preset: rawMeta.preset as StylePreset } } : {})
     };
 }
 
@@ -342,12 +369,25 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
             position: model.card.image.position
         }
     };
-    // compactLayoutStyle serializzato solo se "editorial" (modern = default, chiave omessa)
-    if (model.card.compactLayoutStyle === "editorial") card.compactLayoutStyle = "editorial";
+    // compactLayoutStyle serializzato solo se non-default (modern = default, chiave omessa)
+    if (model.card.compactLayoutStyle === "editorial" || model.card.compactLayoutStyle === "centered") {
+        card.compactLayoutStyle = model.card.compactLayoutStyle;
+    }
+    if (model.card.categoryTitle === "icon" || model.card.categoryTitle === "text") card.categoryTitle = model.card.categoryTitle;
     // contentDensity serializzato solo se non-default (full = default, chiave omessa)
     if (model.card.contentDensity === "minimal" || model.card.contentDensity === "standard") {
         card.contentDensity = model.card.contentDensity;
     }
+
+    const header: Record<string, unknown> = {
+        showLogo: model.header.showLogo,
+        showCoverImage: model.header.showCoverImage,
+        showActivityName: model.header.showActivityName,
+        showCatalogName: model.header.showCatalogName,
+        showAddress: model.header.showAddress
+    };
+    // chrome: assente ha un significato suo (stile di prima), quindi si salva sia "light" sia "dark"
+    if (model.header.chrome) header.chrome = model.header.chrome;
 
     return {
         colors,
@@ -355,16 +395,11 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
             fontFamily: model.typography.fontFamily
         },
         appearance,
-        header: {
-            showLogo: model.header.showLogo,
-            showCoverImage: model.header.showCoverImage,
-            showActivityName: model.header.showActivityName,
-            showCatalogName: model.header.showCatalogName,
-            showAddress: model.header.showAddress
-        },
+        header,
         navigation: {
             style: model.navigation.style
         },
-        card
+        card,
+        ...(model.meta?.preset ? { meta: { preset: model.meta.preset } } : {})
     };
 }

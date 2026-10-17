@@ -506,6 +506,7 @@ export const StylePreview = ({
     // query (il default "list" dallo spread resta solo per il tipo).
     productStyle: model.card.productStyle,
     compactLayoutStyle: model.card.compactLayoutStyle ?? "modern",
+    categoryTitle: model.card.categoryTitle ?? "dash",
     contentDensity: model.card.contentDensity ?? "full",
     showLogo: model.header.showLogo,
     showCoverImage: model.header.showCoverImage,

@@ -220,9 +220,75 @@
   gap: 1.25rem;
 }
 
+/* Alone (editor stili): sotto la copertina quando c'è. */
+.page:has([data-cover]) {
+  --pub-glow-y: 240px;
+}
+
 /* sectionGroup: wrapper root per ogni gruppo gerarchico L1.
    Nessun gap — le distanze tra sotto-sezioni sono gestite inline
    perché dipendono dal contesto (child precedente). */
+/* Titolo della categoria (editor stili): trattino sotto, icona o solo testo; nei compatti
+   numero con linea sotto (moderno) o centrato fra due linee (editoriale e centrato). */
+.categoryHeading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.categoryHeadingDash {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.categoryHeadingDashLine {
+  width: 26px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--pub-primary);
+}
+
+.categoryHeadingIconChip {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: calc(var(--pub-btn-radius, 8px) + 2px);
+  background: color-mix(in srgb, var(--pub-primary) 10%, transparent);
+  color: var(--pub-primary);
+}
+
+.categoryHeadingNumbered {
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--pub-border);
+}
+
+.categoryHeadingNumber {
+  color: var(--pub-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.categoryHeadingCentered {
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+
+  &::before,
+  &::after {
+    flex: none;
+    width: 24px;
+    height: 1px;
+    background: color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
+    content: "";
+  }
+}
+
 .sectionGroup {
   display: flex;
   flex-direction: column;
@@ -377,6 +443,52 @@
      (will-change/translateZ) peggiora il glitch di compositing. */
 }
 
+/* Variante Centrata (editor stili): nome in maiuscoletto spaziato, prezzo sotto, descrizione
+   stretta, un trattino corto al centro fra un piatto e l'altro. */
+.compactRowCentered {
+  justify-content: center;
+  text-align: center;
+
+  .compactRowBody {
+    align-items: center;
+  }
+
+  .compactNameRow {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .compactName {
+    flex: none;
+    font-size: 0.875em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .compactDescription {
+    max-width: 32ch;
+  }
+
+  .compactEmojiRow {
+    justify-content: center;
+  }
+}
+
+/* Trattino fra un piatto e l'altro: solo a una colonna (sotto i 480px la griglia ne ha
+   sempre una); a più colonne i piatti affiancati non hanno un «sopra». */
+@container collection (max-width: 480px) {
+  .compactItem + .compactItem .compactRowCentered::before {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 16px;
+    height: 1px;
+    background: color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
+    content: "";
+    translate: -50% 0;
+  }
+}
+
 .compactRowBody {
   flex: 1;
   min-width: 0;
@@ -441,6 +553,27 @@
   text-decoration: line-through;
   color: var(--pub-bg-text-secondary);
   opacity: 0.7;
+}
+
+/* Righe compatte del redesign: descrizione e, in fondo a destra, il «+» sotto il prezzo. */
+.compactSub {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+
+  > :last-child {
+    margin-left: auto;
+  }
+}
+
+.compactRowCentered .compactSub {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+
+  > :last-child {
+    margin-left: 0;
+  }
 }
 
 .compactDescription {
@@ -536,7 +669,7 @@
 }
 
 /* Aspetto card (data-card-treatment sul wrapper PublicThemeScope):
-   raised = ombra, bordo invisibile · bordered = bordo, niente ombra (neanche hover).
+   raised = ombra, bordo invisibile · bordered = linea da 0,5px e ombra appena accennata.
    Il bordo 1px di base resta sempre per geometria; cambia solo il colore.
    .card vive solo nel catalogo (mai nelle modali) → nessun leak. */
 :global([data-card-treatment="raised"]) .card {
@@ -544,24 +677,26 @@
   border-color: transparent;
 }
 :global([data-card-treatment="bordered"]) .card {
-  box-shadow: none;
+  background: var(--pub-card-outline-bg);
+  border-width: 0.5px;
   border-color: var(--pub-surface-border);
+  box-shadow: var(--pub-card-outline-shadow);
 }
 :global([data-card-treatment="bordered"]) .card:hover {
-  box-shadow: none; /* niente ombra su hover in contornata (lift translateY mantenuto) */
+  box-shadow: var(--pub-card-outline-shadow);
 }
 
 /* Vetro: superficie semitrasparente + blur (terzo valore di cardTreatment).
    Mutuamente esclusivo con raised/bordered → nessun gating cross-asse. */
 :global([data-card-treatment="glass"]) .card {
-  background: var(--pub-surface-glass);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: none;
+  background: var(--pub-card-glass);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
+  border-color: var(--pub-card-glass-border);
+  box-shadow: var(--pub-card-glass-shadow);
 }
 :global([data-card-treatment="glass"]) .card:hover {
-  box-shadow: none;
+  box-shadow: var(--pub-card-glass-shadow);
 }
 /* Fallback senza supporto backdrop-filter: torna al solido leggibile. */
 @supports not (
@@ -914,6 +1049,23 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.45rem;
+}
+
+/* Riga del prezzo: col redesign il «+» sta qui, a destra (mai nella riga del nome). */
+.priceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+
+  &:empty {
+    display: none;
+  }
+
+  &:not(:has(> :nth-child(2))) {
+    min-height: 0;
+  }
 }
 
 .priceOriginal {

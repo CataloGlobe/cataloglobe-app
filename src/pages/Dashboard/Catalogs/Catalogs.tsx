@@ -492,7 +492,7 @@ export default function Catalogs() {
         <TableRowActions
             ariaLabel={`Azioni ${catalog.name}`}
             actions={[
-                rowAction.edit(() => navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)),
+                rowAction.edit(() => navigate(`/business/${currentTenantId}/crea/menu/${catalog.id}?da=menu`)),
                 rowAction.duplicate(() => void handleDuplicate(catalog), {
                     label: duplicatingId === catalog.id ? "Duplicazione…" : "Duplica",
                     disabled: duplicatingId !== null
@@ -623,7 +623,7 @@ export default function Catalogs() {
                                 <li key={catalog.id}>
                                     <VetrinaCard
                                         family="menu"
-                                        to={`/business/${currentTenantId}/catalogs/${catalog.id}`}
+                                        to={`/business/${currentTenantId}/crea/menu/${catalog.id}?da=menu`}
                                         preview={<MenuPaper title={catalog.name} categories={stats?.previewCategories ?? []} />}
                                         name={catalog.name}
                                         label={catalog.name}
@@ -669,7 +669,7 @@ export default function Catalogs() {
                     onSelectedRowsChange={setSelectedIds}
                     onBulkDelete={canWriteCatalog ? ids => setPendingBulkIds(ids) : undefined}
                     onRowClick={catalog =>
-                        navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)
+                        navigate(`/business/${currentTenantId}/crea/menu/${catalog.id}?da=menu`)
                     }
                 />
             );
@@ -689,7 +689,7 @@ export default function Catalogs() {
                 {cardCatalogs.map(catalog => (
                     <CardGridItem
                         key={catalog.id}
-                        to={`/business/${currentTenantId}/catalogs/${catalog.id}`}
+                        to={`/business/${currentTenantId}/crea/menu/${catalog.id}?da=menu`}
                         height={CARD_HEIGHT}
                         media={<CatalogSheet categories={statsMap[catalog.id]?.previewCategories ?? []} />}
                         title={catalog.name}

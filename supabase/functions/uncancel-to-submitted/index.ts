@@ -1,5 +1,3 @@
-// @ts-nocheck
-//
 // uncancel-to-submitted — admin-side endpoint per l'undo immediato di
 // "Elimina" quando l'ordine era stato cancellato dallo stato
 // `submitted`. Usata dal toast "Annulla" lato kanban Comande

@@ -180,6 +180,7 @@
     },
     "selection": {
         "add_aria": "Añadir a la selección",
+        "in_order_aria": "En el pedido: {{count}}",
         "sheet_aria": "Mi selección",
         "empty": "Ningún artículo",
         "decrease_aria": "Disminuir la cantidad",

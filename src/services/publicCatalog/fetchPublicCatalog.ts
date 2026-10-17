@@ -316,9 +316,31 @@ async function fetchPublicCatalogSimulate(args: FetchPublicCatalogArgs): Promise
  * ENTRY POINT
  * ========================================================================= */
 
+/**
+ * Solo in sviluppo: con il solo `npm run dev` la rotta Vercel non gira. Vite
+ * inoltra `/api` alla porta 3001 (`server.proxy` in vite.config.ts) e, se lì
+ * non c'è `vercel dev`, risponde 500 con corpo vuoto. Il proxy vero risponde
+ * sempre JSON, quindi «500 senza corpo» vuol dire «proxy di Vite senza
+ * nessuno dietro», non «Supabase giù».
+ */
+function isDevProxyMissing(cause: unknown): boolean {
+    return cause instanceof ServerErrorResponse && cause.status === 500 && cause.body === null;
+}
+
 export async function fetchPublicCatalog(args: FetchPublicCatalogArgs): Promise<FetchResult> {
     if (args.simulate) {
         return fetchPublicCatalogSimulate(args);
     }
-    return fetchPublicCatalogPublic(args);
+    const result = await fetchPublicCatalogPublic(args);
+    // `import.meta.env.DEV` è false nella build: in produzione questo ramo
+    // non esiste. In dev si chiama l'edge direttamente (niente cache Redis né
+    // snapshot): per provare il proxy vero serve `npm run dev:full`.
+    if (import.meta.env.DEV && result.kind === "network_error" && isDevProxyMissing(result.cause)) {
+        console.warn(
+            "[fetchPublicCatalog] /api/public-catalog non risponde: in sviluppo serve `npm run dev:full` " +
+                "(Vite + vercel dev sulla 3001). Intanto chiamo resolve-public-catalog direttamente, senza cache."
+        );
+        return fetchPublicCatalogSimulate(args);
+    }
+    return result;
 }

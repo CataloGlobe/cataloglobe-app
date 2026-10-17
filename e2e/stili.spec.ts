@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { RULE, STYLE, stubStili, type StiliStub, type WriteCall } from "./stiliStub";
@@ -222,7 +223,7 @@ test.describe("Stili — elenco", () => {
         const confirm = dialog(page);
         await expect(confirm).toContainText("Pranzo e2e");
         await expect(confirm.getByRole("button", { name: /^(Conferma eliminazione|Elimina)/i })).toBeDisabled();
-        await confirm.getByRole("combobox", { name: /Sostitu/ }).selectOption({ label: "Sera e2e" });
+        await scegli(confirm.getByRole("combobox", { name: /Sostitu/ }), { label: "Sera e2e" });
         await confirm.getByRole("button", { name: /^(Conferma eliminazione|Elimina)/i }).click();
         await expect.poll(() => write(stub, "schedule_layout.PATCH")?.body).toEqual({ style_id: STYLE.sera });
         await expect.poll(() => write(stub, "styles.DELETE")?.params.get("id")).toBe(`eq.${STYLE.estate}`);

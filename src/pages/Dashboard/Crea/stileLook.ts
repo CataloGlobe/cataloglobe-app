@@ -1,7 +1,7 @@
 // L'aspetto dello stile nel tunnel (D186): conti sui colori e sulle sei parti.
 // Niente schermo e niente database.
 import type { CSSProperties } from "react";
-import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import type { BackgroundPattern, BorderRadius, FontFamily, HeaderChrome, StylePreset, StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 
 /** Il colore di un campione: va alla variabile `--c` che lo scss legge. */
 export const ink = (c: string) => ({ "--c": c }) as CSSProperties;
@@ -97,16 +97,20 @@ export function logoColors(px: ArrayLike<number>, max = 4): string[] {
     return out.map(hex);
 }
 
-/** Le sei parti dell'aspetto, nell'ordine del telefono: cosa guarda ognuna e come torna com'era. */
-export type PartId = "cima" | "categorie" | "evidenza" | "piatti" | "colori" | "carattere";
-export const PART_IDS: readonly PartId[] = ["cima", "categorie", "evidenza", "piatti", "colori", "carattere"];
+/**
+ * Le parti dell'aspetto, nell'ordine del pannello (editor stili, deciso da Lorenzo il 2026-10-17):
+ * prima tutta la pagina (colori, materiale e forme, carattere), poi le parti dall'alto in basso.
+ */
+export type PartId = "colori" | "materiale" | "carattere" | "cima" | "categorie" | "evidenza" | "piatti";
+export const PART_IDS: readonly PartId[] = ["colori", "materiale", "carattere", "cima", "categorie", "evidenza", "piatti"];
 const PICK: Record<PartId, (l: StyleTokenModel) => unknown[]> = {
+    colori: l => [l.colors.primary.toLowerCase(), (l.colors.accent ?? "").toLowerCase(), l.colors.pageBackground.toLowerCase(), l.header.chrome ?? "dark"],
+    materiale: l => [l.appearance.cardTreatment, l.appearance.outlinedBorderColor ?? "auto", l.appearance.borderRadius, l.appearance.backgroundPattern, l.appearance.backgroundPattern === "none" ? "" : l.appearance.patternIntensity],
+    carattere: l => [l.typography.fontFamily],
     cima: l => [l.header.showLogo, l.header.showCoverImage, l.header.showCatalogName, l.header.showAddress],
     categorie: l => [l.navigation.style],
     evidenza: l => [l.appearance.featuredStyle],
-    piatti: l => [l.card.productStyle, l.card.compactLayoutStyle ?? "modern", l.card.contentDensity ?? "full", l.card.image.mode, l.card.image.position, l.appearance.cardTreatment, l.appearance.outlinedBorderColor ?? "auto", l.appearance.iconStyle ?? "plain"],
-    colori: l => [l.colors.primary.toLowerCase(), (l.colors.accent ?? "").toLowerCase(), l.colors.pageBackground.toLowerCase(), l.appearance.borderRadius, l.appearance.backgroundPattern, l.appearance.backgroundPattern === "none" ? "" : l.appearance.patternIntensity],
-    carattere: l => [l.typography.fontFamily]
+    piatti: l => [l.card.productStyle, l.card.compactLayoutStyle ?? "modern", l.card.contentDensity ?? "full", l.card.image.mode, l.card.image.position, l.card.categoryTitle ?? "dash", l.appearance.iconStyle ?? "plain"]
 };
 export const partKey = (l: StyleTokenModel, p: PartId) => JSON.stringify(PICK[p](l));
 export const lookKey = (l: StyleTokenModel) => PART_IDS.map(p => partKey(l, p)).join("|");
@@ -114,21 +118,103 @@ export const lookKey = (l: StyleTokenModel) => PART_IDS.map(p => partKey(l, p)).
 /** Rimette una parte com'era in `was`, senza toccare le altre. */
 export function restore(l: StyleTokenModel, was: StyleTokenModel, p: PartId) {
     const w = structuredClone(was);
-    if (p === "cima") l.header = w.header;
-    else if (p === "categorie") l.navigation = w.navigation;
-    else if (p === "evidenza") l.appearance.featuredStyle = w.appearance.featuredStyle;
-    else if (p === "carattere") l.typography = w.typography;
-    else if (p === "colori") {
+    if (p === "colori") {
         l.colors = w.colors;
+        if (w.header.chrome) l.header.chrome = w.header.chrome;
+        else delete l.header.chrome;
+    } else if (p === "materiale") {
+        l.appearance.cardTreatment = w.appearance.cardTreatment;
+        l.appearance.outlinedBorderColor = w.appearance.outlinedBorderColor;
         l.appearance.borderRadius = w.appearance.borderRadius;
         l.appearance.backgroundPattern = w.appearance.backgroundPattern;
         l.appearance.patternIntensity = w.appearance.patternIntensity;
-    } else {
+    } else if (p === "carattere") l.typography = w.typography;
+    else if (p === "cima") l.header = { ...w.header, chrome: l.header.chrome };
+    else if (p === "categorie") l.navigation = w.navigation;
+    else if (p === "evidenza") l.appearance.featuredStyle = w.appearance.featuredStyle;
+    else {
         l.card = w.card;
-        l.appearance.cardTreatment = w.appearance.cardTreatment;
-        l.appearance.outlinedBorderColor = w.appearance.outlinedBorderColor;
         l.appearance.iconStyle = w.appearance.iconStyle;
     }
+    if (p === "cima" && !l.header.chrome) delete l.header.chrome;
+}
+
+/**
+ * Riquadro in cima e barra: quali consigliamo su questo sfondo (sim-v5 `autoHead`). Chiari
+ * sulle pagine scure e su quelle bianche o grigie quasi senza tinta; scuri sulle chiare colorate.
+ */
+export function chromeAdvice(bg: string): HeaderChrome {
+    const c = rgb(bg);
+    if (!c) return "light";
+    const l = lum(bg), tint = Math.max(...c) - Math.min(...c);
+    return l < 0.18 || (l >= 0.85 && tint <= 12) ? "light" : "dark";
+}
+
+type Preset = {
+    id: StylePreset;
+    name: string;
+    bg: string;
+    primary: string;
+    accent: string;
+    font: FontFamily;
+    radius: BorderRadius;
+    put: (l: StyleTokenModel) => void;
+};
+export type DishKind = "card" | "modern" | "editorial" | "centered";
+/** «Ogni piatto è»: il riquadro, o una delle tre righe. */
+export const dishKind = (l: StyleTokenModel): DishKind => (l.card.productStyle === "compact" ? (l.card.compactLayoutStyle ?? "modern") : "card");
+export const setDish = (l: StyleTokenModel, kind: DishKind) => {
+    l.card.productStyle = kind === "card" ? "card" : "compact";
+    if (kind === "card") delete l.card.compactLayoutStyle;
+    else l.card.compactLayoutStyle = kind;
+};
+const forme = (l: StyleTokenModel, treat: StyleTokenModel["appearance"]["cardTreatment"], chrome: HeaderChrome, pattern: BackgroundPattern) => {
+    l.appearance.cardTreatment = treat;
+    l.appearance.outlinedBorderColor = "auto";
+    l.header.chrome = chrome;
+    l.appearance.backgroundPattern = pattern;
+    l.appearance.patternIntensity = "medium";
+};
+
+/**
+ * I sei stili pronti (deciso da Lorenzo il 2026-10-16, spec-app sezione 3): sono solo una
+ * partenza, toccandone uno si scrivono tutte le sue scelte e `meta.preset`.
+ */
+export const PRESETS: readonly Preset[] = [
+    { id: "cg", name: "CataloGlobe", bg: "#F6F6FA", primary: "#5558E0", accent: "#C85035", font: "inter", radius: "soft", put: l => (forme(l, "glass", "light", "glow"), (l.navigation.style = "tinted"), setDish(l, "card"), (l.card.image = { mode: "show", position: "right" })) },
+    { id: "trattoria", name: "Terracotta e crema", bg: "#F7F0E3", primary: "#9A3A25", accent: "#2B2522", font: "lora", radius: "soft", put: l => (forme(l, "glass", "dark", "linen"), (l.navigation.style = "tabs"), setDish(l, "editorial")) },
+    { id: "avorio", name: "Avorio e blu notte", bg: "#FAF7F0", primary: "#7A5C22", accent: "#14213D", font: "eb-garamond", radius: "none", put: l => (forme(l, "bordered", "light", "none"), (l.navigation.style = "tabs"), setDish(l, "centered")) },
+    { id: "bistrot", name: "Burro e verde bottiglia", bg: "#FBF5E6", primary: "#2E5E4E", accent: "#A63D2F", font: "poppins", radius: "rounded", put: l => (forme(l, "bordered", "dark", "noise"), (l.navigation.style = "filled"), setDish(l, "card")) },
+    { id: "salvia", name: "Salvia e carta", bg: "#F3F6F1", primary: "#3A6B4C", accent: "#1E2528", font: "raleway", radius: "rounded", put: l => (forme(l, "raised", "light", "none"), (l.navigation.style = "outline"), setDish(l, "modern")) },
+    { id: "notte", name: "Notte e ottone", bg: "#17131A", primary: "#C9A45C", accent: "#C9A45C", font: "eb-garamond", radius: "soft", put: l => (forme(l, "glass", "dark", "noise"), (l.navigation.style = "outline"), setDish(l, "card")) }
+];
+
+/** Scrive uno stile pronto sull'aspetto: colori, carattere, angoli e le sue forme. */
+export function applyPreset(l: StyleTokenModel, id: StylePreset) {
+    const p = PRESETS.find(x => x.id === id);
+    if (!p) return;
+    l.colors.pageBackground = p.bg;
+    l.colors.primary = p.primary;
+    if (sameHex(p.accent, p.primary)) delete l.colors.accent;
+    else l.colors.accent = p.accent;
+    l.typography.fontFamily = p.font;
+    l.appearance.borderRadius = p.radius;
+    p.put(l);
+    l.meta = { ...l.meta, preset: id };
+}
+
+/**
+ * «Ritoccato»: lo stile di partenza è segnato ma qualcosa delle sue scelte è cambiato.
+ * Si confronta solo ciò che lo stile pronto decide (foto, densità e il resto restano liberi).
+ */
+export function retouched(l: StyleTokenModel): boolean {
+    const id = l.meta?.preset;
+    if (!id) return false;
+    const ref = structuredClone(l);
+    applyPreset(ref, id);
+    // la foto la mette solo «CataloGlobe», come partenza: cambiarla non è un ritocco
+    ref.card.image = structuredClone(l.card.image);
+    return lookKey(ref) !== lookKey(l);
 }
 
 /**

@@ -171,6 +171,41 @@ describe("la sede viene avvisata davvero", () => {
     });
 });
 
+// Chi annulla da solo deve vedere sparire l'evento salvato dall'invito: la
+// mail che riceve porta il METHOD:CANCEL con il SEQUENCE già incrementato.
+describe("il cliente riceve l'annullamento per il calendario", () => {
+    it("la mail al cliente parte una volta sola, dopo l'avviso alla sede", () => {
+        const calls = SOURCE.match(/await sendCustomerCancellationEmail\(/g) ?? [];
+        expect(calls).toHaveLength(1);
+        expect(SOURCE.indexOf("await sendCustomerCancellationEmail(")).toBeGreaterThan(
+            SOURCE.indexOf("await notifyVenueOfCancellation(")
+        );
+        // Non per un secondo click: il ramo idempotente ritorna prima.
+        expect(SOURCE.indexOf("already_cancelled: true")).toBeLessThan(
+            SOURCE.indexOf("await sendCustomerCancellationEmail(")
+        );
+    });
+
+    it("allega il METHOD:CANCEL del generatore, con il SEQUENCE riletto dopo l'UPDATE", () => {
+        expect(SOURCE).toContain("buildReservationCancelledIcsAttachment({");
+        expect(SOURCE).toContain("buildReservationSelfCancelledEmail({");
+        expect(SOURCE).toContain('.select("id, status, ics_sequence")');
+        expect(SOURCE).toContain("icsSequence: updated.ics_sequence as number");
+        expect(SOURCE).toContain("...(attachments ? { attachments } : {})");
+        // L'UID lo compone solo il generatore.
+        expect(SOURCE).not.toContain("UID:");
+    });
+
+    it("un guasto della mail al cliente non fa fallire la disdetta", () => {
+        const fn = SOURCE.slice(
+            SOURCE.indexOf("async function sendCustomerCancellationEmail("),
+            SOURCE.indexOf("Deno.serve(async (req: Request)")
+        );
+        expect(fn).toContain("catch (mailErr)");
+        expect(fn).not.toMatch(/\bthrow\b/);
+    });
+});
+
 describe("superficie della risposta", () => {
     it("il riepilogo non espone dati che il cliente non deve vedere", () => {
         const summaryBlock = SOURCE.slice(
