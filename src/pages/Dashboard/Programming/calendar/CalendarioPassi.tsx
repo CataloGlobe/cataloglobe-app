@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, normRanges, sediOf, setRangeTime, syncPer, whenKey, type Draft, type DraftLookups, type Scontro } from "./calendarDraft";
+import { DB_LATER, NEW_MODEL, invalid, isoDay, listIt, nextRange, normRanges, sediOf, setRangeTime, syncPer, whenKey, type Draft, type DraftLookups, type Scontro } from "./calendarDraft";
 import { dayNum, durLabel, hhmm, q, type Axis, type CalKind, type CalWhen, type CalWhere } from "./calendarModel";
 import { SediBottone, SediPannello } from "@/components/ui/SediPannello/SediPannello";
 import { Band, TimeField } from "./CalendarioOrario";
@@ -147,7 +147,7 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
                 ))}
                 {w.ranges && w.ranges.length < 4 && (
                     <span className={s.ilaterrow}>
-                        <Button size="sm" variant="ghost" className={s.ilink} leftIcon={<Plus size={16} />} disabled={!NEW_MODEL.multiRange} onClick={addRange}>
+                        <Button size="sm" variant="ghost" className={s.ilink} leftIcon={<Plus size={16} />} disabled={!NEW_MODEL.multiRange || !nextRange(w.ranges)} onClick={addRange}>
                             Aggiungi una fascia
                         </Button>
                         {!NEW_MODEL.multiRange && <span className={s.muted}>Più fasce {DB_LATER}.</span>}
@@ -176,8 +176,8 @@ export function QuandoPasso({ draft: d, upd, durs, axis, bad }: QuandoPassoProps
     }
     function addRange() {
         upd(dd => {
-            const rs = dd.when.ranges!, e = Math.max(...rs.map(r => r[1]));
-            rs.push(e <= 18 * 60 ? [19 * 60, 22 * 60] : [Math.min(e + 60, 1440 - 60), Math.min(e + 180, 1440)]);
+            const rs = dd.when.ranges!, r = nextRange(rs);
+            if (r) rs.push(r);
             normRanges(rs);
         });
     }

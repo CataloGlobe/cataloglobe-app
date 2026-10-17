@@ -31,6 +31,7 @@ import {
     isDirty,
     missing,
     NEW_MODEL,
+    nextRange,
     parseTime,
     setRangeTime,
     perText,
@@ -151,6 +152,41 @@ describe("una fascia che passa la mezzanotte (punto 26)", () => {
         expect(segs(ven)).toEqual([[1320, 1560]]);
         expect(segs(ven + 1)).toEqual([]);
         expect(fState(dayCtx(list, "menu", seat, ven), 1500).win?.ruleId).toBe(notte.id);
+    });
+});
+
+describe("«Aggiungi una fascia»", () => {
+    it("dopo l'ultima, come prima; la sera se il pranzo è la sola", () => {
+        expect(nextRange([[720, 900]])).toEqual([1140, 1320]);
+        expect(nextRange([[720, 900], [1140, 1260]])).toEqual([1320, 1440]);
+    });
+    it("con una fascia oltre mezzanotte nasce una fascia libera, che non si fonde con le altre", () => {
+        expect(nextRange([[1320, 1560]])).toEqual([1080, 1260]);
+        expect(nextRange([[720, 1140], [1320, 1560]])).toEqual([420, 600]);
+    });
+    it("niente posto libero: niente fascia", () => {
+        expect(nextRange([[0, 1440]])).toBeNull();
+    });
+});
+
+describe("«insieme» e «al posto»: conta chi è andato in onda dopo (D129)", () => {
+    const menu = (catalog_id: string, overlap_mode: "together" | "replace", on_air_since: string) =>
+        rule({ rule_type: "menu", applyToAll: true, activityIds: [], time_mode: "always", layout: { catalog_id } as LayoutRule["layout"], overlap_mode, on_air_since });
+    const nomi = { ...names, catalogs: new Map([["vecchio", "Vecchio"], ["completo", "Completo"], ["pranzo", "Pranzo"]]) };
+    it("l'«al posto» copre gli «insieme» più vecchi, quelli più nuovi gli si aggiungono", () => {
+        const vecchio = menu("vecchio", "together", "2026-08-01T00:00:00Z");
+        const completo = menu("completo", "replace", "2026-09-01T00:00:00Z");
+        const pranzo = menu("pranzo", "together", "2026-09-10T00:00:00Z");
+        const st = fState(dayCtx(entriesFromRules([vecchio, completo, pranzo], nomi), "menu", { activityId: "a1", groupIds: [] }, dayNum(2026, 8, 23)), 12 * 60);
+        expect(st.onda).toEqual(["Completo", "Pranzo"]);
+        expect(st.hidden).toEqual(["Vecchio"]);
+    });
+    it("conta l'«al posto» più nuovo, anche se nella sede vince un altro, come nel giudice", () => {
+        const sede = { ...menu("completo", "replace", "2026-08-01T00:00:00Z"), applyToAll: false, activityIds: ["a1"] };
+        const pranzo = menu("pranzo", "together", "2026-09-01T00:00:00Z");
+        const tutte = menu("vecchio", "replace", "2026-09-10T00:00:00Z");
+        const st = fState(dayCtx(entriesFromRules([sede, pranzo, tutte], nomi), "menu", { activityId: "a1", groupIds: [] }, dayNum(2026, 8, 23)), 12 * 60);
+        expect(st.onda).not.toContain("Pranzo");
     });
 });
 

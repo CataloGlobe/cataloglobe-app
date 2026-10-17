@@ -279,6 +279,8 @@ export type JudgeVerdict<R extends JudgeRule = JudgeRule> = {
     menus: JudgeEntry<R>[];
     /** Menù attivi che non si vedono: coperti da un «al posto degli altri», o `layout` che perdono con l'ordine di oggi. */
     coveredMenus: JudgeEntry<R>[];
+    /** L'«al posto degli altri» che copre i `coveredMenus`, o null. */
+    menuCover: JudgeEntry<R> | null;
     /** La regola (layout o style) che dà lo stile, o null. */
     style: JudgeEntry<R> | null;
     coveredStyles: JudgeEntry<R>[];
@@ -467,12 +469,14 @@ export function judge<R extends JudgeRule>(
     const replaceMenus = menus.filter(entry => overlapModeFor(entry.rule, seat) === "replace");
     if (layoutWinner) replaceMenus.push(layoutWinner);
     replaceMenus.sort(newestFirst);
-    let shownMenus: JudgeEntry<R>[];
-    if (replaceMenus.length > 0) {
-        shownMenus = [replaceMenus[0]];
-    } else {
-        shownMenus = menus.filter(entry => overlapModeFor(entry.rule, seat) === "together").sort(newestFirst);
-    }
+    // L'«al posto» più nuovo copre solo ciò che è più vecchio di lui: un
+    // «insieme» messo in onda dopo gli si aggiunge (D129); a pari data copre.
+    const replaceWinner = replaceMenus[0] ?? null;
+    const shownMenus: JudgeEntry<R>[] = menus
+        .filter(entry => overlapModeFor(entry.rule, seat) === "together")
+        .filter(entry => !replaceWinner || onAirDelta(entry.rule, replaceWinner.rule) > 0);
+    if (replaceWinner) shownMenus.push(replaceWinner);
+    shownMenus.sort(newestFirst);
     const coveredMenus = [...menus, ...(layoutWinner ? [layoutWinner] : []), ...losingLayouts]
         .filter(entry => !shownMenus.includes(entry))
         .sort(newestFirst);
@@ -497,6 +501,7 @@ export function judge<R extends JudgeRule>(
     return {
         menus: shownMenus,
         coveredMenus,
+        menuCover: replaceWinner,
         style: styleWinner,
         coveredStyles,
         price: active.price.sort(compareStacked),

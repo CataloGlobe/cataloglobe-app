@@ -146,6 +146,7 @@ async function saveQuando(t: Tunnel, c: EditCtx) {
     D.when = cloneWhen(effWhen(t));
     D.where = { all: t.where.all, activityIds: [...t.where.activityIds], groupIds: [...t.where.groupIds] };
     D.per = clonePer(t.per);
+    if (kind === "menu") D.insieme = !!t.insieme;
     // «Riprova»: con più orari per sede, le regole già nate non si rifanno
     await saveDraft(D, c.L, c.tenantId, parts(c, "rule:" + id));
 }

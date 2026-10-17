@@ -519,6 +519,21 @@ export function normRanges(rs: [number, number][]) {
     }
 }
 
+/**
+ * La fascia che «Aggiungi una fascia» propone: dopo l'ultima, come sempre; se lì
+ * non c'è posto (una fascia che passa la mezzanotte) la prima libera fra sera,
+ * pranzo e mattina. Libera vuol dire che non tocca le altre, nemmeno con la coda
+ * del giorno dopo, se no normRanges la fonde e il pulsante non fa niente.
+ */
+export function nextRange(rs: readonly [number, number][]): [number, number] | null {
+    const taken = rs.flatMap(([a, b]): [number, number][] => (b > 1440 ? [[a, b], [0, b - 1440]] : [[a, b]]));
+    const free = ([a, b]: [number, number]) => taken.every(([x, y]) => b < x || a > y);
+    const e = Math.max(...rs.map(r => r[1]));
+    const after: [number, number] = e <= 18 * 60 ? [19 * 60, 22 * 60] : [Math.min(e + 60, 1440 - 60), Math.min(e + 180, 1440)];
+    const tries: [number, number][] = [after, [18 * 60, 21 * 60], [12 * 60, 15 * 60], [7 * 60, 10 * 60]];
+    return tries.find(free) ?? null;
+}
+
 /* ---------- dal database di oggi ---------- */
 
 export const isoDay = (d: DayNum) => {
