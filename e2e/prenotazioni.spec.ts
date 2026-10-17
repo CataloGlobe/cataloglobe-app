@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { openInServizio, sediGriglia, sidebarLink } from "./nav";
@@ -377,7 +378,7 @@ test.describe("Prenotazioni", () => {
         const drawer = page.getByRole("dialog", { name: "Nuova prenotazione" });
 
         // La sede non viene ancora dal path (bug a parte, #213): la si sceglie.
-        await drawer.getByLabel(/^Sede/).selectOption({ label: "McDonald's - Garbagnate" });
+        await scegli(drawer.getByLabel(/^Sede/), { label: "McDonald's - Garbagnate" });
         // Il giorno dopo oggi: la seconda cella della striscia dei giorni.
         const days = drawer
             .getByRole("listbox", { name: "Seleziona la data" })
@@ -414,7 +415,7 @@ test.describe("Prenotazioni", () => {
         await openPrenotazioni(page);
         const m = main(page);
 
-        await page.getByRole("combobox", { name: "Filtra per canale" }).selectOption({ label: "Solo a mano" });
+        await scegli(page.getByRole("combobox", { name: "Filtra per canale" }), { label: "Solo a mano" });
         await expect(m.getByText("Elena Riva").first()).toBeVisible();
         await expect(m.getByText("Sara Conti")).toHaveCount(0);
     });

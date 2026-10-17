@@ -1,5 +1,3 @@
-// @ts-nocheck
-//
 // acknowledge-order — admin-side endpoint that transitions an order from
 // `submitted` to `acknowledged`. Used by staff to mark "I've seen it,
 // I'm working on it".

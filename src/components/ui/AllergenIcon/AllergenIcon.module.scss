@@ -53,7 +53,7 @@
 
 // Opt-in tinted chip (allergeni "con sfondo"). Identica a CharacteristicIcon.chip.
 // Applicata a wrapper (icona) e fallback (lettera) solo quando iconStyle = "pill".
-// La forma segue "Arrotondamento" via --pub-radius (none=0 → quadrato, soft → arrotondato,
+// La forma segue "Arrotondamento" via --pub-radius (none=4px → quasi quadrato, soft=12px → arrotondato,
 // rounded=20px → cerchio, poiché il browser clampa border-radius al 50% del lato).
 .chip {
     background-color: var(--pub-primary-soft, var(--hover-bg));

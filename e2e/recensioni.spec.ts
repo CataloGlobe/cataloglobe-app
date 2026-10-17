@@ -1,3 +1,4 @@
+import { scegli } from "./tendina";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
 import { sidebarLink } from "./nav";
@@ -171,7 +172,7 @@ test.describe("Recensioni", () => {
             await main(page).getByRole("button", { name: /^Ordina:/ }).click();
             await page.getByRole("menuitem", { name: "Dal voto più alto" }).click();
         } else {
-            await main(page).getByRole("combobox", { name: "Ordine" }).selectOption("ratingDesc");
+            await scegli(main(page).getByRole("combobox", { name: "Ordine" }), "ratingDesc");
         }
         await expect(comments(page).last()).toHaveText("Freddo e2e");
         const list = await comments(page).allTextContents();

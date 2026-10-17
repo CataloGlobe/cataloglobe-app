@@ -6,6 +6,7 @@ import {
     draftTotal,
     initialDraft,
     missingChoice,
+    removeOne,
     setNote,
     setQty,
     toggleAddon,
@@ -137,5 +138,24 @@ describe("aggiungi e Annulla sulla selezione", () => {
         expect(undoLine(after, { ...plain, qty: 2 })).toEqual(before);
         expect(undoLine(before, plain)).toEqual([]);
         expect(undoLine([], plain)).toEqual([]);
+    });
+});
+
+describe("«−» sulla riga del menù", () => {
+    const plain = draftToLine(water, initialDraft(water))!;
+
+    it("toglie un pezzo dall'ultima riga del piatto e a zero la riga sparisce", () => {
+        const withNote = { ...plain, note: "senza ghiaccio" };
+        let selection = addLine(addLine([], { ...plain, qty: 2 }), withNote);
+        selection = removeOne(selection, plain.id);
+        expect(selection).toEqual([{ ...plain, qty: 2 }]);
+        selection = removeOne(selection, plain.id);
+        expect(selection).toEqual([{ ...plain, qty: 1 }]);
+        expect(removeOne(selection, plain.id)).toEqual([]);
+    });
+
+    it("un piatto che non c'è lascia la selezione com'è", () => {
+        const selection = addLine([], plain);
+        expect(removeOne(selection, "altro")).toBe(selection);
     });
 });

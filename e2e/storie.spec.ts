@@ -124,10 +124,10 @@ test.describe("Storie — elenco", () => {
         await expect(createButton(page, await lookD(page))).toBeVisible();
     });
 
-    test("la riga apre l'editor", async ({ page }) => {
+    test("la riga apre il tunnel di modifica", async ({ page }) => {
         await openList(page);
         await storyTitle(page, "La brigata e2e").click();
-        await expect(page).toHaveURL(new RegExp(`/stories/${STORY.brigata}$`));
+        await expect(page).toHaveURL(new RegExp(`/crea/storia/${STORY.brigata}\\?da=storie$`));
     });
 
     // D124: si crea nel tunnel; i salvataggi li prova `crea.spec.ts`.

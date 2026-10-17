@@ -1,5 +1,3 @@
-// @ts-nocheck
-//
 // cancel-order-admin — admin-side endpoint that cancels an order from
 // `submitted`, `acknowledged`, or `ready` state. Used by staff when an
 // order can't be fulfilled (out of stock, table left, etc.).

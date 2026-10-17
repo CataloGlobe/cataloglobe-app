@@ -179,6 +179,7 @@
     },
     "selection": {
         "add_aria": "Aggiungi alla selezione",
+        "in_order_aria": "Nell'ordine: {{count}}",
         "sheet_aria": "La mia selezione",
         "empty": "Nessun elemento",
         "decrease_aria": "Diminuisci quantità",

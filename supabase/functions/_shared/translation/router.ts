@@ -17,15 +17,16 @@
 // =============================================================================
 
 import type { TranslationProvider } from "./TranslationProvider.ts";
-import { TranslationProviderError } from "./TranslationProvider.ts";
+import { TranslationProviderError, providerConfigError } from "./TranslationProvider.ts";
 import { DeepLProvider } from "./DeepLProvider.ts";
 import { MockProvider } from "./MockProvider.ts";
 
 /**
  * Restituisce il provider per la lingua target richiesta.
  *
- * @throws Error se la lingua non è supportata da nessun provider attivo,
- *               o se la DEEPL_API_KEY non è configurata e non c'è override mock.
+ * @throws TranslationProviderError 'validation' se la lingua non è supportata
+ *         da nessun provider attivo; 'config' se la DEEPL_API_KEY manca o è
+ *         malformata e non c'è override mock.
  */
 export function getProviderForLanguage(targetLang: string): TranslationProvider {
     const providerOverride = Deno.env.get("TRANSLATION_PROVIDER");
@@ -62,10 +63,14 @@ function getDeepLProvider(): DeepLProvider {
     if (deepLInstance === null) {
         const apiKey = Deno.env.get("DEEPL_API_KEY");
         if (!apiKey) {
-            throw new Error(
-                "DEEPL_API_KEY non impostata. Configurare nel Supabase Edge Function " +
-                "secrets (Settings → Edge Functions → Secrets) prima di chiamare il " +
-                "job processor."
+            // Errore di configurazione per tutto il sistema, come la chiave
+            // malformata o rifiutata (DeepLProvider): stessa classe 'config',
+            // niente retry sul singolo job. Con un Error semplice il tick lo
+            // trattava come retryable e consumava i tentativi di ogni job.
+            throw providerConfigError(
+                "DEEPL_API_KEY non impostata. Configurarla nei secrets delle Edge " +
+                "Function (Settings → Edge Functions → Secrets).",
+                "deepl"
             );
         }
         deepLInstance = new DeepLProvider(apiKey);

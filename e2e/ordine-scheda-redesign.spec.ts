@@ -78,6 +78,55 @@ test("il + della lista aggiunge subito e dà lo stesso avviso", async ({ page })
     await expect(cart(page)).toHaveAccessibleName("Il tuo ordine (1)");
 });
 
+test("il numero sulla riga apre «− n +»: più, meno, cestino; si richiude da solo o toccando fuori", async ({ page }) => {
+    await openPage(page);
+    const row = page.getByRole("listitem").filter({ has: page.getByText("Antipasti 1", { exact: true }) });
+    await row.getByRole("button", { name: "Aggiungi alla selezione" }).click();
+    await expect(cart(page)).toHaveAccessibleName("Il tuo ordine (1)");
+
+    // Il numero non aggiunge: apre il gruppo, con un pezzo il «−» è il cestino.
+    await row.getByRole("button", { name: "Nell'ordine: 1" }).click();
+    const group = row.getByRole("group");
+    await expect(group).toHaveAccessibleName("Nell'ordine: 1");
+    await expect(cart(page)).toHaveAccessibleName("Il tuo ordine (1)");
+    await group.getByRole("button", { name: "Aumenta quantità" }).click();
+    await expect(cart(page)).toHaveAccessibleName("Il tuo ordine (2)");
+    await group.getByRole("button", { name: "Diminuisci quantità" }).click();
+    await expect(cart(page)).toHaveAccessibleName("Il tuo ordine (1)");
+    await group.getByRole("button", { name: "Rimuovi" }).click();
+    await expect(row.getByRole("button", { name: "Aggiungi alla selezione" })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // Dopo 3 secondi senza tocchi torna il numero.
+    await row.getByRole("button", { name: "Aggiungi alla selezione" }).click();
+    await row.getByRole("button", { name: "Nell'ordine: 1" }).click();
+    await expect(group).toBeVisible();
+    await expect(group).toHaveCount(0, { timeout: 5000 });
+    await expect(row.getByRole("button", { name: "Nell'ordine: 1" })).toBeVisible();
+
+    // Esc lo richiude anche se il fuoco non è nel gruppo.
+    await row.getByRole("button", { name: "Nell'ordine: 1" }).click();
+    await expect(group).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(group).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // Toccando fuori si richiude subito.
+    await row.getByRole("button", { name: "Nell'ordine: 1" }).click();
+    await expect(group).toBeVisible();
+    await page.getByRole("heading", { name: "Antipasti", exact: true }).click();
+    await expect(group).toHaveCount(0);
+});
+
+test("piatto con scelte: il + apre la scheda", async ({ page }) => {
+    await openPage(page);
+    const row = page.getByRole("listitem").filter({ has: page.getByText("Primi 1", { exact: true }) });
+    await row.getByRole("button", { name: "Aggiungi alla selezione" }).click();
+    await expect(page.getByRole("dialog", { name: "Primi 1" })).toBeVisible();
+    // Non aggiunge da solo: il piatto entra nell'ordine solo dalla scheda.
+    await expect(row.getByRole("button", { name: /^Nell'ordine/ })).toHaveCount(0);
+});
+
 test("tavolo in manutenzione: si apre la scheda del redesign, con «Ordinazioni sospese» spento", async ({ page }) => {
     await stubPublicPage(page, { ordering: true, details: true });
     await page.goto(`/${SLUG}?maintenance=table_maintenance`);
