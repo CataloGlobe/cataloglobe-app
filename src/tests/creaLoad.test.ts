@@ -78,6 +78,15 @@ describe("modifica di un menù: quali regole contano (D189)", () => {
 });
 
 
+describe("modifica di un menù: «insieme» o «al posto» com'è salvato (D129)", () => {
+    const menuRule = (overlap_mode: "together" | "replace") => rule({ rule_type: "menu", overlap_mode, layout: { catalog_id: "c1" } as LayoutRule["layout"] });
+    it("parte dalla scelta della sua regola", async () => {
+        expect((await loadTunnel("menu", "c1", "t", data([menuRule("together")]))).t.insieme).toBe(true);
+        expect((await loadTunnel("menu", "c1", "t", data([menuRule("replace")]))).t.insieme).toBe(false);
+        expect((await loadTunnel("menu", "c1", "t", data([rule({})]))).t.insieme).toBe(false);
+    });
+});
+
 describe("modifica del menù di base (D238)", () => {
     it("la sola regola sempre e in tutte le sedi: non si tiene pronto, il locale resterebbe senza menù", async () => {
         const { t } = await loadTunnel("menu", "c1", "t", data([rule({ applyToAll: true, activityIds: [] })]));

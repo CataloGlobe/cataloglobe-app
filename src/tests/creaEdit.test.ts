@@ -421,6 +421,16 @@ describe("modifica nel tunnel: salvare «in onda» o «pronto» (D189)", () => {
         expect(saved.live).toBe(true);
     });
 
+    it("«Mettili insieme» o «al posto» cambiati in modifica si salvano", async () => {
+        await saveEdit(upd(menu(), x => void (x.insieme = true)), ctx());
+        expect((calls.find(c => c[0] === "saveDraft")![1] as { insieme?: boolean }).insieme).toBe(true);
+        calls.length = 0;
+        const t = upd(menu(), x => void (x.insieme = true));
+        t.edit!.orig.insieme = true;
+        await saveEdit(upd(t, x => void (x.insieme = false)), ctx());
+        expect((calls.find(c => c[0] === "saveDraft")![1] as { insieme?: boolean }).insieme).toBe(false);
+    });
+
     it("mettere in onda un menù senza voce: ne nasce una, col suo stile", async () => {
         cal.entries = [];
         await saveEdit(upd(menu(null), x => void (x.onda = "on")), ctx());
