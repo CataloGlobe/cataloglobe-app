@@ -43,6 +43,8 @@ describe("Calendario → regole menu e style", () => {
         const u = vi.mocked(updateRule).mock.calls[0][0];
         expect(u.ruleType).toBe("menu");
         expect(u.layout).toBeUndefined();
+        // il quando lo scrive la RPC: updateRule non tocca le colonne che rifanno le fasce
+        expect(u.keepTime).toBe(true);
         expect(saveScheduleModel).toHaveBeenCalledWith("nuova", {
             catalog_id: "bar",
             overlap_mode: "together",
@@ -53,9 +55,10 @@ describe("Calendario → regole menu e style", () => {
         });
     });
 
-    it("stile da solo: style_id, «al posto», senza ore niente fasce (le scrive il ponte)", async () => {
+    it("stile da solo, senza ore: style_id e fasce vuote («Sempre»), il quando non passa da updateRule", async () => {
         await saveDraft({ ...blankDraft("style", SEDE, null), thing: "chiaro" }, L, "t");
-        expect(saveScheduleModel).toHaveBeenCalledWith("nuova", { style_id: "chiaro" });
+        expect(saveScheduleModel).toHaveBeenCalledWith("nuova", { style_id: "chiaro", slots: [] });
+        expect(vi.mocked(updateRule).mock.calls[0][0].keepTime).toBe(true);
     });
 
     it("un ruolo di sede crea la bozza menu con le sue sedi", async () => {
@@ -76,6 +79,7 @@ describe("Calendario → regole menu e style", () => {
         expect(savesAsModel(menu())).toBe(false);
         await saveDraft(menu({ pair: "chiaro" }), L, "t");
         expect(vi.mocked(updateRule).mock.calls[0][0]).toMatchObject({ ruleType: "layout", layout: { catalogId: "bar", styleId: "chiaro" } });
+        expect(vi.mocked(updateRule).mock.calls[0][0].keepTime).toBeUndefined();
         expect(saveScheduleModel).not.toHaveBeenCalled();
     });
 

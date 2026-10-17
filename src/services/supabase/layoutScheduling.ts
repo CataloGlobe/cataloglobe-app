@@ -380,10 +380,10 @@ async function updateScheduleWithNameFallback(input: {
         priority_level?: PriorityLevel;
         display_order?: number;
         enabled: boolean;
-        time_mode: LayoutTimeMode;
-        days_of_week: number[] | null;
-        time_from: string | null;
-        time_to: string | null;
+        time_mode?: LayoutTimeMode;
+        days_of_week?: number[] | null;
+        time_from?: string | null;
+        time_to?: string | null;
         start_at?: string | null;
         end_at?: string | null;
         target_type?: RuleTargetType;
@@ -1285,6 +1285,13 @@ export async function updateRule(input: {
     timeTo: string | null;
     startAt: string | null;
     endAt: string | null;
+    /**
+     * Non scrive le colonne del quando (time_mode, giorni, ore): per `menu` e
+     * `style` le scrive save_schedule_model con le fasce. Scritte qui, il
+     * trigger `schedule_slots_from_legacy` rifarebbe le fasce da quelle colonne
+     * prima della RPC, e una RPC fallita lascerebbe la regola con una fascia sola.
+     */
+    keepTime?: boolean;
     layout?: {
         catalogId: string | null;
         styleId: string | null;
@@ -1346,10 +1353,14 @@ export async function updateRule(input: {
         patch: {
             // priority gestita internamente dal sistema — non sovrascritta al salvataggio
             enabled: input.enabled,
-            time_mode: input.timeMode,
-            days_of_week: daysOfWeekForDb(input.daysOfWeek),
-            time_from: input.timeFrom,
-            time_to: input.timeTo,
+            ...(input.keepTime
+                ? {}
+                : {
+                      time_mode: input.timeMode,
+                      days_of_week: daysOfWeekForDb(input.daysOfWeek),
+                      time_from: input.timeFrom,
+                      time_to: input.timeTo
+                  }),
             start_at: input.startAt,
             end_at: input.endAt
         },
